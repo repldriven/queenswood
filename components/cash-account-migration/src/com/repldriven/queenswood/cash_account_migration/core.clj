@@ -45,11 +45,9 @@
                    target-version-id idempotency-key]}
            data]
        (let-nom>
-         [existing (if idempotency-key
-                     (store/find-by-idempotency-key txn
-                                                    bank-id
-                                                    idempotency-key)
-                     nil)]
+         [existing (store/find-by-idempotency-key txn
+                                                  bank-id
+                                                  idempotency-key)]
          (if existing
            existing
            (let-nom>
@@ -125,7 +123,7 @@
                                                            policies)]
                   (if (error/anomaly? moved)
                     (domain/failed-verdict moved)
-                    (domain/moved-verdict target))))
+                    domain/moved-verdict)))
         verdict (domain/account-verdict run account final)
         saved (store/save-account-run txn verdict)]
     (if (error/anomaly? saved) saved final)))
@@ -338,24 +336,24 @@
   (run-migration txn bank-id migration-id business-day true))
 
 (defn approve-migration
-  [txn bank-id migration-id]
+  [txn bank-id migration-id actor]
   (store/transact
    txn
    (fn [txn]
      (let-nom>
        [migration (get-migration txn bank-id migration-id)
-        approved (domain/approve-migration migration)
+        approved (domain/approve-migration migration actor)
         _ (store/save-migration txn approved)]
        approved))))
 
 (defn cancel-migration
-  [txn bank-id migration-id]
+  [txn bank-id migration-id actor]
   (store/transact
    txn
    (fn [txn]
      (let-nom>
        [migration (get-migration txn bank-id migration-id)
-        cancelled (domain/cancel-migration migration)
+        cancelled (domain/cancel-migration migration actor)
         _ (store/save-migration txn cancelled)]
        cancelled))))
 

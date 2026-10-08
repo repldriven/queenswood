@@ -74,6 +74,9 @@
       (.await gate 5 TimeUnit/SECONDS))
     result))
 
+(def ^:private operator
+  {:kind :actor-kind-operator :principal-id "queenswood-admin"})
+
 (deftest retried-create-reads-the-original-back-test
   (with-test-system
    [sys config-file]
@@ -84,12 +87,12 @@
                                 config
                                 bank-id
                                 (product-data "Current" current-template-id key)
-                                {:policies allow-draft})
+                                {:policies allow-draft :actor operator})
                  retried (SUT/new-product
                           config
                           bank-id
                           (product-data "Current again" current-template-id key)
-                          {:policies allow-draft})
+                          {:policies allow-draft :actor operator})
                  _ (testing
                      "the retry answers with the version the first created"
                      (is (= (:version-id first-version) (:version-id retried)))
@@ -113,12 +116,12 @@
                             (assoc (product-data "Current" current-template-id)
                                    :opening-reward
                                    {:amount 1000})
-                            {:policies allow-draft})
+                            {:policies allow-draft :actor operator})
                  plain (SUT/new-product config
                                         bank-id
                                         (product-data "Savings"
                                                       savings-template-id)
-                                        {:policies allow-draft})
+                                        {:policies allow-draft :actor operator})
                  read-rewarding (q/get-version config
                                                bank-id
                                                (:product-id rewarding)
@@ -143,23 +146,23 @@
                           config
                           bank-id
                           (product-data "Current" current-template-id key)
-                          {:policies allow-draft})
-                 updated (SUT/update-draft config
-                                           bank-id
-                                           (:product-id created)
-                                           (:version-id created)
-                                           (product-data "Renamed"
-                                                         current-template-id)
-                                           {:policies allow-draft})
+                          {:policies allow-draft :actor operator})
+                 updated (SUT/update-draft
+                          config
+                          bank-id
+                          (:product-id created)
+                          (:version-id created)
+                          (product-data "Renamed" current-template-id)
+                          {:policies allow-draft :actor operator})
                  _ (testing "the update carries the key through"
                      (is (= "Renamed" (:name updated)))
                      (is (= key (:idempotency-key updated))))
-                 replayed (SUT/new-product config
-                                           bank-id
-                                           (product-data "Current again"
-                                                         current-template-id
-                                                         key)
-                                           {:policies allow-draft})
+                 replayed
+                 (SUT/new-product
+                  config
+                  bank-id
+                  (product-data "Current again" current-template-id key)
+                  {:policies allow-draft :actor operator})
                  _ (testing "so replaying the create still finds the original"
                      (is (= (:version-id created) (:version-id replayed))))
                  listed (q/get-products config bank-id)
@@ -173,7 +176,7 @@
      (nom-test> [_ (SUT/new-product config
                                     bank-id
                                     (product-data "Current" current-template-id)
-                                    {:policies allow-draft})
+                                    {:policies allow-draft :actor operator})
                  _ (testing "one product of one type"
                      (is (= 1 (q/count-by-org config bank-id)))
                      (is (= 1
@@ -184,7 +187,7 @@
                  _ (SUT/new-product config
                                     bank-id
                                     (product-data "Savings" savings-template-id)
-                                    {:policies allow-draft})
+                                    {:policies allow-draft :actor operator})
                  _ (testing "a second type moves the total, not the first type"
                      (is (= 2 (q/count-by-org config bank-id)))
                      (is (= 1
@@ -205,7 +208,8 @@
                                             bank-id
                                             (product-data "Bank own funds"
                                                           own-funds-template-id)
-                                            {:policies allow-draft})
+                                            {:policies allow-draft
+                                             :actor operator})
                  _ (testing
                      "an own-funds product counts toward the bank's total"
                      (is (true? (:internal own-funds)))
@@ -272,7 +276,8 @@
                                    (SUT/new-product
                                     config
                                     bank-id
-                                    (product-data name current-template-id)))))]
+                                    (product-data name current-template-id)
+                                    {:actor operator}))))]
      (nom-test>
        ;; The micro tier caps each customer product type at one, so a
        ;; bank with no current product is one below the cap. Binding

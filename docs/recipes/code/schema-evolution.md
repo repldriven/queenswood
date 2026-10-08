@@ -134,6 +134,14 @@ unreadable, and the guard runs the same validator between the last
 - Rename an index in place of bumping `modified`.
 - Clear a store's meta-data to make a refused save land.
 
+**MAY:**
+
+- Reset the declaration to `version: 1`, every index `added` and
+  `modified` at 1, with no `since` and no `former-indexes`, and the
+  protos free of deprecated fields, where every installation's
+  FoundationDB is emptied before the reset is deployed. The guard skips
+  a working tree at version 1 whose last `stable-*` tag is above it.
+
 ## Discussion
 
 The declaration is the register of every version the store has been
@@ -180,6 +188,9 @@ chain composes: the version only rises, `added` never moves and a
 former entry never leaves, so a working tree that evolves from the tag
 before it evolves from every tag before that. An instance whose stored
 meta-data fell behind the tags is what the migrator's log line is for.
+A reset breaks the chain on purpose: the migrator refuses version 1
+over any stored meta-data above it, so it holds only for a store
+emptied first.
 
 A field stays in the descriptor once written because the validator
 compares descriptors, not data, and cannot know no stored record

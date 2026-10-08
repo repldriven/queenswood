@@ -55,14 +55,9 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - account-id: account id.
-  - balance-type, currency, balance-status: the balance's key."
-  [txn bank-id account-id balance-type currency balance-status]
-  (core/get-account-balance txn
-                            bank-id
-                            account-id
-                            balance-type
-                            currency
-                            balance-status))
+  - balance-type, balance-status: the balance's key."
+  [txn bank-id account-id balance-type balance-status]
+  (core/get-account-balance txn bank-id account-id balance-type balance-status))
 
 (defn page-account-transactions
   "Read a page of an account's transactions, in one transaction with the

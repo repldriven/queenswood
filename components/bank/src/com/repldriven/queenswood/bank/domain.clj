@@ -6,23 +6,6 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.utility.interface :as utility]))
 
-(def ^:private unknown-principal-id
-  "The principal id recorded for an operator's create sent before
-  commands carried an actor."
-  "unknown")
-
-(defn creation-actor
-  [actor membership]
-  (cond
-   (some? actor)
-   actor
-
-   (some? membership)
-   {:kind :actor-kind-member :principal-id (:user-id membership)}
-
-   :else
-   {:kind :actor-kind-operator :principal-id unknown-principal-id}))
-
 (defn- offering
   [offered]
   (into {}
@@ -51,12 +34,6 @@
               {:kind kind :provider (get chosen kind (name default))})
             (sort-by :kind offered)))))
 
-(def ^:private placeholder-sort-code
-  "What the deprecated, required `sort_code` field is written with: the
-  payment provider issues every address, and the Record Layer will not
-  relax a required field."
-  "000000")
-
 (defn new-bank
   [bank-name bank-status tier company-binding tier-policies policies
    idv-provider]
@@ -82,7 +59,6 @@
       (utility/assoc-some {:bank-id (utility/generate-id "bnk")
                            :name bank-name
                            :status bank-status
-                           :sort-code placeholder-sort-code
                            :tier tier
                            :created-at now
                            :updated-at now}

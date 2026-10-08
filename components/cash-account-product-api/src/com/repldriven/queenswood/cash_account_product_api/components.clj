@@ -51,21 +51,22 @@
    [:version-id [:ref "VersionId"]]
    [:version-number int?]
    [:status [:ref "VersionStatus"]]
-   [:name {:optional true} [:ref "Name"]]
-   [:template-id {:optional true} [:ref "TemplateId"]]
+   [:name [:ref "Name"]]
+   [:template-id [:ref "TemplateId"]]
    [:product-type [:ref "ProductType"]]
    [:balance-sheet-side [:ref "BalanceSheetSide"]]
-   [:allowed-currencies [:unique-vector-lax {:min 1} [:ref "Currency"]]]
+   [:currency [:ref "Currency"]]
    [:balance-products [:unique-vector-lax {:min 1} [:ref "BalanceProduct"]]]
    [:allowed-payment-address-schemes
     [:unique-vector-lax {:min 1} [:ref "PaymentAddressScheme"]]]
-   [:interest-rate-bps {:optional true} [:ref "SignedBasisPoints"]]
+   [:interest-rate-bps [:ref "SignedBasisPoints"]]
    [:opening-reward {:optional true} [:ref "OpeningReward"]]
-   [:effective-from {:optional true} [:maybe [:ref "BusinessDay"]]]
-   [:effective-to {:optional true} [:maybe [:ref "BusinessDay"]]]
+   [:effective-from [:ref "BusinessDay"]]
+   [:effective-to {:optional true} [:ref "BusinessDay"]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]
-   [:discarded-at {:optional true} [:maybe [:ref "Timestamp"]]]])
+   [:published-at {:optional true} [:ref "Timestamp"]]
+   [:discarded-at {:optional true} [:ref "Timestamp"]]])
 
 (def CashAccountProduct
   [:map {:json-schema/example examples/CashAccountProduct}

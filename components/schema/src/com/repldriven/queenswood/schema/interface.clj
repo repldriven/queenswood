@@ -42,15 +42,16 @@
 
     [protojure.protobuf :as proto])
   (:import
-    (com.repldriven.queenswood.schemas.balances BalanceProto$Balance)
+    (com.repldriven.queenswood.schemas.balances
+     AccountBalanceProto$AccountBalance)
     (com.repldriven.queenswood.schemas.cash_account_migrations
      CashAccountMigrationProto$CashAccountMigration
      CashAccountMigrationRunProto$CashAccountMigrationRun
-     CashAccountMigrationRunProto$CashAccountMigrationAccountRun)
+     CashAccountMigrationAccountRunProto$CashAccountMigrationAccountRun)
     (com.repldriven.queenswood.schemas.cash_account_products
      CashAccountProductProto$CashAccountProduct
-     CashAccountProductProto$CashAccountProductTemplate
-     CashAccountProductProto$IsoCashAccountType)
+     CashAccountProductTemplateProto$CashAccountProductTemplate
+     CashAccountProductTypesProto$IsoCashAccountType)
     (com.repldriven.queenswood.schemas.cash_accounts
      CashAccountProto$CashAccount)
     (com.repldriven.queenswood.schemas.company CompanyProto$Company)
@@ -125,24 +126,25 @@
      ModulrOutboxProto$ModulrOutboxEvent
      ModulrOutboxProto$ModulrOutboundIntent)))
 
-(def ^{:doc "Parse Balance protobuf bytes into a Clojure map."} pb->Balance
-  balances/pb->Balance)
+(def ^{:doc "Parse AccountBalance protobuf bytes into a Clojure map."}
+     pb->AccountBalance
+  balances/pb->AccountBalance)
 
-(defn Balance->pb
-  "Serialise a Balance map to protobuf bytes.
-
-  Args:
-  - m: Balance map matching the generated schema."
-  [m]
-  (proto/->pb (balances/new-Balance m)))
-
-(defn Balance->java
-  "Parse a Balance map into the generated Java protobuf class.
+(defn AccountBalance->pb
+  "Serialise an AccountBalance map to protobuf bytes.
 
   Args:
-  - m: Balance map matching the generated schema."
+  - m: AccountBalance map matching the generated schema."
   [m]
-  (BalanceProto$Balance/parseFrom (Balance->pb m)))
+  (proto/->pb (balances/new-AccountBalance m)))
+
+(defn AccountBalance->java
+  "Parse an AccountBalance map into the generated Java protobuf class.
+
+  Args:
+  - m: AccountBalance map matching the generated schema."
+  [m]
+  (AccountBalanceProto$AccountBalance/parseFrom (AccountBalance->pb m)))
 
 (def ^{:doc "Map of Balance type label to protobuf int value."}
      balance-type->int
@@ -192,7 +194,7 @@
   Args:
   - iso-cash-account-type: `:iso-cash-account-type-*` keyword."
   [iso-cash-account-type]
-  (CashAccountProductProto$IsoCashAccountType/forNumber
+  (CashAccountProductTypesProto$IsoCashAccountType/forNumber
    (iso-cash-account-type->int iso-cash-account-type)))
 
 (def transaction-type->int transactions/TransactionType-label2val)
@@ -216,36 +218,43 @@
           (update k #(into {} %))))
 
 (defn pb->CashAccountProduct
-  "Parse CashAccountProduct protobuf bytes into a Clojure map, dropping
-  the `0` default proto2 emits for an unset optional `effective_from` /
-  `effective_to` so callers see those keys only when a real epoch-day
-  is set (epoch-day 0 is 1970-01-01, never a real product window), and
-  the `false` default for `internal` so the flag is present only on
-  internal products (which never reach a customer response), and the
-  empty-string default for `idempotency_key` so only new-product
-  versions carry one (others never took a unique-index entry). An
-  `opening-reward` is a plain map, and absent when the version promises
-  none.
+  "Parse CashAccountProduct protobuf bytes into a Clojure map, without the
+  optional fields the version was never given: a zero `effective_to`,
+  `published_at` or `discarded_at`, an unknown ISO account type, an empty
+  idempotency key, no opening reward, or no publishing or discarding
+  actor. An embedded message is a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
   (let [version (cash-account-products/pb->CashAccountProduct input)]
-    (cond-> (plain-embedded version :opening-reward)
-            (nil? (:opening-reward version))
-            (dissoc :opening-reward)
+    (cond->
+     (reduce plain-embedded
+             version
+             [:opening-reward :created-by :published-by :discarded-by])
+     (nil? (:opening-reward version))
+     (dissoc :opening-reward)
 
-            (zero? (:effective-from version 0))
-            (dissoc :effective-from)
+     (nil? (:published-by version))
+     (dissoc :published-by)
 
-            (zero? (:effective-to version 0))
-            (dissoc :effective-to)
+     (nil? (:discarded-by version))
+     (dissoc :discarded-by)
 
-            (not (:internal version))
-            (dissoc :internal)
+     (zero? (:effective-to version 0))
+     (dissoc :effective-to)
 
-            (= "" (:idempotency-key version))
-            (dissoc :idempotency-key))))
+     (zero? (:published-at version 0))
+     (dissoc :published-at)
+
+     (zero? (:discarded-at version 0))
+     (dissoc :discarded-at)
+
+     (= :iso-cash-account-type-unknown (:iso-cash-account-type version))
+     (dissoc :iso-cash-account-type)
+
+     (= "" (:idempotency-key version))
+     (dissoc :idempotency-key))))
 
 (defn CashAccountProduct->pb
   "Serialise a CashAccountProduct map to protobuf bytes.
@@ -284,7 +293,7 @@
   Args:
   - m: CashAccountProductTemplate map matching the generated schema."
   [m]
-  (CashAccountProductProto$CashAccountProductTemplate/parseFrom
+  (CashAccountProductTemplateProto$CashAccountProductTemplate/parseFrom
    (CashAccountProductTemplate->pb m)))
 
 (def ^{:doc "Parse Company protobuf bytes into a Clojure map."} pb->Company
@@ -562,7 +571,7 @@
   Args:
   - m: CashAccountMigrationAccountRun map matching the generated schema."
   [m]
-  (CashAccountMigrationRunProto$CashAccountMigrationAccountRun/parseFrom
+  (CashAccountMigrationAccountRunProto$CashAccountMigrationAccountRun/parseFrom
    (CashAccountMigrationAccountRun->pb m)))
 
 (def ^{:doc "Map of CashAccountMigrationStatus label to protobuf int value."}

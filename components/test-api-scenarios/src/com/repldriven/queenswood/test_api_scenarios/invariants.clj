@@ -100,23 +100,22 @@
                        ledger-accounts)}))
 
 (defn- posted-default
-  "One account's credit-positive posted net of its `default` bucket,
-  as `{currency value}`."
+  "One account's credit-positive posted net of its `default` bucket."
   [balances]
-  (reduce (fn [acc {:keys [balance-type balance-status currency credit debit]}]
+  (reduce (fn [acc {:keys [balance-type balance-status credit debit]}]
             (if (and (= "default" balance-type) (= "posted" balance-status))
-              (update acc currency (fnil + 0) (- (or credit 0) (or debit 0)))
+              (+ acc (- (or credit 0) (or debit 0)))
               acc))
-          {}
+          0
           balances))
 
 (defn- add-account
   [sums account]
   (if-let [role (control-role (:product-type account))]
-    (reduce-kv (fn [acc currency value]
-                 (update acc [role currency] (fnil + 0) value))
-               sums
-               (posted-default (:balances account)))
+    (update sums
+            [role (:currency account)]
+            (fnil + 0)
+            (posted-default (:balances account)))
     sums))
 
 (defn- read-sub-ledgers

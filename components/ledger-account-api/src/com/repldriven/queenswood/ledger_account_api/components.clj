@@ -62,7 +62,6 @@
    [:account-id [:ref "LedgerAccountId"]]
    [:balance-type [:ref "BalanceType"]]
    [:balance-status [:ref "BalanceStatus"]]
-   [:currency [:ref "CurrencyCode"]]
    [:credit nat-int?]
    [:debit nat-int?]
    [:created-at [:ref "Timestamp"]]

@@ -41,11 +41,11 @@
   [status]
   {:party-id "pty.test" :type :party-type-person :status status})
 
-(defn- version-allowing
-  [allowed-currencies]
+(defn- version-in
+  [currency]
   {:version-id "prv.001"
    :product-type :product-type-sub-ledger-current
-   :allowed-currencies allowed-currencies
+   :currency currency
    :allowed-payment-address-schemes [:payment-address-scheme-scan]})
 
 (defn- open-account-with
@@ -69,38 +69,32 @@
       (is (= open-as-of (:as-of (error/payload result)))))))
 
 (deftest open-account-currency-test
-  (testing "a currency outside the product's allowed list is rejected"
+  (testing "a currency other than the version's is rejected"
     (let [result (open-account-with "EUR"
-                                    (version-allowing ["GBP" "USD"])
+                                    (version-in "GBP")
                                     (party-with :party-status-active))]
       (is (error/rejection? result))
       (is (= :cash-account/invalid-currency (error/kind result)))))
-  (testing "a currency in the allowed list passes"
+  (testing "the version's currency passes"
     ;; The party guard runs next, so reaching it is what shows the
     ;; currency was accepted.
     (let [result (open-account-with "GBP"
-                                    (version-allowing ["GBP" "USD"])
-                                    (party-with :party-status-pending))]
-      (is (= :cash-account/party-status (error/kind result)))))
-  (testing "an empty allowed list is treated as unrestricted"
-    (let [result (open-account-with "EUR"
-                                    (version-allowing [])
+                                    (version-in "GBP")
                                     (party-with :party-status-pending))]
       (is (= :cash-account/party-status (error/kind result))))))
 
 (deftest open-account-party-status-test
   (testing "opening for a party that isn't active is rejected"
     (doseq [status [:party-status-pending :party-status-closed]]
-      (let [result (open-account-with "GBP"
-                                      (version-allowing ["GBP"])
-                                      (party-with status))]
+      (let [result
+            (open-account-with "GBP" (version-in "GBP") (party-with status))]
         (is (error/rejection? result))
         (is (= :cash-account/party-status (error/kind result)))
         (is (= status (:status (error/payload result))))))))
 
 (defn- version-with-schemes
   [schemes]
-  (assoc (version-allowing ["GBP"]) :allowed-payment-address-schemes schemes))
+  (assoc (version-in "GBP") :allowed-payment-address-schemes schemes))
 
 (def ^:private scan-version
   (version-with-schemes [:payment-address-scheme-scan]))

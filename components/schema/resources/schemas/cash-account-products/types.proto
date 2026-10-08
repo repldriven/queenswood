@@ -1,0 +1,38 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.cash_account_products;
+
+import "schemas/balances/types.proto";
+
+option java_outer_classname = "CashAccountProductTypesProto";
+
+enum BalanceSheetSide {
+  BALANCE_SHEET_SIDE_UNKNOWN = 0;
+  BALANCE_SHEET_SIDE_ASSET = 1;
+  BALANCE_SHEET_SIDE_LIABILITY = 2;
+}
+
+enum PaymentAddressScheme {
+  PAYMENT_ADDRESS_SCHEME_UNKNOWN = 0;
+  PAYMENT_ADDRESS_SCHEME_SCAN = 1;
+  PAYMENT_ADDRESS_SCHEME_IBAN = 2;
+  PAYMENT_ADDRESS_SCHEME_SWIFT = 3;
+  PAYMENT_ADDRESS_SCHEME_ACH = 4;
+}
+
+// ISO 20022 ExternalCashAccountType1Code.
+enum IsoCashAccountType {
+  ISO_CASH_ACCOUNT_TYPE_UNKNOWN = 0;
+  ISO_CASH_ACCOUNT_TYPE_CACC = 1; // current
+  ISO_CASH_ACCOUNT_TYPE_SVGS = 2; // savings
+  ISO_CASH_ACCOUNT_TYPE_LLSV = 3; // savings with special terms
+  ISO_CASH_ACCOUNT_TYPE_TRAN = 4; // basic transacting
+  ISO_CASH_ACCOUNT_TYPE_SACC = 5; // settlement
+  ISO_CASH_ACCOUNT_TYPE_CPAC = 6; // clearing participant
+}
+
+// A balance bucket an account opens with.
+message BalanceProduct {
+  required com.repldriven.queenswood.schemas.balances.BalanceType balance_type = 1;
+  required com.repldriven.queenswood.schemas.balances.BalanceStatus balance_status = 2;
+}

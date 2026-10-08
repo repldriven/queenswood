@@ -53,10 +53,9 @@
     `{:user-id … :role …}` for the owner membership, and a user may own
     any number of banks; `:owner-invitation` (map, optional) is
     `{:email …}` for the owner invitation, refused as
-    `membership/invite` refuses it; `:actor` (map, optional) is
-    `{:kind … :principal-id …}`, and when absent the membership's user
-    acts as a member, or else an operator with principal id `unknown`;
-    `:idempotency-key` (string, optional) is the command envelope's id,
+    `membership/invite` refuses it; `:actor` (map, required) is
+    `{:kind … :principal-id …}`, who creates the bank;
+    `:idempotency-key` (string, required) is the command envelope's id,
     recorded on the bank with the actor as `:created-by`, and a create
     by the same principal under a key that has already made a bank
     returns that bank, the creator's owner membership and the owner

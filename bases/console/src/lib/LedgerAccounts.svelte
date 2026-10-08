@@ -103,7 +103,6 @@
     return {
       type: b["balance-type"],
       phase: b["balance-status"],
-      currency: b.currency,
       minor: netMinor(b),
     };
   }
@@ -266,7 +265,7 @@
             {#each acc.balances as b, i (b.type + ":" + b.phase)}
               <Tr balance last={i === acc.balances.length - 1}>
                 <Td expander />
-                <Td mono muted>{b.currency}</Td>
+                <Td mono muted>{acc.ccy}</Td>
                 <Td addr>
                   <span class="qw-tree-mark">
                     <span class="qw-addr-path">{b.type}</span>

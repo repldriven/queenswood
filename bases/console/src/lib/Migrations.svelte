@@ -72,7 +72,7 @@
         name: v.name ?? "",
         type: shortEnum(v["product-type"]),
         rateBps: v["interest-rate-bps"],
-        currencies: v["allowed-currencies"] ?? [],
+        currencies: v.currency ? [v.currency] : [],
         effectiveFrom: v["effective-from"] ?? null,
       }))
       .sort((a, b) => a.number - b.number);

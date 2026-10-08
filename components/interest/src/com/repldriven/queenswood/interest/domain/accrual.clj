@@ -41,7 +41,7 @@
   (let [principal (balances/principal-amount account-balances currency)
         accrued (day-interest principal opening-carry interest-rate-bps)]
     (when accrued
-      (if (balances/accrued-interest-balance account-balances currency)
+      (if (balances/accrued-interest-balance account-balances)
         (assoc accrued
                :principal principal
                :opening-carry opening-carry

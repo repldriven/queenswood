@@ -72,7 +72,7 @@
                                     :pending
                                     conj
                                     {:account (schema/pb->CashAccount record)
-                                     :balances (mapv schema/pb->Balance
+                                     :balances (mapv schema/pb->AccountBalance
                                                      right)})]
                   (if (< (count (:pending state)) sum-batch)
                     state

@@ -3,7 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.transactions;
 
 import "record_metadata_options.proto";
-import "schemas/balances/balance.proto";
+import "schemas/balances/types.proto";
 import "schemas/types/product-type.proto";
 
 option java_outer_classname = "TransactionProto";

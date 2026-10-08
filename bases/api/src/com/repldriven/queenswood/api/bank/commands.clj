@@ -5,6 +5,7 @@
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.companies.queries :as companies]
     [com.repldriven.queenswood.api.errors :as errors]
+    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
 
@@ -148,8 +149,7 @@
       :tier (or tier default-tier)
       :currencies (or currencies default-currencies)
       :audience (get audiences-by-status status)
-      :actor {:kind (if person? :actor-kind-member :actor-kind-operator)
-              :principal-id (:principal-id auth)}}
+      :actor (shared.actor/actor auth)}
      :company-binding (when company
                         (->binding (:registry-id company) company))
      :membership (when person?

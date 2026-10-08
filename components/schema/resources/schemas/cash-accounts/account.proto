@@ -3,7 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.cash_accounts;
 
 import "record_metadata_options.proto";
-import "schemas/cash-account-products/account-product.proto";
+import "schemas/cash-account-products/types.proto";
 import "schemas/types/product-type.proto";
 
 option java_outer_classname = "CashAccountProto";

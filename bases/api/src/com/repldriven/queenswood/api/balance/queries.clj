@@ -29,13 +29,12 @@
   (let [{:keys [record-db record-store auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [path]} parameters
-        {:keys [account-id balance-type currency balance-status]} path
+        {:keys [account-id balance-type balance-status]} path
         config {:record-db record-db :record-store record-store}
         result (cash-accounts/get-account-balance config
                                                   bank-id
                                                   account-id
                                                   balance-type
-                                                  currency
                                                   balance-status)]
     (cond
      (error/anomaly? result)

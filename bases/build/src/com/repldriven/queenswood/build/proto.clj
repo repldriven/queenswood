@@ -1,10 +1,16 @@
 (ns com.repldriven.queenswood.build.proto
   (:require
+    [clojure.edn :as edn]
     [clojure.java.io :as io]
     [clojure.string :as str]
     [clojure.tools.build.api :as b])
   (:import
-    [java.util.jar JarFile]))
+    [com.google.protobuf DescriptorProtos$DescriptorProto
+     DescriptorProtos$FieldDescriptorProto$Label
+     DescriptorProtos$FileDescriptorSet]
+    [java.nio.file Files Path]
+    [java.util.jar JarFile]
+    [java.util.regex Pattern]))
 
 (defn- proto-files
   [proto-dir]
@@ -55,6 +61,114 @@
                                 "")]
       (when (not= content stripped) (spit f stripped)))))
 
+(defn- message-required
+  "Map of each message's full name, nested messages included, to the
+  numbers of its required fields."
+  [prefix ^DescriptorProtos$DescriptorProto message]
+  (let [full-name (str prefix "." (.getName message))]
+    (into {full-name
+           (into #{}
+                 (comp
+                  (filter
+                   (fn [field]
+                     (=
+                      DescriptorProtos$FieldDescriptorProto$Label/LABEL_REQUIRED
+                      (.getLabel field))))
+                  (map (fn [field] (.getNumber field))))
+                 (.getFieldList message))}
+          (mapcat (fn [nested] (message-required full-name nested)))
+          (.getNestedTypeList message))))
+
+(defn- required-fields
+  "Map of message full name to required field numbers, read from the
+  descriptor set protoc wrote."
+  [descriptor-set]
+  (let [files (.getFileList (DescriptorProtos$FileDescriptorSet/parseFrom
+                             (Files/readAllBytes (Path/of descriptor-set
+                                                          (into-array
+                                                           String
+                                                           [])))))]
+    (into {}
+          (mapcat (fn [file]
+                    (mapcat (fn [message]
+                              (message-required (.getPackage file) message))
+                     (.getMessageTypeList file))))
+          files)))
+
+(def ^:private record-block
+  "A generated message: its `defrecord`, up to the next one."
+  #"(?s)\(defrecord (\S+)-record .*?(?=\(defrecord |\z)")
+
+(def ^:private optimized-write
+  "A field's write in a generated `serialize`, which skips the type's
+  default value."
+  #"\((\S+) (\d+)\s+\{:optimize true\} \((:\S+) this\) os\)")
+
+(defn- write-present
+  "`block` with each required field written whenever it is non-nil, a
+  zero, false or empty string included, and the keys it rewrote."
+  [block required]
+  (let [keys (atom #{})
+        block (str/replace block
+                           optimized-write
+                           (fn [[write writer tag k]]
+                             (if (contains? required (parse-long tag))
+                               (do (swap! keys conj (keyword (subs k 1)))
+                                   (str "(when-some [v ("
+                                        k
+                                        " this)] ("
+                                        writer
+                                        " "
+                                        tag
+                                        " {:optimize false} v os))"))
+                               write)))]
+    [block @keys]))
+
+(defn- drop-defaults
+  "`content` with `ks` removed from the `<record>-defaults` map, so a
+  required field the caller left out stays nil and is not written."
+  [content record ks]
+  (let [pattern (re-pattern (str "\\(def "
+                                 (Pattern/quote
+                                  (str record "-defaults"))
+                                 " (\\{[^\\n]*\\})\\)"))]
+    (str/replace content
+                 pattern
+                 (fn [[_ defaults]]
+                   (str "(def "
+                        record
+                        "-defaults "
+                        (pr-str (apply dissoc (edn/read-string defaults) ks))
+                        ")")))))
+
+(defn- write-required-fields
+  "Rewrites the generated `serialize` of every message so a required
+  field is written whenever it is set. protoc-gen-clojure writes every
+  field the proto3 way, leaving a zero, false or empty string off the
+  wire, so a required field holding one fails the Java parse."
+  [clj-out descriptor-set]
+  (let [required (required-fields descriptor-set)]
+    (doseq [f (->> (file-seq (io/file clj-out))
+                   (filter #(str/ends-with? (.getName %) ".cljc")))]
+      (let [content (slurp f)
+            rewritten
+            (reduce
+             (fn [content [block record]]
+               (let [full-name (second (re-find
+                                        #"\(gettype \[this\]\s+\"([^\"]+)\""
+                                        block))
+                     [new-block ks] (write-present
+                                     block
+                                     (get required full-name #{}))]
+                 (if (seq ks)
+                   (-> content
+                       (str/replace block new-block)
+                       (drop-defaults record ks))
+                   content)))
+             content
+             (re-seq record-block content))]
+        (when (not= content rewritten) (spit f rewritten))))))
+
 (defn gen-proto
   [{:keys [root] :or {root "."}}]
   (let [proto-path (str root "/resources")
@@ -62,20 +176,27 @@
         java-out (str root "/target/gen-java")
         class-out (str root "/classes")
         fdb-path (fdb-proto-dir root)
+        descriptor-set (str root "/target/descriptors.pb")
         protos (proto-files proto-path)]
     (when (empty? protos)
       ;; nosemgrep: no-raw-throw
       (throw (ex-info "No .proto files found" {:path proto-path})))
+    (run! (fn [dir] (b/delete {:path dir})) [java-out class-out])
+    (run! (fn [f] (io/delete-file f))
+          (filter (fn [f] (str/ends-with? (.getName f) ".cljc"))
+                  (file-seq (io/file clj-out))))
     (run! #(.mkdirs (io/file %)) [clj-out java-out class-out])
     (b/process {:command-args (cond-> ["protoc" "--clojure_out" clj-out
-                                       "--java_out" java-out "--proto_path"
-                                       proto-path]
+                                       "--java_out" java-out
+                                       "--descriptor_set_out" descriptor-set
+                                       "--proto_path" proto-path]
                                       fdb-path
                                       (conj "--proto_path" fdb-path)
 
                                       true
                                       (into protos))})
     (strip-fdb-requires clj-out)
+    (write-required-fields clj-out descriptor-set)
     (b/javac {:src-dirs [java-out]
               :class-dir class-out
               :basis (b/create-basis {:project (str root "/deps.edn")})

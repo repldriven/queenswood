@@ -58,7 +58,7 @@
           aggregates (counts txn bank-id (:product-type template))
           version (domain/new-product bank-id
                                       template
-                                      data
+                                      (assoc data :created-by (:actor opts))
                                       aggregates
                                       policies)
           _ (store/save-version txn version)]
@@ -81,7 +81,7 @@
                                      product-id
                                      versions
                                      template
-                                     data
+                                     (assoc data :created-by (:actor opts))
                                      policies)
          _ (store/save-version txn version)]
         version)))))
@@ -111,7 +111,7 @@
       (let-nom>
         [policies (get-policies txn bank-id product-id opts)
          existing (q/get-version txn bank-id product-id version-id)
-         discarded (domain/discard existing policies)
+         discarded (domain/discard existing policies (:actor opts))
          _ (store/save-version txn discarded)]
         discarded)))))
 
@@ -127,7 +127,8 @@
          existing (q/get-version txn bank-id product-id version-id)
          published (domain/publish existing
                                    policies
-                                   (:payment-provider opts))
+                                   (:payment-provider opts)
+                                   (:actor opts))
          _ (store/save-version txn published)]
         published)))))
 

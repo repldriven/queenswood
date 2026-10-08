@@ -125,6 +125,6 @@
      (if-let [record (first left)]
        (conj acc
              {:account (schema/pb->LedgerAccount record)
-              :balances (mapv schema/pb->Balance right)})
+              :balances (mapv schema/pb->AccountBalance right)})
        acc))
    []))

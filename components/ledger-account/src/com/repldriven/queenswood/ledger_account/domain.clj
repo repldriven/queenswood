@@ -61,17 +61,14 @@
   `{:credit :debit}` of the balances it is derived from, in place of a
   stored row."
   [account {:keys [balance-status mirror?]} {:keys [credit debit]}]
-  (let [{:keys [bank-id ledger-account-id currency created-at updated-at]}
-        account]
+  (let [{:keys [bank-id ledger-account-id created-at updated-at]} account]
     {:bank-id bank-id
      :account-id ledger-account-id
      :product-type :product-type-general-ledger
      :balance-type :balance-type-default
      :balance-status balance-status
-     :currency currency
      :credit (if mirror? debit credit)
      :debit (if mirror? credit debit)
-     :credit-carry 0
      :created-at created-at
      :updated-at updated-at}))
 
@@ -112,12 +109,10 @@
   bank's own books from a customer instrument without inferring it from
   an absent product-type."
   [ledger-account]
-  (let [{:keys [ledger-account-id :currency]} ledger-account]
-    {:account-id ledger-account-id
-     :product-type :product-type-general-ledger
-     :balance-type :balance-type-default
-     :balance-status :balance-status-posted
-     :currency currency}))
+  {:account-id (:ledger-account-id ledger-account)
+   :product-type :product-type-general-ledger
+   :balance-type :balance-type-default
+   :balance-status :balance-status-posted})
 
 (defn control-code
   "The `:gl-account-code` of the control a posted customer leg rolls up

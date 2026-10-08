@@ -3,29 +3,24 @@
   "name": "CreateBank",
   "namespace": "com.repldriven.mono.banks",
   "fields": [
-    {"name": "name", "type": "string"},
+    {"name": "name",   "type": "string"},
     {"name": "status", "type": {"type": "enum",
                                 "name": "BankStatus",
                                 "symbols": ["BANK_STATUS_UNKNOWN",
                                             "BANK_STATUS_TEST",
                                             "BANK_STATUS_LIVE"]}},
-    {"name": "tier", "type": ["null", "string"], "default": null},
-    {"name": "providers", "type": ["null", {"type": "array", "items": {
+    {"name": "tier",   "type": "string"},
+    {"name": "providers", "type": {"type": "array", "items": {
       "type": "record",
       "name": "BankProvider",
       "fields": [
         {"name": "kind",     "type": "string"},
         {"name": "provider", "type": "string"}
       ]
-    }}], "default": null,
-     "doc": "The provider of each kind the bank is created on; a kind left out takes the installation's default"},
-    {"name": "currencies", "type": {"type": "array", "items": "string"}},
-    {"name": "audience", "type": ["null", "string"], "default": null,
-     "doc": "JWT aud claim for the bank's service-account client, resolved by bank-api from its status->audience config"},
+    }}, "default": []},
     {"name": "company_binding", "type": ["null", {
       "type": "record",
       "name": "CompanyBinding",
-      "doc": "Snapshot of the confirmed legal entity (onboarding path); absent for admin-provisioned banks",
       "fields": [
         {"name": "registry",                  "type": "string"},
         {"name": "company_number",            "type": "string"},
@@ -37,10 +32,13 @@
         {"name": "registered_office_address", "type": ["null", "string"], "default": null}
       ]
     }], "default": null},
+    {"name": "currencies", "type": {"type": "array", "items": "string"}},
+    {"name": "audience", "type": ["null", "string"], "default": null,
+     "doc": "JWT aud claim for the bank's service-account client, resolved by bank-api from its status->audience config"},
     {"name": "membership", "type": ["null", {
       "type": "record",
       "name": "MembershipSpec",
-      "doc": "Owner membership to create atomically with the bank (onboarding path)",
+      "doc": "The owner membership to create with the bank, when a person creates it",
       "fields": [
         {"name": "user_id", "type": "string"},
         {"name": "role", "type": {"type": "enum",
@@ -51,16 +49,16 @@
     {"name": "owner_invitation", "type": ["null", {
       "type": "record",
       "name": "OwnerInvitationSpec",
-      "doc": "Pending owner invitation to create atomically with the bank (operator path)",
+      "doc": "The owner invitation to create with the bank, when an operator names an owner",
       "fields": [
         {"name": "email",      "type": "string"},
         {"name": "token_hash", "type": ["null", "string"], "default": null}
       ]
     }], "default": null},
-    {"name": "actor", "type": ["null", {
+    {"name": "actor", "type": {
       "type": "record",
       "name": "ActorSpec",
-      "doc": "Who created the bank, recorded on its access events; absent on a command sent before the field existed",
+      "doc": "Who created the bank",
       "fields": [
         {"name": "kind", "type": {"type": "enum",
                                   "name": "ActorKind",
@@ -68,6 +66,6 @@
                                               "ACTOR_KIND_OPERATOR"]}},
         {"name": "principal_id", "type": "string"}
       ]
-    }], "default": null}
+    }}
   ]
 }

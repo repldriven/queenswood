@@ -32,7 +32,8 @@
     `:target-product-id`, `:target-version-id`; optionally
     `:source-version-ids` to narrow the cohort to accounts on those
     versions (every version of the source product when absent),
-    `:notified-on` and `:due-on` (epoch-day), and `:idempotency-key`.
+    `:notified-on` and `:due-on` (epoch-day); `:idempotency-key` and
+    `:created-by`, the actor authoring it, are required.
 
   Returns the migration map or an anomaly."
   [txn data]
@@ -96,13 +97,14 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - migration-id: the migration to approve.
+  - actor: who approves it, recorded as `:approved-by`.
 
   Returns the approved migration, a
   `:cash-account-migration/invalid-status` rejection when it is not a
   draft, or `:cash-account-migration/notice-required` when either date
   is missing."
-  [txn bank-id migration-id]
-  (core/approve-migration txn bank-id migration-id))
+  [txn bank-id migration-id actor]
+  (core/approve-migration txn bank-id migration-id actor))
 
 (defn cancel-migration
   "Cancel a draft or an approved migration, taking it off the work list.
@@ -116,11 +118,12 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - migration-id: the migration to cancel.
+  - actor: who cancels it, recorded as `:cancelled-by`.
 
   Returns the cancelled migration or a
   `:cash-account-migration/invalid-status` rejection."
-  [txn bank-id migration-id]
-  (core/cancel-migration txn bank-id migration-id))
+  [txn bank-id migration-id actor]
+  (core/cancel-migration txn bank-id migration-id actor))
 
 (defn commit-migration
   "Run an approved migration for real, moving every eligible account onto

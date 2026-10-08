@@ -82,7 +82,7 @@
             the migration's"
     ;; A target allowing only EUR is a perfectly valid migration; the
     ;; GBP accounts within it are reported ineligible when it runs.
-    (let [eur (assoc savings-v2 :allowed-currencies ["EUR"])]
+    (let [eur (assoc savings-v2 :currency "EUR")]
       (is (not (error/anomaly? (SUT/new-migration data savings-v1 eur)))))))
 
 (deftest target-status-test
@@ -140,7 +140,7 @@
                               savings-v1
                               savings-v2))))))
 
-(def ^:private target (assoc savings-v2 :allowed-currencies ["GBP"]))
+(def ^:private target (assoc savings-v2 :currency "GBP"))
 
 (defn- account
   [opts]
@@ -213,7 +213,7 @@
     (testing "a run that could not finish is failed, not completed"
       (let [failed (SUT/fail-run run (error/reject :some/anomaly {}))]
         (is (= :cash-account-migration-run-status-failed (:status failed)))
-        (is (string? (:error failed)))))))
+        (is (string? (:failure-reason failed)))))))
 
 (deftest preview-running-test
   (let [now 1000000000000
@@ -252,15 +252,7 @@
                                    {:outcome
                                     :cash-account-migration-outcome-eligible})]
         (is (= "acc.1" (:account-id v)))
-        (is (= "ver.1" (:from-version-id v)))))
-    (testing "nothing moved, so nothing records where it moved to"
-      ;; A dry run's eligible verdict must not read as though the
-      ;; account landed somewhere.
-      (let [v (SUT/account-verdict run
-                                   (account {})
-                                   {:outcome
-                                    :cash-account-migration-outcome-eligible})]
-        (is (not (contains? v :to-version-id)))))
+        (is (= "ver.1" (:source-version-id v)))))
     (testing "an ineligible verdict carries its reason"
       (let [v (SUT/account-verdict
                run
@@ -278,24 +270,29 @@
    :notified-on 20260601
    :due-on 20260801})
 
+(def ^:private operator
+  {:kind :actor-kind-operator :principal-id "queenswood-admin"})
+
 (deftest approve-test
-  (testing "a draft with a notice window is approved"
-    (let [approved (SUT/approve-migration approvable)]
+  (testing "a draft with a notice window is approved, by whom recorded"
+    (let [approved (SUT/approve-migration approvable operator)]
       (is (= :cash-account-migration-status-approved (:status approved)))
-      (is (number? (:approved-at approved)))))
+      (is (number? (:approved-at approved)))
+      (is (= operator (:approved-by approved)))))
   (testing "approving without a notice window is refused"
     ;; Approving commits to moving customers' accounts. A draft may sit
     ;; without dates while an operator decides; approving one may not.
     (doseq [missing [{:notified-on nil} {:due-on nil}
                      {:notified-on nil :due-on nil}]]
-      (let [result (SUT/approve-migration (merge approvable missing))]
+      (let [result (SUT/approve-migration (merge approvable missing) operator)]
         (is (error/rejection? result))
         (is (= :cash-account-migration/notice-required (error/kind result))))))
   (testing "only a draft may be approved"
     (doseq [status [:cash-account-migration-status-approved
                     :cash-account-migration-status-completed
                     :cash-account-migration-status-cancelled]]
-      (let [result (SUT/approve-migration (assoc approvable :status status))]
+      (let [result (SUT/approve-migration (assoc approvable :status status)
+                                          operator)]
         (is (error/rejection? result))
         (is (= :cash-account-migration/invalid-status (error/kind result)))))))
 
@@ -303,14 +300,17 @@
   (testing "a draft and an approved migration may both be cancelled"
     (doseq [status [:cash-account-migration-status-draft
                     :cash-account-migration-status-approved]]
-      (let [cancelled (SUT/cancel-migration (assoc approvable :status status))]
+      (let [cancelled (SUT/cancel-migration (assoc approvable :status status)
+                                            operator)]
         (is (= :cash-account-migration-status-cancelled (:status cancelled)))
-        (is (number? (:cancelled-at cancelled))))))
+        (is (number? (:cancelled-at cancelled)))
+        (is (= operator (:cancelled-by cancelled))))))
   (testing "a completed migration cannot be cancelled"
     ;; Its accounts have moved; saying otherwise would misdescribe them.
     (let [result
           (SUT/cancel-migration
-           (assoc approvable :status :cash-account-migration-status-completed))]
+           (assoc approvable :status :cash-account-migration-status-completed)
+           operator)]
       (is (error/rejection? result))
       (is (= :cash-account-migration/invalid-status (error/kind result))))))
 
@@ -356,22 +356,20 @@
 
 (deftest commit-verdict-test
   (let [run {:bank-id "org.1" :run-id "run.1" :migration-id "mig.1"}]
-    (testing "an account that moved records where it landed"
+    (testing "an account that moved records the version it left"
       ;; migrated is a fact where eligible was a forecast, and the two
       ;; sit in the same table.
-      (let [v (SUT/account-verdict run (account {}) (SUT/moved-verdict target))]
+      (let [v (SUT/account-verdict run (account {}) SUT/moved-verdict)]
         (is (= :cash-account-migration-outcome-migrated (:outcome v)))
-        (is (= "ver.2" (:to-version-id v)))
-        (is (= "ver.1" (:from-version-id v)))))
-    (testing "an account that could not be moved records why, and no target"
+        (is (= "ver.1" (:source-version-id v)))))
+    (testing "an account that could not be moved records why"
       (let [v (SUT/account-verdict run
                                    (account {})
                                    (SUT/failed-verdict
                                     (error/reject :cash-account/invalid-status
                                                   {})))]
         (is (= :cash-account-migration-outcome-failed (:outcome v)))
-        (is (string? (:failure-reason v)))
-        (is (not (contains? v :to-version-id)))))))
+        (is (string? (:failure-reason v)))))))
 
 (deftest name-test
   (testing "a migration carries the name an operator gave it"

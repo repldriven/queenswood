@@ -13,48 +13,37 @@ enum BankStatus {
   BANK_STATUS_LIVE = 2;
 }
 
-// A snapshot of the legal entity a bank is bound to, taken from the
-// company registry at onboarding. Immutable — the bank records exactly
-// what was confirmed. Optional throughout for banks created without a
-// binding (e.g. the admin provisioning path).
+message Bank {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  required string name = 2;
+  required BankStatus status = 3;
+  required string tier = 4;
+  repeated BankProvider providers = 5;
+  optional BankCompanyBinding company_binding = 6;
+
+  required string idempotency_key = 100;
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schemas.memberships.Actor created_by = 102;
+  required int64 updated_at = 103;
+}
+
+// The provider of one kind a bank runs on.
+message BankProvider {
+  required string kind = 1; // e.g. "payment"
+  required string provider = 2; // e.g. "modulr"
+}
+
+// The company a bank is bound to, as the registry confirmed it when the
+// bank was created.
 message BankCompanyBinding {
-  optional string registry = 1; // e.g. "uk-companies-house"
-  optional string company_number = 2;
+  required string registry = 1; // e.g. "uk-companies-house"
+  required string company_number = 2;
   optional string company_name = 3;
   optional string company_status = 4;
   optional string type = 5;
   optional string jurisdiction = 6;
   optional string date_of_creation = 7;
   optional string registered_office_address = 8; // joined address lines
-}
-
-// The provider of one kind a bank runs on, chosen when it was created.
-message BankProvider {
-  optional string kind = 1; // e.g. "payment"
-  optional string provider = 2; // e.g. "modulr"
-}
-
-message Bank {
-  option (com.apple.foundationdb.record.record).usage = RECORD;
-
-  required string bank_id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
-  required BankStatus status = 3;
-  required string name = 5;
-  required int64 created_at = 6;
-  required int64 updated_at = 7;
-  // The payment provider issues every address, so a bank no longer holds
-  // a sort code of its own. The Record Layer will not relax a required
-  // field, so a new bank writes the placeholder 000000, which nothing
-  // reads.
-  required string sort_code = 8 [deprecated = true];
-  optional BankCompanyBinding company_binding = 9;
-  optional string tier = 10;
-  repeated BankProvider providers = 11;
-  // Who created the bank, a person or an operator, as its access log's
-  // bank-created entry names them.
-  optional com.repldriven.queenswood.schemas.memberships.Actor created_by = 12;
-  // The Idempotency-Key the creating request carried, unique with its
-  // creator's principal id, so a create sent again is answered with the
-  // bank it made.
-  optional string idempotency_key = 13;
 }

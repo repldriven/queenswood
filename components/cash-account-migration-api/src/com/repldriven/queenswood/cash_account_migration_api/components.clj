@@ -79,7 +79,7 @@
    [:business-day [:ref "BusinessDay"]]
    [:started-at [:ref "Timestamp"]]
    [:finished-at {:optional true} [:ref "Timestamp"]]
-   [:error {:optional true} string?]
+   [:failure-reason {:optional true} string?]
    [:accounts-seen {:optional true} nat-int?]
    [:accounts-moved {:optional true} nat-int?]
    [:accounts-ineligible {:optional true} nat-int?]
@@ -96,9 +96,7 @@
    [:migration-id [:ref "MigrationId"]]
    [:account-id [:ref "CashAccountId"]]
    [:outcome [:ref "MigrationOutcome"]]
-   [:from-version-id {:optional true} [:ref "VersionId"]]
-   ;; Set only where an account actually moved.
-   [:to-version-id {:optional true} [:ref "VersionId"]]
+   [:source-version-id [:ref "VersionId"]]
    [:ineligibility {:optional true} [:ref "MigrationIneligibility"]]
    [:failure-reason {:optional true} string?]
    [:created-at [:ref "Timestamp"]]])

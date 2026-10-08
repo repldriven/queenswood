@@ -17,7 +17,7 @@
    :legs [{:leg-id "leg.01kprbmgcj35ptc8npmybhh4sc"
            :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
            :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
-           :balance-type "suspense"
+           :balance-type "default"
            :balance-status "posted"
            :side "debit"
            :amount 1000

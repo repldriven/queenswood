@@ -31,7 +31,7 @@
 ;; must match cash-account.store/store-name and balance.store/store-name
 ;; — the two stores this brick reads
 (def ^:private accounts-store "cash-accounts")
-(def ^:private balances-store "balances")
+(def ^:private balances-store "account-balances")
 (def ^:private products-store "cash-account-products")
 
 (defn- fdb-config
@@ -73,7 +73,6 @@
      :currency "GBP"
      :credit 0
      :debit 0
-     :credit-carry 0
      :created-at now
      :updated-at now}))
 
@@ -87,7 +86,8 @@
                     (doseq [a accounts]
                       (fdb/save-record acc-store (schema/CashAccount->java a)))
                     (doseq [b balances]
-                      (fdb/save-record bal-store (schema/Balance->java b)))
+                      (fdb/save-record bal-store
+                                       (schema/AccountBalance->java b)))
                     nil))
                 :test/seed
                 "Failed to seed rows"))
@@ -272,12 +272,15 @@
      :product-type :product-type-sub-ledger-own-funds
      :balance-sheet-side :balance-sheet-side-liability
      :name "Bank own funds"
-     :allowed-currencies [currency]
+     :currency currency
+     :template-id "tpl.00000000000000000000000004"
+     :interest-rate-bps 0
      :balance-products [{:balance-type :balance-type-default
                          :balance-status :balance-status-posted}]
      :internal true
      :effective-from 20089
      :created-at now
+     :created-by {:kind :actor-kind-operator :principal-id "queenswood-admin"}
      :updated-at now}))
 
 (deftest house-account-test

@@ -4,11 +4,12 @@ package com.repldriven.queenswood.schemas.schemas;
 
 import "record_metadata_options.proto";
 
-import "schemas/assertion/assertion.proto";
-import "schemas/balances/balance.proto";
+import "schemas/balances/account-balance.proto";
 import "schemas/cash-account-migrations/cash-account-migration.proto";
+import "schemas/cash-account-migrations/cash-account-migration-account-run.proto";
 import "schemas/cash-account-migrations/cash-account-migration-run.proto";
-import "schemas/cash-account-products/account-product.proto";
+import "schemas/cash-account-products/cash-account-product-template.proto";
+import "schemas/cash-account-products/cash-account-product.proto";
 import "schemas/cash-accounts/account.proto";
 import "schemas/company/company.proto";
 import "schemas/emails/email-delivery.proto";
@@ -65,7 +66,7 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.party.PartyNationalIdentifier _PartyNationalIdentifier = 8;
   reserved 9;
   optional com.repldriven.queenswood.schemas.cash_account_products.CashAccountProduct _CashAccountProduct = 10;
-  optional com.repldriven.queenswood.schemas.balances.Balance _Balance = 11;
+  optional com.repldriven.queenswood.schemas.balances.AccountBalance _AccountBalance = 11;
   optional com.repldriven.queenswood.schemas.transactions.Transaction _Transaction = 12;
   optional com.repldriven.queenswood.schemas.transactions.TransactionLeg _TransactionLeg = 13;
   optional com.repldriven.queenswood.schemas.payments.InternalPayment _InternalPayment = 14;
@@ -78,7 +79,6 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.idempotency.Idempotency _Idempotency = 21;
   optional com.repldriven.queenswood.schemas.users.User _User = 22;
   optional com.repldriven.queenswood.schemas.memberships.Membership _Membership = 23;
-  optional com.repldriven.queenswood.schemas.assertion.Assertion _Assertion = 24;
   optional com.repldriven.queenswood.schemas.company.Company _Company = 25;
   optional com.repldriven.queenswood.schemas.ledger_accounts.LedgerAccount _LedgerAccount = 26;
   optional com.repldriven.queenswood.schemas.interest.InterestRun _InterestRun = 27;

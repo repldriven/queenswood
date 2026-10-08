@@ -162,14 +162,16 @@
                                               "GBP")
                    bals (balances/get-balances config
                                                bank-id
-                                               (:ledger-account-id suspense))
+                                               (:ledger-account-id suspense)
+                                               "GBP")
                    _ (is (= 1 (count (:balances bals))))
                    _ (is (= :balance-type-default
                             (:balance-type (first (:balances bals)))))
                    control (current-deposits-control config bank-id)
                    stored (balances/get-balances config
                                                  bank-id
-                                                 (:ledger-account-id control))
+                                                 (:ledger-account-id control)
+                                                 "GBP")
                    _ (is (empty? (:balances stored))
                          "a control stores no balance of its own")])))))
 
@@ -256,8 +258,7 @@
                         [{:account-id account-id
                           :product-type product-type
                           :balance-type :balance-type-default
-                          :balance-status :balance-status-posted
-                          :currency "GBP"}]))
+                          :balance-status :balance-status-posted}]))
 
 (defn- post
   "Records `legs` and applies the ones a balance row holds, as a posting
@@ -518,11 +519,11 @@
                       :amount 40
                       :currency "GBP"}]
                     :transaction-type-inbound-transfer)
-                 opened
-                 (balances/get-balance config
-                                       bank-id
-                                       "acc.current1" :balance-type-default
-                                       "GBP" :balance-status-pending-incoming)
+                 opened (balances/get-balance config
+                                              bank-id
+                                              "acc.current1"
+                                              :balance-type-default
+                                              :balance-status-pending-incoming)
                  _
                  (is
                   (= :product-type-sub-ledger-current (:product-type opened))

@@ -45,7 +45,7 @@
   consumer's loader reads."
   "cash-accounts")
 
-(def ^:private balances-store "balances")
+(def ^:private balances-store "account-balances")
 
 (def ^:private sort-code "040404")
 
@@ -118,7 +118,7 @@
                   (fdb/save-record (fdb/open txn accounts-store)
                                    (schema/CashAccount->java acc))
                   (fdb/save-record (fdb/open txn balances-store)
-                                   (schema/Balance->java bal))
+                                   (schema/AccountBalance->java bal))
                   nil)
                 :test/seed
                 "Failed to seed the account"))

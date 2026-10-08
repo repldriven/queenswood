@@ -160,7 +160,6 @@
                                       bank-real-id
                                       account-id
                                       :balance-type-default
-                                      "GBP"
                                       :balance-status-posted)]
     (when-not (error/anomaly? b) (- (:credit b 0) (:debit b 0)))))
 
@@ -279,6 +278,9 @@
   []
   (set (keys (methods dispatch))))
 
+(def ^:private scenario-operator
+  {:kind :actor-kind-operator :principal-id "test-scenarios"})
+
 (defmethod dispatch :create-bank
   [{:keys [bank identity-provider counter next-model-id next-bank-id
            next-product-id next-party-id id-mapping]
@@ -311,7 +313,9 @@
                                ["GBP"]
                                {:identity-provider identity-provider
                                 :idv-provider idv-provider
-                                :audience "queenswood-api-test"})
+                                :audience "queenswood-api-test"
+                                :actor scenario-operator
+                                :idempotency-key (str (utility/uuidv7))})
         bank-entity (:bank result)
         real-bank-id (:bank-id bank-entity)
         real-party-id (when-not (error/anomaly? result)
@@ -324,7 +328,8 @@
                             bank
                             real-bank-id
                             (product-payload "Scenario Current"
-                                             :product-type-sub-ledger-current)))
+                                             :product-type-sub-ledger-current)
+                            {:actor scenario-operator}))
         scenario-product-id (:product-id scenario-product)
         scenario-version-id (:version-id scenario-product)
         _ (when (and scenario-product-id
@@ -332,7 +337,8 @@
             (products/publish bank
                               real-bank-id
                               scenario-product-id
-                              scenario-version-id))
+                              scenario-version-id
+                              {:actor scenario-operator}))
         scenario-account (when scenario-product-id
                            (cash-accounts/new-account
                             bank
@@ -399,8 +405,10 @@
         (str (if (= :savings type) "Savings" "Current") " Product " counter)
         extras (when (and rate-bps (pos? rate-bps))
                  {:interest-rate-bps rate-bps})
-        result
-        (products/new-product bank real-id (product-payload name kind extras))]
+        result (products/new-product bank
+                                     real-id
+                                     (product-payload name kind extras)
+                                     {:actor scenario-operator})]
     (-> ctx
         (record-fresh-product model-prod model-bank type result)
         (update :next-product-id inc)
@@ -423,7 +431,11 @@
         {model-bank :bank :keys [real-id]} product
         {version-real-id :real-id} (latest-version product)
         bank-real-id (get-in banks [model-bank :real-id])
-        result (products/publish bank bank-real-id real-id version-real-id)]
+        result (products/publish bank
+                                 bank-real-id
+                                 real-id
+                                 version-real-id
+                                 {:actor scenario-operator})]
     (-> ctx
         (cond-> (not (error/anomaly? result))
                 (update-latest-version model-prod
@@ -441,7 +453,8 @@
                                     bank-real-id
                                     real-id
                                     (version-payload (str "Draft Version "
-                                                          next-number)))]
+                                                          next-number))
+                                    {:actor scenario-operator})]
     (-> ctx
         (cond-> (not (error/anomaly? result))
                 (update-in [:products model-prod :versions]
@@ -458,8 +471,11 @@
         {model-bank :bank :keys [real-id]} product
         {version-real-id :real-id} (latest-version product)
         bank-real-id (get-in banks [model-bank :real-id])
-        result
-        (products/discard-draft bank bank-real-id real-id version-real-id)]
+        result (products/discard-draft bank
+                                       bank-real-id
+                                       real-id
+                                       version-real-id
+                                       {:actor scenario-operator})]
     (-> ctx
         (cond-> (not (error/anomaly? result))
                 (update-latest-version model-prod
@@ -576,13 +592,15 @@
                                             (product-payload
                                              (str "Scenario Current Product "
                                                   counter)
-                                             :product-type-sub-ledger-current)))
+                                             :product-type-sub-ledger-current)
+                                            {:actor scenario-operator}))
         _
         (when (and create-prod? prod-result (not (error/anomaly? prod-result)))
           (products/publish bank
                             bank-real-id
                             (:product-id prod-result)
-                            (:version-id prod-result)))
+                            (:version-id prod-result)
+                            {:actor scenario-operator}))
         prod-real-id (or (get-in products [prod-model-id :real-id])
                          (:product-id prod-result))
         ;; Onboard the person party (mirror of :create-person-party).
@@ -1250,7 +1268,6 @@
                                             bank-id
                                             account-id
                                             :balance-type-default
-                                            "GBP"
                                             :balance-status-posted)]
     (if (error/anomaly? balance) 0 (- (:credit balance 0) (:debit balance 0)))))
 
@@ -1493,15 +1510,17 @@
    txn
    bank-id
    (fn [total account]
-     (reduce (fn [total balance]
-               (if (and (= :balance-type-interest-accrued
-                           (:balance-type balance))
-                        (= :balance-status-posted (:balance-status balance))
-                        (= currency (:currency balance)))
-                 (+ total (- (:credit balance 0) (:debit balance 0)))
-                 total))
-             total
-             (:balances account)))
+     (if (= currency (:currency account))
+       (reduce (fn [total balance]
+                 (if (and (= :balance-type-interest-accrued
+                             (:balance-type balance))
+                          (= :balance-status-posted
+                             (:balance-status balance)))
+                   (+ total (- (:credit balance 0) (:debit balance 0)))
+                   total))
+               total
+               (:balances account))
+       total))
    0))
 
 (defmethod dispatch :assert-interest-reconciliation

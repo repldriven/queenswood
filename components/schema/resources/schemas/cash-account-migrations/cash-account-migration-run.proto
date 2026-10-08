@@ -13,44 +13,7 @@ enum CashAccountMigrationRunStatus {
   CASH_ACCOUNT_MIGRATION_RUN_STATUS_FAILED = 3;
 }
 
-// What a run decided about one account.
-enum CashAccountMigrationOutcome {
-  CASH_ACCOUNT_MIGRATION_OUTCOME_UNKNOWN = 0;
-  // A dry run's verdict: this account would move. Deliberately not the
-  // same value as MIGRATED — a preview must never read as though it did
-  // something.
-  CASH_ACCOUNT_MIGRATION_OUTCOME_ELIGIBLE = 1;
-  // A real run moved it.
-  CASH_ACCOUNT_MIGRATION_OUTCOME_MIGRATED = 2;
-  // The account cannot take the target's terms. Not a failure — the
-  // rest of the cohort still moves, and the reason says why this one
-  // did not.
-  CASH_ACCOUNT_MIGRATION_OUTCOME_INELIGIBLE = 3;
-  // The move was attempted and errored. Distinct from ineligible: an
-  // ineligible account was decided about, a failed one was not.
-  CASH_ACCOUNT_MIGRATION_OUTCOME_FAILED = 4;
-}
-
-// Why an account was left where it was. Enumerated rather than free
-// text because the useful shape of a preview is a count per reason —
-// "400 wrong currency, 12 closed" — which prose cannot be grouped by.
-enum CashAccountMigrationIneligibility {
-  CASH_ACCOUNT_MIGRATION_INELIGIBILITY_UNKNOWN = 0;
-  // The target version does not allow the currency the account holds.
-  CASH_ACCOUNT_MIGRATION_INELIGIBILITY_CURRENCY_NOT_ALLOWED = 1;
-  // The account is not open, so its terms are not in play.
-  CASH_ACCOUNT_MIGRATION_INELIGIBILITY_ACCOUNT_NOT_OPEN = 2;
-  // Already on the target version — a re-run reaching an account an
-  // earlier run moved, which is how the pass stays idempotent.
-  CASH_ACCOUNT_MIGRATION_INELIGIBILITY_ALREADY_ON_TARGET = 3;
-  // Pinned to a version the migration's source narrowing excludes.
-  CASH_ACCOUNT_MIGRATION_INELIGIBILITY_VERSION_NOT_IN_SOURCE = 4;
-}
-
-// One evaluation of a migration over a bank's accounts. A preview and a
-// commit are the same pass and the same record — `dry_run` is the only
-// difference, and it decides solely whether the account is written. If
-// the two diverged anywhere else a preview would stop being evidence.
+// One pass of a migration over a bank's accounts.
 message CashAccountMigrationRun {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
@@ -58,51 +21,13 @@ message CashAccountMigrationRun {
   required string run_id = 2;
   required string migration_id = 3;
   required CashAccountMigrationRunStatus status = 4;
-  // False only for the scheduler's commit. Optional because protojure
-  // drops a false from the wire and a proto2 required field holding its
-  // default fails the Java parse the FDB bridge uses — so unset reads as
-  // false, and a real run is the value that has to be written.
-  optional bool dry_run = 5;
-  // The day the run happened, for the per-day count a preview limit is
-  // measured against.
-  required int64 business_day = 6;
+  required bool dry_run = 5;
+  required int64 business_day = 6; // epoch day
   required int64 started_at = 7;
   optional int64 finished_at = 8;
-  optional string error = 9;
-
-  // What the run decided, by outcome. Held on the run as well as being
-  // derivable from the rows, because the counts are what a reader wants
-  // first and scanning every row to total them is the expensive way to
-  // get them.
+  optional string failure_reason = 9;
   optional int32 accounts_seen = 10;
   optional int32 accounts_moved = 11;
   optional int32 accounts_ineligible = 12;
   optional int32 accounts_failed = 13;
-}
-
-// One account, as one run saw it. Keyed by run so a preview's rows and
-// the commit's rows sit side by side rather than overwriting each other
-// — the difference between what was expected and what happened is the
-// thing worth being able to read.
-message CashAccountMigrationAccountRun {
-  option (com.apple.foundationdb.record.record).usage = RECORD;
-
-  required string bank_id = 1;
-  required string run_id = 2;
-  required string account_id = 3;
-  required string migration_id = 4;
-  required CashAccountMigrationOutcome outcome = 5;
-
-  // The version the account was on when the run looked, and the one it
-  // moved to. `to_version_id` is unset for anything that did not move,
-  // including a dry run's eligible verdict — nothing moved it yet.
-  optional string from_version_id = 6;
-  optional string to_version_id = 7;
-
-  // Set when the outcome is INELIGIBLE.
-  optional CashAccountMigrationIneligibility ineligibility = 8;
-  // Set when the outcome is FAILED — the anomaly's category, kept short.
-  optional string failure_reason = 9;
-
-  required int64 created_at = 10;
 }

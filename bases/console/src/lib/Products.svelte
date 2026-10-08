@@ -202,14 +202,7 @@
   }
 
   function currenciesLabel(v) {
-    // The version surfaces a single `currency`; legacy responses
-    // sometimes carry `allowed-currencies` as an array. Render
-    // whichever is present.
-    if (v.currency) return v.currency;
-    if (Array.isArray(v["allowed-currencies"])) {
-      return v["allowed-currencies"].join(", ");
-    }
-    return "—";
+    return v.currency ?? "—";
   }
 
 </script>

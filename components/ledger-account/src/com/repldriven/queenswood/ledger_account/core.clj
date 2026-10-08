@@ -78,7 +78,7 @@
   [txn bank-id account]
   (let-nom>
     [balances (account-balances txn bank-id account)]
-    (balance-query/totals balances)))
+    (balance-query/totals balances (:currency account))))
 
 (defn- posted-balance
   [txn bank-id account]
@@ -88,7 +88,6 @@
                                bank-id
                                (:ledger-account-id account)
                                :balance-type-default
-                               (:currency account)
                                :balance-status-posted)))
 
 (defn close-account

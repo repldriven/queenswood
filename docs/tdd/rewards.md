@@ -103,14 +103,14 @@ bank consuming `reward.paid`, which is the demo's own slice in
 
 A version carries an optional `opening_reward`, a nested message beside
 `interest_rate_bps` in
-[account-product.proto](/components/schema/resources/schemas/cash-account-products/account-product.proto),
+[cash-account-product.proto](/components/schema/resources/schemas/cash-account-products/cash-account-product.proto),
 at the next free tag:
 
 ```proto
 message OpeningReward {
   required int64 amount = 1;  // minor units of the version's currency
 }
-optional OpeningReward opening_reward = 26;
+optional OpeningReward opening_reward = 16;
 ```
 
 The amount is in the version's one currency, so the term carries none.

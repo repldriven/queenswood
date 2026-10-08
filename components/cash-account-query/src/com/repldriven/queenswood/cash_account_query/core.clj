@@ -11,10 +11,10 @@
 
 (defn- enrich-account
   [txn opts account]
-  (let [{:keys [bank-id account-id]} account]
+  (let [{:keys [bank-id account-id currency]} account]
     (let-nom>
       [balances (when (:embed-balances opts)
-                  (balances/get-balances txn bank-id account-id))
+                  (balances/get-balances txn bank-id account-id currency))
        transactions (when (:embed-transactions opts)
                       (transactions/get-transactions txn account-id))]
       (cond-> account
@@ -90,7 +90,7 @@
                txn
                bank-id
                :product-type-sub-ledger-own-funds)
-     version (or (first (filter #(some #{currency} (:allowed-currencies %))
+     version (or (first (filter #(= currency (:currency %))
                                 versions))
                  (error/reject :cash-account/house-account-not-found
                                {:message
@@ -111,13 +111,15 @@
   [txn bank-id account-id]
   (store/transact txn
                   (fn [txn]
-                    (let-nom> [_ (get-account txn bank-id account-id)]
-                      (balances/get-balances txn bank-id account-id)))
+                    (let-nom> [{:keys [currency]} (get-account txn
+                                                               bank-id
+                                                               account-id)]
+                      (balances/get-balances txn bank-id account-id currency)))
                   :cash-account/get-balances
                   "Failed to read the account's balances"))
 
 (defn get-account-balance
-  [txn bank-id account-id balance-type currency balance-status]
+  [txn bank-id account-id balance-type balance-status]
   (store/transact txn
                   (fn [txn]
                     (let-nom> [_ (get-account txn bank-id account-id)]
@@ -125,7 +127,6 @@
                                             bank-id
                                             account-id
                                             balance-type
-                                            currency
                                             balance-status)))
                   :cash-account/get-balance
                   "Failed to read the account's balance"))

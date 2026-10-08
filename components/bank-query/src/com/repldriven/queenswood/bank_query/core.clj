@@ -26,7 +26,8 @@
   (reduce (fn [acc account]
             (let [bal (balances/get-balances txn
                                              bank-id
-                                             (:account-id account))]
+                                             (:account-id account)
+                                             (:currency account))]
               (if (error/anomaly? bal)
                 (reduced bal)
                 (let [gl-code (account-gl-code txn bank-id account)
@@ -44,7 +45,7 @@
       [{:keys [parties]} (party-query/get-parties txn bank-id)
        {:keys [accounts]} (cash-accounts-query/get-accounts txn bank-id)
        enriched (enrich-accounts txn bank-id accounts)]
-      (assoc (dissoc bank :sort-code :created-by :idempotency-key)
+      (assoc (dissoc bank :created-by :idempotency-key)
              :party (first parties)
              :accounts enriched
              :client-id bank-id))))

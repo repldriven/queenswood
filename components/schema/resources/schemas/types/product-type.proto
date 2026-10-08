@@ -4,18 +4,15 @@ package com.repldriven.queenswood.schemas.types;
 
 option java_outer_classname = "ProductTypeProto";
 
-// Product type, carried by every cash-account product and cash-account.
-// PRODUCT_TYPE_GENERAL_LEDGER tags the bank's own chart-of-accounts
-// entries; the PRODUCT_TYPE_SUB_LEDGER_* values tag customer-facing
-// instruments. PRODUCT_TYPE_UNKNOWN stays as the proto-default.
+// The kind of account a product, account, balance or leg belongs to:
+// the bank's general ledger, a customer sub-ledger (100s) or a house
+// sub-ledger (200s). Code reads a type's role from its maps, never from
+// its band.
 enum ProductType {
   PRODUCT_TYPE_UNKNOWN = 0;
   PRODUCT_TYPE_GENERAL_LEDGER = 1;
-  PRODUCT_TYPE_SUB_LEDGER_CURRENT = 2;
-  PRODUCT_TYPE_SUB_LEDGER_SAVINGS = 3;
-  PRODUCT_TYPE_SUB_LEDGER_TERM_DEPOSIT = 4;
-  // The bank's own funding account — a sub-ledger of the 3100
-  // own-funds GL control, distinct from customer deposits. The
-  // account the bank pre-funds and pays customer rewards from.
-  PRODUCT_TYPE_SUB_LEDGER_OWN_FUNDS = 5;
+  PRODUCT_TYPE_SUB_LEDGER_CURRENT = 101;
+  PRODUCT_TYPE_SUB_LEDGER_SAVINGS = 102;
+  PRODUCT_TYPE_SUB_LEDGER_TERM_DEPOSIT = 103;
+  PRODUCT_TYPE_SUB_LEDGER_OWN_FUNDS = 201;
 }

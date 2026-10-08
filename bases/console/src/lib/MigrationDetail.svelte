@@ -221,14 +221,15 @@
     });
   });
 
-  // Where an account ended up, or would. A dry run records no
-  // `to-version-id` even on an eligible verdict — nothing moved it — so
-  // the destination comes from the migration's target instead, shown
-  // muted to keep "would move to v3" distinct from "moved to v3".
+  // Where an account ended up, or would: the migration's target, shown
+  // muted for an eligible verdict to keep "would move to v3" distinct
+  // from "moved to v3".
   function destination(a) {
-    const actual = versionById[a["to-version-id"]];
-    if (actual) return { label: `v${actual.number}`, prospective: false };
-    if (shortEnum(a.outcome) === "eligible" && targetVersion) {
+    const outcome = shortEnum(a.outcome);
+    if (targetVersion && outcome === "migrated") {
+      return { label: `v${targetVersion.number}`, prospective: false };
+    }
+    if (targetVersion && outcome === "eligible") {
       return { label: `v${targetVersion.number}`, prospective: true };
     }
     return { label: "—", prospective: false };
@@ -602,7 +603,7 @@
             <Td><span class="kind">{r["dry-run"] ? "dry run" : "live"}</span></Td>
             <Td>
               <MigrationStatusBadge status={r.status} kind="run" />
-              {#if r.error}<span class="run-error">{r.error}</span>{/if}
+              {#if r["failure-reason"]}<span class="run-error">{r["failure-reason"]}</span>{/if}
             </Td>
             <Td mono tabular align="right" muted={!r["accounts-seen"]}>{num(r["accounts-seen"])}</Td>
             <Td mono tabular align="right" muted={!r["accounts-moved"]}>{num(r["accounts-moved"])}</Td>
@@ -681,7 +682,7 @@
                 {#if acct?.owner}<span class="acct-owner">{acct.owner}</span>{/if}
               </Td>
               <Td mono>{acct?.ccy ?? "—"}</Td>
-              <Td mono>{versionById[a["from-version-id"]] ? `v${versionById[a["from-version-id"]].number}` : "—"}</Td>
+              <Td mono>{versionById[a["source-version-id"]] ? `v${versionById[a["source-version-id"]].number}` : "—"}</Td>
               {@const to = destination(a)}
               <Td mono muted={to.prospective} title={to.prospective ? "Would move here — a dry run moves nothing" : undefined}>
                 {to.label}

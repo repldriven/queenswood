@@ -3,86 +3,42 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.cash_account_migrations;
 
 import "record_metadata_options.proto";
+import "schemas/memberships/actor.proto";
 
 option java_outer_classname = "CashAccountMigrationProto";
 
-// Where a migration has got to. A migration is authored, previewed as
-// often as wanted, approved once, and then moved by the scheduler — no
-// request performs one.
 enum CashAccountMigrationStatus {
   CASH_ACCOUNT_MIGRATION_STATUS_UNKNOWN = 0;
-  // Authored and editable. Previews may run against it; nothing moves.
   CASH_ACCOUNT_MIGRATION_STATUS_DRAFT = 1;
-  // Authorised, and waiting for its due date and for the target version
-  // to be in force. Still previewable — the cohort keeps drifting until
-  // the moment it commits, and being able to look is what makes that
-  // drift visible rather than surprising.
   CASH_ACCOUNT_MIGRATION_STATUS_APPROVED = 2;
-  // The scheduler has moved every account it was going to. Accounts it
-  // found ineligible are recorded as such and are not retried: a
-  // migration finishes having decided about every account, not having
-  // moved all of them.
   CASH_ACCOUNT_MIGRATION_STATUS_COMPLETED = 3;
-  // Abandoned by an operator. The terminal state for a migration whose
-  // target window has passed or whose intent has gone away — nothing
-  // reaches it automatically, because the system cannot tell a date
-  // that slipped from a plan that changed.
   CASH_ACCOUNT_MIGRATION_STATUS_CANCELLED = 4;
 }
 
-// A planned move of a product's cash accounts onto a different product
-// version. Its own resource rather than a flag on the target version,
-// because it needs dates the version does not have — when customers
-// were told, and when they move — and because source and target may be
-// different products.
+// A planned move of a product's cash accounts onto another product
+// version.
 message CashAccountMigration {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string bank_id = 1;
   required string migration_id = 2;
-  required CashAccountMigrationStatus status = 3;
-  // What an operator calls this move. A migration is authored, previewed
-  // and approved over days or weeks, and is read in a list beside others
-  // — an id alone identifies nothing.
-  required string name = 16;
+  required string name = 3;
+  required CashAccountMigrationStatus status = 4;
+  required string source_product_id = 5;
+  repeated string source_version_ids = 6;
+  required string target_product_id = 7;
+  required string target_version_id = 8;
+  optional int64 notified_on = 9; // epoch day
+  optional int64 due_on = 10; // epoch day
 
-  // Where accounts come from. The product is required; naming versions
-  // narrows the cohort to accounts pinned to those, and leaving it empty
-  // takes every version of the product. A version named here does not
-  // have to still be in force — accounts sit on closed versions, which
-  // is the usual reason to move them.
-  required string source_product_id = 4;
-  repeated string source_version_ids = 5;
+  optional int64 approved_at = 51;
+  optional com.repldriven.queenswood.schemas.memberships.Actor approved_by = 52;
+  optional int64 completed_at = 53;
+  optional int64 cancelled_at = 55;
+  optional com.repldriven.queenswood.schemas.memberships.Actor cancelled_by = 56;
 
-  // Where accounts go. The version is named, not derived from whichever
-  // is active when the migration runs: approval means these accounts
-  // move to these terms, and customers were told about those terms. A
-  // target that floated would let a version published after approval
-  // change what was agreed. Re-pointing a migration is an edit an
-  // operator makes deliberately.
-  required string target_product_id = 6;
-  required string target_version_id = 7;
-
-  // The date customers were told, and the date accounts move — both
-  // epoch-day, like a product version's effective window. Notice is the
-  // reason a migration is a resource at all, so the two are separate
-  // fields rather than one date and an assumed gap. What the platform
-  // does with the interval between them is unsettled: it may enforce a
-  // minimum, or only record what it was told.
-  optional int64 notified_on = 8;
-  optional int64 due_on = 9;
-
-  required int64 created_at = 10;
-  required int64 updated_at = 11;
-  // Set when an operator authorises the migration. Distinct from
-  // updated_at, which any edit moves.
-  optional int64 approved_at = 12;
-  optional int64 completed_at = 13;
-  optional int64 cancelled_at = 14;
-
-  // Client idempotency key (the command envelope id) that created this
-  // migration. Unique-indexed per bank so a retried create reads the
-  // existing migration back rather than authoring a second one against
-  // the same accounts.
-  optional string idempotency_key = 15;
+  required string idempotency_key = 100;
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schemas.memberships.Actor created_by = 102;
+  required int64 updated_at = 103;
 }

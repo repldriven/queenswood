@@ -35,4 +35,4 @@
    :assert {:status 201
             :body {:status "draft"
                    :product-type "savings"
-                   :allowed-currencies ["GBP"]}}}]}
+                   :currency "GBP"}}}]}

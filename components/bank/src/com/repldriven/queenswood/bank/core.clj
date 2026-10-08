@@ -69,7 +69,7 @@
   customers from inside the bank (rewards, etc.). An ordinary
   `CashAccount` — BBAN-addressable, transactable — so external funding
   can land in it and internal transfers can move out of it."
-  [txn bank-id party-id currency policies payment-provider]
+  [txn bank-id party-id currency policies payment-provider actor]
   (let-nom>
     [version (products/new-product
               txn
@@ -78,13 +78,14 @@
                :currency currency
                :template-id own-funds-template-id
                :effective-from (utility/today)}
-              {:policies policies})
+              {:policies policies :actor actor})
      _ (products/publish txn
                          bank-id
                          (:product-id version)
                          (:version-id version)
                          {:policies policies
-                          :payment-provider payment-provider})]
+                          :payment-provider payment-provider
+                          :actor actor})]
     (cash-accounts/new-account
      txn
      {:bank-id bank-id
@@ -95,14 +96,15 @@
      {:policies policies})))
 
 (defn- new-house-accounts
-  [txn bank-id party-id currencies policies payment-provider]
+  [txn bank-id party-id currencies policies payment-provider actor]
   (reduce (fn [_ currency]
             (let [result (new-house-account txn
                                             bank-id
                                             party-id
                                             currency
                                             policies
-                                            payment-provider)]
+                                            payment-provider
+                                            actor)]
               (if (error/anomaly? result) (reduced result) nil)))
           nil
           currencies))
@@ -213,12 +215,12 @@
                                           tier-policies
                                           policies
                                           idv-provider)
-                         (utility/assoc-seq :providers (:providers opts)))
+                         (assoc :providers (vec (:providers opts))))
        bank-id (:bank-id bank)
        _ (store/create txn
-                       (utility/assoc-some bank
-                                           :created-by actor
-                                           :idempotency-key idempotency-key))
+                       (assoc bank
+                              :created-by actor
+                              :idempotency-key idempotency-key))
        {:keys [party-id]} (party/new-party
                            txn
                            {:bank-id bank-id
@@ -231,7 +233,8 @@
                              party-id
                              currencies
                              policies
-                             payment-provider)
+                             payment-provider
+                             actor)
        _ (bind-policies txn bank-id tier-policies)
        _ (scheduler/seed-jobs txn bank-id)
        owner (when membership
@@ -263,10 +266,9 @@
 
 (defn new-bank
   [txn bank-name bank-status tier currencies opts]
-  (let [{:keys [identity-provider membership owner-invitation idempotency-key
-                audience]}
-        opts
-        actor (domain/creation-actor (:actor opts) membership)]
+  (let [{:keys [identity-provider membership owner-invitation actor
+                idempotency-key audience]}
+        opts]
     (let-nom>
       [_
        (when-not identity-provider
@@ -280,10 +282,9 @@
         txn
         (fn [txn]
           (let-nom>
-            [existing (when idempotency-key
-                        (store/find-by-creation txn
-                                                (:principal-id actor)
-                                                idempotency-key))]
+            [existing (store/find-by-creation txn
+                                              (:principal-id actor)
+                                              idempotency-key)]
             (if existing
               (replay txn existing membership owner-invitation)
               (create-bank txn

@@ -11,7 +11,6 @@
                                bank-real-id
                                account-id
                                :balance-type-interest-accrued
-                               "GBP"
                                :balance-status-posted)
         carry (interest/accrual-carry bank bank-real-id account-id)]
     {:interest-accrued (if (error/anomaly? b) 0 (- (:credit b 0) (:debit b 0)))

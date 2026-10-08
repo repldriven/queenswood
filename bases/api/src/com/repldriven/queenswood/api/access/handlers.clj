@@ -12,6 +12,7 @@
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
+    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
     [com.repldriven.queenswood.membership-query.interface :as memberships]
@@ -64,15 +65,14 @@
     (if (= 200 (:status result)) (success (:body result)) result)))
 
 (defn- actor
-  "The principal as an access event records it: an operator when it
-  carries `:admin`, otherwise a member with the role of the membership
-  the call resolved to."
-  [{:keys [roles principal-id membership]}]
-  (if (contains? roles :admin)
-    {:kind :actor-kind-operator :principal-id principal-id}
-    {:kind :actor-kind-member
-     :principal-id principal-id
-     :role (:role membership)}))
+  "The principal as an access event records it: the caller as an actor,
+  a member with the role of the membership the call resolved to."
+  [auth]
+  (let [actor (shared.actor/actor auth)]
+    (cond-> actor
+
+            (= :actor-kind-member (:kind actor))
+            (assoc :role (:role (:membership auth))))))
 
 (defn- proof
   "The recipient's proof: the `Invitation-Token` header's hash, and the

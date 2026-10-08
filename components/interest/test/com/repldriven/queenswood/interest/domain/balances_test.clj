@@ -10,53 +10,46 @@
   [{:product-type :product-type-sub-ledger-current
     :balance-type :balance-type-default
     :balance-status :balance-status-posted
-    :currency "GBP"
     :credit 2000
     :debit 0}
    {:product-type :product-type-sub-ledger-current
     :balance-type :balance-type-default
     :balance-status :balance-status-pending-outgoing
-    :currency "GBP"
     :credit 0
     :debit 500}
    {:product-type :product-type-sub-ledger-current
     :balance-type :balance-type-interest-accrued
     :balance-status :balance-status-posted
-    :currency "GBP"
     :credit 40
     :debit 0}])
 
 (deftest accrued-interest-balance-test
-  (testing "the accrued balance is found by currency alone"
-    (let [b (SUT/accrued-interest-balance account-balances "GBP")]
+  (testing "the accrued balance is the posted interest-accrued bucket"
+    (let [b (SUT/accrued-interest-balance account-balances)]
       (is (= :balance-type-interest-accrued (:balance-type b)))
       (is (= 40 (:credit b)))))
-  (testing "a currency the account does not hold is nil, not a zeroed stand-in"
+  (testing "an account with no accrued bucket is nil, not a zeroed stand-in"
     ;; Nil is the caller's cue to say something. A zeroed balance would
     ;; read as a real reading of nothing and accrue silently against a
     ;; figure nobody wrote.
-    (is (nil? (SUT/accrued-interest-balance account-balances "USD"))))
+    (is (nil? (SUT/accrued-interest-balance (pop account-balances)))))
   (testing "an in-flight balance is not the accrued one"
     (is (nil? (SUT/accrued-interest-balance
                [{:balance-type :balance-type-interest-accrued
                  :balance-status :balance-status-pending-outgoing
-                 :currency "GBP"
-                 :credit 40}]
-               "GBP")))))
+                 :credit 40}])))))
 
 (deftest accrued-amount-test
   (testing "what has accrued is credit less debit on that balance"
-    (is (= 40 (SUT/accrued-amount account-balances "GBP"))))
+    (is (= 40 (SUT/accrued-amount account-balances))))
   (testing "no accrued balance at all reads as zero"
-    (is (= 0 (SUT/accrued-amount account-balances "USD"))))
+    (is (= 0 (SUT/accrued-amount (pop account-balances)))))
   (testing "a swept balance nets back to zero"
     (is (= 0
            (SUT/accrued-amount [{:balance-type :balance-type-interest-accrued
                                  :balance-status :balance-status-posted
-                                 :currency "GBP"
                                  :credit 100
-                                 :debit 100}]
-                               "GBP")))))
+                                 :debit 100}])))))
 
 (deftest principal-amount-test
   (testing "interest is earned on the available balance, not the posted one"
@@ -68,13 +61,11 @@
             [{:product-type :product-type-sub-ledger-current
               :balance-type :balance-type-default
               :balance-status :balance-status-posted
-              :currency "GBP"
               :credit 2000
               :debit 0}
              {:product-type :product-type-sub-ledger-current
               :balance-type :balance-type-default
               :balance-status :balance-status-pending-incoming
-              :currency "GBP"
               :credit 900
               :debit 0}]
             "GBP"))))

@@ -1,0 +1,28 @@
+{:name "A migration without notice dates is refused at approval"
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Migration Approve Test Org" :status "live"}}
+         {:fixture :product
+          :as :v1
+          :with {:token [:ref :org-0 :token]
+                 :name "Saver"
+                 :template-id "tpl.00000000000000000000000002"
+                 :interest-rate-bps 100}}
+         {:command :api/request
+          :request {:method :post
+                    :path "/v1/cash-account-migrations"
+                    :auth [:ref :org-0 :token]
+                    :body {:name "No notice yet"
+                           :source-product-id [:ref :v1 :product :product-id]
+                           :target-product-id [:ref :v1 :product :product-id]
+                           :target-version-id [:ref :v1 :product :version-id]}}
+          :as :migration
+          :assert {:status 201}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/cash-account-migrations/{migration-id}/approve"
+                   :path-params {:migration-id [:ref :migration :migration-id]}
+                   :auth [:ref :org-0 :token]}
+         :assert {:status 422
+                  :problem {:type
+                            ":cash-account-migration/notice-required"}}}]}

@@ -107,12 +107,10 @@
 
 (defn- ensure-currency-allowed
   [currency product-version]
-  (let [allowed (:allowed-currencies product-version)]
-    (when (and (seq allowed)
-               (not (some #{currency} allowed)))
-      (error/reject :cash-account/invalid-currency
-                    {:message "Currency not allowed for this product"
-                     :currency currency}))))
+  (when (not= currency (:currency product-version))
+    (error/reject :cash-account/invalid-currency
+                  {:message "Currency not allowed for this product"
+                   :currency currency})))
 
 (defn- ensure-party-active
   [party]
@@ -167,7 +165,7 @@
                     (:idempotency-key data))))))
 
 (defn opening-balances
-  [account currency product-version]
+  [account product-version]
   (let [{:keys [account-id product-type]} account
         ;; Fall back to a single default/posted bucket if the product
         ;; declares none.
@@ -178,8 +176,7 @@
             {:account-id account-id
              :product-type product-type
              :balance-type balance-type
-             :balance-status balance-status
-             :currency currency})
+             :balance-status balance-status})
           bp)))
 
 (defn opened-account

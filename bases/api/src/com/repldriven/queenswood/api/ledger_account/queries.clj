@@ -28,7 +28,9 @@
   the same figure the balances endpoint derives, from the balances the
   chart scan paired it with."
   [{:keys [account balances]}]
-  (assoc account :posted-balance (:posted-balance (balances/totals balances))))
+  (assoc account
+         :posted-balance
+         (:posted-balance (balances/totals balances (:currency account)))))
 
 (defn- trial-balance-entry
   "Project an enriched account into a bank-balance trial-balance entry:

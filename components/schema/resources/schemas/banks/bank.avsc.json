@@ -3,26 +3,22 @@
   "name": "Bank",
   "namespace": "com.repldriven.mono.banks",
   "fields": [
-    {"name": "bank_id",  "type": "string"},
-    {"name": "name",     "type": "string"},
-    {"name": "status",   "type": {"type": "enum",
+    {"name": "bank_id", "type": "string"},
+    {"name": "name",    "type": "string"},
+    {"name": "status",  "type": {"type": "enum",
                                   "name": "BankStatus",
                                   "symbols": ["BANK_STATUS_UNKNOWN",
                                               "BANK_STATUS_TEST",
                                               "BANK_STATUS_LIVE"]}},
-    {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "sort_code", "type": "string"},
-    {"name": "tier", "type": ["null", "string"], "default": null},
-    {"name": "providers", "type": ["null", {"type": "array", "items": {
+    {"name": "tier",    "type": "string"},
+    {"name": "providers", "type": {"type": "array", "items": {
       "type": "record",
       "name": "BankProvider",
       "fields": [
         {"name": "kind",     "type": "string"},
         {"name": "provider", "type": "string"}
       ]
-    }}], "default": null,
-     "doc": "The provider of each kind the bank runs on"},
+    }}, "default": []},
     {"name": "company_binding", "type": ["null", {
       "type": "record",
       "name": "CompanyBinding",
@@ -37,10 +33,12 @@
         {"name": "registered_office_address", "type": ["null", "string"], "default": null}
       ]
     }], "default": null},
+    {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
     {"name": "membership", "type": ["null", {
       "type": "record",
       "name": "Membership",
-      "doc": "Owner membership created atomically with the bank (onboarding path)",
+      "doc": "The owner membership created with the bank",
       "fields": [
         {"name": "membership_id", "type": "string"},
         {"name": "user_id",       "type": "string"},

@@ -3,10 +3,9 @@
     [com.repldriven.queenswood.balance-query.interface :as balance-query]))
 
 (defn- bucket
-  [balances balance-type currency balance-status]
+  [balances balance-type balance-status]
   (first (filter (fn [b]
                    (and (= balance-type (:balance-type b))
-                        (= currency (:currency b))
                         (= balance-status (:balance-status b))))
                  balances)))
 
@@ -15,19 +14,14 @@
   (- (:credit balance 0) (:debit balance 0)))
 
 (defn accrued-interest-balance
-  "The accrued interest balance for `currency`,
-  or nil when not found"
-  [balances currency]
-  (bucket balances
-          :balance-type-interest-accrued
-          currency
-          :balance-status-posted))
+  "The account's accrued interest balance, or nil when not found"
+  [balances]
+  (bucket balances :balance-type-interest-accrued :balance-status-posted))
 
 (defn accrued-amount
-  "The accrued interest balance amount for `currency`,
-  or zero when not found"
-  [balances currency]
-  (net (accrued-interest-balance balances currency)))
+  "The account's accrued interest amount, or zero when not found"
+  [balances]
+  (net (accrued-interest-balance balances)))
 
 (defn principal-amount
   "The principal amount for calculating accrued interest for `currency`,

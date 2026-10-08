@@ -7,11 +7,11 @@
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
-;; must match bank-balance.store/store-name — same FDB store. Public
+;; must match balance.store/store-name — same FDB store. Public
 ;; because a caller pairing accounts with balances in one scan has to
 ;; name this store to `fdb/merge-scan`, and a third hardcoded copy of
 ;; the string is worse than saying where the one copy lives.
-(def store-name "balances")
+(def store-name "account-balances")
 
 (def transact fdb/transact)
 
@@ -80,7 +80,7 @@
       (summed balances ((start-account-sums txn ids snapshot?))))))
 
 (defn find-balance
-  [txn bank-id account-id balance-type currency balance-status]
+  [txn bank-id account-id balance-type balance-status]
   (let-nom>
     [result (fdb/transact
              txn
@@ -90,9 +90,8 @@
                          bank-id
                          account-id
                          (schema/balance-type->int balance-type)
-                         currency
                          (schema/balance-status->int balance-status))
-                        schema/pb->Balance
+                        schema/pb->AccountBalance
                         vector
                         ((fn [balances] (with-leg-sums txn balances false)))
                         first))
@@ -101,21 +100,15 @@
     result))
 
 (defn get-balance
-  [txn bank-id account-id balance-type currency balance-status]
+  [txn bank-id account-id balance-type balance-status]
   (let-nom>
-    [balance (find-balance txn
-                           bank-id
-                           account-id
-                           balance-type
-                           currency
-                           balance-status)]
+    [balance (find-balance txn bank-id account-id balance-type balance-status)]
     (or balance
         (error/reject :balance/not-found
                       {:message "Balance not found"
                        :bank-id bank-id
                        :account-id account-id
                        :balance-type balance-type
-                       :currency currency
                        :balance-status balance-status}))))
 
 (defn get-balances
@@ -123,7 +116,7 @@
   (fdb/transact txn
                 (fn [txn]
                   (let [sums (start-account-sums txn [account-id] false)
-                        rows (mapv schema/pb->Balance
+                        rows (mapv schema/pb->AccountBalance
                                    (:records (fdb/scan-records
                                               (fdb/open txn store-name)
                                               {:prefix [bank-id account-id]
@@ -154,7 +147,7 @@
                                                   {:isolation :snapshot})))
            balances (update-vals rows
                                  (fn [records]
-                                   (mapv schema/pb->Balance records)))
+                                   (mapv schema/pb->AccountBalance records)))
            unsummed (filterv (fn [id] (some domain/derived? (get balances id)))
                              stored)
            by-bucket (merge (snapshot-sums)

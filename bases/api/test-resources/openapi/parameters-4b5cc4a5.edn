@@ -15,9 +15,8 @@
  "GET /v1/cash-accounts" #{["query" "embed"] ["query" "page"]}
  "GET /v1/cash-accounts/{account-id}" #{["path" "account-id"] ["query" "embed"]}
  "GET /v1/cash-accounts/{account-id}/balances" #{["path" "account-id"]}
- "GET /v1/cash-accounts/{account-id}/balances/{balance-type}/{currency}/{balance-status}"
- #{["path" "account-id"] ["path" "balance-status"] ["path" "balance-type"]
-   ["path" "currency"]}
+ "GET /v1/cash-accounts/{account-id}/balances/{balance-type}/{balance-status}"
+ #{["path" "account-id"] ["path" "balance-status"] ["path" "balance-type"]}
  "GET /v1/cash-accounts/{account-id}/transactions" #{["path" "account-id"]}
  "GET /v1/companies/{company-number}" #{["path" "company-number"]}
  "GET /v1/jobs/{job-id}" #{["path" "job-id"]}

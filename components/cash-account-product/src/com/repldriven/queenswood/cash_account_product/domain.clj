@@ -60,11 +60,10 @@
         :balance-products (:balance-products template)
         :allowed-payment-address-schemes
         (:allowed-payment-address-schemes template)
+        :internal (boolean (:internal template))
         :interest-rate-bps (or interest-rate-bps 0)}
        :iso-cash-account-type
        (:iso-cash-account-type template)
-       :internal
-       (when (:internal template) true)
        :opening-reward
        (when opening-reward {:amount (:amount opening-reward)})))))
 
@@ -75,6 +74,7 @@
   (let [now (utility/now)]
     (assoc data
            :template-id (or (:template-id data) (utility/generate-id "tpl"))
+           :internal (boolean (:internal data))
            :created-at now
            :updated-at now)))
 
@@ -177,8 +177,9 @@
                :version-number (inc (count versions))
                :status :cash-account-product-status-draft
                :name name
-               :allowed-currencies [currency]
+               :currency currency
                :created-at now
+               :created-by (:created-by data)
                :updated-at now}
               fields)
        :effective-from effective-from
@@ -208,7 +209,7 @@
 (defn update-version
   [existing template data policies]
   (let [{:keys [bank-id product-id version-id
-                version-number status created-at]}
+                version-number status created-at created-by]}
         existing
         {:keys [name currency effective-from effective-to opening-reward]}
         data]
@@ -228,8 +229,9 @@
                :version-number version-number
                :status status
                :name name
-               :allowed-currencies [currency]
+               :currency currency
                :created-at created-at
+               :created-by created-by
                :updated-at (utility/now)}
               fields)
        :effective-from effective-from
@@ -262,19 +264,22 @@
                        :unsupported (vec unsupported)})))))
 
 (defn publish
-  [existing policies payment-provider]
+  [existing policies payment-provider actor]
   (let-nom>
     [_ (ensure-draft existing)
      _ (check-capability :cash-account-product-action-publish
                          (:product-type existing)
                          policies)
      _ (check-address-schemes existing payment-provider)]
-    (assoc existing
-           :status :cash-account-product-status-published
-           :updated-at (utility/now))))
+    (let [now (utility/now)]
+      (assoc existing
+             :status :cash-account-product-status-published
+             :published-at now
+             :published-by actor
+             :updated-at now))))
 
 (defn discard
-  [existing policies]
+  [existing policies actor]
   (let-nom>
     [_ (ensure-draft existing)
      _ (check-capability :cash-account-product-action-draft
@@ -284,4 +289,5 @@
       (assoc existing
              :status :cash-account-product-status-discarded
              :discarded-at now
+             :discarded-by actor
              :updated-at now))))

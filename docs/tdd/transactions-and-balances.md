@@ -116,7 +116,7 @@ reversed).
  :transaction-id  "<parent>"
  :account-id
  :balance-type    :balance-type-default
-                  ;; or :balance-type-interest-payable
+                  ;; or :balance-type-interest-accrued
  :balance-status  :balance-status-posted
                   ;; or -pending-incoming, -pending-outgoing
  :side            :debit         ;; or :credit

@@ -65,7 +65,7 @@
    :template-id TemplateId
    :product-type :current
    :balance-sheet-side :liability
-   :allowed-currencies ["GBP"]
+   :currency "GBP"
    :balance-products [{:balance-type :default :balance-status :posted}]
    :allowed-payment-address-schemes [:scan]
    :interest-rate-bps 0

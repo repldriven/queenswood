@@ -6,14 +6,13 @@
     [com.repldriven.mono.error.interface :refer [let-nom>]]))
 
 (defn totals
-  [balances]
-  (let [currency (:currency (first balances) "")]
-    {:balances balances
-     :posted-balance (domain/posted-balance balances currency)
-     :available-balance (domain/available-balance balances currency)}))
+  [balances currency]
+  {:balances balances
+   :posted-balance (domain/posted-balance balances currency)
+   :available-balance (domain/available-balance balances currency)})
 
 (defn get-balances
-  [txn bank-id account-id]
+  [txn bank-id account-id currency]
   (let-nom>
     [result (store/get-balances txn bank-id account-id)]
-    (totals result)))
+    (totals result currency)))

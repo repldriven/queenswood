@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.cash-account-migration.handlers
   (:require
     [com.repldriven.queenswood.api.errors :as errors]
+    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
     [com.repldriven.queenswood.cash-account-migration.interface :as migrations]
 
@@ -25,7 +26,8 @@
         {:keys [body]} parameters
         data (assoc body
                     :bank-id bank-id
-                    :idempotency-key (get headers "idempotency-key"))
+                    :idempotency-key (get headers "idempotency-key")
+                    :created-by (shared.actor/actor auth))
         result (migrations/create-migration (config request) data)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
@@ -38,7 +40,10 @@
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [migration-id]} (:path parameters)
-        result (f (config request) bank-id migration-id)]
+        result (f (config request)
+                  bank-id
+                  migration-id
+                  (shared.actor/actor auth))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))

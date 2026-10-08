@@ -145,7 +145,7 @@
                  (balances/new-balances
                   txn
                   bank-id
-                  (domain/opening-balances account currency product-version)
+                  (domain/opening-balances account product-version)
                   {:policies (policy/platform-policies policies)}))
               _ (telemetry/with-span ["cash-account-save"]
                                      (store/save-account

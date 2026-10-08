@@ -1,0 +1,27 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.cash_account_products;
+
+import "record_metadata_options.proto";
+import "schemas/cash-account-products/types.proto";
+import "schemas/types/product-type.proto";
+
+option java_outer_classname = "CashAccountProductTemplateProto";
+
+// A platform template a cash account product is created from.
+message CashAccountProductTemplate {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string template_id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  required string name = 2;
+  required com.repldriven.queenswood.schemas.types.ProductType product_type = 3;
+  required BalanceSheetSide balance_sheet_side = 4;
+  required bool internal = 5;
+  repeated string allowed_currencies = 6;
+  repeated PaymentAddressScheme allowed_payment_address_schemes = 7;
+  optional IsoCashAccountType iso_cash_account_type = 8;
+  repeated BalanceProduct balance_products = 9;
+
+  required int64 created_at = 101;
+  required int64 updated_at = 103;
+}

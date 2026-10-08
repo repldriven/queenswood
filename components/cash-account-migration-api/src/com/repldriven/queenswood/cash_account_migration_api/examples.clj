@@ -126,7 +126,7 @@
    :migration-id MigrationId
    :account-id "acc.01kz3wyzcjhkab9ch91x9ngedr"
    :outcome :ineligible
-   :from-version-id "prv.01kz3wyz91pf6z2zgfv9pxpm49"
+   :source-version-id "prv.01kz3wyz91pf6z2zgfv9pxpm49"
    :ineligibility :currency-not-allowed
    :created-at "2025-01-02T02:00:10Z"})
 

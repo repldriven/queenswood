@@ -47,7 +47,7 @@
    :version-number 1
    :status :cash-account-product-status-published
    :name "Published"
-   :allowed-currencies ["GBP"]
+   :currency "GBP"
    :product-type :product-type-sub-ledger-current
    :template-id "tpl.00000000000000000000000001"
    :balance-sheet-side :balance-sheet-side-liability
@@ -97,22 +97,34 @@
       (is (= "renamed" (:name v)))
       (is (= :cash-account-product-status-draft (:status v))))))
 
+(def ^:private operator
+  {:kind :actor-kind-operator :principal-id "queenswood-admin"})
+
 (def ^:private payment-provider {:addresses ["scan"]})
 
 (deftest publish-test
   (testing "rejects with :version-immutable when already published"
-    (let [r
-          (SUT/publish published-version permissive-policies payment-provider)]
+    (let [r (SUT/publish published-version
+                         permissive-policies
+                         payment-provider
+                         operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "rejects with :version-immutable when discarded"
-    (let [r
-          (SUT/publish discarded-version permissive-policies payment-provider)]
+    (let [r (SUT/publish discarded-version
+                         permissive-policies
+                         payment-provider
+                         operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "flips draft to :published, preserving other fields"
-    (let [v (SUT/publish draft-version permissive-policies payment-provider)]
+    (let [v (SUT/publish draft-version
+                         permissive-policies
+                         payment-provider
+                         operator)]
       (is (= :cash-account-product-status-published (:status v)))
+      (is (number? (:published-at v)))
+      (is (= operator (:published-by v)))
       (is (= "prv.3" (:version-id v)))
       (is (= 3 (:version-number v)))))
   (testing "rejects an address scheme the payment provider does not issue"
@@ -121,7 +133,8 @@
                                 [:payment-address-scheme-scan
                                  :payment-address-scheme-iban])
                          permissive-policies
-                         payment-provider)]
+                         payment-provider
+                         operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/unsupported-address-scheme (error/kind r)))
       (is (= [:payment-address-scheme-iban] (:unsupported (error/payload r))))))
@@ -130,20 +143,21 @@
                                 :allowed-payment-address-schemes
                                 [:payment-address-scheme-scan])
                          permissive-policies
-                         payment-provider)]
+                         payment-provider
+                         operator)]
       (is (= :cash-account-product-status-published (:status v))))))
 
 (deftest discard-test
   (testing "rejects with :version-immutable when already published"
-    (let [r (SUT/discard published-version permissive-policies)]
+    (let [r (SUT/discard published-version permissive-policies operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "rejects with :version-immutable when already discarded"
-    (let [r (SUT/discard discarded-version permissive-policies)]
+    (let [r (SUT/discard discarded-version permissive-policies operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "flips draft to :discarded and stamps :discarded-at"
-    (let [v (SUT/discard draft-version permissive-policies)]
+    (let [v (SUT/discard draft-version permissive-policies operator)]
       (is (= :cash-account-product-status-discarded (:status v)))
       (is (some? (:discarded-at v))))))
 
@@ -186,7 +200,7 @@
       (is (= :product-type-sub-ledger-current (:product-type v)))
       (is (= :balance-sheet-side-liability (:balance-sheet-side v)))
       (is (= :iso-cash-account-type-cacc (:iso-cash-account-type v)))
-      (is (= ["GBP"] (:allowed-currencies v)))
+      (is (= "GBP" (:currency v)))
       (is (= [:payment-address-scheme-scan]
              (:allowed-payment-address-schemes v)))
       (is (some #(= %

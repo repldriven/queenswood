@@ -336,7 +336,7 @@ creation; the `CashAccount` proto has no such field, the open command
 takes no override, and no emitter, adapter or handler reads it. `SACC`
 and `CPAC` are enum values with no writer. Evidence: the
 `IsoCashAccountType` enum and tags 19 and 8 in
-[account-product.proto](/components/schema/resources/schemas/cash-account-products/account-product.proto),
+[cash-account-product.proto](/components/schema/resources/schemas/cash-account-products/cash-account-product.proto),
 the three customer templates under
 `cash-account-product-templates`, and `product-fields` in the
 cash-account-product brick's `domain.clj`.

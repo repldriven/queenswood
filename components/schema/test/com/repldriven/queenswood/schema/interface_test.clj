@@ -15,7 +15,10 @@
 
   A `transaction-rejected` written with the current schema is read by a
   consumer still on the schema at `stable-20260916112610`, which is the
-  order a deploy puts them in."
+  order a deploy puts them in.
+
+  A required field holding zero reaches the Java parse, and one left out
+  is still refused by it."
   (:require
     [com.repldriven.queenswood.schema.interface :as SUT]
 
@@ -23,7 +26,9 @@
     [com.repldriven.mono.error.interface :as error]
 
     [clojure.java.io :as io]
-    [clojure.test :refer [deftest is testing]]))
+    [clojure.test :refer [deftest is testing]])
+  (:import
+    (com.google.protobuf InvalidProtocolBufferException)))
 
 (def ^:private payment-address
   {:scheme :payment-address-scheme-scan
@@ -57,6 +62,30 @@
 (def ^:private reply-schema
   (avro/json->schema (slurp (io/resource
                              "schemas/cash-accounts/account.avsc.json"))))
+
+(def ^:private opened-balance
+  {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
+   :balance-type :balance-type-default
+   :balance-status :balance-status-posted
+   :product-type :product-type-sub-ledger-current
+   :credit 0
+   :debit 0
+   :created-at 1700000000000
+   :updated-at 1700000000000})
+
+(deftest required-field-test
+  (testing "a required field holding zero is written"
+    (is (= 0 (.getCredit (SUT/AccountBalance->java opened-balance))))
+    (is (= opened-balance
+           (into {}
+                 (SUT/pb->AccountBalance (SUT/AccountBalance->pb
+                                          opened-balance))))))
+  (testing "a required field left out is refused by the Java parse"
+    (is (thrown-with-msg? InvalidProtocolBufferException
+                          #"bank_id"
+                          (SUT/AccountBalance->java (dissoc opened-balance
+                                                     :bank-id))))))
 
 (deftest cash-account-record-round-trip-test
   (testing "an account that has been rotated keeps its history"
@@ -244,13 +273,15 @@
    :template-id "tpl.00000000000000000000000001"
    :balance-sheet-side :balance-sheet-side-liability
    :name "Current Account"
-   :allowed-currencies ["GBP"]
+   :currency "GBP"
+   :internal false
    :balance-products [{:balance-type :balance-type-default
                        :balance-status :balance-status-posted}]
    :allowed-payment-address-schemes [:payment-address-scheme-scan]
    :interest-rate-bps 0
    :effective-from 20089
    :created-at 1700000000000
+   :created-by {:kind :actor-kind-operator :principal-id "queenswood-admin"}
    :updated-at 1700000000000})
 
 (deftest cash-account-product-record-round-trip-test

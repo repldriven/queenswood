@@ -128,12 +128,49 @@ never takes a former index's name. A proto field no longer wanted is
 deprecated with its tag kept and dropped in the record conversion —
 never removed, nor its tag reserved, once a record has been written
 with it. Never clear a store's meta-data to make a refused save land.
-Run the migrator before the services roll: it opens every store and
+Where every installation's FoundationDB is emptied before it deploys,
+the declaration MAY be reset to `version: 1`, every `added` and
+`modified` at 1, with no `since` or `former-indexes` and no deprecated
+fields; the guard skips a version-1 tree whose last `stable-*` tag is
+above it. Run the migrator before the services roll: it opens every
+store and
 builds online each index of the store's record type the open left
 disabled, which a store past a few hundred records leaves a new one.
 `just test-all` runs the guard whatever changed.
 Commands: `just test-all`.
 See [schema-evolution](../../../docs/recipes/code/schema-evolution.md).
+
+## A record's proto is laid out one way
+
+Keep one stored record per file, named for the record, with the outer
+class `<Record>Proto`, and an enum or message shared across files in the
+folder's `types.proto`. Number the primary key's fields first in key
+order, the record's own fields from 1 to 50, its transitions from 51 to
+99 as `_at` and `_by` pairs with the `_at` odd, and `idempotency_key`,
+`created_at`, `created_by`, `updated_at` and `updated_by` at 100 to 104,
+and write no `reserved` for a number a record does not use. Name a date
+`_on`, an instant `_at`, an actor `_by`, and the reason a record failed
+`failure_reason`. Declare a field `required` wherever every write gives
+it a value, never with an explicit `[default = …]`. Comment a record
+with what it is and a field with its unit, never with how something
+elsewhere uses it. Change the folder's `.avsc.json` files with its
+protos.
+See [record-protos](../../../docs/recipes/code/record-protos.md).
+
+## Who did what is recorded on the record
+
+Record every act a person or an operator performs on a record on that
+record as an `_at` and a `_by` pair, the `_by` an `Actor`, required
+where an actor always exists and set by the domain from the caller the
+API passes in: creation as `created_at` and `created_by`, the last
+change as `updated_at` and `updated_by` where it matters, each
+transition as a pair in the transition band. Record no actor for what
+the platform does by itself. Build the caller's actor in one place in
+the API, `api/shared/actor.clj`, and pass it to the domain. Keep a
+record's history on its store's changelog, with the actor on the
+envelope once that is built, and show who did what through a console
+view per kind of record.
+See [ADR-0046](../../../docs/adr/0046-who-did-what-is-recorded-on-the-record.md).
 
 ## A service's `application.yml` includes shared groups, never copies
 
@@ -408,5 +445,7 @@ brick delegates the work to `bases/build`, where new generation logic
 goes first so other bricks can reuse it. Generated code lands in a
 `gen/` folder inside the brick, with a `gen/.gitignore` of `*` and
 `!.gitignore`, and is never committed. After a source-schema change
-`:force true` is required — the prep marker is stale.
+`:force true` is required — the prep marker is stale. A proto2 field
+MAY be `required` whatever value it holds: the build writes a required
+field whenever it is set, a zero, `false` or empty string included.
 See [code-generation](../../../docs/recipes/code/code-generation.md).

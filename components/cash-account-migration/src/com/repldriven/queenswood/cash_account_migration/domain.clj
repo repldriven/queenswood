@@ -92,7 +92,7 @@
   without tracking what it did."
   [target-version account]
   (let [{:keys [account-status currency version-id]} account
-        allowed (set (:allowed-currencies target-version))]
+        allowed #{(:currency target-version)}]
     (cond
      (= (:version-id target-version) version-id)
      {:outcome :cash-account-migration-outcome-ineligible
@@ -118,7 +118,7 @@
   approves."
   [data source-version target-version]
   (let [{:keys [bank-id name source-product-id source-version-ids notified-on
-                due-on idempotency-key]}
+                due-on idempotency-key created-by]}
         data
         now (utility/now)]
     (let-nom>
@@ -137,13 +137,14 @@
          :source-product-id source-product-id
          :target-product-id (:product-id target-version)
          :target-version-id (:version-id target-version)
+         :idempotency-key idempotency-key
          :created-at now
+         :created-by created-by
          :updated-at now}
         :source-version-ids
         source-version-ids)
        :notified-on notified-on
-       :due-on due-on
-       :idempotency-key idempotency-key))))
+       :due-on due-on))))
 
 (defn- ensure-status
   "A transition asserts the state it moves out of before anything else,
@@ -169,7 +170,7 @@
   — and not to any preview's numbers. Accounts open and close between
   approval and the commit, so the figures move; what was agreed does
   not."
-  [migration]
+  [migration actor]
   (let-nom>
     [_ (ensure-status migration
                       #{:cash-account-migration-status-draft}
@@ -186,6 +187,7 @@
       (assoc migration
              :status :cash-account-migration-status-approved
              :approved-at now
+             :approved-by actor
              :updated-at now))))
 
 (defn cancel-migration
@@ -195,7 +197,7 @@
   list, because the system cannot tell a target whose dates slipped from
   one nobody intends to use. A completed migration is not cancellable —
   accounts have moved, and saying otherwise would misdescribe them."
-  [migration]
+  [migration actor]
   (let-nom>
     [_ (ensure-status migration
                       #{:cash-account-migration-status-draft
@@ -205,6 +207,7 @@
       (assoc migration
              :status :cash-account-migration-status-cancelled
              :cancelled-at now
+             :cancelled-by actor
              :updated-at now))))
 
 (defn ensure-committable
@@ -284,13 +287,12 @@
    :business-day business-day
    :started-at (utility/now)})
 
-(defn moved-verdict
-  "What a commit records for an account it actually moved. Distinct from
-  the eligible verdict a preview writes: eligible is a forecast, migrated
-  is a fact, and the two sit in the same table."
-  [target-version]
-  {:outcome :cash-account-migration-outcome-migrated
-   :to-version-id (:version-id target-version)})
+(def moved-verdict
+  "What a commit records for an account it actually moved, onto the
+  migration's target. Distinct from the eligible verdict a preview
+  writes: eligible is a forecast, migrated is a fact, and the two sit in
+  the same table."
+  {:outcome :cash-account-migration-outcome-migrated})
 
 (defn failed-verdict
   "What a commit records for an account it could not move. One account's
@@ -301,20 +303,18 @@
    :failure-reason (str (error/kind anomaly))})
 
 (defn account-verdict
-  "One account's row, as the run saw it. `to-version-id` is set only
-  where an account actually moved — a dry run's eligible verdict leaves
-  it off, because nothing moved it."
+  "One account's row, as the run saw it, with the source version it was
+  on."
   [run account decision]
-  (let [{:keys [outcome ineligibility to-version-id failure-reason]} decision]
+  (let [{:keys [outcome ineligibility failure-reason]} decision]
     (utility/assoc-some
      {:bank-id (:bank-id run)
       :run-id (:run-id run)
       :account-id (:account-id account)
       :migration-id (:migration-id run)
       :outcome outcome
+      :source-version-id (:version-id account)
       :created-at (utility/now)}
-     :from-version-id (:version-id account)
-     :to-version-id to-version-id
      :ineligibility ineligibility
      :failure-reason failure-reason)))
 
@@ -340,4 +340,4 @@
   (assoc run
          :status :cash-account-migration-run-status-failed
          :finished-at (utility/now)
-         :error (str (error/kind anomaly))))
+         :failure-reason (str (error/kind anomaly))))
