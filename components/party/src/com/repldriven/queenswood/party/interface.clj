@@ -147,13 +147,3 @@
                               :status-before (:status party)
                               :status-after (:status activated)})]
     saved))
-
-(defn delete-national-identifiers
-  "Delete every stored national identifier, which nothing writes any
-  longer (ADR-0045). Returns how many it deleted — none on a rerun — or
-  an anomaly.
-
-  Args:
-  - config: `{:record-db :record-store}`."
-  [config]
-  (core/delete-national-identifiers config))

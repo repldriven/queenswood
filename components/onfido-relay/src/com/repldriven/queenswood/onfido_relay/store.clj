@@ -3,8 +3,6 @@
     [com.repldriven.queenswood.intent-poller.interface :as intent-poller]
     [com.repldriven.queenswood.schema.interface :as schema]
 
-    [com.repldriven.mono.error.interface :refer [let-nom>]]
-
     [clojure.edn :as edn]))
 
 (def ^:private kept
@@ -25,7 +23,6 @@
    :event-type "OnfidoOutboxEvent"
    :event->java schema/OnfidoOutboxEvent->java
    :event->pb schema/OnfidoOutboxEvent->pb
-   :pb->event schema/pb->OnfidoOutboxEvent
    :intent->java schema/OnfidoOutboundIntent->java
    :pb->intent schema/pb->OnfidoOutboundIntent
    :redact redact})
@@ -41,9 +38,3 @@
 (defn intents-with-status
   [config status]
   (intent-poller/intents-with-status (assoc config :store spec) status))
-
-(defn clear-personal-data
-  [config]
-  (let-nom> [intents (intent-poller/redact-done config spec)
-             payloads (intent-poller/clear-payloads config spec "idv-evidence")]
-    {:intents intents :payloads payloads}))

@@ -69,11 +69,8 @@
      SchedulerJobProto$SchedulerJob
      SchedulerRunProto$SchedulerRun)
     (com.repldriven.queenswood.schemas.banks BankProto$Bank)
-    (com.repldriven.queenswood.schemas.party
-     PartyProto$Party
-     PartyNationalIdentifierProto$PartyNationalIdentifier)
+    (com.repldriven.queenswood.schemas.party PartyProto$Party)
     (com.repldriven.queenswood.schemas.person_identification
-     PersonIdentificationProto$PersonIdentification
      PersonNameProto$PersonName)
     (com.repldriven.queenswood.schemas.payments
      InboundPaymentProto$InboundPayment
@@ -468,53 +465,6 @@
   - m: Party map matching the generated schema."
   [m]
   (PartyProto$Party/parseFrom (Party->pb m)))
-
-(def ^{:doc
-       "Parse PartyNationalIdentifier protobuf bytes into a
-  Clojure map."}
-     pb->PartyNationalIdentifier
-  party/pb->PartyNationalIdentifier)
-
-(defn PartyNationalIdentifier->pb
-  "Serialise a PartyNationalIdentifier map to protobuf bytes.
-
-  Args:
-  - m: PartyNationalIdentifier map matching the generated schema."
-  [m]
-  (proto/->pb (party/new-PartyNationalIdentifier m)))
-
-(defn PartyNationalIdentifier->java
-  "Parse a PartyNationalIdentifier map into the generated Java
-  protobuf class.
-
-  Args:
-  - m: PartyNationalIdentifier map matching the generated schema."
-  [m]
-  (PartyNationalIdentifierProto$PartyNationalIdentifier/parseFrom
-   (PartyNationalIdentifier->pb m)))
-
-(def ^{:doc "Parse PersonIdentification protobuf bytes into a
-  Clojure map."}
-     pb->PersonIdentification
-  person-identification/pb->PersonIdentification)
-
-(defn PersonIdentification->pb
-  "Serialise a PersonIdentification map to protobuf bytes.
-
-  Args:
-  - m: PersonIdentification map matching the generated schema."
-  [m]
-  (proto/->pb (person-identification/new-PersonIdentification m)))
-
-(defn PersonIdentification->java
-  "Parse a PersonIdentification map into the generated Java
-  protobuf class.
-
-  Args:
-  - m: PersonIdentification map matching the generated schema."
-  [m]
-  (PersonIdentificationProto$PersonIdentification/parseFrom
-   (PersonIdentification->pb m)))
 
 (def ^{:doc "Parse PersonName protobuf bytes into a Clojure map."}
      pb->PersonName

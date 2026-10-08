@@ -7,8 +7,6 @@ import "record_metadata_options.proto";
 option java_outer_classname = "PersonNameProto";
 
 // A person's names, and nothing else that identifies them (ADR-0045).
-// Replaces PersonIdentification, whose date of birth, nationality and
-// address are required and so cannot be cleared in place.
 message PersonName {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 

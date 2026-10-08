@@ -208,7 +208,3 @@
                                        :status-before (:status merged-away)
                                        :status-after (:status updated)})]
             result)))))))
-
-(defn delete-national-identifiers
-  [config]
-  (store/delete-national-identifiers config))

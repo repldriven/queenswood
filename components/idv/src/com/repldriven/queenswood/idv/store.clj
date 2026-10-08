@@ -59,20 +59,3 @@
          session)))
    :idv/save-session
    "Failed to save IDV session"))
-
-(def ^:private read-fields [:given-names :family-name :date-of-birth])
-
-(defn clear-read-evidence
-  [config]
-  (fdb/rewrite-store
-   config
-   store-name
-   (fn [_txn bytes]
-     (let [idv (schema/pb->Idv bytes)
-           document (get-in idv [:evidence :document])]
-       (when (some (fn [k] (seq (get document k))) read-fields)
-         (schema/Idv->java
-          (update-in (into {} idv)
-                     [:evidence :document]
-                     (fn [d] (apply dissoc (into {} d) read-fields)))))))
-   {}))

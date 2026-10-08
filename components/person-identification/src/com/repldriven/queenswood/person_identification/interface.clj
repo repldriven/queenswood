@@ -40,14 +40,3 @@
   - party-id: party id."
   [txn party-id]
   (store/get-person-identification txn party-id))
-
-(defn clear-identity-details
-  "Move every person identification stored before ADR-0045 to its names
-  alone, deleting the record that held the date of birth, nationality
-  and address. Returns how many it moved — none on a rerun — or an
-  anomaly.
-
-  Args:
-  - config: `{:record-db :record-store}`."
-  [config]
-  (store/clear-identity-details config))

@@ -35,7 +35,6 @@
         component/party {:local/root "../../components/party"}
         component/person-identification {:local/root "../../components/person-identification"}
         component/zyphe-relay {:local/root "../../components/zyphe-relay"}
-        component/personal-data {:local/root "../../components/personal-data"}
         component/resources {:local/root "../../components/resources"}
         component/schema {:local/root "../../components/schema"}
         base/migrator {:local/root "../../bases/migrator"}

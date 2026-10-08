@@ -80,7 +80,6 @@
     components/party-query {:local/root "components/party-query"}
     components/person-identification {:local/root
                                       "components/person-identification"}
-    components/personal-data {:local/root "components/personal-data"}
     components/policy {:local/root "components/policy"}
     components/resources {:local/root "components/resources"}
     components/reward {:local/root "components/reward"}
@@ -166,7 +165,6 @@
                        "components/membership-query/test"
                        "components/party/test"
                        "components/party/test-resources"
-                       "components/personal-data/test"
                        "components/policy/test"
                        "components/policy/test-resources"
                        "components/reward/test"

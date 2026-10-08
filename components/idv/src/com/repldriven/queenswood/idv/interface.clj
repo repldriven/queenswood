@@ -74,14 +74,3 @@
   does not. Arguments as `unmet-criteria`."
   [policies declaration]
   (domain/check-criteria policies declaration))
-
-(defn clear-read-evidence
-  "Clear the names and date of birth a provider read off a document from
-  every stored IDV's evidence, which nothing writes any longer
-  (ADR-0045). Returns how many it cleared — none on a rerun — or an
-  anomaly.
-
-  Args:
-  - config: `{:record-db :record-store}`."
-  [config]
-  (core/clear-read-evidence config))

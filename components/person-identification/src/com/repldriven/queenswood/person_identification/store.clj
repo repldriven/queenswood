@@ -8,8 +8,6 @@
 ;; What was kept before ADR-0045: its date of birth, nationality and
 ;; address are required, so the clearance moves the names to
 ;; `person-names` and deletes the record rather than clearing it.
-(def ^:private former-store-name "person-identifications")
-
 (def transact fdb/transact)
 
 (defn save-person-identification
@@ -31,19 +29,3 @@
              schema/pb->PersonName))
    :person-identification/get
    "Failed to load person identification"))
-
-(defn clear-identity-details
-  [config]
-  (fdb/rewrite-store
-   config
-   former-store-name
-   (fn [txn bytes]
-     (let [former (schema/pb->PersonIdentification bytes)]
-       (fdb/save-record (fdb/open txn store-name)
-                        (schema/PersonName->java
-                         (select-keys former
-                                      [:party-id :given-name :middle-names
-                                       :family-name :created-at
-                                       :updated-at])))
-       :delete))
-   {}))
