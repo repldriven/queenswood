@@ -163,7 +163,7 @@ stores:
       - name: IdvSession_count_by_bank_day
         added: 1
         modified: 1
-        fields: [bank_id, opened_day]
+        fields: [bank_id, opened_on]
         type: count
   interest-runs:
     record-type: InterestRun

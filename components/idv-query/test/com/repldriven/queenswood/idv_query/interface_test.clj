@@ -44,7 +44,7 @@
 
 (deftest session-test
   (let [ready {:status :idv-session-status-ready
-               :hand-off {:type :idv-hand-off-type-url
+               :hand-off {:kind :idv-hand-off-kind-url
                           :url "https://verify.example/x"
                           :expires-at 1000}}]
     (testing "a ready session carries its hand-off until it expires"

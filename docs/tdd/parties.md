@@ -305,8 +305,9 @@ starts. The party route gains:
 
 The session is a command, `open-idv-session` on `idvs-command`, to
 `idv`'s processor, which checks `idv-action-submit` and its daily limit
-in one transaction, saves the session to the `idv-sessions` store, and
-once that commits publishes `submit-idv-check` with the session, the
+in one transaction, saves the session to the `idv-sessions` store with
+the caller who opened it as `created_by`, and once that commits
+publishes `submit-idv-check` with the session, the
 channel, the return URL, the email, and the verifications and
 screenings the bank's denies require. The adapter reports the hand-off
 as an `idv-session-opened` event

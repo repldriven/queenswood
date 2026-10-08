@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.party.commands
   (:require
     [com.repldriven.queenswood.api.commands :as commands]
+    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
     [com.repldriven.queenswood.party-api.interface :as party-api]))
 
@@ -81,7 +82,8 @@
                                  :party-id party-id
                                  :channel (channel-names channel)
                                  :return-url return-url
-                                 :email email}
+                                 :email email
+                                 :actor (shared.actor/actor auth)}
                                 {:ordering-key party-id})]
     (if (= 200 (:status response))
       (let [session (:body response)]

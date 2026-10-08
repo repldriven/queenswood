@@ -211,7 +211,9 @@
   [session]
   (cond-> (select-keys session session-keys)
           (:hand-off session)
-          (update :hand-off select-keys [:type :url :expires-at])))
+          (update :hand-off
+                  (fn [{:keys [kind url expires-at]}]
+                    {:type kind :url url :expires-at expires-at}))))
 
 (def ^:private encode-session
   (schema/api-encoder VerificationSession (merge schema/registry registry)))

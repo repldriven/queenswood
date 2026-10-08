@@ -513,17 +513,17 @@
   (IdvProto$Idv/parseFrom (Idv->pb m)))
 
 (defn pb->IdvSession
-  "Parse IdvSession protobuf bytes into a Clojure map, dropping a
-  `failure-reason` that deserialises as the proto2 empty-string default:
-  only a failed session carries one.
+  "Parse IdvSession protobuf bytes into a Clojure map, without a
+  `:hand-off` or `:failure-reason` it was never given. An embedded
+  message is a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [session (idv/pb->IdvSession input)]
-    (cond-> session
-            (= "" (:failure-reason session))
-            (dissoc :failure-reason))))
+  (reduce plain-embedded
+          (without-unset (idv/pb->IdvSession input)
+                         {:hand-off nil :failure-reason ""})
+          [:hand-off :created-by]))
 
 (defn IdvSession->pb
   "Serialise an IdvSession map to protobuf bytes.

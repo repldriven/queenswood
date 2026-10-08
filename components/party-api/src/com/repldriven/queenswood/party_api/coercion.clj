@@ -39,8 +39,8 @@
                           :idv-session-status-unknown))
 
 (def ^:private hand-off-type-enum
-  (coercion/enum-coercion {"url" :idv-hand-off-type-url}
-                          :idv-hand-off-type-unknown))
+  (coercion/enum-coercion {"url" :idv-hand-off-kind-url}
+                          :idv-hand-off-kind-unknown))
 
 (def ^:private criterion-state-enum
   (coercion/enum-coercion {"outstanding" :idv-criterion-status-outstanding

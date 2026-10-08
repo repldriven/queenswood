@@ -260,17 +260,18 @@
 (defn new-session
   [idv data]
   (let [{:keys [bank-id verification-id party-id]} idv
-        {:keys [channel return-url]} data
+        {:keys [channel return-url actor]} data
         now (utility/now)]
     {:bank-id bank-id
      :session-id (utility/generate-id "ses")
      :verification-id verification-id
      :party-id party-id
+     :status :idv-session-status-opening
      :channel (channels channel)
      :return-url return-url
-     :status :idv-session-status-opening
-     :opened-day (utility/today)
+     :opened-on (utility/today)
      :created-at now
+     :created-by actor
      :updated-at now}))
 
 (defn ready-session
@@ -281,7 +282,7 @@
                    (select-keys (:hand-off session) [:url :expires-at])))
     (assoc session
            :status :idv-session-status-ready
-           :hand-off {:type :idv-hand-off-type-url
+           :hand-off {:kind :idv-hand-off-kind-url
                       :url url
                       :expires-at expires-at}
            :updated-at (utility/now))))

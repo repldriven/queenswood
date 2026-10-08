@@ -3,10 +3,54 @@
   "name": "OpenIdvSession",
   "namespace": "com.repldriven.mono.idv",
   "fields": [
-    {"name": "bank_id",    "type": "string"},
-    {"name": "party_id",   "type": "string"},
-    {"name": "channel",    "type": "string"},
-    {"name": "return_url", "type": "string"},
-    {"name": "email",      "type": ["null", "string"], "default": null}
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "party_id",
+      "type": "string"
+    },
+    {
+      "name": "channel",
+      "type": "string"
+    },
+    {
+      "name": "return_url",
+      "type": "string"
+    },
+    {
+      "name": "email",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "actor",
+      "type": {
+        "type": "record",
+        "name": "ActorSpec",
+        "doc": "Who asked",
+        "fields": [
+          {
+            "name": "kind",
+            "type": {
+              "type": "enum",
+              "name": "ActorKind",
+              "symbols": [
+                "ACTOR_KIND_MEMBER",
+                "ACTOR_KIND_OPERATOR"
+              ]
+            }
+          },
+          {
+            "name": "principal_id",
+            "type": "string"
+          }
+        ]
+      }
+    }
   ]
 }

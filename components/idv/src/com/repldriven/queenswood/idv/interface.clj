@@ -47,8 +47,8 @@
     `:idv-providers`, whose default provider's declaration the session
     is checked against and whose command channel reaches its adapter,
     and `:bus` and `:schemas`.
-  - data: `{:bank-id :party-id :channel :return-url :email}`, the
-    channel `\"web\"` or `\"mobile\"`."
+  - data: `{:bank-id :party-id :channel :return-url :email :actor}`,
+    the channel `\"web\"` or `\"mobile\"` and the actor who opens it."
   [config data]
   (core/open-session config data))
 

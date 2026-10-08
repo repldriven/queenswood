@@ -35,7 +35,9 @@
                                   :party-id party-id
                                   :channel "web"
                                   :return-url "https://app.example.test/back"
-                                  :email "person@example.test"})
+                                  :email "person@example.test"
+                                  :actor {:kind :actor-kind-operator
+                                          :principal-id "test-scenarios"}})
        ready (await/value ctx
                           "the session's hand-off"
                           (fn []
