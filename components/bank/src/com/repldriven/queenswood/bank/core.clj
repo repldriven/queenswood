@@ -92,7 +92,8 @@
       :party-id party-id
       :product-id (:product-id version)
       :currency currency
-      :name "Bank own funds"}
+      :name "Bank own funds"
+      :actor actor}
      {:policies policies})))
 
 (defn- new-house-accounts

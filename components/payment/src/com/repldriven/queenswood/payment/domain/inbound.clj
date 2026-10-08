@@ -217,7 +217,7 @@
    (nil? account)
    {:reason-code "AC01" :reason "No account holds the address"}
 
-   (contains? closed-statuses (:account-status account))
+   (contains? closed-statuses (:status account))
    {:reason-code "AC04" :reason "The account is closed"}
 
    (not (checks/operable? account))

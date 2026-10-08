@@ -63,6 +63,20 @@ for an instant in milliseconds, `_by` for an `Actor`, and
 `error` belongs to the envelope or response carrying a record rather
 than to the record.
 
+Name a classifying enum `…Type` or `…Kind` by what it classifies. A
+type is what a thing is as banking, accounting or an outside standard
+has it, kept for the thing's life: `GlAccountType`, `IsoCashAccountType`,
+`SchemeType`, `TransactionType`, `AccountType`. A kind is which of the
+platform's own variants a record is, the one that selects the code
+handling it: `EmailKind`, `RewardKind`, `SchedulerTaskKind`,
+`ActorKind`. Its field is `<thing>_type` for a type, and `kind` for a
+kind, or `<what>_kind` where a record has more than one.
+
+Hold a state as a status enum, never a `bool`: a flag that something
+is pending or done gains a third state, as an address rotation that was
+pending gained one that failed. A record with one status calls it
+`status`, its enum named for what it is the status of.
+
 Declare a field `required` wherever every write gives it a value, a
 zero, `false` or empty string included, and `optional` only where a
 record legitimately lacks it: a transition that has not happened, a
@@ -90,7 +104,12 @@ the record's fields in the proto's order.
   `created_by`, `updated_at` and `updated_by` at 100 to 104.
 - Name a date `_on`, an instant `_at`, an actor `_by`, and the reason a
   record failed `failure_reason`.
+- Name an enum `…Type` for what a thing is in banking, accounting or an
+  outside standard, and `…Kind` for which of the platform's own variants
+  selects the code that handles it.
 - Declare a field `required` wherever every write gives it a value.
+- Hold a state as a status enum, never a `bool`, and call a record's one
+  status `status`.
 - Change the folder's `.avsc.json` files with its protos.
 
 **MUST NOT:**

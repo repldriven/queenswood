@@ -128,9 +128,8 @@
                        "shortly after, and a `cash-account.closed` webhook "
                        "notification follows. Where the payment provider "
                        "refuses the close, the account returns to the status "
-                       "it closed from with the provider's `refusal-reason`, "
-                       "and a `cash-account.close-refused` webhook "
-                       "notification follows.")
+                       "it closed from, and a `cash-account.close-refused` "
+                       "webhook notification follows.")
                   :parameters ^:replace
                               [shared.parameters/ref-account-id
                                shared.parameters/ref-bank-id-header

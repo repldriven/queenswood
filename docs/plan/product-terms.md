@@ -19,10 +19,9 @@ and [interest](../tdd/interest.md#a-versions-interest-terms). Questions
   Accrual reads it once per account per day in `interest/accrue.clj`
   and `interest/domain/accrual.clj`, actual/365, at sub-unit precision
   carried between days.
-- **The reward promised.** `CashAccountProduct.opening_reward`, an
-  optional `OpeningReward { amount }` in minor units of the version's
-  one `currency`. The rewards TDD put it in a message so a later
-  condition has a home.
+- **The reward promised.** `CashAccountProduct.reward_terms`, a list of
+  `RewardTerms { kind, amount }` in minor units of the version's one
+  `currency`, `REWARD_KIND_OPENING` the one kind.
 - **The reward paid.** The `Reward` record in
   [reward.proto](/components/schema/resources/schemas/rewards/reward.proto),
   one per account and `RewardKind`, `DUE` or `PAID`, written by the

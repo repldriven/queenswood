@@ -183,7 +183,7 @@ template cannot reach it.
  :product-id          "prd.<ulid>"
  :version-id          "prv.<ulid>"
  :version-number      1             ;; 1, 2, 3, ...
- :status              :cash-account-product-status-draft
+ :status              :version-status-draft
                       ;; or -published, -discarded
  :name                "Premier Savings"
  :allowed-currencies  ["GBP"]       ;; one currency per
@@ -211,10 +211,13 @@ on a given day (see **Effective dating** below).
 
 #### Interest terms
 
-Not built yet. A version states its rate as a schedule and says when
-interest is paid, in one `interest` field that replaces
-`interest_rate_bps` and is absent on a version that pays none, such as
-the own-funds house product. How the interest pass reads it is
+Stored, not yet read beyond its first band. A version states its rate
+as a schedule and says when interest is paid, in one `interest_terms`
+field that replaces `interest_rate_bps` and is absent on a version that
+pays none, such as the own-funds house product. Until the API takes the
+terms, it takes `interest-rate-bps` and stores it as one step of one
+band paid daily, and accrual and the API read that band's rate. How
+the interest pass reads it is
 [interest](interest.md#a-versions-interest-terms).
 
 ```proto
@@ -247,7 +250,7 @@ enum InterestPaymentFrequency {
 
 enum InterestPaymentDay {
   INTEREST_PAYMENT_DAY_UNKNOWN = 0;
-  INTEREST_PAYMENT_DAY_ACCOUNT = 1;       // the account's pinned_on
+  INTEREST_PAYMENT_DAY_ACCOUNT = 1;       // the account's version_from_on
   INTEREST_PAYMENT_DAY_DAY_OF_MONTH = 2;  // day_of_month
   INTEREST_PAYMENT_DAY_LAST_OF_MONTH = 3;
 }
@@ -283,8 +286,8 @@ message InterestTerms {
 }
 ```
 
-`CashAccountProduct` carries it as `optional InterestTerms interest =
-15`.
+`CashAccountProduct` carries it as
+`optional InterestTerms interest_terms = 15`.
 
 **Steps.** One step is in force on any day: the last whose start is on
 or before it. A `FIXED` schedule starts its steps on calendar days, a
@@ -348,7 +351,7 @@ accruing.
 The API takes and returns the terms as one object:
 
 ```json
-"interest": {
+"interest-terms": {
   "basis": "relative",
   "banding": "marginal",
   "steps": [
@@ -402,9 +405,10 @@ four-character codes classifying cash accounts for inclusion in
 payment messages (`pacs.008`, `pain.001`, `camt.053`, and others).
 The code says what kind of account this is for payment-rail purposes.
 
-It is a template field. Each of the three customer templates carries
-one — `CACC` for current, `SVGS` for savings, `LLSV` for term deposit
-— and the internal own-funds template carries none. `product-fields`
+It is a template field, and every template carries one: `CACC` for
+current, `SVGS` for savings, `LLSV` for term deposit, and `CACC` for
+the internal own-funds template, since the house account is a
+transacting account the bank holds in its own name. `product-fields`
 snapshots it into every version created from the template, alongside
 the other derived instrument fields, so a version's
 `:iso-cash-account-type` is whatever its template held at creation.

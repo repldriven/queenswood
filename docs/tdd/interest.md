@@ -599,7 +599,7 @@ zero, so no band covers an overdrawn balance, and the account is left
 out of the chunk as one at a zero rate is. The charge an overdrawn
 principal accrues today goes with it.
 
-**The account carries the day it came onto its version.** `pinned_on`,
+**The account carries the day it came onto its version.** `version_from_on`,
 an epoch day on `CashAccount`, is written with `version_id`: when the
 account opens and when a migration moves it. A relative step counts
 from it, and so does a payment on the account's own day, so a migration
@@ -608,7 +608,7 @@ stays in the bucket and is paid on the new version's schedule.
 
 **Capitalisation reads only the accounts due.** An `InterestAccount`
 record per account, in a store of the `interest` brick's own, holds the
-account's version, its `pinned_on` and its `next_payment_on`, indexed by
+account's version, its `version_from_on` and its `next_payment_on`, indexed by
 `[bank_id, next_payment_on, account_id]`. The brick writes it from the
 cash-accounts changelog, in an event processor of its own, when an
 account opens and when a migration moves it, as
@@ -641,7 +641,7 @@ which `cash-account` checks at opening, refusing
 `:cash-account/payout-account-required` where the version has a term
 and none is named, and `:cash-account/invalid-payout-account` where the
 one named does not qualify. `InterestAccount` carries `matures_on`,
-`pinned_on` plus the term's months, a day the month lacks moving to its
+`version_from_on` plus the term's months, a day the month lacks moving to its
 last, indexed by `[bank_id, matures_on, account_id]`. The account
 accrues nothing on or after it.
 
@@ -676,7 +676,7 @@ state, so it takes the ten points of
 [lifecycle-transitions](../recipes/code/lifecycle-transitions.md).
 
 First, the terms on the version, with their validation and API, every
-existing caller passing a flat rate paid daily; then `pinned_on`, in
+existing caller passing a flat rate paid daily; then `version_from_on`, in
 the cash-accounts pass of the clean-slate schema reset; then steps and
 bands in accrual, with the model's accrual beside it; then the
 `InterestAccount` record, its event processor and capitalisation from

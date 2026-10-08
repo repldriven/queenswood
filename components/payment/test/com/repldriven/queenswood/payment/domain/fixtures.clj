@@ -60,4 +60,4 @@
   ([account-id currency account-status]
    {:account-id account-id
     :currency currency
-    :account-status account-status}))
+    :status account-status}))

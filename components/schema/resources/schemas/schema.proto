@@ -10,7 +10,7 @@ import "schemas/cash-account-migrations/cash-account-migration-account-run.proto
 import "schemas/cash-account-migrations/cash-account-migration-run.proto";
 import "schemas/cash-account-products/cash-account-product-template.proto";
 import "schemas/cash-account-products/cash-account-product.proto";
-import "schemas/cash-accounts/account.proto";
+import "schemas/cash-accounts/cash-account.proto";
 import "schemas/company/company.proto";
 import "schemas/emails/email-delivery.proto";
 import "schemas/idempotency/idempotency.proto";

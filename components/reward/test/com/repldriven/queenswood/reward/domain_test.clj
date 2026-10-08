@@ -18,14 +18,14 @@
    :version-id "prv.1"
    :product-type :product-type-sub-ledger-current
    :currency "GBP"
-   :account-status :cash-account-status-opened})
+   :status :cash-account-status-opened})
 
 (def ^:private house
   {:bank-id "bnk.1"
    :account-id "acc.house"
    :product-type :product-type-sub-ledger-own-funds
    :currency "GBP"
-   :account-status :cash-account-status-opened})
+   :status :cash-account-status-opened})
 
 (deftest opening-test
   (testing "an account becoming opened is an opening"
@@ -49,12 +49,14 @@
     (doseq [status [:cash-account-status-opening
                     :cash-account-status-suspended
                     :cash-account-status-closed]]
-      (is (not (SUT/eligible? (assoc account :account-status status))))))
+      (is (not (SUT/eligible? (assoc account :status status))))))
   (testing "the bank's own account is not" (is (not (SUT/eligible? house)))))
 
 (deftest promised-test
   (testing "a version's reward is its amount"
-    (is (= 1000 (SUT/promised {:opening-reward {:amount 1000}}))))
+    (is (= 1000
+           (SUT/promised {:reward-terms [{:kind :reward-kind-opening
+                                          :amount 1000}]}))))
   (testing "a version with no term promises nothing"
     (is (nil? (SUT/promised {:interest-rate-bps 250})))))
 

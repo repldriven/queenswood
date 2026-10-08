@@ -93,10 +93,10 @@
   provider holds one for it, or will once it opens it, and otherwise the
   bank's own funds."
   [account own-funds]
-  (let [{:keys [account-id provider-account-id account-status]} account]
+  (let [{:keys [account-id provider-account-id status]} account]
     (if (or provider-account-id
             (= account-id own-funds)
-            (= :cash-account-status-opening account-status))
+            (= :cash-account-status-opening status))
       account-id
       own-funds)))
 

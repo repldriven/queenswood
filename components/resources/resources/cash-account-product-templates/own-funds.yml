@@ -5,6 +5,7 @@ template-id: tpl.00000000000000000000000004
 name: Bank own funds
 product-type: !keyword product-type-sub-ledger-own-funds
 balance-sheet-side: !keyword balance-sheet-side-liability
+iso-cash-account-type: !keyword iso-cash-account-type-cacc
 internal: true
 # Must match the API's `Currency` enum in
 # bases/api/src/com/repldriven/queenswood/api/shared/components.clj --

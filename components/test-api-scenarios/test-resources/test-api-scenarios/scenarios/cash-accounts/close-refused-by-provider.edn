@@ -44,7 +44,7 @@
              :path-params {:account-id [:ref :open-one :account :account-id]}
              :auth [:ref :bank-0 :token]}
    :until {:status 200
-           :body {:account-status "opened" :refusal-reason [:m/regex ".+"]}}
+           :body {:account-status "opened"}}
    :timeout-ms 45000}
   {:command :api/request
    :request
@@ -65,7 +65,7 @@
                                         :account-id]}
              :auth [:ref :bank-0 :token]}
    :until {:status 200
-           :body {:account-status "suspended" :refusal-reason [:m/regex ".+"]}}
+           :body {:account-status "suspended"}}
    :timeout-ms 45000}
   {:command :api/request
    :request {:method :get

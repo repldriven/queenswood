@@ -171,7 +171,8 @@
            (fdb/aggregate-records
             (fdb/open txn store-name)
             [[:count "CashAccount_count_by_bank" bank-id]
-             [:count "CashAccount_count_by_bank_product_account_type_currency"
+             [:count
+              "CashAccount_count_by_bank_product_type_account_type_currency"
               [bank-id
                (schema/product-type->int product-type)
                (schema/account-type->int account-type)
@@ -200,7 +201,7 @@
    (fn [txn]
      (fdb/count-records
       (fdb/open txn store-name)
-      "CashAccount_count_by_bank_product_account_type_currency"
+      "CashAccount_count_by_bank_product_type_account_type_currency"
       [bank-id
        (schema/product-type->int product-type)
        (schema/account-type->int account-type)
@@ -218,14 +219,12 @@
   (fdb/transact
    txn
    (fn [txn]
-     (filterv #(= bank-id (:bank-id %))
-              (mapv schema/pb->CashAccount
-                    (fdb/query-records
-                     (fdb/open txn store-name)
-                     "CashAccount"
-                     "party_id"
-                     party-id
-                     {:index "CashAccount_by_party"}))))
+     (mapv schema/pb->CashAccount
+           (fdb/query-records-compound (fdb/open txn store-name)
+                                       "CashAccount"
+                                       [["bank_id" bank-id]
+                                        ["party_id" party-id]]
+                                       {:index "CashAccount_by_party"})))
    :cash-account/find-by-party
    "Failed to find accounts by party"))
 

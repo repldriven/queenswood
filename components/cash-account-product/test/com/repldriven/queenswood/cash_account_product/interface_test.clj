@@ -130,11 +130,13 @@
                                            bank-id
                                            (:product-id plain)
                                            (:version-id plain))
-                 _ (testing "the reward reads back as the map it was written as"
-                     (is (= {:amount 1000} (:opening-reward read-rewarding))))
+                 _ (testing
+                     "the reward reads back as the terms it was written as"
+                     (is (= [{:kind :reward-kind-opening :amount 1000}]
+                            (:reward-terms read-rewarding))))
                  _ (testing
                      "and a version that named none reads back without one"
-                     (is (not (contains? read-plain :opening-reward))))]))))
+                     (is (empty? (:reward-terms read-plain))))]))))
 
 (deftest key-survives-an-update-test
   (with-test-system

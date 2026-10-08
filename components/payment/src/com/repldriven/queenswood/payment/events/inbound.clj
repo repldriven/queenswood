@@ -416,7 +416,7 @@
           (and admitted (not (checks/operable? account)))
           (do (log/infof "Admitted inbound to a non-operable account: %s"
                          {:account-id (:account-id account)
-                          :account-status (:account-status account)})
+                          :account-status (:status account)})
               (suspend-held txn
                             data
                             admitted
@@ -429,7 +429,7 @@
           (and account (not (checks/operable? account)))
           (do (log/infof "Inbound settlement to a non-operable account: %s"
                          {:account-id (:account-id account)
-                          :account-status (:account-status account)})
+                          :account-status (:status account)})
               (park-in-suspense txn
                                 data
                                 account
@@ -498,7 +498,7 @@
           (and account (not (checks/operable? account)))
           (do (log/infof "Inbound held for a non-operable account, ignored: %s"
                          {:account-id (:account-id account)
-                          :account-status (:account-status account)})
+                          :account-status (:status account)})
               data)
 
           (nil? account)

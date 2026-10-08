@@ -150,7 +150,11 @@ order, the record's own fields from 1 to 50, its transitions from 51 to
 `created_at`, `created_by`, `updated_at` and `updated_by` at 100 to 104,
 and write no `reserved` for a number a record does not use. Name a date
 `_on`, an instant `_at`, an actor `_by`, and the reason a record failed
-`failure_reason`. Declare a field `required` wherever every write gives
+`failure_reason`. Name an enum `…Type` for what a thing is in banking,
+accounting or an outside standard, and `…Kind` for which of the
+platform's own variants selects the code that handles it. Hold a state
+as a status enum, never a `bool`, and call a record's one status
+`status`. Declare a field `required` wherever every write gives
 it a value, never with an explicit `[default = …]`. Comment a record
 with what it is and a field with its unit, never with how something
 elsewhere uses it. Change the folder's `.avsc.json` files with its

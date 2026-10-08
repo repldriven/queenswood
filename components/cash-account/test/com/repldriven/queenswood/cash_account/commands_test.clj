@@ -25,7 +25,9 @@
                                   :party-id "pty.commands.dispatch"
                                   :name "Dispatch Test Account"
                                   :currency "GBP"
-                                  :product-id "prd.commands.dispatch"})]
+                                  :product-id "prd.commands.dispatch"
+                                  :actor {:kind :actor-kind-operator
+                                          :principal-id "test"}})]
      (testing "the decoded data carries the envelope id as its key"
        (let [data (#'SUT/decode schema {:id id :payload payload})]
          (is (= id (:idempotency-key data)))

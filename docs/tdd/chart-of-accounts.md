@@ -247,7 +247,7 @@ Notes:
   re-coding the chart needs no per-account migration.
 - **`product_type`** stays denormalised on cash accounts for
   the existing
-  `CashAccount_count_by_bank_product_account_type_currency`
+  `CashAccount_count_by_bank_product_type_account_type_currency`
   index, and now distinguishes customer instruments
   (`-current` / `-savings` / `-term-deposit`) from the bank's
   own-funds account (`-own-funds`).

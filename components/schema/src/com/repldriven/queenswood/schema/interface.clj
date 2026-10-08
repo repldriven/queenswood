@@ -250,26 +250,25 @@
 (defn pb->CashAccountProduct
   "Parse CashAccountProduct protobuf bytes into a Clojure map, without the
   optional fields the version was never given: a zero `effective_to`,
-  `published_at` or `discarded_at`, an unknown ISO account type, an empty
-  idempotency key, no opening reward or interest terms, or no publishing
-  or discarding actor. An embedded message is a plain map.
+  `published_at` or `discarded_at`, an empty idempotency key, no interest
+  terms, or no publishing or discarding actor. An embedded message is a
+  plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
   (let [version (cash-account-products/pb->CashAccountProduct input)]
     (cond->
-     (reduce plain-embedded
-             version
-             [:opening-reward :created-by :published-by :discarded-by])
-     (nil? (:opening-reward version))
-     (dissoc :opening-reward)
+     (reduce
+      plain-embedded
+      (update version :reward-terms (fn [terms] (mapv #(into {} %) terms)))
+      [:created-by :published-by :discarded-by])
 
-     (nil? (:interest version))
-     (dissoc :interest)
+     (nil? (:interest-terms version))
+     (dissoc :interest-terms)
 
-     (some? (:interest version))
-     (update :interest plain-interest)
+     (some? (:interest-terms version))
+     (update :interest-terms plain-interest)
 
      (nil? (:published-by version))
      (dissoc :published-by)
@@ -285,9 +284,6 @@
 
      (zero? (:discarded-at version 0))
      (dissoc :discarded-at)
-
-     (= :iso-cash-account-type-unknown (:iso-cash-account-type version))
-     (dissoc :iso-cash-account-type)
 
      (= "" (:idempotency-key version))
      (dissoc :idempotency-key))))
@@ -724,29 +720,37 @@
   [m]
   (SchedulerRunProto$SchedulerRun/parseFrom (SchedulerRun->pb m)))
 
+(def ^:private cash-account-unset
+  {:bban ""
+   :rotation nil
+   :failure-reason ""
+   :opened-at 0
+   :suspended-at 0
+   :suspended-by nil
+   :resumed-at 0
+   :resumed-by nil
+   :closed-at 0
+   :closed-by nil
+   :rotated-at 0
+   :rotated-by nil})
+
 (defn pb->CashAccount
-  "Parse CashAccount protobuf bytes into a Clojure map. Strips
-  optional string fields that deserialise as the proto2 empty-string
-  default (`bban`, `last-rotation-idempotency-key`) — GL
-  chart-of-accounts rows leave the first unset and an account that has
-  never been rotated leaves the second unset, and downstream read
-  sites use `(when (:bban account) ...)` semantics to distinguish
-  customer instruments from GL rows. Always drops
-  `gl-control-account-id`: the field is deprecated, kept in the
-  descriptor only so stored meta-data can still evolve, and no read
-  site consults it. Drops the `:cash-account-status-unknown` an unset
-  `closing-from` reads as, so it is present only while closing."
+  "Parse CashAccount protobuf bytes into a Clojure map. Strips the
+  optional fields an account was never given, as they deserialise as
+  proto2 defaults: an empty `bban` or `failure-reason`, no `rotation` or
+  a rotation's empty `failure-reason`, and a transition's zero `_at` and
+  absent `_by`. Downstream
+  read sites use `(when (:bban account) ...)` to tell an account with
+  addresses from one without. An embedded message is a plain map."
   [input]
-  (let [account (cash-accounts/pb->CashAccount input)]
-    (cond-> (dissoc account :gl-control-account-id)
-            (= "" (:bban account))
-            (dissoc :bban)
-
-            (= "" (:last-rotation-idempotency-key account))
-            (dissoc :last-rotation-idempotency-key)
-
-            (= :cash-account-status-unknown (:closing-from account))
-            (dissoc :closing-from))))
+  (let [account (reduce plain-embedded
+                        (without-unset (cash-accounts/pb->CashAccount input)
+                                       cash-account-unset)
+                        [:rotation :created-by :suspended-by :resumed-by
+                         :closed-by :rotated-by])]
+    (cond-> account
+            (:rotation account)
+            (update :rotation without-unset {:failure-reason ""}))))
 
 (defn CashAccount->pb
   "Serialise a CashAccount map to protobuf bytes.
@@ -1681,7 +1685,7 @@
   (RewardProto$Reward/parseFrom (Reward->pb m)))
 
 (def ^{:doc "Map of RewardKind label to protobuf int value."} reward-kind->int
-  rewards/RewardKind-label2val)
+  cash-account-products/RewardKind-label2val)
 
 (def ^{:doc "Map of RewardStatus label to protobuf int value."}
      reward-status->int

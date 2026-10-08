@@ -18,13 +18,11 @@
 
 (def ^:private savings-v1
   (version "prd.super" "ver.1"
-           :cash-account-product-status-published
-           :product-type-sub-ledger-savings))
+           :version-status-published :product-type-sub-ledger-savings))
 
 (def ^:private savings-v2
   (version "prd.mega" "ver.2"
-           :cash-account-product-status-published
-           :product-type-sub-ledger-savings))
+           :version-status-published :product-type-sub-ledger-savings))
 
 (def ^:private data
   {:bank-id "org.1"
@@ -71,7 +69,7 @@
 (deftest compatibility-test
   (testing "product type is the one thing that must match"
     (let [current (version "prd.cur" "ver.9"
-                           :cash-account-product-status-published
+                           :version-status-published
                            :product-type-sub-ledger-current)
           result (SUT/new-migration data savings-v1 current)]
       (is (error/rejection? result))
@@ -87,14 +85,13 @@
 
 (deftest target-status-test
   (testing "a draft target is refused — the terms are still being written"
-    (let [draft (assoc savings-v2 :status :cash-account-product-status-draft)
+    (let [draft (assoc savings-v2 :status :version-status-draft)
           result (SUT/new-migration data savings-v1 draft)]
       (is (error/rejection? result))
       (is (= :cash-account-migration/target-not-published
              (error/kind result)))))
   (testing "a discarded target is refused — the terms were abandoned"
-    (let [discarded
-          (assoc savings-v2 :status :cash-account-product-status-discarded)
+    (let [discarded (assoc savings-v2 :status :version-status-discarded)
           result (SUT/new-migration data savings-v1 discarded)]
       (is (error/rejection? result))
       (is (= :cash-account-migration/target-not-published
@@ -148,7 +145,7 @@
           :product-id "prd.super"
           :version-id "ver.1"
           :currency "GBP"
-          :account-status :cash-account-status-opened}
+          :status :cash-account-status-opened}
          opts))
 
 (deftest in-cohort?-test
@@ -180,8 +177,7 @@
              (:ineligibility v)))))
   (testing "a closed account's terms are not in play"
     (let [v (SUT/verdict target
-                         (account {:account-status
-                                   :cash-account-status-closed}))]
+                         (account {:status :cash-account-status-closed}))]
       (is (= :cash-account-migration-ineligibility-account-not-open
              (:ineligibility v)))))
   (testing "a currency the target does not allow leaves that account behind"

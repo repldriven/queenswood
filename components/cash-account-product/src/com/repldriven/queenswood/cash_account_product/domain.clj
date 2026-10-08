@@ -9,7 +9,7 @@
 
 (defn- draft?
   [version]
-  (= :cash-account-product-status-draft (:status version)))
+  (= :version-status-draft (:status version)))
 
 (defn- ensure-draft
   [version]
@@ -58,7 +58,8 @@
   "Snapshot the derived instrument fields from the resolved `template`
   (product-type, balance-sheet-side, balance buckets, payment-address
   schemes, iso type) plus the caller's `:interest-rate-bps`, as flat
-  interest terms, and `:opening-reward`, and stamp the originating
+  interest terms, and `:opening-reward`, as an opening reward's terms,
+  and stamp the originating
   `:template-id` for provenance. Returns the fields or an anomaly when
   the caller's currency isn't allowed."
   [template data]
@@ -72,13 +73,13 @@
         :balance-products (:balance-products template)
         :allowed-payment-address-schemes
         (:allowed-payment-address-schemes template)
-        :internal (boolean (:internal template))}
-       :iso-cash-account-type
-       (:iso-cash-account-type template)
-       :interest
+        :internal (boolean (:internal template))
+        :iso-cash-account-type (:iso-cash-account-type template)}
+       :interest-terms
        (flat-interest interest-rate-bps)
-       :opening-reward
-       (when opening-reward {:amount (:amount opening-reward)})))))
+       :reward-terms
+       (when opening-reward
+         [{:kind :reward-kind-opening :amount (:amount opening-reward)}])))))
 
 (defn new-template
   "Build a template record from seed data: stamp a stable `tpl.` id when
@@ -188,7 +189,7 @@
                :product-id product-id
                :version-id (utility/generate-id "prv")
                :version-number (inc (count versions))
-               :status :cash-account-product-status-draft
+               :status :version-status-draft
                :name name
                :currency currency
                :created-at now
@@ -286,7 +287,7 @@
      _ (check-address-schemes existing payment-provider)]
     (let [now (utility/now)]
       (assoc existing
-             :status :cash-account-product-status-published
+             :status :version-status-published
              :published-at now
              :published-by actor
              :updated-at now))))
@@ -300,7 +301,7 @@
                          policies)]
     (let [now (utility/now)]
       (assoc existing
-             :status :cash-account-product-status-discarded
+             :status :version-status-discarded
              :discarded-at now
              :discarded-by actor
              :updated-at now))))

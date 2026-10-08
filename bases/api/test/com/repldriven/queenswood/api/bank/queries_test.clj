@@ -141,12 +141,12 @@
 (deftest a-bank-shows-its-providers-test
   (testing "the provider it records, and the default of a kind it does not"
     (is (= {:payment "pooled" :idv "verifier"}
-           (:providers (SUT/with-providers
-                        offering
-                        {:providers [{:kind "payment" :provider "pooled"}]})))))
+           (:providers (SUT/bank-body offering
+                                      {:providers [{:kind "payment"
+                                                    :provider "pooled"}]})))))
   (testing "the default of every kind for a bank recording none"
     (is (= {:payment "rails" :idv "verifier"}
-           (:providers (SUT/with-providers offering {:providers []}))))))
+           (:providers (SUT/bank-body offering {:providers []}))))))
 
 (deftest the-providers-offered-are-listed-test
   (is (= [{:kind "idv" :providers ["verifier"] :default "verifier"}

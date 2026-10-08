@@ -61,7 +61,7 @@
                                       " the bank is used")
                         :bank-id bank-id}))
        bank (banks/get-bank-view txn bank-id)]
-      (assoc (queries/with-providers request bank)
+      (assoc (queries/bank-body request bank)
              :client-secret
              client-secret))))
 
@@ -223,7 +223,7 @@
             bank (banks/get-bank-view txn bank-id)]
         (if (error/anomaly? bank)
           (errors/anomaly->response bank)
-          {:status 200 :body (queries/with-providers request bank)})))))
+          {:status 200 :body (queries/bank-body request bank)})))))
 
 (defn change-bank-status
   [request]

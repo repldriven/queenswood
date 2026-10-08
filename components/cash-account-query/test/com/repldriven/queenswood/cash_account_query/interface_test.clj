@@ -50,11 +50,12 @@
      :party-id party-id
      :product-id "prd.query"
      :version-id version-id
-     :pinned-on 20089
+     :version-from-on 20089
+     :created-by {:kind :actor-kind-operator :principal-id "test"}
      :product-type :product-type-sub-ledger-current
      :name account-id
      :currency "GBP"
-     :account-status :cash-account-status-opened
+     :status :cash-account-status-opened
      :payment-addresses [{:scheme :payment-address-scheme-scan
                           :scan {:sort-code sort-code
                                  :account-number account-number}}]
@@ -269,12 +270,13 @@
      :product-id product-id
      :version-id (str "prv." product-id)
      :version-number 1
-     :status :cash-account-product-status-published
+     :status :version-status-published
      :product-type :product-type-sub-ledger-own-funds
      :balance-sheet-side :balance-sheet-side-liability
      :name "Bank own funds"
      :currency currency
      :template-id "tpl.00000000000000000000000004"
+     :iso-cash-account-type :iso-cash-account-type-cacc
      :balance-products [{:balance-type :balance-type-default
                          :balance-status :balance-status-posted}]
      :internal true

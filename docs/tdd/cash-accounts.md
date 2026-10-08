@@ -511,7 +511,7 @@ Every read lives in `cash-account-query`. Ten of them:
   index before anything moves, rather than discovering the
   breach part-way through.
 - **`count-by-org-product-account-type-currency`** —
-  `CashAccount_count_by_bank_product_account_type_currency`.
+  `CashAccount_count_by_bank_product_type_account_type_currency`.
   Used by the write brick's subtotal count limit.
 - **`reduce-accounts-with-balances`** — every account in a
   bank paired with its balances, in account-id order, the

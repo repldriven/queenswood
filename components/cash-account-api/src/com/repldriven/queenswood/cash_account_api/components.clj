@@ -64,7 +64,14 @@
 
 (defn ->body
   [account]
-  (select-keys account cash-account-keys))
+  (let [{:keys [status failure-reason rotation]} account
+        refusal (or failure-reason
+                    (when (= :address-rotation-status-failed (:status rotation))
+                      (:failure-reason rotation)))]
+    (select-keys (cond-> (assoc account :account-status status)
+                         refusal
+                         (assoc :refusal-reason refusal))
+                 cash-account-keys)))
 
 (def CreateCashAccountRequest
   [:map {:json-schema/example examples/CreateCashAccountRequest}

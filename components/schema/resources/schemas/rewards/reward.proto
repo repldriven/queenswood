@@ -3,15 +3,9 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.rewards;
 
 import "record_metadata_options.proto";
+import "schemas/cash-account-products/types.proto";
 
 option java_outer_classname = "RewardProto";
-
-// What a reward is for. OPENING is paid once to an account for having
-// been opened under a version that promises one.
-enum RewardKind {
-  REWARD_KIND_UNKNOWN = 0;
-  REWARD_KIND_OPENING = 1;
-}
 
 // DUE is a reward whose posting was refused, with why in `error`; PAID
 // carries the transaction that paid it.
@@ -33,7 +27,7 @@ message Reward {
   required string party_id = 4;
   required string product_id = 5;
   required string version_id = 6;
-  required RewardKind kind = 7;
+  required com.repldriven.queenswood.schemas.cash_account_products.RewardKind kind = 7;
   // Minor units of `currency`. Required: a reward of nothing is never
   // written.
   required int64 amount = 8;

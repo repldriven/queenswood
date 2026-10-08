@@ -1,0 +1,93 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.cash_accounts;
+
+import "record_metadata_options.proto";
+import "schemas/cash-account-products/types.proto";
+import "schemas/cash-accounts/types.proto";
+import "schemas/memberships/actor.proto";
+import "schemas/types/product-type.proto";
+
+option java_outer_classname = "CashAccountProto";
+
+enum CashAccountStatus {
+  CASH_ACCOUNT_STATUS_UNKNOWN = 0;
+  CASH_ACCOUNT_STATUS_OPENING = 1;
+  CASH_ACCOUNT_STATUS_OPENED = 2;
+  CASH_ACCOUNT_STATUS_CLOSING = 3;
+  CASH_ACCOUNT_STATUS_CLOSED = 4;
+  CASH_ACCOUNT_STATUS_SUSPENDED = 5;
+  CASH_ACCOUNT_STATUS_REFUSED = 6;
+}
+
+// A UK sort code and account number.
+message ScanAddress {
+  required string sort_code = 1;
+  required string account_number = 2;
+}
+
+// An address payments reach the account at: a `scan`, or a `value` for
+// any other scheme.
+message PaymentAddress {
+  required com.repldriven.queenswood.schemas.cash_account_products.PaymentAddressScheme scheme = 1;
+  optional ScanAddress scan = 2;
+  optional string value = 3;
+}
+
+// An address the account no longer answers to.
+message RetiredPaymentAddress {
+  required PaymentAddress address = 1;
+  required int64 retired_at = 2;
+}
+
+enum AddressRotationStatus {
+  ADDRESS_ROTATION_STATUS_UNKNOWN = 0;
+  ADDRESS_ROTATION_STATUS_PENDING = 1;
+  ADDRESS_ROTATION_STATUS_COMPLETED = 2;
+  ADDRESS_ROTATION_STATUS_FAILED = 3;
+}
+
+// The latest change of an account's payment addresses.
+message AddressRotation {
+  required string idempotency_key = 1;
+  required AddressRotationStatus status = 2;
+  optional string failure_reason = 3;
+}
+
+// A bank's account held by a party under a product version.
+message CashAccount {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string account_id = 2;
+  required string product_id = 3;
+  required string version_id = 4;
+  required int64 version_from_on = 5; // epoch day
+  required string name = 6;
+  required CashAccountStatus status = 7;
+  required string party_id = 8;
+  required com.repldriven.queenswood.schemas.types.ProductType product_type = 9;
+  required AccountType account_type = 10;
+  required string currency = 11; // ISO 4217
+  repeated PaymentAddress payment_addresses = 12;
+  optional string bban = 13; // sort code and account number
+  repeated RetiredPaymentAddress retired_payment_addresses = 14;
+  optional string provider_account_id = 15;
+  optional AddressRotation rotation = 16;
+  optional string failure_reason = 17;
+
+  optional int64 opened_at = 51;
+  optional int64 suspended_at = 53;
+  optional com.repldriven.queenswood.schemas.memberships.Actor suspended_by = 54;
+  optional int64 resumed_at = 55;
+  optional com.repldriven.queenswood.schemas.memberships.Actor resumed_by = 56;
+  optional int64 closed_at = 57;
+  optional com.repldriven.queenswood.schemas.memberships.Actor closed_by = 58;
+  optional int64 rotated_at = 59;
+  optional com.repldriven.queenswood.schemas.memberships.Actor rotated_by = 60;
+
+  optional string idempotency_key = 100;
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schemas.memberships.Actor created_by = 102;
+  required int64 updated_at = 103;
+}

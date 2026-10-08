@@ -124,12 +124,12 @@
   (testing "as does one the provider is opening"
     (is (= "acc.a"
            (SUT/mirror-party {:account-id "acc.a"
-                              :account-status :cash-account-status-opening}
+                              :status :cash-account-status-opening}
                              "acc.house"))))
   (testing "one the provider holds nothing for is held in own funds"
     (is (= "acc.house"
            (SUT/mirror-party {:account-id "acc.a"
-                              :account-status :cash-account-status-opened}
+                              :status :cash-account-status-opened}
                              "acc.house")))))
 
 (deftest transfer-outcome-test

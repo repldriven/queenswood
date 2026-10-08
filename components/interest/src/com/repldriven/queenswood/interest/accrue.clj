@@ -52,7 +52,8 @@
                                              balances
                                              (get carries account-id 0)
                                              (or (get-in version
-                                                         [:interest :steps 0
+                                                         [:interest-terms :steps
+                                                          0
                                                           :bands 0 :rate-bps])
                                                  0)))]
                 (cond (error/anomaly? result)

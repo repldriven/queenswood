@@ -9,7 +9,7 @@
   [{:keys [versions]} as-of]
   (->> versions
        (filter (fn [v]
-                 (= :cash-account-product-status-published (:status v))))
+                 (= :version-status-published (:status v))))
        (filter (fn [{:keys [effective-from effective-to]}]
                  (and (or (nil? effective-from) (<= effective-from as-of))
                       (or (nil? effective-to) (< as-of effective-to)))))

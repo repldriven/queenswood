@@ -158,7 +158,7 @@
              (cash-accounts/find-accounts-by-party txn bank-id party-id)]
     (boolean
      (some (fn [account]
-             (not= :cash-account-status-closed (:account-status account)))
+             (not= :cash-account-status-closed (:status account)))
            accounts))))
 
 (defn close-party

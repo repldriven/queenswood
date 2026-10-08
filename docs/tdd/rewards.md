@@ -101,19 +101,26 @@ bank consuming `reward.paid`, which is the demo's own slice in
 
 ### The term on the version
 
-A version carries an optional `opening_reward`, a nested message beside
-`interest_rate_bps` in
+A version carries the rewards it promises as `reward_terms`, a list of
+`RewardTerms` beside `interest_terms` in
 [cash-account-product.proto](/components/schema/resources/schemas/cash-account-products/cash-account-product.proto),
-at the next free tag:
+each naming the `RewardKind` it is for, an enum the paid `Reward`
+record shares from the folder's `types.proto`:
 
 ```proto
-message OpeningReward {
-  required int64 amount = 1;  // minor units of the version's currency
+message RewardTerms {
+  required RewardKind kind = 1;
+  required int64 amount = 2; // minor units
 }
-optional OpeningReward opening_reward = 16;
+repeated RewardTerms reward_terms = 16;
 ```
 
-The amount is in the version's one currency, so the term carries none.
+`REWARD_KIND_OPENING` is the one kind. Another, such as a referral,
+adds a value and the event that pays it; a kind paid more than once to
+an account adds what each payment is for to the `Reward` record and its
+once-only index. The amount is in the version's one currency, so the
+term carries none. Until the API takes the list, it takes
+`opening-reward` and stores it as the opening kind's terms.
 `product-fields` threads `:opening-reward` from the caller's data, which
 covers create, new version and update in one edit, and a guard beside
 `ensure-effective-window` refuses a non-positive amount with

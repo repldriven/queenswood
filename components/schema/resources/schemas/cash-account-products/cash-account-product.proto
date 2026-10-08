@@ -9,11 +9,11 @@ import "schemas/types/product-type.proto";
 
 option java_outer_classname = "CashAccountProductProto";
 
-enum CashAccountProductStatus {
-  CASH_ACCOUNT_PRODUCT_STATUS_UNKNOWN = 0;
-  CASH_ACCOUNT_PRODUCT_STATUS_DRAFT = 1;
-  CASH_ACCOUNT_PRODUCT_STATUS_PUBLISHED = 2;
-  CASH_ACCOUNT_PRODUCT_STATUS_DISCARDED = 3;
+enum VersionStatus {
+  VERSION_STATUS_UNKNOWN = 0;
+  VERSION_STATUS_DRAFT = 1;
+  VERSION_STATUS_PUBLISHED = 2;
+  VERSION_STATUS_DISCARDED = 3;
 }
 
 enum InterestScheduleBasis {
@@ -45,7 +45,7 @@ enum InterestPaymentFrequency {
 
 enum InterestPaymentDay {
   INTEREST_PAYMENT_DAY_UNKNOWN = 0;
-  INTEREST_PAYMENT_DAY_ACCOUNT = 1; // the account's pinned_on
+  INTEREST_PAYMENT_DAY_ACCOUNT = 1; // the account's version_from_on
   INTEREST_PAYMENT_DAY_DAY_OF_MONTH = 2; // day_of_month
   INTEREST_PAYMENT_DAY_LAST_OF_MONTH = 3;
 }
@@ -80,9 +80,10 @@ message InterestTerms {
   required InterestPayment payment = 5;
 }
 
-// A welcome reward paid once to an account opened under a version.
-message OpeningReward {
-  required int64 amount = 1; // minor units
+// A reward a version promises the accounts opened under it.
+message RewardTerms {
+  required RewardKind kind = 1;
+  required int64 amount = 2; // minor units
 }
 
 // One version of a bank's cash account product.
@@ -92,19 +93,19 @@ message CashAccountProduct {
   required string bank_id = 1;
   required string product_id = 2;
   required string version_id = 3;
-  required int32 version_number = 4;
+  required string template_id = 4;
   required string name = 5;
-  required CashAccountProductStatus status = 6;
-  required string template_id = 7;
+  required int32 version_number = 6;
+  required VersionStatus status = 7;
   required com.repldriven.queenswood.schemas.types.ProductType product_type = 8;
-  required BalanceSheetSide balance_sheet_side = 9;
-  required bool internal = 10;
-  required string currency = 11; // ISO 4217
-  repeated PaymentAddressScheme allowed_payment_address_schemes = 12;
-  optional IsoCashAccountType iso_cash_account_type = 13;
-  repeated BalanceProduct balance_products = 14;
-  optional InterestTerms interest = 15;
-  optional OpeningReward opening_reward = 16;
+  required IsoCashAccountType iso_cash_account_type = 9;
+  required BalanceSheetSide balance_sheet_side = 10;
+  required bool internal = 11;
+  required string currency = 12; // ISO 4217
+  repeated BalanceProduct balance_products = 13;
+  repeated PaymentAddressScheme allowed_payment_address_schemes = 14;
+  optional InterestTerms interest_terms = 15;
+  repeated RewardTerms reward_terms = 16;
   required int64 effective_from = 17; // epoch day
   optional int64 effective_to = 18; // epoch day
 

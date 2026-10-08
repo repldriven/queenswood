@@ -78,9 +78,16 @@
 
 (defn ->version-body
   [version]
-  (assoc (select-keys version version-keys)
-         :interest-rate-bps
-         (or (get-in version [:interest :steps 0 :bands 0 :rate-bps]) 0)))
+  (let [opening (some (fn [{:keys [kind] :as terms}]
+                        (when (= :reward-kind-opening kind) terms))
+                      (:reward-terms version))]
+    (cond-> (assoc (select-keys version version-keys)
+                   :interest-rate-bps
+                   (or (get-in version
+                               [:interest-terms :steps 0 :bands 0 :rate-bps])
+                       0))
+            opening
+            (assoc :opening-reward {:amount (:amount opening)}))))
 
 (defn ->product-body
   [product]

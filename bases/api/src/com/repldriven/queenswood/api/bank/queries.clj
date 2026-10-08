@@ -5,6 +5,8 @@
     [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
+    [com.repldriven.queenswood.cash-account-api.interface :as
+     cash-account-api]
     [com.repldriven.queenswood.membership-query.interface :as memberships]
     [com.repldriven.queenswood.user.interface :as users]
 
@@ -15,17 +17,23 @@
   [request]
   (vals (:providers request)))
 
-(defn with-providers
-  "`bank` with `:providers` the key of its provider of each kind offered,
-  by kind: the one it records, or the default where it records none."
+(defn bank-body
+  "`bank` as every route returns it: `:providers` the key of its provider
+  of each kind offered, by kind, the one it records or the default where
+  it records none, and each of its accounts as the account routes return
+  one."
   [request bank]
   (let [recorded (into {} (map (juxt :kind :provider)) (:providers bank))]
-    (assoc bank
-           :providers
-           (into {}
-                 (map (fn [{:keys [kind default]}]
-                        [(keyword kind) (get recorded kind (name default))]))
-                 (offered request)))))
+    (cond-> (assoc bank
+                   :providers
+                   (into {}
+                         (map (fn [{:keys [kind default]}]
+                                [(keyword kind)
+                                 (get recorded kind (name default))]))
+                         (offered request)))
+            (contains? bank :accounts)
+            (update :accounts
+                    (fn [accounts] (mapv cash-account-api/->body accounts))))))
 
 (defn list-providers
   [request]
@@ -54,7 +62,7 @@
   providers `request` offers."
   [request page found owners-of]
   (let [result (let-nom> [{:keys [banks]} found]
-                 (with-owners (mapv (fn [bank] (with-providers request bank))
+                 (with-owners (mapv (fn [bank] (bank-body request bank))
                                     banks)
                               owners-of))]
     (if (error/anomaly? result)
@@ -88,7 +96,7 @@
                  [bank (banks/get-bank-view config bank-id)
                   {:keys [list-active lookup]} (owner-lookups config [bank])
                   owners (names/owners list-active lookup bank-id)]
-                 (assoc (with-providers request bank) :owners owners))]
+                 (assoc (bank-body request bank) :owners owners))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))

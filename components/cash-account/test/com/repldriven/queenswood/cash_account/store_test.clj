@@ -23,10 +23,13 @@
    :party-id "pty.test"
    :product-id "prd.test"
    :version-id "v1"
-   :pinned-on 20089
+   :version-from-on 20089
+   :created-by {:kind :actor-kind-operator :principal-id "test"}
+   :account-type :account-type-personal
+   :product-type :product-type-sub-ledger-current
    :name "Idempotency Test Account"
    :currency "GBP"
-   :account-status :cash-account-status-opening
+   :status :cash-account-status-opening
    :created-at (utility/now)
    :updated-at (utility/now)
    :idempotency-key idempotency-key})

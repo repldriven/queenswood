@@ -107,7 +107,7 @@
                                                    real-acct-id))
                (fn [account]
                  (and (not (error/anomaly? account))
-                      (= status (:account-status account))))))
+                      (= status (:status account))))))
 
 (defn- await-opened
   [ctx bank-real-id real-acct-id]
@@ -126,7 +126,7 @@
                (fn [account]
                  (and (not (error/anomaly? account))
                       (not= :cash-account-status-closing
-                            (:account-status account))))))
+                            (:status account))))))
 
 (defn- await-party-active
   [{:keys [bank] :as ctx} bank-real-id party-id]
@@ -346,7 +346,8 @@
                              :party-id real-party-id
                              :product-id scenario-product-id
                              :currency "GBP"
-                             :name "Scenario Account"}))
+                             :name "Scenario Account"
+                             :actor scenario-operator}))
         real-acct-id (:account-id scenario-account)
         opened (when real-acct-id (await-opened ctx real-bank-id real-acct-id))
         real-bban (:bban opened)]
@@ -533,7 +534,8 @@
                                            :product-id prod-real-id
                                            :currency currency
                                            :name (str "Scenario Account "
-                                                      counter)})
+                                                      counter)
+                                           :actor scenario-operator})
         real-acct-id (:account-id result)
         opened (when real-acct-id (await-opened ctx bank-real-id real-acct-id))]
     (-> ctx
@@ -634,7 +636,8 @@
                         :party-id party-real-id
                         :product-id prod-real-id
                         :currency currency
-                        :name (str "Scenario Customer Account " counter)}))
+                        :name (str "Scenario Customer Account " counter)
+                        :actor scenario-operator}))
         real-acct-id (:account-id acct-result)
         opened (when real-acct-id (await-opened ctx bank-real-id real-acct-id))
         outcome (cond
@@ -676,7 +679,8 @@
         real-acct-id (get-in id-mapping [:model->real model-acct])
         result (cash-accounts/close-account bank
                                             {:bank-id bank-real-id
-                                             :account-id real-acct-id})
+                                             :account-id real-acct-id
+                                             :actor scenario-operator})
         answered (when-not (error/anomaly? result)
                    (await-close-answered ctx bank-real-id real-acct-id))]
     (-> ctx

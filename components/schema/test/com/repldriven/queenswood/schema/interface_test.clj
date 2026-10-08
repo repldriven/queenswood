@@ -42,10 +42,11 @@
    :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
    :product-id "prd.01kprbmgcj35ptc8npmybhh4se"
    :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
-   :pinned-on 20089
+   :version-from-on 20089
+   :created-by {:kind :actor-kind-operator :principal-id "test"}
    :name "Arthur Phillip Dent - Current Account"
    :currency "GBP"
-   :account-status :cash-account-status-opened
+   :status :cash-account-status-opened
    :account-type :account-type-personal
    :product-type :product-type-sub-ledger-current
    :payment-addresses [payment-address]
@@ -58,7 +59,8 @@
   (assoc opened-account
          :retired-payment-addresses [{:address payment-address
                                       :retired-at 1700000000500}]
-         :last-rotation-idempotency-key "01kprbmgcj35ptc8npmybhh4sh"))
+         :rotation {:idempotency-key "01kprbmgcj35ptc8npmybhh4sh"
+                    :status :address-rotation-status-completed}))
 
 (def ^:private reply-schema
   (avro/json->schema (slurp (io/resource
@@ -97,13 +99,17 @@
       (is (= :payment-address-scheme-scan (:scheme (:address retired))))
       (is (= {:sort-code "040004" :account-number "12345678"}
              (into {} (:scan (:address retired)))))
-      (is (= "01kprbmgcj35ptc8npmybhh4sh"
-             (:last-rotation-idempotency-key account)))))
-  (testing "the record carries no GL control pointer"
+      (is (= {:idempotency-key "01kprbmgcj35ptc8npmybhh4sh"
+              :status :address-rotation-status-completed}
+             (:rotation account)))))
+  (testing "a field an account was never given reads back absent"
     (let [account (SUT/pb->CashAccount (SUT/CashAccount->pb opened-account))]
-      (is (not (contains? account :gl-control-account-id)))
-      (is (not (contains? account :last-rotation-idempotency-key))
-          "an account that has never been rotated leaves the key unset"))))
+      (is (not (contains? account :rotation))
+          "an account that has never been rotated has no rotation")
+      (is (not (contains? account :suspended-at)))
+      (is (not (contains? account :suspended-by)))
+      (is (= {:kind :actor-kind-operator :principal-id "test"}
+             (:created-by account))))))
 
 (deftest cash-account-reply-schema-test
   (is (not (error/anomaly? reply-schema)) "the reply schema parses")
@@ -269,7 +275,7 @@
    :product-id "prd.01kprbmgcj35ptc8npmybhh4se"
    :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
    :version-number 1
-   :status :cash-account-product-status-draft
+   :status :version-status-draft
    :product-type :product-type-sub-ledger-current
    :template-id "tpl.00000000000000000000000001"
    :balance-sheet-side :balance-sheet-side-liability
@@ -279,25 +285,27 @@
    :balance-products [{:balance-type :balance-type-default
                        :balance-status :balance-status-posted}]
    :allowed-payment-address-schemes [:payment-address-scheme-scan]
+   :iso-cash-account-type :iso-cash-account-type-cacc
    :effective-from 20089
    :created-at 1700000000000
    :created-by {:kind :actor-kind-operator :principal-id "queenswood-admin"}
    :updated-at 1700000000000})
 
 (deftest cash-account-product-record-round-trip-test
-  (testing "a version with no reward reads back without one"
+  (testing "a version with no reward reads back with none"
     (let [read (SUT/pb->CashAccountProduct (SUT/CashAccountProduct->pb
                                             draft-version))]
-      (is (not (contains? read :opening-reward)))
+      (is (empty? (:reward-terms read)))
       (is (some? (SUT/CashAccountProduct->java draft-version)))))
-  (testing "a version's reward reads back as a plain map"
-    (let [version (assoc draft-version :opening-reward {:amount 1000})
+  (testing "a version's reward terms read back as plain maps"
+    (let [rewards [{:kind :reward-kind-opening :amount 1000}]
+          version (assoc draft-version :reward-terms rewards)
           read (SUT/pb->CashAccountProduct (SUT/CashAccountProduct->pb
                                             version))]
-      (is (= {:amount 1000} (:opening-reward read)))
+      (is (= rewards (:reward-terms read)))
       (is (= 1000
              (.. (SUT/CashAccountProduct->java version)
-                 getOpeningReward
+                 (getRewardTerms 0)
                  getAmount)))))
   (testing "a version's interest terms read back as plain maps"
     (let [interest {:basis :interest-schedule-basis-relative
@@ -310,8 +318,8 @@
                               :day :interest-payment-day-last-of-month}}
           read (SUT/pb->CashAccountProduct
                 (SUT/CashAccountProduct->pb
-                 (assoc draft-version :interest interest)))]
-      (is (= interest (:interest read))))))
+                 (assoc draft-version :interest-terms interest)))]
+      (is (= interest (:interest-terms read))))))
 
 (def ^:private due-reward
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"

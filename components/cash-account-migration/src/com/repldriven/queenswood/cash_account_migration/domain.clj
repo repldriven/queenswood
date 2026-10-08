@@ -22,7 +22,7 @@
   draft is still being written and a discarded version was abandoned;
   neither is something to hold customers on."
   [target-version]
-  (when-not (= :cash-account-product-status-published (:status target-version))
+  (when-not (= :version-status-published (:status target-version))
     (error/reject :cash-account-migration/target-not-published
                   {:message "A migration's target version must be published"
                    :version-id (:version-id target-version)
@@ -91,14 +91,14 @@
   everything an earlier run moved — it is how the pass stays idempotent
   without tracking what it did."
   [target-version account]
-  (let [{:keys [account-status currency version-id]} account
+  (let [{:keys [status currency version-id]} account
         allowed #{(:currency target-version)}]
     (cond
      (= (:version-id target-version) version-id)
      {:outcome :cash-account-migration-outcome-ineligible
       :ineligibility :cash-account-migration-ineligibility-already-on-target}
 
-     (not= :cash-account-status-opened account-status)
+     (not= :cash-account-status-opened status)
      {:outcome :cash-account-migration-outcome-ineligible
       :ineligibility :cash-account-migration-ineligibility-account-not-open}
 

@@ -23,7 +23,7 @@
 
 (defn eligible-cash-account?
   [account]
-  (contains? eligible-cash-account-statuses (:account-status account)))
+  (contains? eligible-cash-account-statuses (:status account)))
 
 (defn check-complete
   "The tally, or `:interest/run-incomplete` while any account in scope

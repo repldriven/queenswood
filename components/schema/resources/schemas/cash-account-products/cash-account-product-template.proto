@@ -15,12 +15,12 @@ message CashAccountProductTemplate {
   required string template_id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
   required string name = 2;
   required com.repldriven.queenswood.schemas.types.ProductType product_type = 3;
-  required BalanceSheetSide balance_sheet_side = 4;
-  required bool internal = 5;
-  repeated string allowed_currencies = 6;
-  repeated PaymentAddressScheme allowed_payment_address_schemes = 7;
-  optional IsoCashAccountType iso_cash_account_type = 8;
-  repeated BalanceProduct balance_products = 9;
+  required IsoCashAccountType iso_cash_account_type = 4;
+  required BalanceSheetSide balance_sheet_side = 5;
+  required bool internal = 6;
+  repeated string allowed_currencies = 7; // ISO 4217
+  repeated BalanceProduct balance_products = 8;
+  repeated PaymentAddressScheme allowed_payment_address_schemes = 9;
 
   required int64 created_at = 101;
   required int64 updated_at = 103;

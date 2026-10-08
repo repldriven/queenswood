@@ -28,10 +28,13 @@
    :party-id "pty.test"
    :product-id "prd.test"
    :version-id "v1"
-   :pinned-on 20089
+   :version-from-on 20089
+   :created-by {:kind :actor-kind-operator :principal-id "test"}
+   :account-type :account-type-personal
+   :product-type :product-type-sub-ledger-current
    :name "Event Redelivery Test Account"
    :currency "GBP"
-   :account-status status
+   :status status
    :created-at (utility/now)
    :updated-at (utility/now)})
 
@@ -61,8 +64,7 @@
                                         :cash-account-status-opening
                                         (constantly true))
        (nom-test> [found (q/find-account config test-bank-id account-id)
-                   _ (is (= :cash-account-status-opened
-                            (:account-status found)))])))))
+                   _ (is (= :cash-account-status-opened (:status found)))])))))
 
 (def ^:private payload-schema
   (delay (avro/json->schema

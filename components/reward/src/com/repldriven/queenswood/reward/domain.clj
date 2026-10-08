@@ -19,13 +19,15 @@
   "An account a reward may be paid to: opened, and a customer's rather
   than the bank's own."
   [account]
-  (and (= :cash-account-status-opened (:account-status account))
+  (and (= :cash-account-status-opened (:status account))
        (contains? customer-product-types (:product-type account))))
 
 (defn promised
   "The amount a version promises an account opened under it, or nil."
   [version]
-  (get-in version [:opening-reward :amount]))
+  (some (fn [{:keys [kind amount]}]
+          (when (= :reward-kind-opening kind) amount))
+        (:reward-terms version)))
 
 (defn paid? [reward] (= :reward-status-paid (:status reward)))
 

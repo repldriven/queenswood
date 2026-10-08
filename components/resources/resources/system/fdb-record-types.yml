@@ -94,7 +94,7 @@ stores:
         modified: 1
         field: bank_id
         type: count
-      - name: CashAccount_count_by_bank_product_account_type_currency
+      - name: CashAccount_count_by_bank_product_type_account_type_currency
         added: 1
         modified: 1
         fields: [bank_id, product_type, account_type, currency]
@@ -124,7 +124,7 @@ stores:
       - name: CashAccount_by_party
         added: 1
         modified: 1
-        field: party_id
+        fields: [bank_id, party_id]
   ledger-accounts:
     record-type: LedgerAccount
     primary-key: [bank_id, ledger_account_id]

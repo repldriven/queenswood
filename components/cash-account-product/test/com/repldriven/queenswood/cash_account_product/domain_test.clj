@@ -45,7 +45,7 @@
    :product-id "prd.1"
    :version-id "prv.1"
    :version-number 1
-   :status :cash-account-product-status-published
+   :status :version-status-published
    :name "Published"
    :currency "GBP"
    :product-type :product-type-sub-ledger-current
@@ -61,13 +61,13 @@
   (assoc published-version
          :version-id "prv.2"
          :version-number 2
-         :status :cash-account-product-status-discarded))
+         :status :version-status-discarded))
 
 (def ^:private draft-version
   (assoc published-version
          :version-id "prv.3"
          :version-number 3
-         :status :cash-account-product-status-draft))
+         :status :version-status-draft))
 
 (def ^:private good-data {:name "v2" :currency "GBP" :effective-from 20089})
 
@@ -94,7 +94,7 @@
       (is (= "prv.3" (:version-id v)))
       (is (= 3 (:version-number v)))
       (is (= "renamed" (:name v)))
-      (is (= :cash-account-product-status-draft (:status v))))))
+      (is (= :version-status-draft (:status v))))))
 
 (def ^:private operator
   {:kind :actor-kind-operator :principal-id "queenswood-admin"})
@@ -121,7 +121,7 @@
                          permissive-policies
                          payment-provider
                          operator)]
-      (is (= :cash-account-product-status-published (:status v)))
+      (is (= :version-status-published (:status v)))
       (is (number? (:published-at v)))
       (is (= operator (:published-by v)))
       (is (= "prv.3" (:version-id v)))
@@ -144,7 +144,7 @@
                          permissive-policies
                          payment-provider
                          operator)]
-      (is (= :cash-account-product-status-published (:status v))))))
+      (is (= :version-status-published (:status v))))))
 
 (deftest discard-test
   (testing "rejects with :version-immutable when already published"
@@ -157,7 +157,7 @@
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "flips draft to :discarded and stamps :discarded-at"
     (let [v (SUT/discard draft-version permissive-policies operator)]
-      (is (= :cash-account-product-status-discarded (:status v)))
+      (is (= :version-status-discarded (:status v)))
       (is (some? (:discarded-at v))))))
 
 (deftest new-version-test
@@ -177,7 +177,7 @@
                              template
                              good-data
                              permissive-policies)]
-      (is (= :cash-account-product-status-draft (:status v)))
+      (is (= :version-status-draft (:status v)))
       (is (= 3 (:version-number v)) "version-number is 1 + (count versions)")))
   (testing "succeeds with no prior versions — fresh product flow"
     (let [v (SUT/new-version "bnk.1"
@@ -187,7 +187,7 @@
                              good-data
                              permissive-policies)]
       (is (= 1 (:version-number v)))
-      (is (= :cash-account-product-status-draft (:status v)))))
+      (is (= :version-status-draft (:status v)))))
   (testing "snapshots the derived fields from the template"
     (let [v (SUT/new-version "bnk.1"
                              "prd.1"
@@ -247,7 +247,7 @@
                              template
                              (assoc good-data :opening-reward {:amount 1000})
                              permissive-policies)]
-      (is (= {:amount 1000} (:opening-reward v)))))
+      (is (= [{:kind :reward-kind-opening :amount 1000}] (:reward-terms v)))))
   (testing "a version that names no reward carries none"
     (let [v (SUT/new-version "bnk.1"
                              "prd.1"
@@ -255,7 +255,7 @@
                              template
                              good-data
                              permissive-policies)]
-      (is (not (contains? v :opening-reward)))))
+      (is (not (contains? v :reward-terms)))))
   (testing "a draft's update replaces or removes it"
     (let [with-reward (SUT/update-version
                        draft-version
@@ -266,8 +266,9 @@
                                       template
                                       good-data
                                       permissive-policies)]
-      (is (= {:amount 2500} (:opening-reward with-reward)))
-      (is (not (contains? without :opening-reward)))))
+      (is (= [{:kind :reward-kind-opening :amount 2500}]
+             (:reward-terms with-reward)))
+      (is (not (contains? without :reward-terms)))))
   (testing "a reward of nothing, or less, is rejected with :invalid-reward"
     (doseq [amount [0 -1 nil]]
       (let [r (SUT/new-version

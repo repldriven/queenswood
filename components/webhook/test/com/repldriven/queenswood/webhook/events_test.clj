@@ -65,11 +65,12 @@
      :party-id "pty.events"
      :product-id "prd.events"
      :version-id "prv.1"
-     :pinned-on 20089
+     :version-from-on 20089
+     :created-by {:kind :actor-kind-operator :principal-id "test"}
      :product-type :product-type-sub-ledger-current
      :name account-id
      :currency "GBP"
-     :account-status :cash-account-status-opened
+     :status :cash-account-status-opened
      :payment-addresses [{:scheme :payment-address-scheme-scan
                           :scan {:sort-code sort-code
                                  :account-number account-number}}]

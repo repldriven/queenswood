@@ -152,15 +152,16 @@
                      :party-id party-id
                      :product-id product-id
                      :version-id version-id
-                     :pinned-on as-of
+                     :version-from-on as-of
                      :product-type product-type
                      :account-type account-type
                      :currency currency
                      :name name
                      :account-id (utility/generate-id "acc")
-                     :account-status :cash-account-status-opening
+                     :status :cash-account-status-opening
                      :payment-addresses []
                      :created-at now
+                     :created-by (:actor data)
                      :updated-at now}
                     :idempotency-key
                     (:idempotency-key data))))))
@@ -182,34 +183,38 @@
 
 (defn opened-account
   [account]
-  (assoc account
-         :account-status :cash-account-status-opened
-         :updated-at (utility/now)))
+  (let [now (utility/now)]
+    (assoc account
+           :status :cash-account-status-opened
+           :opened-at now
+           :updated-at now)))
 
 (defn provider-opened-account
   [account {:keys [provider-account-id addresses]}]
-  (assoc (with-addresses account addresses provider-account-id)
-         :account-status :cash-account-status-opened
-         :updated-at (utility/now)))
+  (let [now (utility/now)]
+    (assoc (with-addresses account addresses provider-account-id)
+           :status :cash-account-status-opened
+           :opened-at now
+           :updated-at now)))
 
 (defn refused-account
   [account reason]
   (assoc-some (assoc account
-                     :account-status :cash-account-status-refused
+                     :status :cash-account-status-refused
                      :updated-at (utility/now))
-              :refusal-reason
+              :failure-reason
               reason))
 
 (defn close-account
-  [account balances policies]
+  [account balances actor policies]
   (let-nom>
     [_ (when-not (contains? #{:cash-account-status-opened
                               :cash-account-status-suspended}
-                            (:account-status account))
+                            (:status account))
          (error/reject :cash-account/invalid-status
                        {:message "Account is not in a closeable state"
                         :account-id (:account-id account)
-                        :status (:account-status account)
+                        :status (:status account)
                         :allowed #{:cash-account-status-opened
                                    :cash-account-status-suspended}}))
      _ (check-capability :cash-account-action-close
@@ -225,84 +230,101 @@
                        {:message "Account has non-zero balance buckets"
                         :account-id (:account-id account)
                         :balances (reported-buckets offending)}))]
-    (assoc account
-           :account-status :cash-account-status-closing
-           :closing-from (:account-status account)
-           :updated-at (utility/now))))
+    (let [now (utility/now)]
+      (assoc account
+             :status :cash-account-status-closing
+             :closed-at now
+             :closed-by actor
+             :updated-at now))))
 
 (defn closed-account
   [account]
-  (-> account
-      (dissoc :closing-from)
-      (assoc :account-status :cash-account-status-closed
-             :updated-at (utility/now))))
+  (assoc account
+         :status :cash-account-status-closed
+         :updated-at (utility/now)))
+
+(defn- suspended-when-closed?
+  [account]
+  (let [{:keys [suspended-at resumed-at]} account]
+    (boolean (and suspended-at (> suspended-at (or resumed-at 0))))))
 
 (defn close-refused-account
-  [account reason]
+  [account]
   (-> account
-      (dissoc :closing-from)
-      (assoc :account-status (or (:closing-from account)
-                                 :cash-account-status-opened)
-             :updated-at (utility/now))
-      (assoc-some :refusal-reason reason)))
+      (dissoc :closed-at :closed-by)
+      (assoc :status (if (suspended-when-closed? account)
+                       :cash-account-status-suspended
+                       :cash-account-status-opened)
+             :updated-at (utility/now))))
 
 (defn suspend-account
-  [account policies]
+  [account actor policies]
   (let-nom>
-    [_ (when-not (= :cash-account-status-opened (:account-status account))
+    [_ (when-not (= :cash-account-status-opened (:status account))
          (error/reject :cash-account/invalid-status
                        {:message "Account is not in a suspendable state"
                         :account-id (:account-id account)
-                        :status (:account-status account)
+                        :status (:status account)
                         :allowed #{:cash-account-status-opened}}))
      _ (check-capability :cash-account-action-suspend
                          (:account-type account)
                          policies)]
-    (assoc account
-           :account-status :cash-account-status-suspended
-           :updated-at (utility/now))))
+    (let [now (utility/now)]
+      (assoc account
+             :status :cash-account-status-suspended
+             :suspended-at now
+             :suspended-by actor
+             :updated-at now))))
 
 (defn resume-account
-  [account policies]
+  [account actor policies]
   (let-nom>
-    [_ (when-not (= :cash-account-status-suspended (:account-status account))
+    [_ (when-not (= :cash-account-status-suspended (:status account))
          (error/reject :cash-account/invalid-status
                        {:message "Account is not in a resumable state"
                         :account-id (:account-id account)
-                        :status (:account-status account)
+                        :status (:status account)
                         :allowed #{:cash-account-status-suspended}}))
      _ (check-capability :cash-account-action-resume
                          (:account-type account)
                          policies)]
-    (assoc account
-           :account-status :cash-account-status-opened
-           :updated-at (utility/now))))
+    (let [now (utility/now)]
+      (assoc account
+             :status :cash-account-status-opened
+             :resumed-at now
+             :resumed-by actor
+             :updated-at now))))
 
 (defn request-rotation
   [account data policies]
   (let-nom>
-    [_ (when-not (= :cash-account-status-opened (:account-status account))
+    [_ (when-not (= :cash-account-status-opened (:status account))
          (error/reject :cash-account/invalid-status
                        {:message "Account is not in a rotatable state"
                         :account-id (:account-id account)
-                        :status (:account-status account)
+                        :status (:status account)
                         :allowed #{:cash-account-status-opened}}))
      _ (check-capability :cash-account-action-rotate-address
                          (:account-type account)
                          policies)]
     (let [rotation-key (or (:idempotency-key data)
-                           (str (utility/uuidv7)))]
+                           (str (utility/uuidv7)))
+          now (utility/now)]
       (assoc account
-             :pending-rotation-key rotation-key
-             :last-rotation-idempotency-key rotation-key
-             :updated-at (utility/now)))))
+             :rotation {:idempotency-key rotation-key
+                        :status :address-rotation-status-pending}
+             :rotated-at now
+             :rotated-by (:actor data)
+             :updated-at now))))
 
 (defn reissue-failed-account
   [account reason]
   (-> account
-      (dissoc :pending-rotation-key)
-      (assoc :updated-at (utility/now))
-      (assoc-some :refusal-reason reason)))
+      (update :rotation
+              assoc-some
+              :status :address-rotation-status-failed
+              :failure-reason reason)
+      (assoc :updated-at (utility/now))))
 
 (defn reissued-account
   [account {:keys [provider-account-id addresses]}]
@@ -310,7 +332,8 @@
         retired (mapv (fn [address] {:address address :retired-at now})
                       (:payment-addresses account))]
     (-> account
-        (dissoc :pending-rotation-key :bban)
+        (assoc-in [:rotation :status] :address-rotation-status-completed)
+        (dissoc :bban)
         (with-addresses addresses provider-account-id)
         (assoc :retired-payment-addresses
                (into (vec (:retired-payment-addresses account)) retired)
@@ -320,7 +343,7 @@
   "Repin an opened account to another product version. Direct
   single-phase flip, no second leg.
 
-  Only the pin moves, with `:pinned-on` set to the day `as-of`. Balances,
+  Only the pin moves, with `:version-from-on` set to the day `as-of`. Balances,
   payment addresses and the account number are untouched, because the
   account is the same account on different terms — a customer whose
   savings rate changed did not get a new account. The product may change
@@ -334,11 +357,11 @@
   reconstructing a migration's reasoning."
   [account target-version as-of policies]
   (let-nom>
-    [_ (when-not (= :cash-account-status-opened (:account-status account))
+    [_ (when-not (= :cash-account-status-opened (:status account))
          (error/reject :cash-account/invalid-status
                        {:message "Account is not in a migratable state"
                         :account-id (:account-id account)
-                        :status (:account-status account)
+                        :status (:status account)
                         :allowed #{:cash-account-status-opened}}))
      _ (check-capability :cash-account-action-migrate
                          (:account-type account)
@@ -346,5 +369,5 @@
     (assoc account
            :product-id (:product-id target-version)
            :version-id (:version-id target-version)
-           :pinned-on as-of
+           :version-from-on as-of
            :updated-at (utility/now))))

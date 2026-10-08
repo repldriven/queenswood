@@ -6,9 +6,9 @@
 (defn- normalise-status
   [status]
   (case status
-    :cash-account-product-status-draft :draft
-    :cash-account-product-status-published :published
-    :cash-account-product-status-discarded :discarded))
+    :version-status-draft :draft
+    :version-status-published :published
+    :version-status-discarded :discarded))
 
 (defn- versions-from-aggregate
   [aggregate]

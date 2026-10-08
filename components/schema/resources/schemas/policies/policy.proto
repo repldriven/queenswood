@@ -6,7 +6,7 @@ package com.repldriven.queenswood.schemas.policies;
 import "record_metadata_options.proto";
 import "schemas/amounts/amount.proto";
 import "schemas/balances/types.proto";
-import "schemas/cash-accounts/account.proto";
+import "schemas/cash-accounts/types.proto";
 import "schemas/banks/bank.proto";
 import "schemas/party/party.proto";
 import "schemas/schemes/scheme.proto";

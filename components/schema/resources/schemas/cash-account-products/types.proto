@@ -36,3 +36,9 @@ message BalanceProduct {
   required com.repldriven.queenswood.schemas.balances.BalanceType balance_type = 1;
   required com.repldriven.queenswood.schemas.balances.BalanceStatus balance_status = 2;
 }
+
+// What a reward is for.
+enum RewardKind {
+  REWARD_KIND_UNKNOWN = 0;
+  REWARD_KIND_OPENING = 1;
+}
