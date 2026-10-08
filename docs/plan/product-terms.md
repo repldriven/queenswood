@@ -109,6 +109,74 @@ The question for each is whether it is a term of the version, checked
 by the brick that owns the act, or a policy that a version can bind,
 and whether it shares a shape with a reward's condition.
 
+## Interest journeys to add
+
+Each joins the [interest PRD](../prd/interest.md)'s user journeys with
+its scenario under `journeys/interest/`, in the slice that builds it,
+since the corpus test holds every journey there to a scenario.
+
+#### 5. End customer earns a bonus rate, then the standard rate
+
+```mermaid
+sequenceDiagram
+    participant T as Customer system
+    participant E as End customer
+    participant Q as Queenswood
+
+    T->>Q: publish a version: 5% up to £5,000 for 12 months,<br/>then 1.5%, paid monthly on the opening day
+    E->>T: opens an account on 15 January with £8,000
+    Note over E,Q: each day for 12 months: 5% on £5,000, nothing on £3,000
+    Q->>E: on the 15th of each month, the month's interest is paid
+    Note over E,Q: from 15 January next year: 1.5% on the whole balance
+```
+
+The customer states a twelve-month bonus capped at £5,000
+once, when it publishes the version. Every account opened on
+it gets its own twelve months from the day it opened, and is
+paid on its own day of the month.
+
+#### 6. End customer closes an account with interest owed
+
+```mermaid
+sequenceDiagram
+    participant E as End customer
+    participant T as Customer system
+    participant Q as Queenswood
+
+    Note over E,Q: the account is paid monthly, and is mid-month
+    E->>T: close my account
+    T->>Q: pay the account's accrued interest now
+    Q-->>T: interest paid into the account
+    T->>Q: move the whole balance to the end customer's other bank
+    T->>Q: close the account
+    Q-->>T: account closed
+```
+
+The end customer leaves with every penny accrued up to the
+day they closed, not just up to the last payment day.
+
+#### 7. A regular saver matures
+
+```mermaid
+sequenceDiagram
+    participant T as Customer system
+    participant E as End customer
+    participant Q as Queenswood
+
+    T->>Q: publish a version: 6.31% fixed, paid monthly,<br/>a twelve-month term
+    E->>T: opens a saver, paying out to their current account
+    Note over E,Q: each month for twelve months: interest paid into the saver
+    Note over E,Q: twelve months after opening
+    Q->>E: the last interest is paid and the saver matures
+    Q->>E: the whole balance moves to the current account
+    Q-->>T: the saver is closed
+```
+
+The end customer saves for a fixed term and finds the money in their
+current account when it ends, with nothing to do. Had they closed
+that current account in the meantime, the saver would wait, matured,
+until they named another.
+
 Read before starting: the [interest TDD](../tdd/interest.md), the
 [rewards TDD](../tdd/rewards.md),
 [cash-account-products](../tdd/cash-account-products.md),

@@ -42,6 +42,7 @@
    :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
    :product-id "prd.01kprbmgcj35ptc8npmybhh4se"
    :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
+   :pinned-on 20089
    :name "Arthur Phillip Dent - Current Account"
    :currency "GBP"
    :account-status :cash-account-status-opened
@@ -278,7 +279,6 @@
    :balance-products [{:balance-type :balance-type-default
                        :balance-status :balance-status-posted}]
    :allowed-payment-address-schemes [:payment-address-scheme-scan]
-   :interest-rate-bps 0
    :effective-from 20089
    :created-at 1700000000000
    :created-by {:kind :actor-kind-operator :principal-id "queenswood-admin"}
@@ -298,7 +298,20 @@
       (is (= 1000
              (.. (SUT/CashAccountProduct->java version)
                  getOpeningReward
-                 getAmount))))))
+                 getAmount)))))
+  (testing "a version's interest terms read back as plain maps"
+    (let [interest {:basis :interest-schedule-basis-relative
+                    :banding :interest-banding-marginal
+                    :steps [{:bands [{:up-to 500000 :rate-bps 500}
+                                     {:rate-bps 0}]}
+                            {:starts-after-months 12 :bands [{:rate-bps 150}]}]
+                    :day-count :interest-day-count-actual-actual
+                    :payment {:frequency :interest-payment-frequency-monthly
+                              :day :interest-payment-day-last-of-month}}
+          read (SUT/pb->CashAccountProduct
+                (SUT/CashAccountProduct->pb
+                 (assoc draft-version :interest interest)))]
+      (is (= interest (:interest read))))))
 
 (def ^:private due-reward
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"

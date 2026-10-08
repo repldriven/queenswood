@@ -385,6 +385,7 @@
                     :cash-account-status-suspended]]
       (let [result (SUT/migrate-product (account status)
                                         migration-target
+                                        20500
                                         [(policy-allowing
                                           :cash-account-action-migrate)])]
         (is (error/rejection? result))
@@ -398,6 +399,7 @@
     ;; another transition's.
     (let [result (SUT/migrate-product (account :cash-account-status-opened)
                                       migration-target
+                                      20500
                                       [])]
       (is (error/anomaly? result)))))
 
@@ -411,10 +413,12 @@
     (let [acct (opened-account-with-address)
           result (SUT/migrate-product acct
                                       migration-target
+                                      20500
                                       [(policy-allowing
                                         :cash-account-action-migrate)])]
       (is (= "prd.mega" (:product-id result)))
       (is (= "prv.4" (:version-id result)))
+      (is (= 20500 (:pinned-on result)))
       (is (= :cash-account-status-opened (:account-status result)))
       (is (= (:bban acct) (:bban result)))
       (is (= (:payment-addresses acct) (:payment-addresses result)))

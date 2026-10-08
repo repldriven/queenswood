@@ -217,12 +217,42 @@
           (some? (get m k))
           (update k #(into {} %))))
 
+(defn- without-unset
+  [record unset]
+  (reduce-kv (fn [m k v]
+               (cond-> m
+                       (= v (get m k))
+                       (dissoc k)))
+             (into {} record)
+             unset))
+
+(defn- plain-interest
+  "A version's interest terms as plain maps, without a step's start, a
+  band's `up-to` or a payment's day, day of month or month where none
+  was given."
+  [interest]
+  (-> (into {} interest)
+      (update
+       :steps
+       (fn [steps]
+         (mapv (fn [step]
+                 (-> (without-unset step {:starts-on 0 :starts-after-months 0})
+                     (update :bands
+                             (fn [bands]
+                               (mapv (fn [band]
+                                       (without-unset band {:up-to 0}))
+                                     bands)))))
+               steps)))
+      (update :payment
+              without-unset
+              {:day :interest-payment-day-unknown :day-of-month 0 :month 0})))
+
 (defn pb->CashAccountProduct
   "Parse CashAccountProduct protobuf bytes into a Clojure map, without the
   optional fields the version was never given: a zero `effective_to`,
   `published_at` or `discarded_at`, an unknown ISO account type, an empty
-  idempotency key, no opening reward, or no publishing or discarding
-  actor. An embedded message is a plain map.
+  idempotency key, no opening reward or interest terms, or no publishing
+  or discarding actor. An embedded message is a plain map.
 
   Args:
   - input: protobuf bytes."
@@ -234,6 +264,12 @@
              [:opening-reward :created-by :published-by :discarded-by])
      (nil? (:opening-reward version))
      (dissoc :opening-reward)
+
+     (nil? (:interest version))
+     (dissoc :interest)
+
+     (some? (:interest version))
+     (update :interest plain-interest)
 
      (nil? (:published-by version))
      (dissoc :published-by)
@@ -1274,15 +1310,6 @@
   [user-status]
   (UserProto$UserStatus/forNumber
    (user-status->int user-status)))
-
-(defn- without-unset
-  [record unset]
-  (reduce-kv (fn [m k v]
-               (cond-> m
-                       (= v (get m k))
-                       (dissoc k)))
-             (into {} record)
-             unset))
 
 (def ^:private membership-unset {:ended-at 0 :ended-by nil :invitation-id ""})
 

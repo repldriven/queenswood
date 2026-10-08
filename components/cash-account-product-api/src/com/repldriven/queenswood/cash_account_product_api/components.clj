@@ -78,7 +78,9 @@
 
 (defn ->version-body
   [version]
-  (select-keys version version-keys))
+  (assoc (select-keys version version-keys)
+         :interest-rate-bps
+         (or (get-in version [:interest :steps 0 :bands 0 :rate-bps]) 0)))
 
 (defn ->product-body
   [product]

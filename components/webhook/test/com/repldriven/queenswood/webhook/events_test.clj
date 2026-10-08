@@ -65,6 +65,7 @@
      :party-id "pty.events"
      :product-id "prd.events"
      :version-id "prv.1"
+     :pinned-on 20089
      :product-type :product-type-sub-ledger-current
      :name account-id
      :currency "GBP"

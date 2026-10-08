@@ -23,6 +23,7 @@
    :party-id "pty.test"
    :product-id "prd.test"
    :version-id "v1"
+   :pinned-on 20089
    :name "Idempotency Test Account"
    :currency "GBP"
    :account-status :cash-account-status-opening

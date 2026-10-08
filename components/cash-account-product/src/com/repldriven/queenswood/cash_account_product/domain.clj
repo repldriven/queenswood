@@ -42,13 +42,25 @@
                      :template-id (:template-id template)
                      :requested-template-id requested}))))
 
+(defn- flat-interest
+  "Interest terms paying `rate-bps` on the whole balance from the start,
+  paid daily. Nil at no rate or a zero one, since a version that pays
+  nothing carries no terms."
+  [rate-bps]
+  (when (and rate-bps (not (zero? rate-bps)))
+    {:basis :interest-schedule-basis-fixed
+     :banding :interest-banding-marginal
+     :steps [{:bands [{:rate-bps rate-bps}]}]
+     :day-count :interest-day-count-actual-365
+     :payment {:frequency :interest-payment-frequency-daily}}))
+
 (defn- product-fields
   "Snapshot the derived instrument fields from the resolved `template`
   (product-type, balance-sheet-side, balance buckets, payment-address
-  schemes, iso type) plus the caller's `:interest-rate-bps` and
-  `:opening-reward`, and stamp the originating `:template-id` for
-  provenance. Returns the fields or an anomaly when the caller's
-  currency isn't allowed."
+  schemes, iso type) plus the caller's `:interest-rate-bps`, as flat
+  interest terms, and `:opening-reward`, and stamp the originating
+  `:template-id` for provenance. Returns the fields or an anomaly when
+  the caller's currency isn't allowed."
   [template data]
   (let [{:keys [currency interest-rate-bps opening-reward]} data]
     (let-nom>
@@ -60,10 +72,11 @@
         :balance-products (:balance-products template)
         :allowed-payment-address-schemes
         (:allowed-payment-address-schemes template)
-        :internal (boolean (:internal template))
-        :interest-rate-bps (or interest-rate-bps 0)}
+        :internal (boolean (:internal template))}
        :iso-cash-account-type
        (:iso-cash-account-type template)
+       :interest
+       (flat-interest interest-rate-bps)
        :opening-reward
        (when opening-reward {:amount (:amount opening-reward)})))))
 

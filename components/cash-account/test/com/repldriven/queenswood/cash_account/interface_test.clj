@@ -46,6 +46,7 @@
    :party-id "pty.test"
    :product-id "prd.test"
    :version-id "prv.test"
+   :pinned-on 20089
    :product-type :product-type-sub-ledger-current
    :name "Provider Legs Account"
    :currency "GBP"

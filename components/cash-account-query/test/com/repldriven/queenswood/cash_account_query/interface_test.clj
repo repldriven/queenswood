@@ -50,6 +50,7 @@
      :party-id party-id
      :product-id "prd.query"
      :version-id version-id
+     :pinned-on 20089
      :product-type :product-type-sub-ledger-current
      :name account-id
      :currency "GBP"
@@ -274,7 +275,6 @@
      :name "Bank own funds"
      :currency currency
      :template-id "tpl.00000000000000000000000004"
-     :interest-rate-bps 0
      :balance-products [{:balance-type :balance-type-default
                          :balance-status :balance-status-posted}]
      :internal true

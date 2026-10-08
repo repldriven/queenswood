@@ -22,6 +22,7 @@
     {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
     {"name": "product_id",  "type": "string"},
     {"name": "version_id", "type": "string"},
+    {"name": "pinned_on", "type": "long"},
     {"name": "product_type",
       "type": {"type": "enum",
                "name": "ProductType",

@@ -28,6 +28,7 @@
    :party-id "pty.test"
    :product-id "prd.test"
    :version-id "v1"
+   :pinned-on 20089
    :name "Event Redelivery Test Account"
    :currency "GBP"
    :account-status status

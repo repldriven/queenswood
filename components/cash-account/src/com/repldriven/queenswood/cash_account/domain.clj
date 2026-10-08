@@ -152,6 +152,7 @@
                      :party-id party-id
                      :product-id product-id
                      :version-id version-id
+                     :pinned-on as-of
                      :product-type product-type
                      :account-type account-type
                      :currency currency
@@ -319,18 +320,19 @@
   "Repin an opened account to another product version. Direct
   single-phase flip, no second leg.
 
-  Only the pin moves. Balances, payment addresses and the account
-  number are untouched, because the account is the same account on
-  different terms — a customer whose savings rate changed did not get a
-  new account. The product may change too, so `:product-id` follows the
-  target rather than being asserted equal.
+  Only the pin moves, with `:pinned-on` set to the day `as-of`. Balances,
+  payment addresses and the account number are untouched, because the
+  account is the same account on different terms — a customer whose
+  savings rate changed did not get a new account. The product may change
+  too, so `:product-id` follows the target rather than being asserted
+  equal.
 
   What the target is allowed to be — published, the same product type,
   a currency this account may hold — belongs to whoever assembled the
   cohort, not here. This guards the account's own state and nothing
   else, so a single account can be moved on its own without
   reconstructing a migration's reasoning."
-  [account target-version policies]
+  [account target-version as-of policies]
   (let-nom>
     [_ (when-not (= :cash-account-status-opened (:account-status account))
          (error/reject :cash-account/invalid-status
@@ -344,4 +346,5 @@
     (assoc account
            :product-id (:product-id target-version)
            :version-id (:version-id target-version)
+           :pinned-on as-of
            :updated-at (utility/now))))

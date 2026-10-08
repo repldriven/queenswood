@@ -411,7 +411,10 @@
   as it needs to see a status flip."
   [txn account target-version policies]
   (let-nom>
-    [updated (domain/migrate-product account target-version policies)
+    [updated (domain/migrate-product account
+                                     target-version
+                                     (utility/today)
+                                     policies)
      _ (store/save-account txn
                            updated
                            {:account-id (:account-id account)

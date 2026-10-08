@@ -48,6 +48,7 @@ message CashAccount {
   required string party_id = 4;
   required string product_id = 5;
   required string version_id = 6;
+  required int64 pinned_on = 15; // epoch day
   // Tag 7 (product_type) cached from the product for the
   // CashAccount_count_by_bank_product_account_type_currency index. Customer
   // accounts carry their product type; the bank's own-funds account carries

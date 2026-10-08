@@ -53,7 +53,6 @@
    :balance-sheet-side :balance-sheet-side-liability
    :balance-products [{:balance-type :balance-type-default
                        :balance-status :balance-status-posted}]
-   :interest-rate-bps 0
    :effective-from 20089
    :created-at 1700000000000
    :updated-at 1700000000000})
