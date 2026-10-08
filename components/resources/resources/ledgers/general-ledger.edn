@@ -7,29 +7,20 @@
 ;; conventional 1=asset / 2=liability / 3=equity / 4=income /
 ;; 5=expense layout (4xxx income is unused for now).
 [{:code :ledger-account-code-cash-at-correspondent
-  :name "Cash at correspondent"
-  :account-type :ledger-account-type-detail}
+  :name "Cash at correspondent"}
  {:code :ledger-account-code-pending-outbound
-  :name "Pending outbound payments"
-  :account-type :ledger-account-type-detail}
+  :name "Pending outbound payments"}
  {:code :ledger-account-code-customer-deposits-current
-  :name "Customer deposits - current"
-  :account-type :ledger-account-type-control}
+  :name "Customer deposits - current"}
  {:code :ledger-account-code-customer-deposits-savings
-  :name "Customer deposits - savings"
-  :account-type :ledger-account-type-control}
+  :name "Customer deposits - savings"}
  {:code :ledger-account-code-customer-deposits-term
-  :name "Customer deposits - term deposits"
-  :account-type :ledger-account-type-control}
+  :name "Customer deposits - term deposits"}
  {:code :ledger-account-code-interest-payable
-  :name "Interest payable"
-  :account-type :ledger-account-type-control}
+  :name "Interest payable"}
  {:code :ledger-account-code-suspense
-  :name "Suspense - unreconciled inbound"
-  :account-type :ledger-account-type-detail}
+  :name "Suspense - unreconciled inbound"}
  {:code :ledger-account-code-own-funds
-  :name "Bank own funds"
-  :account-type :ledger-account-type-control}
+  :name "Bank own funds"}
  {:code :ledger-account-code-interest-expense
-  :name "Interest expense"
-  :account-type :ledger-account-type-detail}]
+  :name "Interest expense"}]

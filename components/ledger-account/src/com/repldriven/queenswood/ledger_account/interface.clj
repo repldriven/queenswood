@@ -58,7 +58,7 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - currency: ISO 4217 currency string.
-  - row: chart-of-accounts row (`:code`, `:name`, `:account-type`).
+  - row: chart-of-accounts row (`:code`, `:name`).
   - opts (optional): `:policies` to check against."
   ([txn bank-id currency row]
    (core/new-account txn bank-id currency row))
@@ -193,6 +193,17 @@
   - code: a `:ledger-account-code-*` keyword."
   [code]
   (domain/account-class code))
+
+(defn account-type
+  "The type of the account in a `code` role:
+  `:ledger-account-type-control` for one standing for a sub-ledger —
+  the deposit and own-funds controls and 2400 interest-payable — and
+  `:ledger-account-type-detail` otherwise.
+
+  Args:
+  - code: a `:ledger-account-code-*` keyword."
+  [code]
+  (domain/account-type code))
 
 (defn debit-normal?
   "True for an account whose class is debit-normal (asset, expense),

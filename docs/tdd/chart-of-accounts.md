@@ -185,11 +185,9 @@ message LedgerAccount {
   required string ledger_account_id = 2;   // led.<uuidv7>
   required LedgerAccountCode code = 3;
                                        // role; enum value = chart number
-  required string name = 4;
-  required LedgerAccountStatus status = 5; // open or closed
-  required string currency = 6;            // ISO 4217
-  required LedgerAccountType account_type = 7;
-                                       // detail, control or summary
+  required string currency = 4;            // ISO 4217
+  required string name = 5;
+  required LedgerAccountStatus status = 6; // open or closed
 
   required int64 created_at = 101;
   required int64 updated_at = 103;
@@ -227,9 +225,8 @@ message CashAccount {
 Notes:
 
 - **GL accounts and cash accounts are separate record types.**
-  A `LedgerAccount` carries its chart role (`code`)
-  and how it posts (`account_type`) directly on the record;
-  there is no product behind it. A `CashAccount` carries no GL fields — its
+  A `LedgerAccount` carries its chart role (`code`) directly on
+  the record; there is no product behind it. A `CashAccount` carries no GL fields — its
   control is derived from `product_type`.
 - **The control link is *not* stored on the cash account.**
   There is no `gl_control_account_id`. A control's balance is
@@ -247,16 +244,18 @@ Notes:
   holder party. Customer accounts on a person party are
   personal; the own-funds account on the bank's org party is
   business.
-- **The class is derived from the code.** An account's class —
-  asset, liability, equity, income or expense — is the thousand
-  of its chart number, which `ledger-account/account-class`
-  reads, so no stored class can disagree with the code. The API
-  still names it `gl-account-type`, and the type
-  `gl-account-class`, until its names are revisited.
-- **A ledger account's `account_type`** distinguishes three:
+- **The class and type are derived from the code.** An account's
+  class — asset, liability, equity, income or expense — is the
+  thousand of its chart number, which `ledger-account/account-class`
+  reads. Its type, which `ledger-account/account-type` reads, is
+  `control` for a code standing for a sub-ledger — the deposit and
+  own-funds controls and 2400 — and `detail` otherwise. No stored
+  class or type can disagree with the code, and neither depends on
+  the seed chart after a bank is created. The API still names the
+  class `gl-account-type`, and the type `gl-account-class`, until
+  its names are revisited.
+- **A ledger account's type** is one of:
   - `detail` — leaf, accepts legs.
-  - `summary` — rolls up children, never receives legs
-    directly.
   - `control` — special leaf that aggregates a sub-ledger.
     Detail lives elsewhere (in customer cash-accounts); the
     control account is the GL's single line item for that
@@ -772,8 +771,7 @@ at any layer holds more than one currency.
   ledger (`led.`) account-ids; `validate-legs` checks every
   posting, and `new-zero-balance` opens a bucket on first use.
 - **`schema`** defines the `LedgerAccount` message and the
-  `LedgerAccountType` / `LedgerAccountCode` / `LedgerAccountStatus`
-  enums, the `LedgerAccount` entry in `RecordTypeUnion`, and the
+  `LedgerAccountCode` / `LedgerAccountStatus` enums, the `LedgerAccount` entry in `RecordTypeUnion`, and the
   `LedgerAccount_by_bank_code` index. `ProductType`
   carries the sub-ledger values `-current` / `-savings` /
   `-term-deposit` / `-own-funds` plus `-general-ledger`.

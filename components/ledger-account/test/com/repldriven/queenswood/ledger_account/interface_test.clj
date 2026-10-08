@@ -28,32 +28,19 @@
   components/resources/resources/ledgers/general-ledger.edn, which
   bank-bank seeds every customer bank with at provisioning time."
   [{:code :ledger-account-code-cash-at-correspondent
-    :name "Cash at correspondent"
-    :account-type :ledger-account-type-detail}
+    :name "Cash at correspondent"}
    {:code :ledger-account-code-pending-outbound
-    :name "Pending outbound payments"
-    :account-type :ledger-account-type-detail}
+    :name "Pending outbound payments"}
    {:code :ledger-account-code-customer-deposits-current
-    :name "Customer deposits - current"
-    :account-type :ledger-account-type-control}
+    :name "Customer deposits - current"}
    {:code :ledger-account-code-customer-deposits-savings
-    :name "Customer deposits - savings"
-    :account-type :ledger-account-type-control}
+    :name "Customer deposits - savings"}
    {:code :ledger-account-code-customer-deposits-term
-    :name "Customer deposits - term deposits"
-    :account-type :ledger-account-type-control}
-   {:code :ledger-account-code-interest-payable
-    :name "Interest payable"
-    :account-type :ledger-account-type-control}
-   {:code :ledger-account-code-suspense
-    :name "Suspense - unreconciled inbound"
-    :account-type :ledger-account-type-detail}
-   {:code :ledger-account-code-own-funds
-    :name "Bank own funds"
-    :account-type :ledger-account-type-control}
-   {:code :ledger-account-code-interest-expense
-    :name "Interest expense"
-    :account-type :ledger-account-type-detail}])
+    :name "Customer deposits - term deposits"}
+   {:code :ledger-account-code-interest-payable :name "Interest payable"}
+   {:code :ledger-account-code-suspense :name "Suspense - unreconciled inbound"}
+   {:code :ledger-account-code-own-funds :name "Bank own funds"}
+   {:code :ledger-account-code-interest-expense :name "Interest expense"}])
 
 (def ^:private chart-numbers
   "The chart number each role in `template` reports, as a string."
@@ -124,6 +111,21 @@
     (doseq [[role number] chart-numbers]
       (is (= number (SUT/chart-number role)) (str role)))))
 
+(deftest account-type-test
+  (testing "the deposit and own-funds controls and 2400 are controls"
+    (doseq [code [:ledger-account-code-customer-deposits-current
+                  :ledger-account-code-customer-deposits-savings
+                  :ledger-account-code-customer-deposits-term
+                  :ledger-account-code-own-funds
+                  :ledger-account-code-interest-payable]]
+      (is (= :ledger-account-type-control (SUT/account-type code)) (str code))))
+  (testing "every other role is a detail account"
+    (doseq [code [:ledger-account-code-cash-at-correspondent
+                  :ledger-account-code-pending-outbound
+                  :ledger-account-code-suspense
+                  :ledger-account-code-interest-expense]]
+      (is (= :ledger-account-type-detail (SUT/account-type code)) (str code)))))
+
 ;; --- FDB-backed seed / lookup / controls -------------------------------
 
 (deftest seed!-test
@@ -166,7 +168,6 @@
                  control (current-deposits-control config bank-id)
                  _ (is (= :ledger-account-code-customer-deposits-current
                           (:code control)))
-                 _ (is (= :ledger-account-type-control (:account-type control)))
                  fetched
                  (SUT/get-account config bank-id (:ledger-account-id control))
                  _ (is (= (:ledger-account-id control)

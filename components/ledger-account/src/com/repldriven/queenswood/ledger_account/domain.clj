@@ -99,6 +99,21 @@
   (class-by-thousand (quot (schema/ledger-account-code->int code)
                            1000)))
 
+(def ^:private control-codes
+  "The codes whose account stands for a sub-ledger: the deposit and
+  own-funds controls, and 2400 interest-payable."
+  (conj (set (vals product-type->control-code))
+        :ledger-account-code-interest-payable))
+
+(defn account-type
+  "The type of the account in a `code` role: `:ledger-account-type-control`
+  for one standing for a sub-ledger, `:ledger-account-type-detail`
+  otherwise."
+  [code]
+  (if (contains? control-codes code)
+    :ledger-account-type-control
+    :ledger-account-type-detail))
+
 (defn new-ledger-account
   "Build a `LedgerAccount` map for one template `row` in `currency`,
   stamping a fresh `led.` id and timestamps. Gated on the
@@ -112,7 +127,7 @@
                                 :ledger-account
                                 {:action :ledger-account-action-open})]
     (let [now (utility/now)]
-      (assoc (select-keys row [:code :name :account-type])
+      (assoc (select-keys row [:code :name])
              :bank-id bank-id
              :currency currency
              :ledger-account-id (utility/generate-id "led")

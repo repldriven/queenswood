@@ -15,16 +15,16 @@
   the same id key as the path parameter and the balance API, and the
   `:code` role is rendered back to its chart number as the `:gl-code`
   string clients (and the console's ledger view) expect. The class
-  derived from the code is `:gl-account-type` and the account's type
+  and the type derived from the code are `:gl-account-type` and
   `:gl-account-class`, the names the API has used throughout."
   [account]
-  (let [{:keys [code account-type]} account]
+  (let [{:keys [code]} account]
     (-> account
         (set/rename-keys {:ledger-account-id :account-id})
         (assoc :gl-code (ledger-accounts/chart-number code)
                :gl-account-type (ledger-accounts/account-class code)
-               :gl-account-class account-type)
-        (dissoc :code :account-type))))
+               :gl-account-class (ledger-accounts/account-type code))
+        (dissoc :code))))
 
 (defn- with-posted-balance
   "Attach the account's derived `:posted-balance` ({value, currency}),

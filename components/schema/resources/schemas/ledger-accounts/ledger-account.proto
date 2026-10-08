@@ -6,15 +6,6 @@ import "record_metadata_options.proto";
 
 option java_outer_classname = "LedgerAccountProto";
 
-// How an account posts: detail takes legs, control stands for a
-// sub-ledger, summary rolls up others.
-enum LedgerAccountType {
-  LEDGER_ACCOUNT_TYPE_UNKNOWN = 0;
-  LEDGER_ACCOUNT_TYPE_DETAIL = 1;
-  LEDGER_ACCOUNT_TYPE_CONTROL = 2;
-  LEDGER_ACCOUNT_TYPE_SUMMARY = 3;
-}
-
 enum LedgerAccountStatus {
   LEDGER_ACCOUNT_STATUS_UNKNOWN = 0;
   LEDGER_ACCOUNT_STATUS_OPEN = 1;
@@ -45,10 +36,9 @@ message LedgerAccount {
   required string bank_id = 1;
   required string ledger_account_id = 2; // led.<uuidv7>
   required LedgerAccountCode code = 3;
-  required string name = 4;
-  required LedgerAccountStatus status = 5;
-  required string currency = 6; // ISO 4217
-  required LedgerAccountType account_type = 7;
+  required string currency = 4; // ISO 4217
+  required string name = 5;
+  required LedgerAccountStatus status = 6;
 
   required int64 created_at = 101;
   required int64 updated_at = 103;
