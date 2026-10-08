@@ -1,6 +1,8 @@
 (ns com.repldriven.queenswood.api.companies.queries
   (:require
-    [com.repldriven.queenswood.api.commands :as commands]))
+    [com.repldriven.queenswood.api.commands :as commands]
+
+    [com.repldriven.queenswood.company-api.interface :as company-api]))
 
 (defn- dispatcher
   [request]
@@ -11,14 +13,18 @@
 (defn lookup
   "Resolve `company-number` against the registry of record. Returns the
   `commands/send` ring response — 200 plus the company body on success.
-  Onboarding calls this directly; the reply carries `:registry-id`
-  stamped by the adapter, which the caller snapshots onto the bank."
+  Onboarding calls this directly; the body carries `:registry-id`, the
+  registry the adapter answered for, which the caller snapshots onto the
+  bank."
   [request company-number]
-  (commands/send (dispatcher request)
-                 request
-                 "lookup-company"
-                 "company"
-                 {:company-number company-number}))
+  (let [response (commands/send (dispatcher request)
+                                request
+                                "lookup-company"
+                                "company"
+                                {:company-number company-number})]
+    (cond-> response
+            (= 200 (:status response))
+            (update :body company-api/->body))))
 
 (defn lookup-company
   [request]

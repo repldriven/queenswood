@@ -3,7 +3,11 @@
     [com.repldriven.queenswood.company-api.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :refer
-     [components-registry]]))
+     [components-registry]]
+
+    [com.repldriven.mono.utility.interface :as utility]
+
+    [clojure.string :as str]))
 
 (def RegisteredOfficeAddress
   [:map
@@ -25,5 +29,22 @@
    [:date-of-creation {:optional true} string?]
    [:registered-office-address {:optional true}
     [:ref "RegisteredOfficeAddress"]]])
+
+(defn ->body
+  [company]
+  (let [{:keys [registry company-number name status company-type jurisdiction
+                incorporated-on registered-office-address]}
+        company]
+    (utility/assoc-some {:company-number company-number
+                         :registry-id (str/replace (clojure.core/name registry)
+                                                   #"^company-registry-"
+                                                   "")
+                         :company-name name
+                         :company-status status
+                         :type company-type}
+                        :jurisdiction jurisdiction
+                        :date-of-creation (some-> incorporated-on
+                                                  utility/epoch-day->iso-date)
+                        :registered-office-address registered-office-address)))
 
 (def registry (components-registry [#'RegisteredOfficeAddress #'Company]))

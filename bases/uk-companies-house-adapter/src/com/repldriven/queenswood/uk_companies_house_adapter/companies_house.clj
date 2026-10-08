@@ -8,7 +8,9 @@
 
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.http-client.interface :as http]
-    [com.repldriven.mono.utility.interface :refer [assoc-some]]))
+    [com.repldriven.mono.utility.interface :refer [assoc-some]])
+  (:import
+    (java.time LocalDate)))
 
 (defn- classify
   "Turn a registry response into the parsed body or the anomaly that
@@ -106,17 +108,28 @@
               :postal-code postal_code
               :country country))
 
+(defn- incorporated-on
+  "A Companies House date as an epoch day, or nil where it gives none or
+  one that does not parse."
+  [date]
+  (when date
+    (let [day (error/try-nom :company/parse
+                             "Unparseable Companies House date"
+                             (.toEpochDay (LocalDate/parse ^String date)))]
+      (when-not (error/anomaly? day) day))))
+
 (defn body->company
   "Translate a Companies House company profile into the record shape the
   `company` brick persists."
   [{:keys [company_number company_name company_status type jurisdiction
            date_of_creation registered_office_address]}]
-  (assoc-some {:company-number company_number}
-              :company-name company_name
-              :company-status company_status
-              :type type
+  (assoc-some {:registry :company-registry-uk-companies-house
+               :company-number company_number
+               :name company_name
+               :status company_status
+               :company-type type}
               :jurisdiction jurisdiction
-              :date-of-creation date_of_creation
+              :incorporated-on (incorporated-on date_of_creation)
               :registered-office-address
               (when registered_office_address
                 (address->record registered_office_address))))

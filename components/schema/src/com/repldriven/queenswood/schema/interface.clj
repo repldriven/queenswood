@@ -170,6 +170,10 @@
      iso-cash-account-type->int
   cash-account-products/IsoCashAccountType-label2val)
 
+(def ^{:doc "Map of CompanyRegistry label to protobuf int value."}
+     company-registry->int
+  company/CompanyRegistry-label2val)
+
 (def
   ^{:doc
     "Map of GlAccountCode role label to protobuf int value — the
@@ -343,8 +347,24 @@
   (CashAccountProductTemplateProto$CashAccountProductTemplate/parseFrom
    (CashAccountProductTemplate->pb m)))
 
-(def ^{:doc "Parse Company protobuf bytes into a Clojure map."} pb->Company
-  company/pb->Company)
+(def ^:private company-unset
+  {:jurisdiction "" :incorporated-on 0 :registered-office-address nil})
+
+(def ^:private address-unset
+  {:address-line-1 "" :locality "" :postal-code "" :country ""})
+
+(defn pb->Company
+  "Parse Company protobuf bytes into a Clojure map. Each optional field,
+  and each line of the registered office address, is present only when
+  set. The address is a plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (let [company (without-unset (company/pb->Company input) company-unset)]
+    (cond-> company
+            (:registered-office-address company)
+            (update :registered-office-address without-unset address-unset))))
 
 (defn Company->pb
   "Serialise a Company map to protobuf bytes.

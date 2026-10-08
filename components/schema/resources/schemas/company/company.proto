@@ -6,6 +6,11 @@ import "record_metadata_options.proto";
 
 option java_outer_classname = "CompanyProto";
 
+enum CompanyRegistry {
+  COMPANY_REGISTRY_UNKNOWN = 0;
+  COMPANY_REGISTRY_UK_COMPANIES_HOUSE = 1;
+}
+
 message RegisteredOfficeAddress {
   optional string address_line_1 = 1;
   optional string locality = 2;
@@ -17,11 +22,15 @@ message RegisteredOfficeAddress {
 message Company {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
-  required string company_number = 1;
-  optional string company_name = 2;
-  optional string company_status = 3;
-  optional string type = 4;
-  optional string jurisdiction = 5;
-  optional string date_of_creation = 6;
-  optional RegisteredOfficeAddress registered_office_address = 7;
+  required CompanyRegistry registry = 1;
+  required string company_number = 2;
+  required string name = 3;
+  required string status = 4; // the registry's, e.g. "active"
+  required string company_type = 5; // the registry's, e.g. "ltd"
+  optional string jurisdiction = 6;
+  optional int64 incorporated_on = 7; // epoch day
+  optional RegisteredOfficeAddress registered_office_address = 8;
+
+  required int64 created_at = 101;
+  required int64 updated_at = 103;
 }

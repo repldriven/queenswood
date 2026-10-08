@@ -20,6 +20,21 @@
   components/registry)
 
 ;; ---
+;; bodies
+;; ---
+
+(defn ->body
+  "Project a company record onto the keys `Company` declares: the
+  registry as `:registry-id`, its name and status as `:company-name` and
+  `:company-status`, its type as `:type`, and the day it was
+  incorporated as `:date-of-creation`, an ISO-8601 date.
+
+  Args:
+  - company: a company as the registry lookup replies with it."
+  [company]
+  (components/->body company))
+
+;; ---
 ;; examples
 ;; ---
 

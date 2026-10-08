@@ -135,7 +135,7 @@ stores:
         fields: [bank_id, gl_account_code, currency]
   companies:
     record-type: Company
-    primary-key: [company_number]
+    primary-key: [registry, company_number]
     indexes: []
   idempotency:
     record-type: Idempotency
