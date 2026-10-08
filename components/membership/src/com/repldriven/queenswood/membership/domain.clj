@@ -76,22 +76,6 @@
     (error/reject :invitation/reason-required
                   {:message "An operator's invitation needs a reason"})))
 
-(defn- membership-not-found
-  [membership-id]
-  (error/reject :membership/not-found
-                {:message "Membership not found"
-                 :membership-id membership-id}))
-
-(defn check-in-bank
-  [membership bank-id]
-  (when-not (= bank-id (:bank-id membership))
-    (membership-not-found (:membership-id membership))))
-
-(defn check-own
-  [membership user-id]
-  (when-not (= user-id (:user-id membership))
-    (membership-not-found (:membership-id membership))))
-
 (def ^:private active :membership-status-active)
 (def ^:private ended :membership-status-ended)
 
@@ -171,13 +155,14 @@
                    :allowed allowed})))
 
 (defn new-membership
-  [{:keys [user-id bank-id role invitation-id]} now]
+  [{:keys [user-id bank-id role invitation-id actor]} now]
   (utility/assoc-some {:membership-id (utility/generate-id "mem")
                        :user-id user-id
                        :bank-id bank-id
                        :role (or role owner)
                        :status active
                        :created-at now
+                       :created-by (actor-record actor)
                        :updated-at now}
                       :invitation-id
                       invitation-id))

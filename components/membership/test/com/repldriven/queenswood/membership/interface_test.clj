@@ -97,7 +97,8 @@
          bank-id "bnk.accept"
          owner (member "usr.accept.owner" :role-owner)]
      (nom-test> [_ (SUT/new-membership config
-                                       {:user-id "usr.accept.owner"
+                                       {:actor operator
+                                        :user-id "usr.accept.owner"
                                         :bank-id bank-id})
                  _ (SUT/record-bank-created config bank-id {:actor operator})
                  invitation (invite config
@@ -188,10 +189,12 @@
          first-at 1700000000000
          second-at (+ first-at day-ms)]
      (nom-test> [_ (SUT/new-membership config
-                                       {:user-id "usr.unchanged.owner"
+                                       {:actor operator
+                                        :user-id "usr.unchanged.owner"
                                         :bank-id bank-id})
                  target (SUT/new-membership config
-                                            {:user-id "usr.unchanged.member"
+                                            {:actor operator
+                                             :user-id "usr.unchanged.member"
                                              :bank-id bank-id
                                              :role :role-viewer})
                  changed (SUT/change-role config
@@ -207,7 +210,7 @@
                  _ (testing
                      "repeating a role change returns the membership as is"
                      (is (= changed repeated)))
-                 loaded (q/find-by-id config (:membership-id target))
+                 loaded (q/find-by-id config bank-id (:membership-id target))
                  history (q/list-access-events config bank-id)
                  _ (testing "and writes neither the membership nor an event"
                      (is (= first-at (:updated-at loaded)))
@@ -302,10 +305,12 @@
    (let [config (fdb-config sys)
          owner-a (member "usr.reach.owner-a" :role-owner)]
      (nom-test> [_ (SUT/new-membership config
-                                       {:user-id "usr.reach.owner-a"
+                                       {:actor operator
+                                        :user-id "usr.reach.owner-a"
                                         :bank-id "bnk.reach.a"})
                  target (SUT/new-membership config
-                                            {:user-id "usr.reach.member-b"
+                                            {:actor operator
+                                             :user-id "usr.reach.member-b"
                                              :bank-id "bnk.reach.b"
                                              :role :role-developer})
                  _
@@ -332,7 +337,8 @@
                                                     "bnk.reach.a" "mem.unknown"
                                                     :role-viewer {:actor
                                                                   owner-a}))))
-                 loaded (q/find-by-id config (:membership-id target))
+                 loaded
+                 (q/find-by-id config "bnk.reach.b" (:membership-id target))
                  history-a (q/list-access-events config "bnk.reach.a")
                  history-b (q/list-access-events config "bnk.reach.b")
                  _ (testing "and nothing is written"
@@ -359,10 +365,12 @@
    (let [config (fdb-config sys)
          bank-id "bnk.race.owners"]
      (nom-test> [left (SUT/new-membership config
-                                          {:user-id "usr.race.left"
+                                          {:actor operator
+                                           :user-id "usr.race.left"
                                            :bank-id bank-id})
                  right (SUT/new-membership config
-                                           {:user-id "usr.race.right"
+                                           {:actor operator
+                                            :user-id "usr.race.right"
                                             :bank-id bank-id})
                  results (let [gate (CountDownLatch. 2)
                                demote (fn [actor-id target]
@@ -397,7 +405,8 @@
          bank-id "bnk.race.accepts"
          owner (member "usr.race.owner" :role-owner)]
      (nom-test> [_ (SUT/new-membership config
-                                       {:user-id "usr.race.owner"
+                                       {:actor operator
+                                        :user-id "usr.race.owner"
                                         :bank-id bank-id})
                  work
                  (invite config bank-id owner "one@example.com" :role-viewer)

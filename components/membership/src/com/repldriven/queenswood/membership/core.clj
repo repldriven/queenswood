@@ -68,14 +68,15 @@
                              now)))
 
 (defn new-membership
-  [txn {:keys [user-id bank-id role]}]
+  [txn {:keys [user-id bank-id role actor]}]
   (store/transact
    txn
    (fn [txn]
      (let [membership (domain/new-membership
                        {:user-id user-id
                         :bank-id bank-id
-                        :role role}
+                        :role role
+                        :actor actor}
                        (utility/now))]
        (let-nom> [_ (store/save-membership txn membership)]
          membership)))
@@ -150,7 +151,8 @@
           membership (domain/new-membership {:user-id user-id
                                              :bank-id (:bank-id accepted)
                                              :role (:role accepted)
-                                             :invitation-id invitation-id}
+                                             :invitation-id invitation-id
+                                             :actor (member-actor user-id)}
                                             now)
           _ (store/save-invitation txn accepted)
           _ (store/save-membership txn membership)
@@ -270,8 +272,7 @@
    (fn [txn]
      (let [now (clock opts)]
        (let-nom>
-         [membership (q/find-by-id txn membership-id)
-          _ (domain/check-in-bank membership bank-id)
+         [membership (q/find-by-id txn bank-id membership-id)
           members (q/list-active-by-bank txn bank-id)
           changed (domain/change-role membership
                                       role
@@ -300,8 +301,7 @@
    (fn [txn]
      (let [now (clock opts)]
        (let-nom>
-         [membership (q/find-by-id txn membership-id)
-          _ (domain/check-in-bank membership bank-id)
+         [membership (q/find-by-id txn bank-id membership-id)
           members (q/list-active-by-bank txn bank-id)
           ended (domain/end-membership membership
                                        :remove
@@ -328,8 +328,7 @@
      (let [now (clock opts)
            actor (member-actor user-id)]
        (let-nom>
-         [membership (q/find-by-id txn membership-id)
-          _ (domain/check-own membership user-id)
+         [membership (q/find-user-membership txn user-id membership-id)
           members (q/list-active-by-bank txn (:bank-id membership))
           ended (domain/end-membership membership
                                        :leave

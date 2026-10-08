@@ -89,14 +89,28 @@
   (core/list-active-by-banks txn bank-ids))
 
 (defn find-by-id
-  "Load a Membership by id, active or ended. Returns the map or a
-  `:membership/not-found` rejection anomaly.
+  "Load a bank's Membership by id, active or ended. Returns the map or a
+  `:membership/not-found` rejection anomaly, for an id the bank does not
+  hold too.
 
   Args:
   - txn: FDB transaction or config.
+  - bank-id: bank id (string).
   - membership-id: membership id (string)."
-  [txn membership-id]
-  (core/find-by-id txn membership-id))
+  [txn bank-id membership-id]
+  (core/find-by-id txn bank-id membership-id))
+
+(defn find-user-membership
+  "Load a user's own Membership by id, active or ended, whichever bank
+  it is of. Returns the map or a `:membership/not-found` rejection
+  anomaly, for an id held by another user too.
+
+  Args:
+  - txn: FDB transaction or config.
+  - user-id: user id (string).
+  - membership-id: membership id (string)."
+  [txn user-id membership-id]
+  (core/find-user-membership txn user-id membership-id))
 
 ;; ---
 ;; invitations

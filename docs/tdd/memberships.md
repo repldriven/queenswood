@@ -198,17 +198,17 @@ new, registered where every record type is: the record-type union, the
 FDB record-type declaration, and the `pb->`, `->pb` and `->java` trio
 in the `schema` brick's `interface.clj`.
 
-- **`Membership`** gains a status — active or ended, absent read as
-  active — `ended_at`, `ended_by` and `invitation_id`, every one
-  `optional`, because a `required` field added to a type with stored
-  rows fails to parse every row written before it. The `Role` enum's
-  three commented values are uncommented at the numbers they reserve.
-  The unique index on user and bank is retired to `former-indexes`,
-  since a person removed and invited again holds a new membership and
-  the ended one stays; the rule it enforced — one active membership per
-  person per bank — moves to `domain.clj`, checked inside the
-  transaction that writes. The by-user and by-bank indexes stay and
-  filter on status in the brick.
+- **`Membership`** — bank id, membership id (prefix `mem`), status
+  (active or ended), role, user id, the invitation accepted to create
+  it, `ended_at` and `ended_by`, and `created_by` beside the
+  timestamps. The primary key is `[bank_id, membership_id]`, so a
+  bank's members scan contiguously and a bank-scoped read finds no
+  other bank's membership. `Membership_by_user`, unique on
+  `[user_id, membership_id]`, lists a person's memberships and finds
+  one of their own by id for the routes under `/v1/me`, which hold no
+  bank. A person removed and invited again holds a new membership and
+  the ended one stays, so one active membership per person per bank is
+  a rule in `domain.clj`, checked inside the transaction that writes.
 - **`Invitation`** — invitation id (prefix `inv`), bank id, email as
   the inviter typed it and lower-cased for matching, role, status
   (pending, accepted, declined, withdrawn, expired), the SHA-256 of
@@ -261,7 +261,7 @@ for membership. On the system diagram the API writes only
 
 - **`membership-query`** — `list-by-user`, `list-by-bank`,
   `list-active-by-user`, `list-active-by-bank`, `find-by-id`,
-  `find-invitation`, `find-invitation-for-recipient`,
+  `find-user-membership`, `find-invitation`, `find-invitation-for-recipient`,
   `list-invitations-by-bank`, `list-pending-invitations-by-email` and
   `list-access-events`, over the three stores by the same names, and
   the pure `new-invitation-token` and `token-hash`, so the email adapter

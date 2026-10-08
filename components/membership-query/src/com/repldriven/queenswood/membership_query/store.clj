@@ -12,10 +12,11 @@
 (def transact fdb/transact)
 
 (defn get-membership
-  [txn membership-id]
+  [txn bank-id membership-id]
   (fdb/transact txn
                 (fn [txn]
                   (some-> (fdb/load-record (fdb/open txn memberships-store-name)
+                                           bank-id
                                            membership-id)
                           schema/pb->Membership))
                 :membership/get
@@ -35,6 +36,20 @@
                 :membership/list-by-user
                 "Failed to list memberships by user"))
 
+(defn find-user-membership
+  [txn user-id membership-id]
+  (fdb/transact txn
+                (fn [txn]
+                  (some-> (fdb/query-record-compound
+                           (fdb/open txn memberships-store-name)
+                           "Membership"
+                           [["user_id" user-id]
+                            ["membership_id" membership-id]]
+                           {:index "Membership_by_user"})
+                          schema/pb->Membership))
+                :membership/find-user-membership
+                "Failed to load membership"))
+
 (defn list-by-bank
   [txn bank-id]
   (fdb/transact txn
@@ -44,8 +59,7 @@
                          (fdb/open txn memberships-store-name)
                          "Membership"
                          "bank_id"
-                         bank-id
-                         {:index "Membership_by_bank"})))
+                         bank-id)))
                 :membership/list-by-bank
                 "Failed to list memberships by bank"))
 

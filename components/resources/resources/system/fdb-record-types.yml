@@ -200,15 +200,13 @@ stores:
         type: sum
   memberships:
     record-type: Membership
+    primary-key: [bank_id, membership_id]
     indexes:
       - name: Membership_by_user
         added: 1
         modified: 1
-        field: user_id
-      - name: Membership_by_bank
-        added: 1
-        modified: 1
-        field: bank_id
+        fields: [user_id, membership_id]
+        unique: true
   banks:
     record-type: Bank
     indexes:

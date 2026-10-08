@@ -286,8 +286,9 @@
      {:invitation-id invitation-id
       :user-id (:principal-id auth)
       :proof (proof-data (proof request))}
-     (fn [{:keys [membership-id]}]
+     (fn [{:keys [bank-id membership-id]}]
        (respond (let-nom> [membership (memberships/find-by-id txn
+                                                              bank-id
                                                               membership-id)]
                   (named-membership txn membership))
                 (created my-membership-uri))))))
@@ -348,7 +349,10 @@
   (let [{:keys [auth parameters]} request
         {:keys [membership-id]} (:path parameters)
         txn (config request)]
-    (respond (let-nom> [found (memberships/find-by-id txn membership-id)
+    (respond (let-nom> [found (memberships/find-user-membership
+                               txn
+                               (:principal-id auth)
+                               membership-id)
                         active (active-for found :user-id (:principal-id auth))]
                (named-membership txn active))
              ok)))
@@ -379,7 +383,9 @@
         {:keys [bank-id]} auth
         {:keys [membership-id]} (:path parameters)
         txn (config request)]
-    (respond (let-nom> [found (memberships/find-by-id txn membership-id)
+    (respond (let-nom> [found (memberships/find-by-id txn
+                                                      bank-id
+                                                      membership-id)
                         active (active-for found :bank-id bank-id)]
                (named-membership txn active))
              ok)))
@@ -401,6 +407,7 @@
       :reason reason}
      (fn [{:keys [membership-id]}]
        (respond (let-nom> [changed (memberships/find-by-id txn
+                                                           bank-id
                                                            membership-id)]
                   (named-membership txn changed))
                 ok)))))

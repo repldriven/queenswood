@@ -242,7 +242,8 @@
                (memberships/new-membership txn
                                            {:user-id user-id
                                             :bank-id bank-id
-                                            :role role}))
+                                            :role role
+                                            :actor actor}))
        ;; The bank-created event before the invitation, so its id is
        ;; the older and the history reads the two in order.
        _ (memberships/record-bank-created txn

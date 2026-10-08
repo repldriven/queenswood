@@ -29,8 +29,9 @@
 
   Args:
   - txn: FDB transaction or config.
-  - input: map with `:user-id`, `:bank-id`, and optional
-    `:role` (`:role-*` keyword; defaults to `:role-owner`).
+  - input: map with `:user-id`, `:bank-id`, `:actor` (who creates
+    it, `{:kind :principal-id}`), and optional `:role` (`:role-*`
+    keyword; defaults to `:role-owner`).
 
   Returns the Membership map or an anomaly."
   [txn input]

@@ -164,21 +164,22 @@
       (is (= "acc.01kprbmgcj35ptc8npmybhh4s8" (:creditor-account-id payment)))
       (is (= "txn.01kprbmgcj35ptc8npmybhh4t2" (:transaction-id payment))))))
 
-(def ^:private owner
-  {:membership-id "mem.01kprbmgcj35ptc8npmybhh4t0"
-   :user-id "usr.01kprbmgcj35ptc8npmybhh4t1"
-   :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :role :role-owner
-   :created-at 1700000000000
-   :updated-at 1700000000000})
-
 (def ^:private member-actor
   {:kind :actor-kind-member :principal-id "usr.01kprbmgcj35ptc8npmybhh4t1"})
 
+(def ^:private owner
+  {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :membership-id "mem.01kprbmgcj35ptc8npmybhh4t0"
+   :status :membership-status-active
+   :role :role-owner
+   :user-id "usr.01kprbmgcj35ptc8npmybhh4t1"
+   :created-at 1700000000000
+   :created-by member-actor
+   :updated-at 1700000000000})
+
 (deftest membership-record-round-trip-test
-  (testing "a membership written without a status reads back active"
-    (is (= (assoc owner :status :membership-status-active)
-           (SUT/pb->Membership (SUT/Membership->pb owner)))))
+  (testing "an active membership keeps who created it"
+    (is (= owner (SUT/pb->Membership (SUT/Membership->pb owner)))))
   (testing "an ended membership keeps who ended it and when"
     (let [ended (assoc owner
                        :role :role-viewer

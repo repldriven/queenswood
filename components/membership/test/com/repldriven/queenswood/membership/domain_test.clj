@@ -149,23 +149,6 @@
                     {:actor operator-actor}
                     now)))))
 
-(deftest check-in-bank-test
-  (let [m (membership "mem.1" "usr.1" :role-viewer)]
-    (testing "a membership of the actor's bank passes"
-      (is (nil? (SUT/check-in-bank m "bnk.1"))))
-    (testing "a membership of another bank is not found"
-      (let [result (SUT/check-in-bank m "bnk.2")]
-        (is (rejected? :membership/not-found result))
-        (is (= "mem.1" (:membership-id (error/payload result))))
-        (is (not (mentions? result "bnk.1")))))))
-
-(deftest check-own-test
-  (let [m (membership "mem.1" "usr.1" :role-viewer)]
-    (testing "the caller's own membership passes"
-      (is (nil? (SUT/check-own m "usr.1"))))
-    (testing "someone else's membership is not found"
-      (is (rejected? :membership/not-found (SUT/check-own m "usr.2"))))))
-
 (deftest last-owner-with-one-owner-test
   (let [founder (membership "mem.1" "usr.owner" :role-owner)
         admin (membership "mem.2" "usr.admin" :role-admin)
@@ -431,7 +414,10 @@
     (let [m (SUT/new-membership {:user-id "usr.1"
                                  :bank-id "bnk.1"
                                  :role :role-developer
-                                 :invitation-id "inv.1"}
+                                 :invitation-id "inv.1"
+                                 :actor {:kind :actor-kind-member
+                                         :principal-id "usr.1"
+                                         :role :role-owner}}
                                 now)]
       (is (re-find #"^mem\." (:membership-id m)))
       (is (= {:user-id "usr.1"
@@ -440,6 +426,7 @@
               :status :membership-status-active
               :invitation-id "inv.1"
               :created-at now
+              :created-by {:kind :actor-kind-member :principal-id "usr.1"}
               :updated-at now}
              (dissoc m :membership-id)))))
   (testing "new-membership defaults to owner and omits a missing invitation"

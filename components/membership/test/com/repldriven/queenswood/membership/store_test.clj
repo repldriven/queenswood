@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.membership.store-test
   "The three access records against a real record store (AC-02): a
-  membership written before it had a status reads back active, an
+  membership is found through its bank and its user and no other, an
   invitation and an access event round-trip, every invitation index
   answers, a second invitation under a taken token hash is refused, and
   one bank's history pages newest first without repeats or gaps. An
@@ -64,40 +64,48 @@
    :reason "Promoted"
    :occurred-at 1700000000000})
 
-(deftest membership-without-status-reads-active-test
+(deftest membership-is-scoped-by-its-bank-and-its-user-test
   (with-test-system
    [sys config-file]
    (let [config (fdb-config sys)
-         bank-id "bnk.store.legacy"]
-     (nom-test> [_ (SUT/save-membership config
-                                        {:membership-id "mem.legacy"
-                                         :user-id "usr.legacy"
-                                         :bank-id bank-id
-                                         :role :role-admin
-                                         :created-at 1700000000000
-                                         :updated-at 1700000000000})
-                 loaded (q/find-by-id config "mem.legacy")
-                 _ (testing
-                     "a membership saved without fields 7 to 10 reads active"
-                     (is (= :membership-status-active (:status loaded)))
-                     (is (= :role-admin (:role loaded)))
-                     (is (not (contains? loaded :ended-at)))
-                     (is (not (contains? loaded :invitation-id))))
-                 active (q/list-active-by-bank config bank-id)
-                 _ (testing "and counts as active"
-                     (is (= ["mem.legacy"] (mapv :membership-id active))))
+         bank-id "bnk.store.scoped"
+         membership {:bank-id bank-id
+                     :membership-id "mem.scoped"
+                     :status :membership-status-active
+                     :role :role-admin
+                     :user-id "usr.scoped"
+                     :created-at created-at
+                     :created-by owner-actor
+                     :updated-at created-at}]
+     (nom-test> [_ (SUT/save-membership config membership)
+                 loaded (q/find-by-id config bank-id "mem.scoped")
+                 _ (testing "a membership round-trips through its bank"
+                     (is (= membership loaded)))
+                 _ (testing "and is not found through another bank"
+                     (is (= :membership/not-found
+                            (error/kind (q/find-by-id config
+                                                      "bnk.store.other"
+                                                      "mem.scoped")))))
+                 own (q/find-user-membership config "usr.scoped" "mem.scoped")
+                 _ (testing "its user finds it by id" (is (= membership own)))
+                 _ (testing "and another user does not"
+                     (is (= :membership/not-found
+                            (error/kind (q/find-user-membership
+                                         config
+                                         "usr.other"
+                                         "mem.scoped")))))
                  _ (SUT/save-membership config
-                                        (assoc loaded
+                                        (assoc membership
                                                :status :membership-status-ended
                                                :ended-at 1700000001000
                                                :ended-by owner-actor))
                  active (q/list-active-by-bank config bank-id)
                  listed (q/list-by-bank config bank-id)
-                 by-user (q/list-active-by-user config "usr.legacy")
+                 by-user (q/list-active-by-user config "usr.scoped")
                  _ (testing "an ended membership is listed but not active"
                      (is (= [] active))
                      (is (= [] by-user))
-                     (is (= ["mem.legacy"] (mapv :membership-id listed))))]))))
+                     (is (= ["mem.scoped"] (mapv :membership-id listed))))]))))
 
 (deftest invitation-round-trips-and-every-index-answers-test
   (with-test-system

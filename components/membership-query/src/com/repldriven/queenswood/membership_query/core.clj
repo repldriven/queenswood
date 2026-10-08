@@ -63,8 +63,14 @@
   (store/list-active-by-banks txn bank-ids))
 
 (defn find-by-id
-  [txn membership-id]
-  (let-nom> [membership (store/get-membership txn membership-id)]
+  [txn bank-id membership-id]
+  (let-nom> [membership (store/get-membership txn bank-id membership-id)]
+    (domain/ensure-found membership membership-id)))
+
+(defn find-user-membership
+  [txn user-id membership-id]
+  (let-nom> [membership
+             (store/find-user-membership txn user-id membership-id)]
     (domain/ensure-found membership membership-id)))
 
 (defn get-invitation-record

@@ -1317,22 +1317,17 @@
 (def ^:private membership-unset {:ended-at 0 :ended-by nil :invitation-id ""})
 
 (defn pb->Membership
-  "Parse Membership protobuf bytes into a Clojure map. A row with no
-  status, or `:membership-status-unknown`, reads as
-  `:membership-status-active`: every membership written before one could
-  end is active. `ended-at`, `ended-by` and `invitation-id` are present
-  only when set, and `ended-by` is a plain map.
+  "Parse Membership protobuf bytes into a Clojure map. `ended-at`,
+  `ended-by` and `invitation-id` are present only when set, and
+  `created-by` and `ended-by` are plain maps.
 
   Args:
   - input: protobuf bytes."
   [input]
   (-> (memberships/pb->Membership input)
       (without-unset membership-unset)
-      (plain-embedded :ended-by)
-      (update :status
-              #(if (= :membership-status-unknown %)
-                 :membership-status-active
-                 %))))
+      (plain-embedded :created-by)
+      (plain-embedded :ended-by)))
 
 (defn Membership->pb
   "Serialise a Membership map to protobuf bytes.
