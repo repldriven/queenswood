@@ -15,7 +15,7 @@
                                (assoc intent
                                       :intent-id (str (utility/uuidv7))
                                       :status :outbound-intent-status-pending
-                                      :attempts 0
+                                      :attempt-count 0
                                       :created-at (utility/now)))]
     (if (or (not (error/anomaly? res)) (relay/uniqueness-violation? res))
       {:status "ACCEPTED"}
@@ -34,7 +34,7 @@
   (let [{:keys [end-to-end-id debtor-bban creditor-bban creditor-name amount
                 currency reference]}
         data]
-    {:dedup-key end-to-end-id
+    {:idempotency-key end-to-end-id
      :kind :form3-outbound-intent-kind-payment
      :provider-payment-id (str (utility/uuidv7))
      :request (json/write-str
@@ -57,7 +57,7 @@
   (let [{:keys [payment-id end-to-end-id scheme-transaction-id amount currency
                 reason-code reason]}
         data]
-    {:dedup-key (str "return:" payment-id)
+    {:idempotency-key (str "return:" payment-id)
      :kind :form3-outbound-intent-kind-return
      :provider-payment-id scheme-transaction-id
      :request (json/write-str {:amount (relay/->major-units amount)
@@ -74,7 +74,7 @@
 (defn- open-intent
   [data]
   (let [{:keys [bank-id account-id holder-name currency]} data]
-    {:dedup-key (str "open:" account-id)
+    {:idempotency-key (str "open:" account-id)
      :kind :form3-outbound-intent-kind-open-account
      :request "{}"
      :context (pr-str {:bank-id bank-id
@@ -85,7 +85,7 @@
 (defn- close-intent
   [data]
   (let [{:keys [bank-id account-id provider-account-id]} data]
-    {:dedup-key (str "close:" account-id)
+    {:idempotency-key (str "close:" account-id)
      :kind :form3-outbound-intent-kind-close-account
      :request "{}"
      :context (pr-str {:bank-id bank-id
@@ -95,7 +95,7 @@
 (defn- reissue-intent
   [data]
   (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
-    {:dedup-key (str "reissue:" account-id ":" rotation-key)
+    {:idempotency-key (str "reissue:" account-id ":" rotation-key)
      :kind :form3-outbound-intent-kind-reissue-address
      :request "{}"
      :context (pr-str {:bank-id bank-id

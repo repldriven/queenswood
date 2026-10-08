@@ -50,5 +50,5 @@
 (defn account-event
   [intent event-name data]
   {:event-name event-name
-   :dedup-key (str (:dedup-key intent) ":" event-name)
+   :dedup-key (str (:idempotency-key intent) ":" event-name)
    :data data})

@@ -28,13 +28,13 @@
   "Persist a pending submit-idv-check intent — the consume-side outbox
   write — in one FDB transaction. The out-of-transaction runner makes the
   Zyphe call. Returns the intent, or a `:zyphe-outbound/save` anomaly (a
-  uniqueness violation when the `dedup-key` was already enqueued).
+  uniqueness violation when the `idempotency-key` was already enqueued).
 
   Args:
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
-  - intent: a map with `:intent-id`, `:dedup-key` (verification-id),
+  - intent: a map with `:intent-id`, `:idempotency-key` (verification-id),
     `:request` (EDN-encoded command data), `:status` (\"pending\"),
-    `:attempts`, `:created-at`."
+    `:attempt-count`, `:created-at`."
   [txn intent]
   (store/save-intent txn intent))
 

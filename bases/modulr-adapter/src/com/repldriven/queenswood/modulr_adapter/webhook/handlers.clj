@@ -179,7 +179,7 @@
                     (respond request
                              "PAYOUT"
                              (publisher/payout body found)
-                             (:dedup-key found))))))))
+                             (:idempotency-key found))))))))
 
 (def compliance
   (verified (fn [request]

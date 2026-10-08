@@ -53,12 +53,21 @@
                           :ordering-key
                           (ordering-key data)))))
 
+(defn- failing
+  "`outcome` with `reason` as the intent's `:failure-reason` where it
+  moves the intent to failed."
+  [outcome reason]
+  (cond-> outcome
+          (= :outbound-intent-status-failed (:status outcome))
+          (assoc-in [:changes :failure-reason]
+           (if (string? reason) reason (pr-str reason)))))
+
 (defn- record
   "Leave `intent`, read at `from`, as `outcome` says: kept pending with
   its next step's context, or moved to its status with its event."
   [config now intent from outcome]
   (let [{:keys [store]} config
-        {:keys [intent-id attempts]} intent
+        {:keys [intent-id attempt-count]} intent
         {:keys [advance status event changes also]} outcome]
     (if advance
       (store/update-intent config
@@ -72,7 +81,8 @@
                              store
                              intent-id
                              from
-                             (fn [i] (store/moved i status attempts changes))
+                             (fn [i]
+                               (store/moved i status attempt-count changes))
                              e
                              also)))))
 
@@ -127,23 +137,24 @@
            (swap! pass assoc :budget 0))))))
 
 (defn- retry
-  [config now intent attempts reason]
+  [config now intent attempt-count reason]
   (let [{:keys [adapter store]} config
         {:keys [intent-id]} intent]
     (log/warn "External API call failed; will retry"
               {:adapter adapter
                :intent-id intent-id
                :operation (operation-of config intent)
-               :attempt attempts
+               :attempt attempt-count
                :reason reason})
     (store/mark-attempt config
                         store
                         intent-id
-                        attempts
+                        attempt-count
                         (+ now
                            (circuit-breaker/backoff-ms (retry-policy config
                                                                      intent)
-                                                       (max 1 attempts))))))
+                                                       (max 1
+                                                            attempt-count))))))
 
 (defn- attempt
   [config now pass intent]
@@ -154,8 +165,8 @@
                res ((:call operation) config now intent)]
       (let [{:keys [answered failed]} operation
             [outcome result] res
-            attempts (inc (or (:attempts intent) 0))
-            intent (assoc intent :attempts attempts)]
+            attempt-count (inc (:attempt-count intent))
+            intent (assoc intent :attempt-count attempt-count)]
         (when-not (= :wait outcome)
           (record-call config
                        now
@@ -179,11 +190,12 @@
                       now
                       intent
                       :outbound-intent-status-pending
-                      (failed config now intent :refused result)))
+                      (failing (failed config now intent :refused result)
+                               result)))
 
           (:retry :wait)
           (if (circuit-breaker/give-up? (retry-policy config intent)
-                                        (if (= :wait outcome) 0 attempts)
+                                        (if (= :wait outcome) 0 attempt-count)
                                         (age-ms now intent))
             (do (log/error "External API call giving up after max attempts"
                            {:adapter adapter
@@ -194,11 +206,12 @@
                         now
                         intent
                         :outbound-intent-status-pending
-                        (failed config now intent :undelivered result)))
+                        (failing (failed config now intent :undelivered result)
+                                 result)))
             (retry config
                    now
                    intent
-                   (if (= :wait outcome) (dec attempts) attempts)
+                   (if (= :wait outcome) (dec attempt-count) attempt-count)
                    result)))))))
 
 (defn- reconciler
@@ -228,7 +241,7 @@
                               (f intent))]
     (if (error/anomaly? res)
       (let [{:keys [adapter store]} config
-            {:keys [intent-id status attempts]} intent]
+            {:keys [intent-id status attempt-count]} intent]
         (log/error "Intent could not be relayed; failing it"
                    {:adapter adapter
                     :intent-id intent-id
@@ -239,8 +252,9 @@
                       intent-id
                       status
                       :outbound-intent-status-failed
-                      attempts
-                      nil)
+                      attempt-count
+                      nil
+                      {:failure-reason (:message (error/payload res))})
         (assoc intent :status :outbound-intent-status-failed))
       res)))
 
@@ -266,7 +280,9 @@
             now
             intent
             :outbound-intent-status-pending
-            ((:failed operation) config now intent :undelivered expired))))
+            (failing
+             ((:failed operation) config now intent :undelivered expired)
+             expired))))
 
 (defn- expire-aged
   "Fail each pending intent past its maximum age, which a breaker open

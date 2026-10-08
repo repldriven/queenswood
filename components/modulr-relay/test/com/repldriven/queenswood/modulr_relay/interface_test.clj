@@ -44,12 +44,12 @@
    [sys "classpath:modulr-relay/application-test.yml"]
    (let [config (config sys)
          intent {:intent-id "int.1"
-                 :dedup-key "pmt.1"
+                 :idempotency-key "pmt.1"
                  :kind :modulr-outbound-intent-kind-payment
                  :request "{}"
                  :nonce "n-1"
                  :status :outbound-intent-status-pending
-                 :attempts 0
+                 :attempt-count 0
                  :created-at (utility/now)}]
      (nom-test> [_ (SUT/save-intent config intent)])
      (testing "a redelivered command is a duplicate"

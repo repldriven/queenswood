@@ -138,7 +138,7 @@
                              :request "{}"
                              :nonce "n"
                              :status :outbound-intent-status-sent
-                             :attempts 1
+                             :attempt-count 1
                              :created-at 0}
                             intent)))
 
@@ -176,9 +176,9 @@
 (deftest own-payins-are-not-inbound-payments-test
   (with-adapter
    "http://modulr.invalid"
-   (nom-test> [_ (save-intent {:dedup-key "ptr.1"
+   (nom-test> [_ (save-intent {:idempotency-key "ptr.1"
                                :kind :modulr-outbound-intent-kind-transfer})
-               _ (save-intent {:dedup-key "ptr.2"
+               _ (save-intent {:idempotency-key "ptr.2"
                                :kind :modulr-outbound-intent-kind-credit})])
    (testing "the far side of a transfer between accounts"
      (notify "/webhooks/payin"
@@ -198,10 +198,10 @@
 (deftest payout-test
   (with-adapter
    "http://modulr.invalid"
-   (nom-test> [_ (save-intent {:dedup-key "pmt.1"
+   (nom-test> [_ (save-intent {:idempotency-key "pmt.1"
                                :kind :modulr-outbound-intent-kind-payment
                                :context (pr-str {:amount 500 :currency "GBP"})})
-               _ (save-intent {:dedup-key "ptr.3"
+               _ (save-intent {:idempotency-key "ptr.3"
                                :kind :modulr-outbound-intent-kind-transfer
                                :context (pr-str {:bank-id "bnk.1"})})])
    (testing "a processed payment settles and settles its intent"

@@ -26,14 +26,14 @@
 (defn- intent-of
   [intent-id dedup-key]
   {:intent-id intent-id
-   :dedup-key dedup-key
+   :idempotency-key dedup-key
    :kind :onfido-outbound-intent-kind-check
    :request (pr-str {:bank-id "bnk.1"
                      :verification-id dedup-key
                      :first-name "Ada"
                      :last-name "Lovelace"})
    :status :outbound-intent-status-pending
-   :attempts 0
+   :attempt-count 0
    :created-at (utility/now)})
 
 (deftest outbox-and-intent-test
@@ -70,4 +70,4 @@
                                 config
                                 :outbound-intent-status-pending)))]
          (is (some? i3) "still pending after an unreachable submit")
-         (is (= 1 (:attempts i3)) "attempt count bumped"))))))
+         (is (= 1 (:attempt-count i3)) "attempt count bumped"))))))

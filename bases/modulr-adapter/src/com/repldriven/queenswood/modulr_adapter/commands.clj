@@ -17,7 +17,7 @@
                                       :intent-id (str (utility/uuidv7))
                                       :nonce (modulr-webhook/nonce)
                                       :status :outbound-intent-status-pending
-                                      :attempts 0
+                                      :attempt-count 0
                                       :created-at (utility/now)))]
     (if (or (not (error/anomaly? res)) (relay/uniqueness-violation? res))
       {:status "ACCEPTED"}
@@ -35,7 +35,7 @@
   (let [{:keys [end-to-end-id debtor-account-id debtor-provider-account-id
                 creditor-bban creditor-name amount currency reference]}
         data]
-    {:dedup-key end-to-end-id
+    {:idempotency-key end-to-end-id
      :kind :modulr-outbound-intent-kind-payment
      :subjects (vec (keep identity [debtor-account-id]))
      :request (json/write-str
@@ -57,7 +57,7 @@
                 debtor-provider-account-id creditor-provider-account-id amount
                 currency]}
         data]
-    {:dedup-key transfer-id
+    {:idempotency-key transfer-id
      :subjects (vec (keep identity [debtor-account-id creditor-account-id]))
      :kind (if (or debtor-account-id debtor-provider-account-id)
              :modulr-outbound-intent-kind-transfer
@@ -78,7 +78,7 @@
 (defn- open-intent
   [config data]
   (let [{:keys [bank-id account-id currency]} data]
-    {:dedup-key (str "open:" account-id)
+    {:idempotency-key (str "open:" account-id)
      :kind :modulr-outbound-intent-kind-open-account
      :subjects [account-id]
      :request (json/write-str
@@ -92,7 +92,7 @@
 (defn- close-intent
   [data]
   (let [{:keys [bank-id account-id provider-account-id]} data]
-    {:dedup-key (str "close:" account-id)
+    {:idempotency-key (str "close:" account-id)
      :kind :modulr-outbound-intent-kind-close-account
      :subjects [account-id]
      :request "{}"
@@ -103,7 +103,7 @@
 (defn- reissue-intent
   [config data]
   (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
-    {:dedup-key (str "reissue:" account-id ":" rotation-key)
+    {:idempotency-key (str "reissue:" account-id ":" rotation-key)
      :kind :modulr-outbound-intent-kind-reissue-address
      :subjects [account-id]
      :request (json/write-str (utility/assoc-some {}

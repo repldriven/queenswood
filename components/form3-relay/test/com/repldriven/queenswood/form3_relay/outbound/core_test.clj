@@ -54,11 +54,11 @@
 (defn- intent
   [intent-id kind dedup-key context & [extra]]
   (merge {:intent-id intent-id
-          :dedup-key dedup-key
+          :idempotency-key dedup-key
           :kind kind
           :request "{}"
           :status :outbound-intent-status-pending
-          :attempts 0
+          :attempt-count 0
           :created-at (utility/now)
           :context (pr-str context)}
          extra))

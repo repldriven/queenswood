@@ -33,10 +33,10 @@
   sends the nonce the first attempt was signed with, and `x-mod-retry`."
   [config intent request]
   (let [{:keys [post-fn]} config
-        {:keys [nonce attempts]} intent
+        {:keys [nonce attempt-count]} intent
         request (assoc request
                        :nonce (not-empty nonce)
-                       :retry? (pos? (or attempts 0)))]
+                       :retry? (pos? attempt-count))]
     (modulr/classify ((or post-fn modulr/request) config request))))
 
 (defn answer

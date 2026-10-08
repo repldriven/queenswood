@@ -404,10 +404,10 @@ stores:
     record-type: ClearbankOutboundIntent
     primary-key: [intent_id]
     indexes:
-      - name: ClearbankOutboundIntent_by_dedup_key
+      - name: ClearbankOutboundIntent_by_idempotency_key
         added: 1
         modified: 1
-        field: dedup_key
+        field: idempotency_key
         unique: true
       - name: ClearbankOutboundIntent_by_status
         added: 1
@@ -426,10 +426,10 @@ stores:
     record-type: OnfidoOutboundIntent
     primary-key: [intent_id]
     indexes:
-      - name: OnfidoOutboundIntent_by_dedup_key
+      - name: OnfidoOutboundIntent_by_idempotency_key
         added: 1
         modified: 1
-        field: dedup_key
+        field: idempotency_key
         unique: true
       - name: OnfidoOutboundIntent_by_status
         added: 1
@@ -542,10 +542,10 @@ stores:
     record-type: ZypheOutboundIntent
     primary-key: [intent_id]
     indexes:
-      - name: ZypheOutboundIntent_by_dedup_key
+      - name: ZypheOutboundIntent_by_idempotency_key
         added: 1
         modified: 1
-        field: dedup_key
+        field: idempotency_key
         unique: true
       - name: ZypheOutboundIntent_by_status
         added: 1
@@ -564,10 +564,10 @@ stores:
     record-type: ModulrOutboundIntent
     primary-key: [intent_id]
     indexes:
-      - name: ModulrOutboundIntent_by_dedup_key
+      - name: ModulrOutboundIntent_by_idempotency_key
         added: 1
         modified: 1
-        field: dedup_key
+        field: idempotency_key
         unique: true
       - name: ModulrOutboundIntent_by_status
         added: 1
@@ -586,10 +586,10 @@ stores:
     record-type: Form3OutboundIntent
     primary-key: [intent_id]
     indexes:
-      - name: Form3OutboundIntent_by_dedup_key
+      - name: Form3OutboundIntent_by_idempotency_key
         added: 1
         modified: 1
-        field: dedup_key
+        field: idempotency_key
         unique: true
       - name: Form3OutboundIntent_by_status
         added: 1

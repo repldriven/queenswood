@@ -44,12 +44,12 @@
   write — in one FDB transaction. The out-of-transaction outbound relay
   makes the ClearBank HTTP call later. Returns the intent, or a
   `:clearbank-outbound/save` anomaly (a uniqueness violation when the
-  `dedup-key` was already enqueued — a redelivered submit-payment).
+  `idempotency-key` was already enqueued — a redelivered submit-payment).
 
   Args:
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
-  - intent: a map with `:intent-id`, `:dedup-key` (end-to-end id),
-    `:request` (FPS JSON body), `:status` (\"pending\"), `:attempts`,
+  - intent: a map with `:intent-id`, `:idempotency-key` (end-to-end id),
+    `:request` (FPS JSON body), `:status` (\"pending\"), `:attempt-count`,
     `:created-at`, and for an account call its `:kind` and `:context`,
     an EDN map of `:bank-id`, `:account-id` and, as the call needs them,
     `:provider-account-id` and `:rotation-key`."

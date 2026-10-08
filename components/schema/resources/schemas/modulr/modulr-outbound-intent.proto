@@ -22,20 +22,24 @@ message ModulrOutboundIntent {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string intent_id = 1; // uuidv7
-  required string dedup_key = 2;
-  required ModulrOutboundIntentKind kind = 3;
-  required com.repldriven.queenswood.schemas.outbound.OutboundIntentStatus status = 4;
-  required string request = 5; // JSON
-  optional string context = 6; // EDN
-  repeated string subjects = 7;
-  optional string correlation_id = 8;
-  optional string traceparent = 9; // W3C trace context
-  required int64 attempts = 10;
-  optional int64 next_attempt_at = 11; // epoch millis
-  optional string nonce = 12;
-  optional string provider_payment_id = 13;
+  required ModulrOutboundIntentKind kind = 2;
+  required com.repldriven.queenswood.schemas.outbound.OutboundIntentStatus status = 3;
+  required string request = 4; // JSON
+  optional string context = 5; // EDN
+  repeated string subjects = 6;
+  optional string correlation_id = 7;
+  optional string nonce = 8;
+  optional string provider_payment_id = 9;
 
   optional int64 sent_at = 51;
 
+  required string idempotency_key = 100; // the command's dedup key
   required int64 created_at = 101;
+
+  optional string failure_reason = 200;
+
+  required int32 attempt_count = 201;
+  optional int64 next_attempt_at = 202;
+  optional string traceparent = 203; // W3C trace context
 }
+

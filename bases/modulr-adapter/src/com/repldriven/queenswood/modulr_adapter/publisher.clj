@@ -128,7 +128,7 @@
     (let-nom> [amount (amount->minor-units Amount PaymentId)]
       (->> [(if (= :modulr-outbound-intent-kind-transfer kind)
               (relay/transfer-outcome {:provider-payment-id PaymentId
-                                       :transfer-id (:dedup-key intent)
+                                       :transfer-id (:idempotency-key intent)
                                        :bank-id (:bank-id context)
                                        :status Status
                                        :at at})

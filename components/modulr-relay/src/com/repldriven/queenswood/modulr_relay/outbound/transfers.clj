@@ -14,8 +14,8 @@
   [intent reason now]
   (let [{:keys! [bank-id]} (shared/context intent)]
     {:event-name "transfer-failed"
-     :dedup-key (str (:dedup-key intent) ":failed")
-     :data {:transfer-id (:dedup-key intent)
+     :dedup-key (str (:idempotency-key intent) ":failed")
+     :data {:transfer-id (:idempotency-key intent)
             :bank-id bank-id
             :reason reason
             :timestamp-failed now}}))
@@ -24,8 +24,8 @@
   [intent now]
   (let [{:keys! [bank-id]} (shared/context intent)]
     {:event-name "transfer-completed"
-     :dedup-key (str (:dedup-key intent) ":completed")
-     :data {:transfer-id (:dedup-key intent)
+     :dedup-key (str (:idempotency-key intent) ":completed")
+     :data {:transfer-id (:idempotency-key intent)
             :bank-id bank-id
             :timestamp-completed now}}))
 
@@ -45,7 +45,7 @@
         creditor (shared/held-at config
                                  creditor-account-id
                                  creditor-provider-account-id)
-        reference (modulr/->reference (:dedup-key intent))]
+        reference (modulr/->reference (:idempotency-key intent))]
     (cond
      (not (or creditor-account-id creditor-provider-account-id))
      (:request intent)
@@ -102,11 +102,11 @@
   "Ask Modulr what became of a sent transfer no webhook has settled, and
   record what it reports under the dedup key its webhook would carry."
   [config now intent]
-  (let [{:keys [intent-id dedup-key provider-payment-id]} intent
+  (let [{:keys [intent-id idempotency-key provider-payment-id]} intent
         {:keys! [bank-id]} (shared/context intent)
         [outcome {:keys [status]}] (shared/lookup config provider-payment-id)
         descriptor (outcomes/transfer {:provider-payment-id provider-payment-id
-                                       :transfer-id dedup-key
+                                       :transfer-id idempotency-key
                                        :bank-id bank-id
                                        :status status
                                        :at now})]

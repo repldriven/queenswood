@@ -1379,15 +1379,15 @@
     ctx))
 
 (defn- intent-count
-  [bank dedup-key]
+  [bank idempotency-key]
   (fdb/transact bank
                 (fn [txn]
                   (count (fdb/query-records
                           (fdb/open txn "modulr-outbound-intents")
                           "ModulrOutboundIntent"
-                          "dedup_key"
-                          dedup-key
-                          {:index "ModulrOutboundIntent_by_dedup_key"})))
+                          "idempotency_key"
+                          idempotency-key
+                          {:index "ModulrOutboundIntent_by_idempotency_key"})))
                 :scenario/intents
                 "Failed to count outbound intents"))
 

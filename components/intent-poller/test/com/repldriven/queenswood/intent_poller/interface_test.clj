@@ -121,11 +121,11 @@
 (defn- intent
   [intent-id created-at]
   {:intent-id intent-id
-   :dedup-key intent-id
+   :idempotency-key intent-id
    :kind :zyphe-outbound-intent-kind-check
    :request "{}"
    :status :outbound-intent-status-pending
-   :attempts 0
+   :attempt-count 0
    :created-at created-at})
 
 (defn- by-id
@@ -153,14 +153,14 @@
                                     (intent "out.3" t0))])
      (testing "failures to the threshold open the breaker mid-pass"
        (SUT/drain-once config t0)
-       (is (= 1 (:attempts (by-id config "out.1"))))
-       (is (= 1 (:attempts (by-id config "out.2"))))
-       (is (= 0 (:attempts (by-id config "out.3")))
+       (is (= 1 (:attempt-count (by-id config "out.1"))))
+       (is (= 1 (:attempt-count (by-id config "out.2"))))
+       (is (= 0 (:attempt-count (by-id config "out.3")))
            "the intent behind the opening keeps its attempts"))
      (testing "an open breaker calls nothing, and counts no attempt"
        (SUT/drain-once config (+ t0 2000))
        (is (= [1 1 0]
-              (mapv (fn [id] (:attempts (by-id config id)))
+              (mapv (fn [id] (:attempt-count (by-id config id)))
                     ["out.1" "out.2" "out.3"]))))
      (testing "past the cool-down one call probes, and its answer closes it"
        (reset! answers [:answered nil])
@@ -193,7 +193,7 @@
        (SUT/drain-once config (+ t0 60001))
        (is (= :outbound-intent-status-failed (:status (by-id config "exp.1"))))
        (is (= :outbound-intent-status-failed (:status (by-id config "exp.2"))))
-       (is (= 1 (:attempts (by-id config "exp.2"))))))))
+       (is (= 1 (:attempt-count (by-id config "exp.2"))))))))
 
 (deftest concurrent-test
   (with-test-system
@@ -260,9 +260,9 @@
                          (assoc (intent "rnd.3" t0) :subjects ["b"]))])
           (SUT/drain-once config t0)
           (testing "an intent left pending holds a later one for its subject"
-            (is (= 1 (:attempts (by "rnd.1"))))
+            (is (= 1 (:attempt-count (by "rnd.1"))))
             (is (= [:outbound-intent-status-pending 0]
-                   ((juxt :status :attempts) (by "rnd.2")))))
+                   ((juxt :status :attempt-count) (by "rnd.2")))))
           (testing "while another subject's runs"
             (is (= :outbound-intent-status-settled (:status (by "rnd.3")))))
           (finally (.shutdown executor))))))
@@ -375,7 +375,7 @@
        (SUT/drain-once config t0)
        (nom-test> [_ (save "reo.3" :outbound-intent-status-pending)])
        (is (= 0 (SUT/drain-once config (+ t0 100))))
-       (is (= 0 (:attempts (by-id config "reo.3"))))))))
+       (is (= 0 (:attempt-count (by-id config "reo.3"))))))))
 
 (deftest wake-test
   (with-test-system

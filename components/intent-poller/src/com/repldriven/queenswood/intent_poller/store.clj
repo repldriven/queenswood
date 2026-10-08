@@ -120,12 +120,12 @@
       "Failed to update outbound intent"))))
 
 (defn moved
-  "`intent` moved to `outcome`, with `attempts` where given and `changes`
-  merged in. A move to `sent` records when it was sent."
-  [intent outcome attempts changes]
+  "`intent` moved to `outcome`, with `attempt-count` where given and
+  `changes` merged in. A move to `sent` records when it was sent."
+  [intent outcome attempt-count changes]
   (cond-> (merge (assoc-some (assoc intent :status outcome)
-                             :attempts
-                             attempts)
+                             :attempt-count
+                             attempt-count)
                  changes)
           (and (= :outbound-intent-status-sent outcome)
                (not= :outbound-intent-status-sent (:status intent)))
@@ -136,7 +136,7 @@
   attempt count, `changes` merged in."
   [intent ctx changes]
   (-> intent
-      (assoc :context (pr-str ctx) :attempts 0)
+      (assoc :context (pr-str ctx) :attempt-count 0)
       (dissoc :next-attempt-at)
       (merge changes)))
 
@@ -150,24 +150,26 @@
                  nil))
 
 (defn mark-attempt
-  [txn spec intent-id attempts next-attempt-at]
+  [txn spec intent-id attempt-count next-attempt-at]
   (update-intent
    txn
    spec
    intent-id
    :outbound-intent-status-pending
    (fn [i]
-     (assoc i :attempts attempts :next-attempt-at next-attempt-at))
+     (assoc i :attempt-count attempt-count :next-attempt-at next-attempt-at))
    nil))
 
 (defn finish
-  [txn spec intent-id status outcome attempts event]
-  (update-intent txn
-                 spec
-                 intent-id
-                 status
-                 (fn [i] (moved i outcome attempts nil))
-                 event))
+  ([txn spec intent-id status outcome attempt-count event]
+   (finish txn spec intent-id status outcome attempt-count event nil))
+  ([txn spec intent-id status outcome attempt-count event changes]
+   (update-intent txn
+                  spec
+                  intent-id
+                  status
+                  (fn [i] (moved i outcome attempt-count changes))
+                  event)))
 
 (defn redact-done
   [config spec]

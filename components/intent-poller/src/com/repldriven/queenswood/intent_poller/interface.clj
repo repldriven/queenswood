@@ -54,8 +54,8 @@
 
 (defmacro defoperations
   "Register each operation `adapter` carries out, keyed by the `:kind` its
-  intents name, a keyword of the adapter's own intent kind enum. Each value is a map of three functions, and optionally a
-  fourth:
+  intents name, a keyword of the adapter's own intent kind enum. Each
+  value is a map of three functions, and optionally a fourth:
   - `:call` — `(fn [config now intent])`, calls the external API and
     returns `[:answered result]`, `[:refused reason]` or
     `[:retry reason]`, or `[:wait reason]` where it made no call and the
@@ -63,12 +63,13 @@
     its failure to answer are recorded on the adapter's breaker; a wait
     is not.
   - `:answered` — `(fn [config now intent result])`, returns
-    `{:status status :event descriptor}`, the `:outbound-intent-status-*`
-    the intent ends at
-    and the event it reports, or nil for none.
+    `{:status status :event descriptor}`, the
+    `:outbound-intent-status-*` the intent ends at and the event it
+    reports, or nil for none.
   - `:failed` — `(fn [config now intent failure reason])`, the event
     descriptor a failed intent reports, or nil; `failure` is `:refused`
-    or `:undelivered`.
+    or `:undelivered`. An intent it fails keeps `reason` as its
+    `:failure-reason`.
   - `:reconcile` — `(fn [config now intent])`, looks a sent intent up at
     the external API once due, and returns `{:status status :event
     descriptor :changes changes}` as `:answered` does, with `:outcome`,
@@ -147,8 +148,8 @@
   (store/advance txn spec intent-id ctx changes))
 
 (defn finish
-  "Move an intent still at `status` to `outcome`, with `attempts` where
-  given, writing `event` in the same transaction where given and not
+  "Move an intent still at `status` to `outcome`, with `attempt-count`
+  where given, writing `event` in the same transaction where given and not
   already recorded under its dedup key, as a webhook may have. An intent
   that has moved on is returned unchanged with nothing written. A `sent`
   outcome records when it was sent.
@@ -157,10 +158,10 @@
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
   - spec: the store spec.
   - intent-id, status, outcome: the intent and the move.
-  - attempts: the attempt count, or nil to leave it.
+  - attempt-count: the attempt count, or nil to leave it.
   - event: an outbox event, or nil."
-  [txn spec intent-id status outcome attempts event]
-  (store/finish txn spec intent-id status outcome attempts event))
+  [txn spec intent-id status outcome attempt-count event]
+  (store/finish txn spec intent-id status outcome attempt-count event))
 
 ;; ---------------------------------------------------------------------------
 ;; Poller

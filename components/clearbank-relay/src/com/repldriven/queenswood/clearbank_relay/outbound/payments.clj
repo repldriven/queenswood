@@ -52,8 +52,8 @@
 (defn- rejected
   [intent failure-kind reason now]
   {:event-name "transaction-rejected"
-   :dedup-key (str (:dedup-key intent) ":submission-rejected")
-   :data {:end-to-end-id (:dedup-key intent)
+   :dedup-key (str (:idempotency-key intent) ":submission-rejected")
+   :data {:end-to-end-id (:idempotency-key intent)
           :scheme "fps"
           :debit-credit-code :debit-credit-code-debit
           :cancellation-code "NARR"
@@ -67,8 +67,9 @@
   "The outbound FPS call. A retried POST is safe — ClearBank dedupes on
   endToEndIdentification — which is what lets the poller retry at all."
   [config _now intent]
-  (let [{:keys [dedup-key request]} intent]
-    (classify (shared/post config "/v3/payments/fps" request) dedup-key)))
+  (let [{:keys [idempotency-key request]} intent]
+    (classify (shared/post config "/v3/payments/fps" request)
+              idempotency-key)))
 
 (defn- paid
   "An accepted submission leaves the payment sent, for the settlement

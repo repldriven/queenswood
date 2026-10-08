@@ -12,8 +12,8 @@
 (defn- rejected
   [intent failure-kind reason now]
   {:event-name "transaction-rejected"
-   :dedup-key (str (:dedup-key intent) ":submission-rejected")
-   :data {:end-to-end-id (:dedup-key intent)
+   :dedup-key (str (:idempotency-key intent) ":submission-rejected")
+   :data {:end-to-end-id (:idempotency-key intent)
           :scheme "fps"
           :debit-credit-code :debit-credit-code-debit
           :cancellation-code "NARR"
@@ -72,12 +72,12 @@
   settled, and record what it reports under the dedup key its
   notification would carry, so a late one finds it already there."
   [config now intent]
-  (let [{:keys [intent-id dedup-key provider-payment-id]} intent
+  (let [{:keys [intent-id idempotency-key provider-payment-id]} intent
         {:keys! [amount currency submission-id]} (shared/context intent)
         [outcome {:keys [status status_reason]}]
         (lookup config provider-payment-id submission-id)
         descriptor (outcomes/payment {:provider-payment-id provider-payment-id
-                                      :end-to-end-id dedup-key
+                                      :end-to-end-id idempotency-key
                                       :amount amount
                                       :currency currency
                                       :status status

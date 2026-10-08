@@ -43,11 +43,11 @@
 (defn- intent-of
   [intent-id dedup-key]
   {:intent-id intent-id
-   :dedup-key dedup-key
+   :idempotency-key dedup-key
    :kind :clearbank-outbound-intent-kind-payment
    :request "{\"paymentInstructions\":[]}"
    :status :outbound-intent-status-pending
-   :attempts 0
+   :attempt-count 0
    :created-at (utility/now)})
 
 (deftest outbound-intent-queue-test
@@ -90,7 +90,7 @@
                                 config
                                 :outbound-intent-status-pending)))]
          (is (some? i4) "still pending after an unreachable POST")
-         (is (= 1 (:attempts i4)) "attempt count bumped"))))))
+         (is (= 1 (:attempt-count i4)) "attempt count bumped"))))))
 
 (defn- relay-config
   [sys post-fn]
@@ -241,7 +241,7 @@
                                        :outbound-intent-status-pending
                                        :outbound-intent-status-failed
                                        5 (rejected "obx.11"))
-                   _ (is (= 4 (:attempts again)))])
+                   _ (is (= 4 (:attempt-count again)))])
        (is (= :outbound-intent-status-failed
               (:status (load-intent config "int.10"))))
        (is (= ["obx.10"]
@@ -250,12 +250,12 @@
 (defn- account-intent
   [intent-id kind dedup-key context]
   {:intent-id intent-id
-   :dedup-key dedup-key
+   :idempotency-key dedup-key
    :kind kind
    :request "{}"
    :context (pr-str context)
    :status :outbound-intent-status-pending
-   :attempts 0
+   :attempt-count 0
    :created-at (utility/now)})
 
 (defn- outbox-event

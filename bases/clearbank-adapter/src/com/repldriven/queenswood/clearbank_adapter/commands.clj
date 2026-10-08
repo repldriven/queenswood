@@ -16,7 +16,7 @@
                                (assoc intent
                                       :intent-id (str (utility/uuidv7))
                                       :status :outbound-intent-status-pending
-                                      :attempts 0
+                                      :attempt-count 0
                                       :created-at (utility/now)))]
     (cond
      (not (error/anomaly? res))
@@ -31,7 +31,7 @@
 (defn- submit-payment-intent
   [config data]
   (save-intent config
-               {:dedup-key (:end-to-end-id data)
+               {:idempotency-key (:end-to-end-id data)
                 :kind :clearbank-outbound-intent-kind-payment
                 :subjects (vec (keep identity [(:debtor-account-id data)]))
                 :request (clearbank/->fps-body data)}))
@@ -45,7 +45,7 @@
   (let [{:keys [bank-id account-id holder-name currency]} data]
     (let-nom> [account-number (relay/allocate-account-number (fdb config))]
       (save-intent config
-                   {:dedup-key (str "open:" account-id)
+                   {:idempotency-key (str "open:" account-id)
                     :kind :clearbank-outbound-intent-kind-open-account
                     :subjects [account-id]
                     :request (clearbank/->virtual-account-body
@@ -61,7 +61,7 @@
   [config data]
   (let [{:keys [bank-id account-id provider-account-id]} data]
     (save-intent config
-                 {:dedup-key (str "close:" account-id)
+                 {:idempotency-key (str "close:" account-id)
                   :kind :clearbank-outbound-intent-kind-close-account
                   :subjects [account-id]
                   :request "{}"
@@ -75,7 +75,8 @@
   (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
     (let-nom> [account-number (relay/allocate-account-number (fdb config))]
       (save-intent config
-                   {:dedup-key (str "reissue:" account-id ":" rotation-key)
+                   {:idempotency-key (str "reissue:" account-id
+                                          ":" rotation-key)
                     :kind :clearbank-outbound-intent-kind-reissue-address
                     :subjects [account-id]
                     :request (clearbank/->virtual-account-body

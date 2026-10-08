@@ -57,12 +57,12 @@
 (defn- intent
   [intent-id kind dedup-key request context]
   {:intent-id intent-id
-   :dedup-key dedup-key
+   :idempotency-key dedup-key
    :kind kind
    :request request
    :nonce (str "nonce-" intent-id)
    :status :outbound-intent-status-pending
-   :attempts 0
+   :attempt-count 0
    :created-at (utility/now)
    :context (pr-str context)})
 
@@ -117,7 +117,7 @@
      (testing "a failed call parks the intent for another attempt"
        (let [i (load-intent config "int.p1")]
          (is (= :outbound-intent-status-pending (:status i)))
-         (is (= 1 (:attempts i)))))
+         (is (= 1 (:attempt-count i)))))
      (SUT/drain-once config 10000)
      (testing "the retry sends the first attempt's nonce, marked a retry"
        (let [[first-call retry] @calls]
@@ -355,7 +355,7 @@
      (testing "a refused close fails rather than being tried again"
        (let [i (load-intent config "int.c2")]
          (is (= :outbound-intent-status-failed (:status i)))
-         (is (= 1 (:attempts i))))))))
+         (is (= 1 (:attempt-count i))))))))
 
 (deftest a-close-waits-for-the-transfer-before-it-test
   (with-test-system
@@ -492,5 +492,5 @@
        (SUT/drain-once config 0)
        (let [i (load-intent config "int.names.t2")]
          (is (= :outbound-intent-status-pending (:status i)))
-         (is (= 0 (:attempts i)))
+         (is (= 0 (:attempt-count i)))
          (is (pos? (:next-attempt-at i))))))))

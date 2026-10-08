@@ -389,8 +389,8 @@ A `transaction-posted` delivered again, because a send failed or the
 process stopped before the ack, finds its transfers recorded, saves
 nothing, and sends again those still pending. Where the first send got
 through, the adapter receives the command twice and takes the second as
-the intent it already holds, unique on the command's dedup key, so
-Modulr is called once.
+the intent it already holds, whose idempotency key is the command's
+dedup key, so Modulr is called once.
 
 #### The adapter calls Modulr and hears back
 
@@ -477,12 +477,12 @@ sequenceDiagram
     end
     PR-->>WH: PAYOUT webhook, status PROCESSED
     critical transact
-    WH->>DB: read the intent the payment answers, by its dedup key
+    WH->>DB: read the intent the payment answers, by its idempotency key
     end
     critical transact
     WH->>DB: save ModulrOutboxEvent transfer-completed
     WH->>DB: write it to the modulr-outbox changelog
-    WH->>DB: read the intent, by its dedup key
+    WH->>DB: read the intent, by its idempotency key
     opt it is sent
     WH->>DB: save the intent, settled
     end
