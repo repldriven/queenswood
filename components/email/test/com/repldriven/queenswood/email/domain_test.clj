@@ -27,7 +27,7 @@
       (is (= {:bank-id "bnk.test"
               :kind :email-kind-invitation
               :status :email-delivery-status-pending
-              :subject-id "inv.test"
+              :kind-id "inv.test"
               :idempotency-key "evt.test"
               :created-at now
               :updated-at now

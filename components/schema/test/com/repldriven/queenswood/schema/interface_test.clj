@@ -244,7 +244,7 @@
                     :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
                     :kind :email-kind-invitation
                     :status :email-delivery-status-pending
-                    :subject-id "inv.01kprbmgcj35ptc8npmybhh4t2"
+                    :kind-id "inv.01kprbmgcj35ptc8npmybhh4t2"
                     :idempotency-key "01kprbmgcj35ptc8npmybhh4t8"
                     :created-at 1700000000000
                     :updated-at 1700000000000
@@ -257,7 +257,7 @@
                     :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
                     :kind :email-kind-invitation
                     :status :email-delivery-status-sent
-                    :subject-id "inv.01kprbmgcj35ptc8npmybhh4t2"
+                    :kind-id "inv.01kprbmgcj35ptc8npmybhh4t2"
                     :message-id "<abc@queenswood.local>"
                     :sent-at 1700000060000
                     :idempotency-key "01kprbmgcj35ptc8npmybhh4t8"
@@ -273,7 +273,7 @@
                     :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
                     :kind :email-kind-invitation
                     :status :email-delivery-status-failed
-                    :subject-id "inv.01kprbmgcj35ptc8npmybhh4t2"
+                    :kind-id "inv.01kprbmgcj35ptc8npmybhh4t2"
                     :idempotency-key "01kprbmgcj35ptc8npmybhh4t8"
                     :created-at 1700000000000
                     :updated-at 1700000060000

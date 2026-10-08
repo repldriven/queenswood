@@ -60,11 +60,11 @@
                  _ (testing "a created invitation writes a pending delivery"
                      (is (= {:bank-id "bnk.email"
                              :kind :email-kind-invitation
-                             :subject-id (:invitation-id data)
+                             :kind-id (:invitation-id data)
                              :idempotency-key event-id
                              :status :email-delivery-status-pending}
                             (select-keys written
-                                         [:bank-id :kind :subject-id
+                                         [:bank-id :kind :kind-id
                                           :idempotency-key :status]))))
                  claimed (SUT/claim-due-deliveries
                           config

@@ -516,10 +516,10 @@ stores:
         added: 1
         modified: 1
         fields: [status, next_attempt_at]
-      - name: EmailDelivery_by_subject
+      - name: EmailDelivery_by_kind
         added: 1
         modified: 1
-        fields: [bank_id, kind, subject_id]
+        fields: [bank_id, kind, kind_id]
   rewards:
     record-type: Reward
     primary-key: [bank_id, reward_id]

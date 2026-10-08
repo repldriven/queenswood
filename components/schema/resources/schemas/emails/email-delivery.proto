@@ -28,7 +28,7 @@ message EmailDelivery {
   required string delivery_id = 2;
   required EmailKind kind = 3;
   required EmailDeliveryStatus status = 4;
-  required string subject_id = 5; // the record the kind is about
+  required string kind_id = 5; // the id of the record the kind names
   optional string message_id = 6; // Message-ID
 
   optional int64 sent_at = 51;

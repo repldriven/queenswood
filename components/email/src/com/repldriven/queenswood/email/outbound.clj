@@ -48,11 +48,11 @@
   newer delivery about it was written, read in one transaction. An
   unknown invitation is nil."
   [config delivery]
-  (let [{:keys [bank-id subject-id]} delivery]
+  (let [{:keys [bank-id kind-id]} delivery]
     (store/transact
      config
      (fn [txn]
-       (let [invitation (memberships/find-invitation txn bank-id subject-id)]
+       (let [invitation (memberships/find-invitation txn bank-id kind-id)]
          (if (= :invitation/not-found (error/kind invitation))
            nil
            (let-nom> [invitation invitation

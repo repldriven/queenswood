@@ -20,7 +20,7 @@
      :delivery-id (utility/generate-id "eml")
      :kind :email-kind-invitation
      :status pending
-     :subject-id invitation-id
+     :kind-id invitation-id
      :idempotency-key changelog-event-id
      :created-at now
      :updated-at now

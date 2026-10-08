@@ -238,7 +238,7 @@ Two component kinds, registered from `system.clj`:
 `EmailDelivery` under `schemas/emails/`, in its own store:
 
 - Delivery id (prefix `eml`), bank id, kind (invitation), and
-  `subject_id`, the record the kind is about: the invitation's id.
+  `kind_id`, the id of the record the kind names: the invitation's.
 - Status: pending, in flight, sent, superseded, failed.
 - The `message_id` the mail server was handed, and `sent_at`.
 - The changelog event id as its `idempotency_key`, under a unique
@@ -249,7 +249,7 @@ Two component kinds, registered from `system.clj`:
   An in-flight delivery's `next_attempt_at` is when its claim lapses.
 
 Indexed by the idempotency key, by status with `next_attempt_at`, which
-is what a claim scans, and by bank, kind and subject, which finds a
+is what a claim scans, and by bank, kind and `kind_id`, which finds a
 newer delivery about the same invitation. The declaration follows
 [schema-evolution](../recipes/code/schema-evolution.md): `version`
 bumps once and the store carries it as `since`. The recipient's address

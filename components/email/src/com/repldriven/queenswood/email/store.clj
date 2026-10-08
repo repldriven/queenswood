@@ -63,14 +63,14 @@
                  [(:created-at b) (:delivery-id b)])))
 
 (defn newer-delivery?
-  "Whether a delivery of the same kind about the same subject was written
+  "Whether a delivery of the same kind about the same record was written
   after `delivery`."
   [txn delivery]
   (fdb/transact
    txn
    (fn [txn]
      (let [store (fdb/open txn deliveries-store-name)
-           {:keys [bank-id kind subject-id]} delivery]
+           {:keys [bank-id kind kind-id]} delivery]
        (->> (fdb/query-records-compound
              store
              "EmailDelivery"
@@ -80,13 +80,13 @@
                                "EmailDelivery"
                                "kind"
                                (schema/email-kind->int kind))]
-              ["subject_id" subject-id]]
-             {:index "EmailDelivery_by_subject"})
+              ["kind_id" kind-id]]
+             {:index "EmailDelivery_by_kind"})
             (map schema/pb->EmailDelivery)
             (some (fn [other] (later? other delivery)))
             boolean)))
-   :email-delivery/find-by-subject
-   "Failed to find email deliveries by subject"))
+   :email-delivery/find-by-kind
+   "Failed to find email deliveries by kind"))
 
 (def ^:private scan-factor
   "How many rows a claim reads for each it may take."
