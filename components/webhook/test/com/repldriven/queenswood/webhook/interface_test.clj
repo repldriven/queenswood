@@ -55,9 +55,11 @@
            idempotency-key
            (assoc :idempotency-key idempotency-key))))
 
+(def ^:private actor {:kind :actor-kind-member :principal-id "usr.1"})
+
 (defn- register
   [config bank-id data policies]
-  (SUT/register config bank-id data {:policies policies}))
+  (SUT/register config bank-id data actor {:policies policies}))
 
 (deftest registration-mints-an-endpoint-test
   (with-test-system
@@ -239,7 +241,8 @@
                                       (endpoint-data "ik-test-disabled")
                                       allow-manage)
                  id (:endpoint-id registered)
-                 _ (SUT/disable config bank-id id {:policies allow-manage})
+                 _
+                 (SUT/disable config bank-id id actor {:policies allow-manage})
                  _ (let [refused (SUT/test-notification config
                                                         bank-id
                                                         id

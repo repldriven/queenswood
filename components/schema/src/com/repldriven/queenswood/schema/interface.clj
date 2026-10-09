@@ -1478,14 +1478,34 @@
   (MemberRoleChangeProto$MemberRoleChange/parseFrom
    (MemberRoleChange->pb m)))
 
+(def ^:private webhook-endpoint-unset
+  {:description ""
+   :previous-secret ""
+   :previous-secret-expires-at 0
+   :rotation-idempotency-key ""
+   :disabled-at 0
+   :disabled-by nil
+   :enabled-at 0
+   :enabled-by nil
+   :removed-at 0
+   :removed-by nil
+   :secret-rotated-at 0
+   :secret-rotated-by nil
+   :updated-at 0
+   :updated-by nil})
+
 (defn pb->WebhookEndpoint
-  "Parse WebhookEndpoint protobuf bytes into a Clojure map. Drops
-  `last-success-at`, which is deprecated.
+  "Parse WebhookEndpoint protobuf bytes into a Clojure map, without its
+  unset optional fields, and each actor a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (dissoc (webhooks/pb->WebhookEndpoint input) :last-success-at))
+  (reduce plain-embedded
+          (without-unset (webhooks/pb->WebhookEndpoint input)
+                         webhook-endpoint-unset)
+          [:created-by :disabled-by :enabled-by :removed-by :secret-rotated-by
+           :updated-by]))
 
 (defn WebhookEndpoint->pb
   "Serialise a WebhookEndpoint map to protobuf bytes.

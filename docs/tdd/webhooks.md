@@ -365,8 +365,9 @@ Three more wait on work outside the catalogue:
   party.
 - `webhook-endpoint.paused` — `WebhookEndpoint`, so an endpoint an
   operator pauses is told to the bank's other endpoints through the
-  same path as everything else. Nothing pauses an endpoint yet, and the
-  endpoint store writes no changelog.
+  same path as everything else. Nothing pauses an endpoint yet, the
+  endpoint has no paused status, and the endpoint store writes no
+  changelog.
 - `interest.capitalised` — the interest brick's per-account
   capitalisation, resolving to the `Transaction` the run posted,
   behind the single-transaction read its slice creates first.
@@ -711,11 +712,12 @@ the FDB record-type YAML, and the `pb->`, `->pb` and `->java` trio per
 type in the `schema` brick's `interface.clj`.
 
 - `WebhookEndpoint` — bank id, endpoint id, address, description, the
-  chosen kinds, status (enabled, disabled, paused, removed), the
+  chosen kinds, status (enabled, disabled, removed), the
   current secret, the previous secret and when it expires, the
   idempotency key of the registration
   that created it, the idempotency key of its last secret rotation,
-  and timestamps. Indexed by bank, with an FDB
+  and who registered, edited, disabled, enabled, removed it and
+  rotated its secret, and when. Indexed by bank, with an FDB
   `count` index over `[bank_id, endpoint_id]` for the limit check and
   a unique index on `[bank_id, idempotency_key]`. That unique index is
   what makes registration retry-safe: a retried request reads back the

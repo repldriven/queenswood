@@ -36,7 +36,7 @@
    :secret "whsec_round_trip"
    :idempotency-key idempotency-key
    :created-at 1700000000000
-   :updated-at 1700000000000})
+   :created-by {:kind :actor-kind-member :principal-id "usr.1"}})
 
 (defn- notification
   [bank-id notification-id changelog-event-id created-at]

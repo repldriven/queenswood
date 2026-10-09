@@ -263,10 +263,10 @@ half-open probe, and `max-in-flight-per-endpoint` while closed. A call
 answered with a 2xx records `:answered`, anything else `:failed`; an
 address refused at send time or a signature not produced made no call
 and records nothing. The pause rule is gone, and with it the pause
-transition, the endpoint's changelog write and its Avro schema; the
-`paused` status stays in the enum for an operator's pause, which has no
-route yet. `last_success_at`, which only the pause rule read, is
-deprecated and leaves the API. `webhook.yml` carries the runner's
+transition, the endpoint's changelog write and its Avro schema, the
+`paused` status and `last_success_at`, which only the pause rule read.
+An operator's pause, which the webhooks PRD asks for, adds the status
+back with its route. `webhook.yml` carries the runner's
 `poll-ms`, `batch-size`, `claim-lease-ms`, `request-timeout-ms` and
 `max-in-flight-per-endpoint`, and includes
 `webhook-delivery-policy.yml`, whose `default` is the day-long schedule
@@ -345,9 +345,6 @@ the runner had.
   with a registrar are probed by it. Zyphe, Companies House, the mail
   server and a customer's endpoint are probed by the next item, so one
   with nothing to send stays open until something is.
-- **An endpoint paused before the breaker stays paused.** The platform
-  no longer pauses one, but an endpoint it paused earlier is enabled by
-  its customer, as it was.
 - **An opening breaker lets the calls in flight finish.** With a
   `concurrency`, up to that many less one calls already started when a
   failure opens the breaker still go to the destination.

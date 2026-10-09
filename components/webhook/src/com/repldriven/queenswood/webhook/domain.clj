@@ -199,10 +199,9 @@
 
 (def ^:private enabled :webhook-endpoint-status-enabled)
 (def ^:private disabled :webhook-endpoint-status-disabled)
-(def ^:private paused :webhook-endpoint-status-paused)
 (def ^:private removed :webhook-endpoint-status-removed)
 
-(def ^:private live-statuses #{enabled disabled paused})
+(def ^:private live-statuses #{enabled disabled})
 
 (defn- ensure-status
   [endpoint allowed]
@@ -250,11 +249,10 @@
   `secret` is minted by the caller: randomness is an effect. `rule`
   is the deployment's address configuration, as `check-address`
   takes it."
-  [bank-id data secret resolved-addresses platform-hosts rule existing-count
-   policies]
+  [bank-id data secret actor resolved-addresses platform-hosts rule
+   existing-count policies]
   (let [{:keys [address description kinds idempotency-key]} data
-        endpoint-id (utility/generate-id "whe")
-        now (utility/now)]
+        endpoint-id (utility/generate-id "whe")]
     (let-nom>
       [_ (check-address address resolved-addresses platform-hosts rule)
        _ (check-capability :webhook-endpoint-action-register policies)
@@ -270,15 +268,15 @@
         ;; caller that sends none gets the endpoint's own id, which is
         ;; unique per registration and so reads nothing back.
         :idempotency-key (or idempotency-key endpoint-id)
-        :created-at now
-        :updated-at now}
+        :created-at (utility/now)
+        :created-by actor}
        :description description
        :kinds (seq kinds)))))
 
 (defn update-endpoint
   "Replace the editable fields — address, description and kinds — as
   an absolute set, re-running the address rule."
-  [endpoint data resolved-addresses platform-hosts rule policies]
+  [endpoint data actor resolved-addresses platform-hosts rule policies]
   (let [{:keys [address description kinds]} data]
     (let-nom>
       [_ (ensure-status endpoint live-statuses)
@@ -287,37 +285,47 @@
       (utility/assoc-some
        (assoc endpoint
               :address address
-              :updated-at (utility/now))
+              :updated-at (utility/now)
+              :updated-by actor)
        :description description
        :kinds (seq kinds)))))
 
 (defn enable
-  [endpoint policies]
+  [endpoint actor policies]
   (let-nom>
-    [_ (ensure-status endpoint #{disabled paused})
+    [_ (ensure-status endpoint #{disabled})
      _ (check-capability :webhook-endpoint-action-manage policies)]
-    (assoc endpoint :status enabled :updated-at (utility/now))))
+    (assoc endpoint
+           :status enabled
+           :enabled-at (utility/now)
+           :enabled-by actor)))
 
 (defn disable
-  [endpoint policies]
+  [endpoint actor policies]
   (let-nom>
-    [_ (ensure-status endpoint #{enabled paused})
+    [_ (ensure-status endpoint #{enabled})
      _ (check-capability :webhook-endpoint-action-manage policies)]
-    (assoc endpoint :status disabled :updated-at (utility/now))))
+    (assoc endpoint
+           :status disabled
+           :disabled-at (utility/now)
+           :disabled-by actor)))
 
 (defn remove-endpoint
-  [endpoint policies]
+  [endpoint actor policies]
   (let-nom>
     [_ (ensure-status endpoint live-statuses)
      _ (check-capability :webhook-endpoint-action-manage policies)]
-    (assoc endpoint :status removed :updated-at (utility/now))))
+    (assoc endpoint
+           :status removed
+           :removed-at (utility/now)
+           :removed-by actor)))
 
 (defn rotate-secret
   "Move the current secret to `:previous-secret`, expiring at
   `previous-expires-at`, and take `secret` as the current one. The
   rotation's key is kept on the record, so a retry under it returns
   this same pair rather than minting a third secret."
-  [endpoint secret previous-expires-at idempotency-key policies]
+  [endpoint secret previous-expires-at idempotency-key actor policies]
   (let-nom>
     [_ (ensure-status endpoint live-statuses)
      _ (check-capability :webhook-endpoint-action-manage policies)]
@@ -326,7 +334,8 @@
             :secret secret
             :previous-secret (:secret endpoint)
             :previous-secret-expires-at previous-expires-at
-            :updated-at (utility/now))
+            :secret-rotated-at (utility/now)
+            :secret-rotated-by actor)
      :rotation-idempotency-key
      idempotency-key)))
 

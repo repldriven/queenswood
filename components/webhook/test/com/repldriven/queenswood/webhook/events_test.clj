@@ -105,7 +105,7 @@
       :secret "whsec_events"
       :idempotency-key endpoint-id
       :created-at now
-      :updated-at now}
+      :created-by {:kind :actor-kind-member :principal-id "usr.1"}}
      :kinds
      (seq kinds))))
 

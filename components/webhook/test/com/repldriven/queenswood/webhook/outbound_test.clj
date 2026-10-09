@@ -112,7 +112,8 @@
                                :secret "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
                                :idempotency-key (str "ik." suffix)
                                :created-at now
-                               :updated-at now})
+                               :created-by {:kind :actor-kind-member
+                                            :principal-id "usr.1"}})
        _ (store/save-notification config
                                   {:bank-id bank-id
                                    :notification-id notification-id

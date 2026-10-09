@@ -22,6 +22,8 @@
 
 (def ^:private public-address ["93.184.216.34"])
 
+(def ^:private actor {:kind :actor-kind-member :principal-id "usr.1"})
+
 (defn- endpoint
   [status]
   {:bank-id "bnk.1"
@@ -31,7 +33,7 @@
    :secret "whsec_test"
    :idempotency-key "ik-1"
    :created-at 1700000000000
-   :updated-at 1700000000000})
+   :created-by actor})
 
 ;; ---------------------------------------------------------------------------
 ;; Address validation
@@ -168,39 +170,46 @@
   (testing "each transition takes the states it accepts"
     (is (= :webhook-endpoint-status-enabled
            (:status (SUT/enable (endpoint :webhook-endpoint-status-disabled)
-                                permissive-policies))))
-    (is (= :webhook-endpoint-status-enabled
-           (:status (SUT/enable (endpoint :webhook-endpoint-status-paused)
+                                actor
                                 permissive-policies))))
     (is (= :webhook-endpoint-status-disabled
            (:status (SUT/disable (endpoint :webhook-endpoint-status-enabled)
+                                 actor
                                  permissive-policies))))
     (is (= :webhook-endpoint-status-removed
            (:status (SUT/remove-endpoint (endpoint
                                           :webhook-endpoint-status-enabled)
-                                         permissive-policies))))))
+                                         actor
+                                         permissive-policies)))))
+  (testing "each transition records who made it and when"
+    (let [disabled (SUT/disable (endpoint :webhook-endpoint-status-enabled)
+                                actor
+                                permissive-policies)]
+      (is (= actor (:disabled-by disabled)))
+      (is (int? (:disabled-at disabled))))))
 
 (deftest transitions-guard-their-source-state-test
   (testing "each transition refuses the states it does not accept"
     (doseq [[result allowed]
             [[(SUT/enable (endpoint :webhook-endpoint-status-enabled)
+                          actor
                           permissive-policies)
-              #{:webhook-endpoint-status-disabled
-                :webhook-endpoint-status-paused}]
+              #{:webhook-endpoint-status-disabled}]
              [(SUT/disable (endpoint :webhook-endpoint-status-disabled)
+                           actor
                            permissive-policies)
-              #{:webhook-endpoint-status-enabled
-                :webhook-endpoint-status-paused}]
+              #{:webhook-endpoint-status-enabled}]
              [(SUT/remove-endpoint (endpoint :webhook-endpoint-status-removed)
+                                   actor
                                    permissive-policies)
               #{:webhook-endpoint-status-enabled
-                :webhook-endpoint-status-disabled
-                :webhook-endpoint-status-paused}]]]
+                :webhook-endpoint-status-disabled}]]]
       (is (= :webhook-endpoint/invalid-status (error/kind result)))
       (is (= allowed (:allowed (error/payload result)))))))
 
 (deftest invalid-status-carries-what-the-recipe-mandates-test
   (let [result (SUT/enable (endpoint :webhook-endpoint-status-enabled)
+                           actor
                            permissive-policies)
         payload (error/payload result)]
     (is (= "whe.1" (:endpoint-id payload)))
@@ -213,13 +222,17 @@
     (doseq [result
             [(SUT/update-endpoint (endpoint :webhook-endpoint-status-removed)
                                   {:address "https://tenant.example/new"}
+                                  actor
                                   public-address
                                   #{}
                                   nil
                                   permissive-policies)
              (SUT/rotate-secret (endpoint :webhook-endpoint-status-removed)
-                                "whsec_next" 1700000100000
-                                "ik-rotate" permissive-policies)]]
+                                "whsec_next"
+                                1700000100000
+                                "ik-rotate"
+                                actor
+                                permissive-policies)]]
       (is (= :webhook-endpoint/invalid-status (error/kind result))))))
 
 (deftest the-status-guard-runs-before-the-address-rule-test
@@ -227,6 +240,7 @@
     (let [result (SUT/update-endpoint (endpoint
                                        :webhook-endpoint-status-removed)
                                       {:address "http://tenant.example/new"}
+                                      actor
                                       ["127.0.0.1"]
                                       #{}
                                       nil
@@ -235,12 +249,16 @@
 
 (deftest rotate-secret-keeps-the-previous-pair-test
   (let [rotated (SUT/rotate-secret (endpoint :webhook-endpoint-status-enabled)
-                                   "whsec_next" 1700000100000
-                                   "ik-rotate" permissive-policies)]
+                                   "whsec_next"
+                                   1700000100000
+                                   "ik-rotate"
+                                   actor
+                                   permissive-policies)]
     (is (= "whsec_next" (:secret rotated)))
     (is (= "whsec_test" (:previous-secret rotated)))
     (is (= 1700000100000 (:previous-secret-expires-at rotated)))
-    (is (= "ik-rotate" (:rotation-idempotency-key rotated)))))
+    (is (= "ik-rotate" (:rotation-idempotency-key rotated)))
+    (is (= actor (:secret-rotated-by rotated)))))
 
 (deftest not-found-is-a-rejection-test
   (is (= :webhook-endpoint/not-found

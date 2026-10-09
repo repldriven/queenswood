@@ -95,9 +95,9 @@
        updated))))
 
 (defn register
-  ([txn bank-id data]
-   (register txn bank-id data {}))
-  ([txn bank-id data opts]
+  ([txn bank-id data actor]
+   (register txn bank-id data actor {}))
+  ([txn bank-id data actor opts]
    (let [addresses (resolved (:address data))]
      (or-already-registered
       txn
@@ -112,6 +112,7 @@
             endpoint (domain/new-endpoint bank-id
                                           data
                                           (mint-secret)
+                                          actor
                                           addresses
                                           (:platform-hosts opts)
                                           (:address-rule opts)
@@ -131,9 +132,9 @@
    (store/get-endpoints txn bank-id opts)))
 
 (defn update-endpoint
-  ([txn bank-id endpoint-id data]
-   (update-endpoint txn bank-id endpoint-id data {}))
-  ([txn bank-id endpoint-id data opts]
+  ([txn bank-id endpoint-id data actor]
+   (update-endpoint txn bank-id endpoint-id data actor {}))
+  ([txn bank-id endpoint-id data actor opts]
    (let [addresses (resolved (:address data))]
      (transition txn
                  bank-id
@@ -142,6 +143,7 @@
                    (let-nom> [policies (get-policies txn bank-id opts)]
                      (domain/update-endpoint existing
                                              data
+                                             actor
                                              addresses
                                              (:platform-hosts opts)
                                              (:address-rule opts)
@@ -186,47 +188,47 @@
      now)))
 
 (defn enable
-  ([txn bank-id endpoint-id]
-   (enable txn bank-id endpoint-id {}))
-  ([txn bank-id endpoint-id opts]
+  ([txn bank-id endpoint-id actor]
+   (enable txn bank-id endpoint-id actor {}))
+  ([txn bank-id endpoint-id actor opts]
    (store/transact
     txn
     (fn [txn]
       (let-nom>
         [existing (load-endpoint txn bank-id endpoint-id)
          policies (get-policies txn bank-id opts)
-         updated (domain/enable existing policies)
+         updated (domain/enable existing actor policies)
          _ (store/save-endpoint txn updated)
          _ (when-let [since (:since opts)]
              (backfill txn updated since (utility/now)))]
         updated)))))
 
 (defn disable
-  ([txn bank-id endpoint-id]
-   (disable txn bank-id endpoint-id {}))
-  ([txn bank-id endpoint-id opts]
+  ([txn bank-id endpoint-id actor]
+   (disable txn bank-id endpoint-id actor {}))
+  ([txn bank-id endpoint-id actor opts]
    (transition txn
                bank-id
                endpoint-id
                (fn [txn existing]
                  (let-nom> [policies (get-policies txn bank-id opts)]
-                   (domain/disable existing policies))))))
+                   (domain/disable existing actor policies))))))
 
 (defn remove-endpoint
-  ([txn bank-id endpoint-id]
-   (remove-endpoint txn bank-id endpoint-id {}))
-  ([txn bank-id endpoint-id opts]
+  ([txn bank-id endpoint-id actor]
+   (remove-endpoint txn bank-id endpoint-id actor {}))
+  ([txn bank-id endpoint-id actor opts]
    (transition txn
                bank-id
                endpoint-id
                (fn [txn existing]
                  (let-nom> [policies (get-policies txn bank-id opts)]
-                   (domain/remove-endpoint existing policies))))))
+                   (domain/remove-endpoint existing actor policies))))))
 
 (defn rotate-secret
-  ([txn bank-id endpoint-id data]
-   (rotate-secret txn bank-id endpoint-id data {}))
-  ([txn bank-id endpoint-id data opts]
+  ([txn bank-id endpoint-id data actor]
+   (rotate-secret txn bank-id endpoint-id data actor {}))
+  ([txn bank-id endpoint-id data actor opts]
    (let [{:keys [idempotency-key previous-secret-ttl-ms]} data
          expires-at (+ (utility/now)
                        (or previous-secret-ttl-ms
@@ -244,6 +246,7 @@
                                              (mint-secret)
                                              expires-at
                                              idempotency-key
+                                             actor
                                              policies))))))))
 
 (defn- load-deliverable
