@@ -5,21 +5,15 @@
 
     [com.repldriven.queenswood.payee-check.interface :as payee-checks]
 
-    [com.repldriven.mono.error.interface :as error])
-  (:import
-    (java.time Instant)))
-
-(defn- rfc3339
-  [millis]
-  (str (Instant/ofEpochMilli millis)))
+    [com.repldriven.mono.error.interface :as error]))
 
 (defn ->body
-  "`check` as the payee-check routes return it: its id, request and
-  result, and when it was made and stops standing as RFC 3339 text."
+  "`check` as the payee-check routes return it: its id, request, result,
+  when it was made, and when it stops standing."
   [check]
-  (-> (select-keys check [:check-id :request :result])
-      (assoc :created-at (rfc3339 (:created-at check))
-             :expires-at (rfc3339 (payee-checks/expires-at check)))))
+  (assoc (select-keys check [:check-id :request :result :created-at])
+         :expires-at
+         (payee-checks/expires-at check)))
 
 (defn get-check
   [request]

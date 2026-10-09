@@ -44,8 +44,8 @@
    [:check-id [:ref "CheckId"]]
    [:request [:ref "PayeeCheckRequest"]]
    [:result [:ref "PayeeCheckResult"]]
-   [:created-at string?]
-   [:expires-at string?]])
+   [:created-at [:ref "Timestamp"]]
+   [:expires-at [:ref "Timestamp"]]])
 
 (def PayeeCheckList (schema/list-schema "PayeeCheck" examples/PayeeCheckList))
 
