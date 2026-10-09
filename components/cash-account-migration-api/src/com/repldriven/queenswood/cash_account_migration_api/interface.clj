@@ -27,16 +27,6 @@
   registry
   components/registry)
 
-(defn ->run-body
-  "Project a stored run onto the keys `MigrationRun` publishes: its
-  creation as `started-at`, and its completion or failure as
-  `finished-at`.
-
-  Args:
-  - run: a run as `cash-account-migration` hands it back."
-  [run]
-  (components/->run-body run))
-
 ;; ---
 ;; examples
 ;; ---

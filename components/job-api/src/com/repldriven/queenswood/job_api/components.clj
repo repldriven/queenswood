@@ -33,12 +33,15 @@
   (coercion/trigger-source-enum-schema {:json-schema/example "scheduled"}))
 
 (def TaskStatus
-  (coercion/task-status-enum-schema {:json-schema/example "succeeded"}))
+  (coercion/task-status-enum-schema {:json-schema/example "completed"}))
 
 (def MonthlyDay
   (coercion/monthly-day-enum-schema {:json-schema/example "last"}))
 
 (def JobKind (coercion/kind-enum-schema {:json-schema/example "user"}))
+
+(def JobStatus
+  (coercion/job-status-enum-schema {:json-schema/example "active"}))
 
 (def Job
   [:map {:json-schema/example examples/Job}
@@ -55,7 +58,7 @@
    [:allowed-periodicities [:vector [:ref "Periodicity"]]]
    ;; Minutes past midnight (UTC) the job fires on each scheduled day.
    [:run-time-minutes [:int {:min 0 :max 1439}]]
-   [:enabled boolean?]
+   [:status [:ref "JobStatus"]]
    [:last-run-at {:optional true} [:ref "Timestamp"]]
    [:next-run-at {:optional true} [:ref "Timestamp"]]
    [:created-at [:ref "Timestamp"]]
@@ -64,8 +67,8 @@
 (def JobList (list-schema "Job" examples/JobList))
 
 (def TaskRun
-  "What one task of a run did. `records-processed` / `records-failed`
-  are whatever that task's pass counts — accounts, for every task there
+  "What one task of a run did. `processed-count` / `failed-count` are
+  whatever that task's pass counts — accounts, for every task there
   is today. A skipped task carries neither, and no timings: the run
   never reached it."
   [:map {:json-schema/example examples/TaskRun}
@@ -73,9 +76,9 @@
    [:status [:ref "TaskStatus"]]
    [:started-at {:optional true} [:ref "Timestamp"]]
    [:finished-at {:optional true} [:ref "Timestamp"]]
-   [:error {:optional true} string?]
-   [:records-processed {:optional true} nat-int?]
-   [:records-failed {:optional true} nat-int?]])
+   [:processed-count {:optional true} nat-int?]
+   [:failed-count {:optional true} nat-int?]
+   [:failure-reason {:optional true} string?]])
 
 (def Run
   [:map {:json-schema/example examples/Run}
@@ -84,30 +87,31 @@
    [:job-id [:ref "JobId"]]
    [:status [:ref "RunStatus"]]
    [:trigger-source [:ref "TriggerSource"]]
-   [:started-at [:ref "Timestamp"]]
-   [:finished-at {:optional true} [:ref "Timestamp"]]
    [:tasks-total nat-int?]
    [:tasks-completed nat-int?]
    [:current-task {:optional true} string?]
    [:expected-end-at {:optional true} [:ref "Timestamp"]]
-   [:error {:optional true} string?]
-   [:tasks [:vector [:ref "TaskRun"]]]])
+   [:tasks [:vector [:ref "TaskRun"]]]
+   [:completed-at {:optional true} [:ref "Timestamp"]]
+   [:failed-at {:optional true} [:ref "Timestamp"]]
+   [:created-at [:ref "Timestamp"]]
+   [:failure-reason {:optional true} string?]])
 
 (def RunList (list-schema "Run" examples/RunList))
 
 (def JobScheduleUpdate
   "Editable schedule fields. All optional — an omitted field keeps its
-  current value. Toggling `enabled` is the pause/resume control.
+  current value. Setting `status` pauses or resumes the job.
   `monthly-day` applies to monthly jobs. A system job's cadence is fixed:
   only `run-time-minutes` is editable on one."
   [:map {:closed true :json-schema/example examples/JobScheduleUpdate}
    [:periodicity {:optional true} [:ref "Periodicity"]]
    [:monthly-day {:optional true} [:ref "MonthlyDay"]]
    [:run-time-minutes {:optional true} [:int {:min 0 :max 1439}]]
-   [:enabled {:optional true} boolean?]])
+   [:status {:optional true} [:ref "JobStatus"]]])
 
 (def registry
   (components-registry [#'JobId #'RunId #'Periodicity #'JobTaskKind #'RunStatus
-                        #'TriggerSource #'TaskStatus #'MonthlyDay #'JobKind
-                        #'Job #'JobList #'TaskRun #'Run #'RunList
+                        #'JobStatus #'TriggerSource #'TaskStatus #'MonthlyDay
+                        #'JobKind #'Job #'JobList #'TaskRun #'Run #'RunList
                         #'JobScheduleUpdate]))

@@ -40,7 +40,7 @@ progress route for an interest run in flight.
   and a run answers the schedule's last fire before it starts. `run-job`
   reads the job's runs and writes the new one `running` in one
   transaction, and refuses with `:scheduler/period-already-run`, a 409,
-  where a run answering that fire is `running` or `succeeded`. A
+  where a run answering that fire is `running` or `completed`. A
   `failed` run leaves its fire open, so an operator may force it again.
   A fire and a force-start meet the same check.
 - **A crashed run stays running.** `run-job` writes the run `running`,
@@ -91,7 +91,7 @@ A task's contract, which all three meet:
 
 - Running a task twice for one bank and as-of date posts once.
 - A task returns an anomaly while any of its work is outstanding, so the
-  run is retried rather than recorded `succeeded`.
+  run is retried rather than recorded `completed`.
 
 ### The run as a queued row
 
@@ -118,7 +118,7 @@ executes a run it did not queue and claim through the row.
 
 The per-job Quartz triggers go, and with them `register!`, the
 `:triggers` atom and the trigger ids. The runner's one-minute sweep
-reads every enabled job whose `next_run_at` is at or before now and, in
+reads every active job whose `next_run_at` is at or before now and, in
 one transaction per job:
 
 - writes a `queued` run for each slot the job owes — every slot from
@@ -148,7 +148,7 @@ A heartbeat renews the lease every `scheduler.runner.lease-renew-ms`
 renewing, and its run becomes claimable once the lease expires. That
 is the crash recovery.
 
-A claimed run executes from the first task not `succeeded`, with the
+A claimed run executes from the first task not `completed`, with the
 run's `as_of_date`. A task anomaly writes the run back to `queued`
 until `attempts` reaches `scheduler.runner.max-attempts` (default 5),
 then `failed`, leaving an operator to force it again.
@@ -167,7 +167,7 @@ date, to re-run a past day:
 
 - A future date is refused with 422, `:scheduler/invalid-as-of-date`.
 - A date before `catch-up-days` is refused the same way.
-- A run of the job queued, running or succeeded for that date's period
+- A run of the job queued, running or completed for that date's period
   is refused with 409, `:scheduler/period-already-run`, as today; a
   failed one is not.
 

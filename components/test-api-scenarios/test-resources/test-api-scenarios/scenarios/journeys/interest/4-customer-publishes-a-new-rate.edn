@@ -58,7 +58,7 @@
              :path "/v1/jobs/{job-id}/runs"
              :path-params {:job-id "daily-interest"}
              :auth [:ref :bank-0 :token]}
-   :assert {:status 201 :body {:status "succeeded"}}}]
+   :assert {:status 201 :body {:status "completed"}}}]
  :then
  [{:command :api/poll
    :request {:method :get

@@ -268,7 +268,7 @@ sequenceDiagram
     R->>DB: read the job's SchedulerRuns
     R->>DB: save the SchedulerRun, running
     end
-    Note over R: refused :scheduler/period-already-run<br/>where a run of the period is running or succeeded
+    Note over R: refused :scheduler/period-already-run<br/>where a run of the period is running or completed
     Note over R: accrue runs first, then capitalize
     critical transact
     R->>DB: read the bank's LedgerAccounts, resolving the chart per currency
@@ -315,7 +315,7 @@ sequenceDiagram
     R->>DB: save the SchedulerRun's progress, capitalize finished
     end
     critical transact
-    R->>DB: save the SchedulerRun, succeeded
+    R->>DB: save the SchedulerRun, completed
     end
     critical transact
     R->>DB: save the SchedulerJob, its last and next run

@@ -92,7 +92,7 @@ export function interest(bank) {
   expect(
     put(
       `/v1/jobs/${JOB}/schedule`,
-      { "run-time-minutes": at, enabled: true },
+      { "run-time-minutes": at, status: "active" },
       bearer(),
       { tags: { name: "jobs/{job-id}/schedule" } },
     ),
@@ -107,16 +107,16 @@ export function interest(bank) {
     LEAD_MIN * 60 + RUN_TIMEOUT_S,
     5,
   );
-  startedAt.add(sinceStart(run["started-at"]));
-  finishedAt.add(sinceStart(run["finished-at"]));
-  succeeded.add(run.status === "succeeded" ? 1 : 0);
+  startedAt.add(sinceStart(run["created-at"]));
+  finishedAt.add(sinceStart(run["completed-at"] ?? run["failed-at"]));
+  succeeded.add(run.status === "completed" ? 1 : 0);
   run.tasks.forEach((t) => {
     const tags = { task: t.label };
     if (t["started-at"] && t["finished-at"]) {
       taskMs.add(Date.parse(t["finished-at"]) - Date.parse(t["started-at"]), tags);
     }
-    taskProcessed.add(t["records-processed"] || 0, tags);
-    taskFailed.add(t["records-failed"] || 0, tags);
+    taskProcessed.add(t["processed-count"] || 0, tags);
+    taskFailed.add(t["failed-count"] || 0, tags);
   });
 }
 

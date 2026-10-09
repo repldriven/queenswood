@@ -26,11 +26,11 @@
              :path-params {:job-id "daily-interest"}
              :auth [:ref :bank-0 :token]}
    :assert {:status 201
-            :body {:status "succeeded"
-                   :tasks [{:label "accrue" :status "succeeded"}
+            :body {:status "completed"
+                   :tasks [{:label "accrue" :status "completed"}
                            {:label "capitalize"
-                            :status "succeeded"
-                            :records-failed 0}]}}}]
+                            :status "completed"
+                            :failed-count 0}]}}}]
  :then
  [{:command :api/poll
    :request {:method :get

@@ -302,7 +302,7 @@ export function list_my_effective_policies() {
 // (daily interest accrual + capitalisation today). The list endpoint
 // returns the jobs with their schedule (periodicity, run-time-minutes,
 // enabled) and last/next-run timestamps, but not the run outcome; the
-// status an operator watches — succeeded/failed/running — comes from a
+// status an operator watches — completed/failed/running — comes from a
 // job's runs (newest-first), so the Jobs page fetches the latest run
 // per job to drive its badge. Read-only: force-start and schedule
 // edits aren't surfaced yet.
@@ -323,8 +323,8 @@ export function force_start_job(job_id) {
 }
 
 // Edit a job's schedule — any of periodicity / run-time-minutes /
-// enabled (omitted fields keep their current value). Toggling enabled is
-// the pause/resume control.
+// status (omitted fields keep their current value). Setting status to
+// paused or active is the pause/resume control.
 export function update_job_schedule(job_id, body) {
   return mutate(`/v1/jobs/${job_id}/schedule`, {
     method: "PUT",

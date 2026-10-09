@@ -9,7 +9,7 @@
                    :auth [:ref :org-0 :token]}
          :assert
          {:status 200
-          :body {:job-id "daily-interest" :periodicity "daily" :enabled true}}}
+          :body {:job-id "daily-interest" :periodicity "daily" :status "active"}}}
         ;; A job that has never fired carries no runs.
         {:command :api/request
          :request {:method :get

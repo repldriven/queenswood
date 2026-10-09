@@ -515,7 +515,7 @@
   <PanelHead
     title="Preview"
     count={frozen ? "final result" : "dry run — nothing moves"}
-    note={shownRun ? `ran ${fmtStamp(shownRun["started-at"])}` : undefined}
+    note={shownRun ? `ran ${fmtStamp(shownRun["created-at"])}` : undefined}
   />
   {#if runsLoading}
     <div class="prev-none">Loading…</div>
@@ -611,7 +611,7 @@
             <Td mono tabular align="right" muted={!r["accounts-failed"]}>
               <span class:bad={r["accounts-failed"] > 0}>{num(r["accounts-failed"])}</span>
             </Td>
-            <Td mono tabular align="right">{fmtDuration(r["started-at"], r["finished-at"])}</Td>
+            <Td mono tabular align="right">{fmtDuration(r["created-at"], r["completed-at"] ?? r["failed-at"])}</Td>
           </Tr>
         {/each}
       </Tbody>

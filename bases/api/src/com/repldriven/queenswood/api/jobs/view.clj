@@ -64,24 +64,23 @@
 
 (defn job->api
   "Present a stored job over the wire: its schedule as a cadence, a
-  monthly job's day of the month and a time of day, the cadences its
-  tasks allow, and its status as `enabled`."
+  monthly job's day of the month and a time of day, and the cadences its
+  tasks allow."
   [job]
-  (let [{:keys [schedule status task-kinds]} job]
+  (let [{:keys [schedule task-kinds]} job]
     (-> job
-        (dissoc :schedule :status :updated-by)
+        (dissoc :schedule :updated-by)
         (merge (schedule->cadence schedule))
-        (assoc :enabled (= :scheduler-job-status-active status)
-               :allowed-periodicities (allowed-cadences task-kinds
-                                                        (utility/now))))))
+        (assoc :allowed-periodicities
+               (allowed-cadences task-kinds
+                                 (utility/now))))))
 
 (defn api->edits
   "A schedule edit as the API sends it, in the job's own terms: the
   cadence, day of the month and time of day as a schedule, built over
-  what `job` has where the edit names none, and `enabled` as the
-  status."
+  what `job` has where the edit names none, and the status as given."
   [job body]
-  (let [{:keys [periodicity monthly-day run-time-minutes enabled]} body
+  (let [{:keys [periodicity monthly-day run-time-minutes status]} body
         cadence (merge (schedule->cadence (:schedule job))
                        (utility/assoc-some {}
                                            :periodicity periodicity
@@ -92,30 +91,15 @@
             (or periodicity monthly-day run-time-minutes)
             (assoc :schedule (cadence->schedule cadence))
 
-            (some? enabled)
-            (assoc :status
-                   (if enabled
-                     :scheduler-job-status-active
-                     :scheduler-job-status-paused)))))
-
-(defn- task->api
-  [task]
-  (let [{:keys [processed-count failed-count failure-reason]} task]
-    (utility/assoc-some (dissoc task
-                         :processed-count
-                         :failed-count
-                         :failure-reason)
-                        :records-processed processed-count
-                        :records-failed failed-count
-                        :error failure-reason)))
+            status
+            (assoc :status status))))
 
 (defn run->api
-  "Present a stored run over the wire: its creation as `started-at`, its
-  outcome's time as `finished-at`, how many tasks succeeded and which
-  one is running read off its tasks, and its failure reason as `error`."
+  "Present a stored run over the wire, with how many tasks completed and
+  which one is running read off its tasks."
   [run]
-  (let [{:keys [created-at completed-at failed-at failure-reason tasks]} run
-        succeeded (filter (fn [task]
+  (let [{:keys [tasks]} run
+        completed (filter (fn [task]
                             (= :scheduler-task-status-completed (:status task)))
                           tasks)
         current (some (fn [task]
@@ -125,15 +109,7 @@
                           (:label task)))
                       tasks)]
     (utility/assoc-some (-> run
-                            (dissoc :created-at
-                                    :created-by
-                                    :updated-at
-                                    :completed-at
-                                    :failed-at
-                                    :failure-reason)
-                            (assoc :started-at created-at
-                                   :tasks-completed (count succeeded)
-                                   :tasks (mapv task->api tasks)))
-                        :finished-at (or completed-at failed-at)
-                        :current-task current
-                        :error failure-reason)))
+                            (dissoc :created-by :updated-at)
+                            (assoc :tasks-completed (count completed)))
+                        :current-task
+                        current)))
