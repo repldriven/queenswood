@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.scheduler;
+package com.repldriven.queenswood.schema.scheduler;
 
 import "record_metadata_options.proto";
 import "schemas/actor/actor.proto";
@@ -43,5 +43,5 @@ message SchedulerJob {
 
   required int64 created_at = 101;
   optional int64 updated_at = 103;
-  optional com.repldriven.queenswood.schemas.actor.Actor updated_by = 104;
+  optional com.repldriven.queenswood.schema.actor.Actor updated_by = 104;
 }

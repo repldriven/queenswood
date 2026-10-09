@@ -117,9 +117,7 @@ report() {
 #     aggregator wires several composed bases into one process. A composed
 #     base carries an `interface.clj` and that is the form to reach it by;
 #     `.api` remains for a base that has no interface (bank-api).
-#   - target is neither a component nor a base: ignore (generated namespaces
-#     like com.repldriven.queenswood.schemas.* live under a brick's gen/
-#     tree, and `schemas` is not the `schema` brick's own name)
+#   - target is neither a component nor a base: ignore
 #
 # Both prefixes are matched, but only a name that is also a local brick or
 # base directory is judged — a mono namespace resolves to neither, so

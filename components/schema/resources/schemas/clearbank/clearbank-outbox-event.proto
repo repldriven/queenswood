@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.clearbank;
+package com.repldriven.queenswood.schema.clearbank;
 
 import "record_metadata_options.proto";
 

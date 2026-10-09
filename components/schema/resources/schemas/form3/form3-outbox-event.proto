@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.form3;
+package com.repldriven.queenswood.schema.form3;
 
 import "record_metadata_options.proto";
 

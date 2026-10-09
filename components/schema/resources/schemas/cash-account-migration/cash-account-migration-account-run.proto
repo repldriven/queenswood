@@ -1,0 +1,41 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.cash_account_migration;
+
+import "record_metadata_options.proto";
+
+option java_outer_classname = "CashAccountMigrationAccountRunProto";
+
+enum CashAccountMigrationOutcome {
+  CASH_ACCOUNT_MIGRATION_OUTCOME_UNKNOWN = 0;
+  CASH_ACCOUNT_MIGRATION_OUTCOME_ELIGIBLE = 1;
+  CASH_ACCOUNT_MIGRATION_OUTCOME_MIGRATED = 2;
+  CASH_ACCOUNT_MIGRATION_OUTCOME_INELIGIBLE = 3;
+  CASH_ACCOUNT_MIGRATION_OUTCOME_FAILED = 4;
+}
+
+enum CashAccountMigrationIneligibility {
+  CASH_ACCOUNT_MIGRATION_INELIGIBILITY_UNKNOWN = 0;
+  CASH_ACCOUNT_MIGRATION_INELIGIBILITY_CURRENCY_NOT_ALLOWED = 1;
+  CASH_ACCOUNT_MIGRATION_INELIGIBILITY_ACCOUNT_NOT_OPEN = 2;
+  CASH_ACCOUNT_MIGRATION_INELIGIBILITY_ALREADY_ON_TARGET = 3;
+  CASH_ACCOUNT_MIGRATION_INELIGIBILITY_VERSION_NOT_IN_SOURCE = 4;
+}
+
+// What one run decided about one account.
+message CashAccountMigrationAccountRun {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string run_id = 2;
+  required string account_id = 3;
+
+  required string migration_id = 4;
+  required CashAccountMigrationOutcome outcome = 5;
+  required string source_version_id = 6;
+  optional CashAccountMigrationIneligibility ineligibility = 7;
+
+  required int64 created_at = 101;
+
+  optional string failure_reason = 200;
+}

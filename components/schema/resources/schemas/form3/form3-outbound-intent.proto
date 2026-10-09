@@ -1,9 +1,9 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.form3;
+package com.repldriven.queenswood.schema.form3;
 
 import "record_metadata_options.proto";
-import "schemas/outbound/types.proto";
+import "schemas/outbound-intent/outbound-intent-status.proto";
 
 option java_outer_classname = "Form3OutboundIntentProto";
 
@@ -23,7 +23,7 @@ message Form3OutboundIntent {
   required string intent_id = 1; // uuidv7
 
   required Form3OutboundIntentKind kind = 2;
-  required com.repldriven.queenswood.schemas.outbound.OutboundIntentStatus status = 3;
+  required com.repldriven.queenswood.schema.outbound_intent.OutboundIntentStatus status = 3;
   required string request = 4; // JSON
   optional string context = 5; // EDN
   repeated string subjects = 6;

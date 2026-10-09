@@ -1,9 +1,9 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.zyphe;
+package com.repldriven.queenswood.schema.zyphe;
 
 import "record_metadata_options.proto";
-import "schemas/outbound/types.proto";
+import "schemas/outbound-intent/outbound-intent-status.proto";
 
 option java_outer_classname = "ZypheOutboundIntentProto";
 
@@ -19,7 +19,7 @@ message ZypheOutboundIntent {
   required string intent_id = 1; // uuidv7
 
   required ZypheOutboundIntentKind kind = 2;
-  required com.repldriven.queenswood.schemas.outbound.OutboundIntentStatus status = 3;
+  required com.repldriven.queenswood.schema.outbound_intent.OutboundIntentStatus status = 3;
   required string request = 4; // EDN
   repeated string subjects = 5;
   optional string correlation_id = 6;

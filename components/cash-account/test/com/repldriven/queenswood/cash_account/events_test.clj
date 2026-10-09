@@ -69,7 +69,7 @@
 (def ^:private payload-schema
   (delay (avro/json->schema
           (slurp (io/resource
-                  "schemas/cash-accounts/account-status-changed.avsc.json")))))
+                  "schemas/cash-account/account-status-changed.avsc.json")))))
 
 (defn- entry
   "The changelog map `store/save-account` hands to `status-changed`,

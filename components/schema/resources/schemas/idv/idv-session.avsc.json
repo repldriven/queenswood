@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "IdvSession",
-  "namespace": "com.repldriven.mono.idv",
+  "namespace": "com.repldriven.queenswood.schema.idv",
   "fields": [
     {"name": "bank_id",         "type": "string"},
     {"name": "session_id",      "type": "string"},

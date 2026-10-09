@@ -102,7 +102,7 @@ bank consuming `reward.paid`, which is the demo's own slice in
 
 A version carries the rewards it promises as `reward_terms`, a list of
 `RewardTerms` beside `interest_terms` in
-[cash-account-product.proto](/components/schema/resources/schemas/cash-account-products/cash-account-product.proto),
+[cash-account-product.proto](/components/schema/resources/schemas/cash-account-product/cash-account-product.proto),
 each naming the `RewardKind` it is for, an enum the paid `Reward`
 record shares from the folder's `types.proto`:
 
@@ -191,7 +191,7 @@ change to the account's processor.
 ### The transaction
 
 A reward posts as `TRANSACTION_TYPE_REWARD`, a new value in
-[transaction.proto](/components/schema/resources/schemas/transactions/transaction.proto),
+[transaction.proto](/components/schema/resources/schemas/transaction/transaction.proto),
 with two posting legs — a debit on the house account for the version's
 currency and a credit on the customer's, both `default` and `posted` —
 which move 3100 and the customer's deposit control, each the sum of
@@ -211,7 +211,7 @@ shares.
 The `AccountReward` row's changelog entry, `reward-status-changed`,
 carries the bank, the reward and account ids, the status before and
 after and a change kind of `pay` or `defer`, in a new Avro schema under
-`components/schema/resources/schemas/rewards/`. A `reward-relay.yml`
+`components/schema/resources/schemas/reward/`. A `reward-relay.yml`
 declares the handler and one runner over the `account-rewards` store
 onto a `rewards-event` channel, wired through the Kafka topics, the exclusive
 dispatchers and external adapters services, the monoliths and the test

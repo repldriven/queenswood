@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "GetCashAccount",
+  "namespace": "com.repldriven.queenswood.schema.cash_account",
+  "fields": [
+    {"name": "bank_id", "type": "string"},
+    {"name": "account_id",     "type": "string"}
+  ]
+}

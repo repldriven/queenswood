@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.account_product_type;
+package com.repldriven.queenswood.schema.account_product_type;
 
 option java_outer_classname = "AccountProductTypeProto";
 

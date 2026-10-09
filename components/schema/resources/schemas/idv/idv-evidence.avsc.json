@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "IdvEvidence",
-  "namespace": "com.repldriven.mono.idv",
+  "namespace": "com.repldriven.queenswood.schema.idv",
   "fields": [
     {"name": "bank_id",         "type": "string"},
     {"name": "verification_id", "type": "string"},
@@ -11,7 +11,7 @@
       "fields": [
         {"name": "outcome", "type": {"type": "enum",
                                       "name": "IdvEvidenceOutcome",
-                                      "namespace": "com.repldriven.mono.idv",
+                                      "namespace": "com.repldriven.queenswood.schema.idv",
                                       "symbols": ["IDV_EVIDENCE_OUTCOME_UNKNOWN",
                                                    "IDV_EVIDENCE_OUTCOME_PASSED",
                                                    "IDV_EVIDENCE_OUTCOME_FAILED",
@@ -20,7 +20,7 @@
         {"name": "issuing_country", "type": ["null", "string"], "default": null},
         {"name": "name_match", "type": ["null", {"type": "enum",
                                                   "name": "IdvNameMatch",
-                                                  "namespace": "com.repldriven.mono.idv",
+                                                  "namespace": "com.repldriven.queenswood.schema.idv",
                                                   "symbols": ["IDV_NAME_MATCH_UNKNOWN",
                                                                "IDV_NAME_MATCH_MATCH",
                                                                "IDV_NAME_MATCH_CLOSE_MATCH",
@@ -31,13 +31,13 @@
       "type": "record",
       "name": "IdvLivenessEvidence",
       "fields": [
-        {"name": "outcome", "type": "com.repldriven.mono.idv.IdvEvidenceOutcome"}
+        {"name": "outcome", "type": "com.repldriven.queenswood.schema.idv.IdvEvidenceOutcome"}
       ]}], "default": null},
     {"name": "address", "type": ["null", {
       "type": "record",
       "name": "IdvAddressEvidence",
       "fields": [
-        {"name": "outcome",       "type": "com.repldriven.mono.idv.IdvEvidenceOutcome"},
+        {"name": "outcome",       "type": "com.repldriven.queenswood.schema.idv.IdvEvidenceOutcome"},
         {"name": "document_type", "type": ["null", "string"], "default": null}
       ]}], "default": null},
     {"name": "screening", "type": ["null", {
@@ -46,7 +46,7 @@
       "fields": [
         {"name": "sanctions", "type": {"type": "enum",
                                         "name": "IdvSanctionsOutcome",
-                                        "namespace": "com.repldriven.mono.idv",
+                                        "namespace": "com.repldriven.queenswood.schema.idv",
                                         "symbols": ["IDV_SANCTIONS_OUTCOME_UNKNOWN",
                                                      "IDV_SANCTIONS_OUTCOME_CLEAR",
                                                      "IDV_SANCTIONS_OUTCOME_POSSIBLE_MATCH",

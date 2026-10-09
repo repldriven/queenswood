@@ -1,9 +1,9 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.payee_check;
+package com.repldriven.queenswood.schema.payee_check;
 
 import "record_metadata_options.proto";
-import "schemas/cash-accounts/types.proto";
+import "schemas/cash-account/types.proto";
 import "schemas/actor/actor.proto";
 
 option java_outer_classname = "PayeeCheckProto";
@@ -24,7 +24,7 @@ message AccountIdentifier {
 message PayeeCheckRequest {
   required string creditor_name = 1;
   required AccountIdentifier account = 2;
-  required com.repldriven.queenswood.schemas.cash_accounts.AccountType account_type = 3;
+  required com.repldriven.queenswood.schema.cash_account.AccountType account_type = 3;
 }
 
 message PayeeCheckResult {
@@ -45,5 +45,5 @@ message PayeeCheck {
   required PayeeCheckResult result = 4;
 
   required int64 created_at = 101;
-  required com.repldriven.queenswood.schemas.actor.Actor created_by = 102;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
 }

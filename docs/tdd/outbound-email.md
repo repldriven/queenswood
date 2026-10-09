@@ -60,7 +60,7 @@ has no local account to verify; and bounce handling.
 - **The command dispatcher.** mono's `command` brick sends a command
   and awaits its reply. The `api` base's `commands/send` is the one
   caller today.
-- **The invitation.** `Invitation` under `schemas/members/`, and
+- **The invitation.** `Invitation` under `schemas/member/`, and
   the link's token minted and hashed by
   `member/new-invitation-token`, whose plaintext the API returns.
 
@@ -235,7 +235,7 @@ Two component kinds, registered from `system.clj`:
 
 ### Records
 
-`EmailDelivery` under `schemas/emails/`, in its own store:
+`EmailDelivery` under `schemas/email/`, in its own store:
 
 - Delivery id (prefix `eml`), bank id, kind (invitation), and
   `kind_id`, the id of the record the kind names: the invitation's.
@@ -290,7 +290,7 @@ token exists in the runner's memory and the message, and nowhere else.
 
 `record-invitation-token` is a `member` processor command on the
 `members-command` topic, its Avro payload
-`schemas/members/record-invitation-token.avsc.json` registered in
+`schemas/member/record-invitation-token.avsc.json` registered in
 `avro-schemas.yml`. The guard is in [memberships.md](memberships.md). The runner holds a
 dispatcher for the topic and its reply topic, as the `api` base does.
 

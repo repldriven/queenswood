@@ -15,8 +15,13 @@ its own legend.
 Lay a folder under
 [schemas](/components/schema/resources/schemas/) out one record per
 file, named for the record in kebab case, with the outer class the
-record's name and `Proto`: `balances/account-balance.proto` holds
-`AccountBalance` in `AccountBalanceProto`. A message only that record
+record's name and `Proto`: `balance/account-balance.proto` holds
+`AccountBalance` in `AccountBalanceProto`. Name a folder in the
+singular for the brick that owns its records, and give its files the
+package `com.repldriven.queenswood.schema.<folder>` and its Avro
+schemas the same namespace, a hyphen written as an underscore. A type
+several folders use gets a folder of its own named for it, as `actor/`
+and `scheme-type/` do. A message only that record
 uses stays in its file. An enum or message several files use goes in
 the folder's `types.proto`, and another folder imports it from there.
 A folder is a domain, and a schema goes in the folder of the domain it
@@ -31,36 +36,42 @@ message CashAccountMigration {
 
   required string bank_id = 1;
   required string migration_id = 2;
+
   required string name = 3;
   required CashAccountMigrationStatus status = 4;
   optional int64 notified_on = 9; // epoch day
 
   optional int64 approved_at = 51;
-  optional com.repldriven.queenswood.schemas.actor.Actor approved_by = 52;
+  optional com.repldriven.queenswood.schema.actor.Actor approved_by = 52;
   optional int64 completed_at = 53;
   optional int64 cancelled_at = 55;
-  optional com.repldriven.queenswood.schemas.actor.Actor cancelled_by = 56;
+  optional com.repldriven.queenswood.schema.actor.Actor cancelled_by = 56;
 
   required string idempotency_key = 100;
   required int64 created_at = 101;
-  required com.repldriven.queenswood.schemas.actor.Actor created_by = 102;
-  required int64 updated_at = 103;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+  optional int64 updated_at = 103;
 }
 ```
 
 - **1 to 50, the record's own fields.** The primary key's fields first,
-  in key order, then the rest in the order the domain reads them.
+  in key order and set apart by a blank line, then the rest in the
+  order the domain reads them.
 - **51 to 99, its transitions.** One pair per transition, the `_at` on
   the odd number and the `_by` on the even one after it. A transition
   nobody performs, as the scheduler completing a migration, leaves its
-  `_by` number unused.
+  `_by` number unused. A pair is named for the state it reaches, in the
+  verb the domain uses and the one every other record reaching that
+  state uses: `completed_at` wherever a status is `COMPLETED`.
 - **100 to 104, creation and update.** `idempotency_key` 100,
   `created_at` 101, `created_by` 102, `updated_at` 103, `updated_by`
   104, each only where the record has it and it is not in the primary
-  key. The idempotency key is the key a repeat of the request that
-  created the record is recognised by, whether the request is an API
-  call carrying an `Idempotency-Key` or a changelog event a consumer
-  may be handed twice.
+  key. `updated_at` and `updated_by` are never required: a record
+  nobody has changed has neither, so its create leaves them unset. The
+  idempotency key is the key a repeat of the request that created the
+  record is recognised by, whether the request is an API call carrying
+  an `Idempotency-Key` or a changelog event a consumer may be handed
+  twice.
 - **200, the failure.** `failure_reason` on any record whose own
   processing can go wrong, as an interest run or a delivery can. An
   outcome the domain expects, such as a payment the scheme declines,
@@ -119,7 +130,13 @@ the record's fields in the proto's order.
   outer class `<Record>Proto`, and an enum or message shared across
   files in the folder's `types.proto`.
 - File a schema in its domain's folder, never in one named for the
-  mechanism that carries it.
+  mechanism that carries it, the folder named in the singular for the
+  brick that owns it, and give its protos the package
+  `com.repldriven.queenswood.schema.<folder>` and its Avro schemas the
+  same namespace.
+- Set the primary key's fields apart from the rest by a blank line.
+- Name a transition's `_at` and `_by` for the state it reaches, in the
+  verb every record reaching that state uses.
 - Number the primary key's fields first in key order, the record's own
   fields from 1 to 50, its transitions from 51 to 99 as `_at` and `_by`
   pairs with the `_at` odd, `idempotency_key`, `created_at`,
@@ -144,6 +161,8 @@ the record's fields in the proto's order.
 **MUST NOT:**
 
 - Give a field an explicit `[default = …]`.
+- Declare `updated_at` or `updated_by` `required`, or set either when
+  a record is created.
 - Write `reserved` for an audit or transition number a record does not
   use.
 - Comment a record or field with how something elsewhere uses it.

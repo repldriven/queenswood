@@ -1,0 +1,32 @@
+{
+  "type": "record",
+  "name": "AccountOpening",
+  "namespace": "com.repldriven.queenswood.schema.cash_account",
+  "doc": "A cash account the bank's payment provider is to open.",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "holder_name",
+      "type": "string"
+    },
+    {
+      "name": "currency",
+      "type": "string"
+    },
+    {
+      "name": "address_schemes",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "default": []
+    }
+  ]
+}

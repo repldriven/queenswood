@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.interest;
+package com.repldriven.queenswood.schema.interest;
 
 import "record_metadata_options.proto";
 import "schemas/interest/types.proto";

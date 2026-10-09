@@ -64,7 +64,7 @@
 
 (def ^:private reply-schema
   (avro/json->schema (slurp (io/resource
-                             "schemas/cash-accounts/account.avsc.json"))))
+                             "schemas/cash-account/account.avsc.json"))))
 
 (def ^:private opened-balance
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
@@ -412,7 +412,7 @@
 (def ^:private transaction-rejected-schema
   (avro/json->schema
    (slurp (io/resource
-           "schemas/schemes/payments/transaction-rejected.avsc.json"))))
+           "schemas/payment-provider/payment/transaction-rejected.avsc.json"))))
 
 (def ^:private stable-transaction-rejected-schema
   (avro/json->schema

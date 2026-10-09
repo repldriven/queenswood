@@ -1,0 +1,32 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.transaction;
+
+import "record_metadata_options.proto";
+import "schemas/account-product-type/account-product-type.proto";
+import "schemas/balance/types.proto";
+
+option java_outer_classname = "TransactionLegProto";
+
+enum LegSide {
+  LEG_SIDE_UNKNOWN = 0;
+  LEG_SIDE_DEBIT = 1;
+  LEG_SIDE_CREDIT = 2;
+}
+
+// One account's debit or credit in a transaction.
+message TransactionLeg {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string account_id = 2;
+  required string transaction_id = 3;
+  required string leg_id = 4; // leg.<uuidv7>
+
+  required com.repldriven.queenswood.schema.balance.BalanceType balance_type = 5;
+  required com.repldriven.queenswood.schema.balance.BalanceStatus balance_status = 6;
+  required LegSide side = 7;
+  required int64 amount = 8; // minor units
+  required string currency = 9; // ISO 4217
+  optional com.repldriven.queenswood.schema.account_product_type.AccountProductType product_type = 10;
+}

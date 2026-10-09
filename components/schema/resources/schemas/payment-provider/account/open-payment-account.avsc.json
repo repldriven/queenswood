@@ -1,0 +1,31 @@
+{
+  "type": "record",
+  "name": "OpenPaymentAccount",
+  "namespace": "com.repldriven.queenswood.schema.payment_provider.account",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "holder_name",
+      "type": "string"
+    },
+    {
+      "name": "currency",
+      "type": "string"
+    },
+    {
+      "name": "address_schemes",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "default": []
+    }
+  ]
+}

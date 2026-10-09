@@ -707,7 +707,7 @@ base's override table.
 
 ### Records
 
-Four record types, as protos under `schemas/webhooks/`, registered in
+Four record types, as protos under `schemas/webhook/`, registered in
 three places the way the ClearBank outbox was: the record-type union,
 the FDB record-type YAML, and the `pb->`, `->pb` and `->java` trio per
 type in the `schema` brick's `interface.clj`.

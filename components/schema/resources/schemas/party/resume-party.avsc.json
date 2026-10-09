@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "ResumeParty",
-  "namespace": "com.repldriven.mono.party",
+  "namespace": "com.repldriven.queenswood.schema.party",
   "fields": [
     {
       "name": "bank_id",

@@ -1,0 +1,121 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.cash_account_product;
+
+import "record_metadata_options.proto";
+import "schemas/account-product-type/account-product-type.proto";
+import "schemas/actor/actor.proto";
+import "schemas/cash-account-product/types.proto";
+
+option java_outer_classname = "CashAccountProductProto";
+
+enum VersionStatus {
+  VERSION_STATUS_UNKNOWN = 0;
+  VERSION_STATUS_DRAFT = 1;
+  VERSION_STATUS_PUBLISHED = 2;
+  VERSION_STATUS_DISCARDED = 3;
+}
+
+enum InterestScheduleBasis {
+  INTEREST_SCHEDULE_BASIS_UNKNOWN = 0;
+  INTEREST_SCHEDULE_BASIS_FIXED = 1;
+  INTEREST_SCHEDULE_BASIS_RELATIVE = 2;
+}
+
+enum InterestBanding {
+  INTEREST_BANDING_UNKNOWN = 0;
+  INTEREST_BANDING_MARGINAL = 1;
+  INTEREST_BANDING_WHOLE_BALANCE = 2;
+}
+
+enum InterestDayCount {
+  INTEREST_DAY_COUNT_UNKNOWN = 0;
+  INTEREST_DAY_COUNT_ACTUAL_365 = 1;
+  INTEREST_DAY_COUNT_ACTUAL_ACTUAL = 2;
+}
+
+enum InterestPaymentFrequency {
+  INTEREST_PAYMENT_FREQUENCY_UNKNOWN = 0;
+  INTEREST_PAYMENT_FREQUENCY_DAILY = 1;
+  INTEREST_PAYMENT_FREQUENCY_MONTHLY = 2;
+  INTEREST_PAYMENT_FREQUENCY_QUARTERLY = 3;
+  INTEREST_PAYMENT_FREQUENCY_ANNUALLY = 4;
+  INTEREST_PAYMENT_FREQUENCY_AT_CLOSE = 5;
+}
+
+enum InterestPaymentDay {
+  INTEREST_PAYMENT_DAY_UNKNOWN = 0;
+  INTEREST_PAYMENT_DAY_ACCOUNT = 1; // the account's version_from_on
+  INTEREST_PAYMENT_DAY_DAY_OF_MONTH = 2; // day_of_month
+  INTEREST_PAYMENT_DAY_LAST_OF_MONTH = 3;
+}
+
+// A rate on the part of a balance within a band.
+message InterestBand {
+  optional int64 up_to = 1; // minor units
+  required int32 rate_bps = 2;
+}
+
+// The bands in force from a step's start until the next step's.
+message InterestStep {
+  optional int64 starts_on = 1; // epoch day
+  optional int32 starts_after_months = 2;
+  repeated InterestBand bands = 3;
+}
+
+// When accrued interest is paid into the account.
+message InterestPayment {
+  required InterestPaymentFrequency frequency = 1;
+  optional InterestPaymentDay day = 2;
+  optional int32 day_of_month = 3; // 1 to 28
+  optional int32 month = 4; // 1 to 12
+}
+
+// A version's interest rate and when it is paid.
+message InterestTerms {
+  required InterestScheduleBasis basis = 1;
+  required InterestBanding banding = 2;
+  repeated InterestStep steps = 3;
+  required InterestDayCount day_count = 4;
+  required InterestPayment payment = 5;
+}
+
+// A reward a version promises the accounts opened under it.
+message RewardTerms {
+  required RewardKind kind = 1;
+  required int64 amount = 2; // minor units
+}
+
+// One version of a bank's cash account product.
+message CashAccountProduct {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string product_id = 2;
+  required string version_id = 3;
+
+  required string template_id = 4;
+  required string name = 5;
+  required int32 version_number = 6;
+  required VersionStatus status = 7;
+  required com.repldriven.queenswood.schema.account_product_type.AccountProductType product_type = 8;
+  required IsoCashAccountType iso_cash_account_type = 9;
+  required BalanceSheetSide balance_sheet_side = 10;
+  required string currency = 11; // ISO 4217
+  repeated BalanceProduct balance_products = 12;
+  repeated PaymentAddressScheme allowed_payment_address_schemes = 13;
+  optional InterestTerms interest_terms = 14;
+  repeated RewardTerms reward_terms = 15;
+  required int64 effective_from = 16; // epoch day
+  optional int64 effective_to = 17; // epoch day
+
+  optional int64 published_at = 51;
+  optional com.repldriven.queenswood.schema.actor.Actor published_by = 52;
+  optional int64 discarded_at = 53;
+  optional com.repldriven.queenswood.schema.actor.Actor discarded_by = 54;
+
+  optional string idempotency_key = 100;
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+  optional int64 updated_at = 103;
+}

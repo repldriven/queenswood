@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "TransferBetweenAccounts",
+  "namespace": "com.repldriven.queenswood.schema.payment_provider.payment",
+  "doc": "Move money between two cash accounts' provider accounts, or credit one from outside the provider where no debtor is named, as the ledger already has. The adapter resolves each provider account from the cash account it holds, where the command does not name it.",
+  "fields": [
+    {"name": "transfer_id",                  "type": "string"},
+    {"name": "bank_id",                      "type": "string"},
+    {"name": "transaction_id",               "type": "string"},
+    {"name": "debtor_account_id",            "type": ["null", "string"], "default": null},
+    {"name": "creditor_account_id",          "type": ["null", "string"], "default": null},
+    {"name": "debtor_provider_account_id",   "type": ["null", "string"], "default": null},
+    {"name": "creditor_provider_account_id", "type": ["null", "string"], "default": null},
+    {"name": "amount",                       "type": "long", "doc": "minor units"},
+    {"name": "currency",                     "type": "string"}
+  ]
+}

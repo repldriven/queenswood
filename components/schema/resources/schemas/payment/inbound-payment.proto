@@ -1,0 +1,51 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.payment;
+
+import "record_metadata_options.proto";
+import "schemas/scheme-type/scheme-type.proto";
+
+option java_outer_classname = "InboundPaymentProto";
+
+enum InboundPaymentStatus {
+  INBOUND_PAYMENT_STATUS_UNKNOWN = 0;
+  INBOUND_PAYMENT_STATUS_SETTLED = 1;
+  INBOUND_PAYMENT_STATUS_SUSPENDED = 2;
+  INBOUND_PAYMENT_STATUS_HELD = 3;
+  INBOUND_PAYMENT_STATUS_RETURNED = 4;
+  INBOUND_PAYMENT_STATUS_ADMITTED = 5;
+  INBOUND_PAYMENT_STATUS_RETURN_FAILED = 6;
+}
+
+// A payment into a bank from an account at another, over a scheme.
+message InboundPayment {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string payment_id = 2; // pmt.<uuidv7>
+
+  required InboundPaymentStatus status = 3;
+  required com.repldriven.queenswood.schema.scheme_type.SchemeType scheme_type = 4;
+  optional string creditor_account_id = 5;
+  optional string debtor_name = 6;
+  required int64 amount = 7; // minor units
+  required string currency = 8; // ISO 4217
+  optional string reference = 9;
+  required string end_to_end_id = 10;
+  required string scheme_transaction_id = 11;
+  optional string transaction_id = 12;
+  required int64 business_day = 13; // epoch day
+  optional string suspended_reason_code = 14; // ISO 20022
+  optional string suspended_reason = 15;
+  optional string return_failed_reason = 16;
+
+  optional int64 admitted_at = 51;
+  optional int64 held_at = 53;
+  optional int64 settled_at = 55;
+  optional int64 suspended_at = 57;
+  optional int64 returned_at = 59;
+  optional int64 return_failed_at = 61;
+
+  required int64 created_at = 101;
+  optional int64 updated_at = 103;
+}

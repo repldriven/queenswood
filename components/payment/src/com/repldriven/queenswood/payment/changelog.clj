@@ -23,13 +23,13 @@
   (delay (avro/json->schema (slurp (io/resource path)))))
 
 (def ^:private outbound-schema
-  (load-schema "schemas/payments/outbound-payment-status-changed.avsc.json"))
+  (load-schema "schemas/payment/outbound-payment-status-changed.avsc.json"))
 
 (def ^:private inbound-schema
-  (load-schema "schemas/payments/inbound-payment-status-changed.avsc.json"))
+  (load-schema "schemas/payment/inbound-payment-status-changed.avsc.json"))
 
 (def ^:private internal-schema
-  (load-schema "schemas/payments/internal-payment-settled.avsc.json"))
+  (load-schema "schemas/payment/internal-payment-settled.avsc.json"))
 
 (defn- entry
   "The shared-envelope changelog bytes for a payment write. `changelog`

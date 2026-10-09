@@ -17,7 +17,7 @@
 (def ^:private schema
   (delay (avro/json->schema
           (slurp (io/resource
-                  "schemas/cash-accounts/account-status-changed.avsc.json")))))
+                  "schemas/cash-account/account-status-changed.avsc.json")))))
 
 (defn account-changed
   "Build the shared-envelope changelog bytes for a cash-account write.

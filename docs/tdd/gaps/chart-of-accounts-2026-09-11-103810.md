@@ -298,7 +298,7 @@ exercise — and `:ledger-account/invalid-status` has no 409 entry in the
 API's status table. Evidence: `close-account` in the ledger-account
 brick's `core.clj`, `close` and `new-ledger-account` in its
 `domain.clj`,
-[ledger-account.proto](/components/schema/resources/schemas/ledger-accounts/ledger-account.proto),
+[ledger-account.proto](/components/schema/resources/schemas/ledger-account/ledger-account.proto),
 [ledger-accounts.yml](/components/resources/resources/policies/micro/restricted/capabilities/ledger-accounts.yml)
 under the micro capabilities, `new-ledger-accounts` in the bank brick's
 `core.clj`, and `rejection-status-overrides` in the api base's
@@ -336,7 +336,7 @@ creation; the `CashAccount` proto has no such field, the open command
 takes no override, and no emitter, adapter or handler reads it. `SACC`
 and `CPAC` are enum values with no writer. Evidence: the
 `IsoCashAccountType` enum and tags 19 and 8 in
-[cash-account-product.proto](/components/schema/resources/schemas/cash-account-products/cash-account-product.proto),
+[cash-account-product.proto](/components/schema/resources/schemas/cash-account-product/cash-account-product.proto),
 the three customer templates under
 `cash-account-product-templates`, and `product-fields` in the
 cash-account-product brick's `domain.clj`.

@@ -15,7 +15,7 @@ and [interest](../tdd/interest.md#a-versions-interest-terms). Questions
 
 - **The rate.** `CashAccountProduct.interest_rate_bps`, one required
   `int32` per version, in
-  [cash-account-product.proto](/components/schema/resources/schemas/cash-account-products/cash-account-product.proto).
+  [cash-account-product.proto](/components/schema/resources/schemas/cash-account-product/cash-account-product.proto).
   Accrual reads it once per account per day in `interest/accrue.clj`
   and `interest/domain/accrual.clj`, actual/365, at sub-unit precision
   carried between days.
@@ -23,7 +23,7 @@ and [interest](../tdd/interest.md#a-versions-interest-terms). Questions
   `RewardTerms { kind, amount }` in minor units of the version's one
   `currency`, `REWARD_KIND_OPENING` the one kind.
 - **The reward paid.** The `Reward` record in
-  [reward.proto](/components/schema/resources/schemas/rewards/reward.proto),
+  [reward.proto](/components/schema/resources/schemas/reward/reward.proto),
   one per account and `RewardKind`, `DUE` or `PAID`, written by the
   reward processor as an account opens.
 - **The interest runs.** `InterestRun` and `InterestAccountRun` in

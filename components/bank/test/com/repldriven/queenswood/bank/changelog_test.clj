@@ -15,7 +15,7 @@
 ;; payload back through the schema that wrote it.
 (def ^:private tier-schema
   (delay (avro/json->schema
-          (slurp (io/resource "schemas/banks/bank-tier-changed.avsc.json")))))
+          (slurp (io/resource "schemas/bank/bank-tier-changed.avsc.json")))))
 
 (deftest changelog-carries-the-shared-envelope-test
   (testing

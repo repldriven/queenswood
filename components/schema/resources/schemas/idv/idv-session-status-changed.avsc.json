@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "IdvSessionStatusChanged",
-  "namespace": "com.repldriven.mono.idv",
+  "namespace": "com.repldriven.queenswood.schema.idv",
   "fields": [
     {"name": "bank_id",         "type": "string"},
     {"name": "session_id",      "type": "string"},
@@ -16,6 +16,6 @@
                                     "IDV_SESSION_STATUS_COMPLETED",
                                     "IDV_SESSION_STATUS_FAILED"]}],
      "default": null},
-    {"name": "status_after", "type": "com.repldriven.mono.idv.IdvSessionStatus"}
+    {"name": "status_after", "type": "com.repldriven.queenswood.schema.idv.IdvSessionStatus"}
   ]
 }

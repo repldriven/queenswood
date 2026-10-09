@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.interest;
+package com.repldriven.queenswood.schema.interest;
 
 option java_outer_classname = "InterestTypesProto";
 

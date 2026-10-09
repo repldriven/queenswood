@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "PayeeCheck",
-  "namespace": "com.repldriven.mono.payee_check",
+  "namespace": "com.repldriven.queenswood.schema.payee_check",
   "fields": [
     {
       "name": "bank_id",

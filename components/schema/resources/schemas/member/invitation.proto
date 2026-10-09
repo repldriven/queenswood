@@ -1,0 +1,48 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.member;
+
+import "record_metadata_options.proto";
+import "schemas/actor/actor.proto";
+import "schemas/member/member.proto";
+
+option java_outer_classname = "InvitationProto";
+
+enum InvitationStatus {
+  INVITATION_STATUS_UNKNOWN = 0;
+  INVITATION_STATUS_PENDING = 1;
+  INVITATION_STATUS_ACCEPTED = 2;
+  INVITATION_STATUS_DECLINED = 3;
+  INVITATION_STATUS_WITHDRAWN = 4;
+  INVITATION_STATUS_EXPIRED = 5;
+}
+
+// An offer of a role in a bank, addressed to an email.
+message Invitation {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string invitation_id = 2; // inv.<uuidv7>
+
+  required InvitationStatus status = 3;
+  required Role role = 4;
+  required string email = 5;
+  required string email_lower = 6;
+  required string token_hash = 7; // SHA-256 of the token, hex
+  required int64 expires_at = 8;
+  optional string reason = 9;
+  optional string withdrawn_reason = 10;
+
+  optional int64 accepted_at = 51;
+  optional com.repldriven.queenswood.schema.actor.Actor accepted_by = 52;
+  optional int64 declined_at = 53;
+  optional com.repldriven.queenswood.schema.actor.Actor declined_by = 54;
+  optional int64 withdrawn_at = 55;
+  optional com.repldriven.queenswood.schema.actor.Actor withdrawn_by = 56;
+  optional int64 resent_at = 57;
+  optional com.repldriven.queenswood.schema.actor.Actor resent_by = 58;
+
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+  optional int64 updated_at = 103;
+}

@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "BankStatusChanged",
+  "namespace": "com.repldriven.queenswood.schema.bank",
+  "fields": [
+    {"name": "bank_id", "type": "string"},
+    {"name": "status_before",
+     "type": ["null", {"type": "enum",
+                       "name": "BankStatus",
+                       "symbols": ["BANK_STATUS_UNKNOWN",
+                                   "BANK_STATUS_TEST",
+                                   "BANK_STATUS_LIVE"]}],
+     "default": null},
+    {"name": "status_after", "type": "com.repldriven.queenswood.schema.bank.BankStatus"}
+  ]
+}

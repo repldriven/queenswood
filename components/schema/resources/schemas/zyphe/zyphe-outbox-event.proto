@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.zyphe;
+package com.repldriven.queenswood.schema.zyphe;
 
 import "record_metadata_options.proto";
 

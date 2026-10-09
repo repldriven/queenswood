@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.onfido;
+package com.repldriven.queenswood.schema.onfido;
 
 import "record_metadata_options.proto";
 

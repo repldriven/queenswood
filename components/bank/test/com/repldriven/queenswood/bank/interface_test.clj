@@ -94,9 +94,9 @@
 (deftest create-bank-schema-test
   (let [create-schema (avro/json->schema
                        (slurp (io/resource
-                               "schemas/banks/create-bank.avsc.json")))
-        bank-schema (avro/json->schema
-                     (slurp (io/resource "schemas/banks/bank.avsc.json")))]
+                               "schemas/bank/create-bank.avsc.json")))
+        bank-schema (avro/json->schema (slurp (io/resource
+                                               "schemas/bank/bank.avsc.json")))]
     (testing "the owner invitation and actor decode as the brick reads them"
       (nom-test> [bytes (avro/serialize create-schema
                                         {:name "New Shape Bank"

@@ -66,7 +66,7 @@ record and its FDB store:
   answer or answered with a 5xx, a 408 or a 429. Only `:failed` counts.
   A customer's endpoint answering anything but a 2xx counts.
 - **The record.** `CircuitBreaker` in
-  `schemas/outbound/circuit-breaker.proto`, keyed by `destination`, with
+  `schemas/circuit-breaker/circuit-breaker.proto`, keyed by `destination`, with
   its `status` (closed, open or half-open), `failure_count`,
   `next_probe_at`, `cool_down_ms` and `opened_at`, in a
   `circuit-breakers` store, per

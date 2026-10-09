@@ -1,0 +1,10 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.amount;
+
+option java_outer_classname = "AmountProto";
+
+message Amount {
+  required int64 value = 1; // minor units
+  required string currency = 2; // ISO 4217
+}

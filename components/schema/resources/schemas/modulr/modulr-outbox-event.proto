@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.modulr;
+package com.repldriven.queenswood.schema.modulr;
 
 import "record_metadata_options.proto";
 

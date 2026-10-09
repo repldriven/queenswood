@@ -145,16 +145,21 @@ See [schema-evolution](../../../docs/recipes/code/schema-evolution.md).
 Keep one stored record per file, named for the record, with the outer
 class `<Record>Proto`, and an enum or message shared across files in the
 folder's `types.proto`, and file a schema in its domain's folder, never
-in one named for the mechanism that carries it. Number the primary key's
-fields first in key
-order, the record's own fields from 1 to 50, its transitions from 51 to
+in one named for the mechanism that carries it, the folder named in the
+singular for the brick that owns it, its package
+`com.repldriven.queenswood.schema.<folder>` and its Avro namespace the
+same. Number the primary key's fields first in key order, set apart by a
+blank line, the record's own fields from 1 to 50, its transitions from 51 to
 99 as `_at` and `_by` pairs with the `_at` odd, `idempotency_key`,
 `created_at`, `created_by`, `updated_at` and `updated_by` at 100 to 104,
 the key taken from the API call or changelog event that created the
 record, `failure_reason` at 200, and, on a record that retries an
 outbound call, `attempt_count`, `next_attempt_at` and `traceparent` at
 201 to 203, keeping no retried attempt's error, lease or claim holder;
-and write no `reserved` for a number a record does not use.
+and write no `reserved` for a number a record does not use. Name a
+transition's pair for the state it reaches, in the verb every record
+reaching that state uses, and never declare `updated_at` or `updated_by`
+`required` or set either on create.
 Name a date `_on`, `business_day` excepted, an instant `_at`, an actor
 `_by`, a count `_count`, and the reason a record failed
 `failure_reason`. Name an enum `…Type`

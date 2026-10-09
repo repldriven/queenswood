@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "BankTierChanged",
+  "namespace": "com.repldriven.queenswood.schema.bank",
+  "fields": [
+    {"name": "bank_id", "type": "string"},
+    {"name": "tier_before", "type": "string"},
+    {"name": "tier_after", "type": "string"}
+  ]
+}

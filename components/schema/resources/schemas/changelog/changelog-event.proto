@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.changelog;
+package com.repldriven.queenswood.schema.changelog;
 
 option java_outer_classname = "ChangelogEventProto";
 

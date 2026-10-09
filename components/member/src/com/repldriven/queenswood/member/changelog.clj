@@ -14,8 +14,7 @@
 ;; receives a Txn, never the system config the serde arrives in.
 (def ^:private schema
   (delay (avro/json->schema
-          (slurp (io/resource
-                  "schemas/members/invitation-changed.avsc.json")))))
+          (slurp (io/resource "schemas/member/invitation-changed.avsc.json")))))
 
 (defn invitation-changed
   "Build the shared-envelope changelog bytes for an invitation that is to

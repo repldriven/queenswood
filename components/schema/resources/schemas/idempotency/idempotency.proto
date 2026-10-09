@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.idempotency;
+package com.repldriven.queenswood.schema.idempotency;
 
 import "record_metadata_options.proto";
 

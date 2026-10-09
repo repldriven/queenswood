@@ -43,7 +43,7 @@ What exists is slice 1, the API, as the sections below describe it,
 and the console as first built:
 
 - **The records.** `Member`, `Invitation`, `MemberRoleChange`
-  and the `Actor` they share, under `schemas/members/`, declared in
+  and the `Actor` they share, under `schemas/member/`, declared in
   [fdb-record-types.yml](/components/resources/resources/system/fdb-record-types.yml).
 - **The `member` brick.** The rules in `domain.clj` and one FDB
   transaction per write in `core.clj`. `user` still upserts a `User` on
@@ -192,7 +192,7 @@ anomaly kind has, as [service-apis.md](service-apis.md) records.
 
 ### Records
 
-Three record types under `schemas/members/`, registered where every
+Three record types under `schemas/member/`, registered where every
 record type is: the record-type union, the FDB record-type declaration,
 and the `pb->`, `->pb` and `->java` trio in the `schema` brick's
 `interface.clj`. Each act a person or an operator performs is recorded
@@ -283,7 +283,7 @@ for membership. On the system diagram the API writes only
 The commands are `invite`, `resend-invitation`, `withdraw-invitation`,
 `accept-invitation`, `decline-invitation`, `change-role`,
 `remove-member`, `leave` and `record-invitation-token`, each an Avro
-payload under `schemas/members/` registered in
+payload under `schemas/member/` registered in
 [avro-schemas.yml](/components/resources/resources/system/avro-schemas.yml),
 each replying with the record it wrote as the Avro `member` or
 `invitation`. The actor, the bank and the proof are what the base
@@ -307,7 +307,7 @@ the other's write and is refused.
 and writes one to the `invitations` changelog for a create or a
 resend — `changelog.clj` builds `invitation-created` and
 `invitation-resent` from
-`schemas/members/invitation-changed.avsc.json` — and none for
+`schemas/member/invitation-changed.avsc.json` — and none for
 another transition, which nothing reacts to. `new-bank` calls `invite`
 with the live transaction, so an owner invitation's entry commits with
 the bank. A `changelog-relay` handler and runner for the `invitations`

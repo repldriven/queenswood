@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.actor;
+package com.repldriven.queenswood.schema.actor;
 
 option java_outer_classname = "ActorProto";
 

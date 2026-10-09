@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "ReturnPayment",
+  "namespace": "com.repldriven.queenswood.schema.payment_provider.payment",
+  "doc": "Send an inbound payment the bank could not apply back to its sender, with the ISO 20022 reason it was parked for.",
+  "fields": [
+    {"name": "payment_id",            "type": "string"},
+    {"name": "end_to_end_id",         "type": "string"},
+    {"name": "scheme_transaction_id", "type": "string", "doc": "the provider's id for the inbound payment"},
+    {"name": "amount",                "type": "long", "doc": "minor units"},
+    {"name": "currency",              "type": "string"},
+    {"name": "reason_code",           "type": "string", "doc": "ISO 20022"},
+    {"name": "reason",                "type": ["null", "string"], "default": null}
+  ]
+}

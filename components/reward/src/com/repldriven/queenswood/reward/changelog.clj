@@ -17,7 +17,7 @@
 (def ^:private payload-schema
   (delay (avro/json->schema
           (slurp (io/resource
-                  "schemas/rewards/reward-status-changed.avsc.json")))))
+                  "schemas/reward/reward-status-changed.avsc.json")))))
 
 (defn status-changed
   "The shared-envelope changelog bytes for a reward write. `changelog`

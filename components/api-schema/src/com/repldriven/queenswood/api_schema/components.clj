@@ -105,7 +105,7 @@
 
 (def Amount
   "Monetary amount paired with its currency — mirrors the `Amount`
-  proto in `schemas/amounts/amount.proto` (int64 minor units + ISO
+  proto in `schemas/amount/amount.proto` (int64 minor units + ISO
   4217 currency)."
   [:map {:closed true}
    [:value [:ref "MinorUnits"]]

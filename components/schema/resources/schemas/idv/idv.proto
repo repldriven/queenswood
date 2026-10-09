@@ -1,9 +1,9 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.idv;
+package com.repldriven.queenswood.schema.idv;
 
 import "record_metadata_options.proto";
-import "schemas/policies/capability.proto";
+import "schemas/policy/capability.proto";
 
 option java_outer_classname = "IdvProto";
 
@@ -79,8 +79,8 @@ message IdvEvidence {
 
 // One verification or screening, whichever is set.
 message IdvCriterion {
-  optional com.repldriven.queenswood.schemas.policies.IdvVerification verification = 1;
-  optional com.repldriven.queenswood.schemas.policies.IdvScreening screening = 2;
+  optional com.repldriven.queenswood.schema.policy.IdvVerification verification = 1;
+  optional com.repldriven.queenswood.schema.policy.IdvScreening screening = 2;
   required IdvCriterionStatus status = 3;
 }
 

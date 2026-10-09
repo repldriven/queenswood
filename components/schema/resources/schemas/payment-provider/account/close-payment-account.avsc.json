@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "ClosePaymentAccount",
+  "namespace": "com.repldriven.queenswood.schema.payment_provider.account",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "provider_account_id",
+      "type": "string"
+    }
+  ]
+}

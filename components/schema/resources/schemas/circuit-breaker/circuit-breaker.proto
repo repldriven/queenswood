@@ -1,0 +1,31 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.circuit_breaker;
+
+import "record_metadata_options.proto";
+
+option java_outer_classname = "CircuitBreakerProto";
+
+enum CircuitBreakerStatus {
+  CIRCUIT_BREAKER_STATUS_UNKNOWN = 0;
+  CIRCUIT_BREAKER_STATUS_CLOSED = 1;
+  CIRCUIT_BREAKER_STATUS_OPEN = 2;
+  CIRCUIT_BREAKER_STATUS_HALF_OPEN = 3;
+}
+
+// The circuit breaker on an outbound destination.
+message CircuitBreaker {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string destination = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+
+  required CircuitBreakerStatus status = 2;
+  required int64 failure_count = 3;
+  optional int64 next_probe_at = 4;
+  optional int64 cool_down_ms = 5;
+
+  optional int64 opened_at = 51;
+
+  required int64 created_at = 101;
+  optional int64 updated_at = 103;
+}

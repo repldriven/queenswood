@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "IdvSessionFailed",
-  "namespace": "com.repldriven.mono.idv",
+  "namespace": "com.repldriven.queenswood.schema.idv",
   "doc": "The provider could not run a session's check, for good.",
   "fields": [
     {"name": "bank_id",         "type": "string"},

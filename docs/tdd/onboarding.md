@@ -98,7 +98,7 @@ project's processor / store conventions.
 
 #### `User`
 
-Lives in `components/schema/resources/schemas/users/`.
+Lives in `components/schema/resources/schemas/user/`.
 Keyed by `user-id` (UUIDv7, prefix `usr`). The federated
 subject is the OIDC `(issuer, sub)` pair — `sub` is only
 unique within an `issuer`, so both are required for a safe

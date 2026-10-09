@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "IdvSessionOpening",
-  "namespace": "com.repldriven.mono.idv",
+  "namespace": "com.repldriven.queenswood.schema.idv",
   "doc": "A verification session opening, for the bank's identity verification provider to run its check.",
   "fields": [
     {

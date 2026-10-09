@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.outbound_intent;
+
+option java_outer_classname = "OutboundIntentStatusProto";
+
+enum OutboundIntentStatus {
+  OUTBOUND_INTENT_STATUS_UNKNOWN = 0;
+  OUTBOUND_INTENT_STATUS_PENDING = 1;
+  OUTBOUND_INTENT_STATUS_SENT = 2;
+  OUTBOUND_INTENT_STATUS_SETTLED = 3;
+  OUTBOUND_INTENT_STATUS_FAILED = 4;
+}

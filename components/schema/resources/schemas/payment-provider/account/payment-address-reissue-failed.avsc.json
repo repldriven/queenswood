@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "name": "PaymentAddressReissueFailed",
+  "namespace": "com.repldriven.queenswood.schema.payment_provider.account",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "rotation_key",
+      "type": "string"
+    },
+    {
+      "name": "reason",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

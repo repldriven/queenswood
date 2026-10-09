@@ -50,8 +50,7 @@
     (com.google.protobuf Descriptors$FileDescriptor)
     (java.util.function Function)))
 
-(def ^:private descriptor
-  "com.repldriven.queenswood.schemas.schemas.SchemaProto")
+(def ^:private descriptor "com.repldriven.queenswood.schema.SchemaProto")
 
 (defn- declaration
   []
