@@ -284,45 +284,45 @@
         delivery {:delivery-id "whd.1"
                   :created-at now
                   :status :webhook-delivery-status-in-flight
-                  :claim-lease-expires-at (+ now 60000)
-                  :claimed-by "runner-1"}]
+                  :attempt-count 0
+                  :next-attempt-at (+ now 60000)}]
     (testing "a 2xx delivers, and releases the claim"
       (let [updated
             (SUT/record-outcome delivery {:status 204} now retry-policy)]
         (is (= :webhook-delivery-status-delivered (:status updated)))
-        (is (= 1 (:attempts updated)))
-        (is (= 204 (:last-response-status updated)))
-        (is (nil? (:claim-lease-expires-at updated)))
-        (is (nil? (:claimed-by updated)))))
+        (is (= 1 (:attempt-count updated)))
+        (is (= now (:delivered-at updated)))
+        (is (nil? (:next-attempt-at updated)))))
     (testing "a non-2xx counts the attempt and schedules the next"
       (let [updated
             (SUT/record-outcome delivery {:status 500} now retry-policy)]
         (is (= :webhook-delivery-status-pending (:status updated)))
-        (is (= 1 (:attempts updated)))
-        (is (= 500 (:last-response-status updated)))
+        (is (= 1 (:attempt-count updated)))
         (is (= (+ now 30000) (:next-attempt-at updated)))))
-    (testing "a call that never answered records the error, not a status"
+    (testing "a call that never answered is retried the same way"
       (let [updated
             (SUT/record-outcome delivery {:error "timeout"} now retry-policy)]
         (is (= :webhook-delivery-status-pending (:status updated)))
-        (is (= "timeout" (:last-error updated)))
-        (is (nil? (:last-response-status updated)))))
+        (is (= (+ now 30000) (:next-attempt-at updated)))))
     (testing "the backoff grows by the policy's growth, up to its cap"
       (is (= (+ now 120000)
-             (:next-attempt-at (SUT/record-outcome (assoc delivery :attempts 1)
-                                                   {:status 500}
-                                                   now
-                                                   retry-policy))))
+             (:next-attempt-at (SUT/record-outcome
+                                (assoc delivery :attempt-count 1)
+                                {:status 500}
+                                now
+                                retry-policy))))
       (is (= (+ now 14400000)
-             (:next-attempt-at (SUT/record-outcome (assoc delivery :attempts 8)
-                                                   {:status 500}
-                                                   now
-                                                   retry-policy)))))
+             (:next-attempt-at (SUT/record-outcome
+                                (assoc delivery :attempt-count 8)
+                                {:status 500}
+                                now
+                                retry-policy)))))
     (testing "the last attempt fails and keeps the delivery"
-      (let [spent (assoc delivery :attempts 10)
+      (let [spent (assoc delivery :attempt-count 10)
             updated (SUT/record-outcome spent {:status 500} now retry-policy)]
         (is (= :webhook-delivery-status-failed (:status updated)))
-        (is (= 11 (:attempts updated)))
+        (is (= 11 (:attempt-count updated)))
+        (is (= now (:failed-at updated)))
         (is (nil? (:next-attempt-at updated)))))
     (testing "a delivery past the maximum age fails on its next failure"
       (let [updated (SUT/record-outcome delivery
@@ -330,4 +330,4 @@
                                         (+ now 86400001)
                                         retry-policy)]
         (is (= :webhook-delivery-status-failed (:status updated)))
-        (is (= 1 (:attempts updated)))))))
+        (is (= 1 (:attempt-count updated)))))))

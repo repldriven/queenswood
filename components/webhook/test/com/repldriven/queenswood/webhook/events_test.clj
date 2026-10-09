@@ -162,8 +162,8 @@
   (store/find-notifications-by-bank config bank-id))
 
 (defn- deliveries
-  [config endpoint-id]
-  (store/find-deliveries-by-endpoint config endpoint-id))
+  [config bank-id endpoint-id]
+  (store/find-deliveries-by-endpoint config bank-id endpoint-id))
 
 (defn- body->map
   [notification]
@@ -216,8 +216,9 @@
         _ (is (= 1 (count written)))
         _
         (testing "and one delivery per enabled endpoint that chose it"
-          (nom-test> [chosen (deliveries config (str "whe.a." suffix))
-                      all-kinds (deliveries config (str "whe.b." suffix))
+          (nom-test> [chosen (deliveries config bank-id (str "whe.a." suffix))
+                      all-kinds
+                      (deliveries config bank-id (str "whe.b." suffix))
                       _ (is (= 1 (count chosen)))
                       _ (is (= 1 (count all-kinds)))
                       _ (is (= #{:webhook-delivery-status-pending}
@@ -253,7 +254,7 @@
                      (is (not (error/anomaly? (consume sys opened))))
                      (is (not (error/anomaly? (consume sys opened)))))
                  written (notifications config bank-id)
-                 sent (deliveries config endpoint-id)
+                 sent (deliveries config bank-id endpoint-id)
                  _ (testing "and the unique index left one of each"
                      (is (= 1 (count written)))
                      (is (= 1 (count sent))))]))))
@@ -340,8 +341,8 @@
                      "the notification is written even with nobody to tell"
                      (is (= 1 (count written))))
                  _ (testing "but neither endpoint earns a delivery"
-                     (nom-test> [off (deliveries config disabled-id)
-                                 other (deliveries config other-kind-id)
+                     (nom-test> [off (deliveries config bank-id disabled-id)
+                                 other (deliveries config bank-id other-kind-id)
                                  _ (is (= 0 (count off)))
                                  _ (is (= 0 (count other)))]))]))))
 
@@ -520,7 +521,7 @@
               (is (= "Party" (:resource-type (first bodies))))
               (is (nil? (:idempotency-key (:data (first bodies)))))))
         _ (testing "and only the endpoint's chosen kind is delivered"
-            (nom-test> [chosen (deliveries config (str "whe.p." suffix))
+            (nom-test> [chosen (deliveries config bank-id (str "whe.p." suffix))
                         _ (is (= 1 (count chosen)))]))]))))
 
 (def ^:private outbound-event-name "outbound-payment-status-changed")
@@ -640,6 +641,7 @@
                      (is (not (contains? (:data body) :idempotency-key))))
                  _ (testing "and one delivery to the endpoint that chose it"
                      (nom-test> [chosen (deliveries config
+                                                    bank-id
                                                     (str "whe.p." suffix))
                                  _ (is (= 1 (count chosen)))]))]))))
 
@@ -752,5 +754,6 @@
                      (is (not (contains? (:data body) :run-id))))
                  _ (testing "and one delivery to the endpoint that chose it"
                      (nom-test> [chosen (deliveries config
+                                                    bank-id
                                                     (str "whe.r." suffix))
                                  _ (is (= 1 (count chosen)))]))]))))

@@ -85,7 +85,6 @@
   [sys]
   {:record-db (system/instance sys [:fdb :record-db])
    :record-store (system/instance sys [:fdb :store])
-   :runner-id "runner-test"
    :address-check reachable
    :delivery-policy delivery-policy
    :batch-size 32
@@ -97,7 +96,7 @@
   "One enabled endpoint pointing at `path` on the receiver, one
   notification, and one delivery due now. Returns the three ids."
   [config base-url path
-   {:keys [bank-id attempts status claim-lease-expires-at]}]
+   {:keys [bank-id attempt-count status claim-lapses-at]}]
   (let [suffix (str (utility/uuidv7))
         endpoint-id (str "whe." suffix)
         notification-id (str "whn." suffix)
@@ -135,10 +134,9 @@
             :endpoint-id endpoint-id
             :status (or status :webhook-delivery-status-pending)
             :kind "cash-account.opened"
-            :created-at now}
-           :attempts attempts
-           :claim-lease-expires-at claim-lease-expires-at
-           :claimed-by (when claim-lease-expires-at "runner-that-died")))])
+            :created-at now
+            :attempt-count (or attempt-count 0)
+            :next-attempt-at (or claim-lapses-at now)}))])
     {:endpoint-id endpoint-id
      :notification-id notification-id
      :delivery-id delivery-id}))
@@ -148,8 +146,8 @@
   (store/find-delivery config bank-id delivery-id))
 
 (defn- attempts-of
-  [config delivery-id]
-  (store/find-attempts-by-delivery config delivery-id))
+  [config bank-id delivery-id]
+  (store/find-attempts-by-delivery config bank-id delivery-id))
 
 (deftest delivery-outcomes-test
   (let [seen (atom [])]
@@ -166,14 +164,14 @@
                (seed config base-url "/ok" {:bank-id bank-id})]
            (SUT/drain-once config)
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
-                       rows (attempts-of config delivery-id)
+                       rows (attempts-of config bank-id delivery-id)
                        _ (is (= :webhook-delivery-status-delivered
                                 (:status delivery)))
-                       _ (is (= 1 (:attempts delivery)))
+                       _ (is (= 1 (:attempt-count delivery)))
                        _ (is (= 1 (count rows)))
                        _ (is (= 200 (:response-status (first rows))))
                        _ (is (some? (:duration-ms (first rows))))
-                       _ (is (str/blank? (:claimed-by delivery))
+                       _ (is (nil? (:next-attempt-at delivery))
                              "the claim is released with the outcome")])))
        (testing "a 500 keeps it pending, with the next attempt inside a minute"
          (let [bank-id "bnk.deliver.fail"
@@ -182,11 +180,10 @@
                before (utility/now)]
            (SUT/drain-once config)
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
-                       rows (attempts-of config delivery-id)
+                       rows (attempts-of config bank-id delivery-id)
                        _ (is (= :webhook-delivery-status-pending
                                 (:status delivery)))
-                       _ (is (= 1 (:attempts delivery)))
-                       _ (is (= 500 (:last-response-status delivery)))
+                       _ (is (= 1 (:attempt-count delivery)))
                        _ (is (< (- (:next-attempt-at delivery) before) 60000))
                        _ (is (= [500] (mapv :response-status rows)))])))
        (testing "the attempt past the schedule fails and keeps every row"
@@ -195,15 +192,15 @@
                                            base-url
                                            "/fail"
                                            {:bank-id bank-id
-                                            :attempts (dec max-attempts)})]
+                                            :attempt-count (dec max-attempts)})]
            (SUT/drain-once config)
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
-                       rows (attempts-of config delivery-id)
+                       rows (attempts-of config bank-id delivery-id)
                        _ (is (= :webhook-delivery-status-failed
                                 (:status delivery)))
-                       _ (is (= max-attempts (:attempts delivery)))
+                       _ (is (= max-attempts (:attempt-count delivery)))
                        _ (is
-                          (zero? (:next-attempt-at delivery))
+                          (nil? (:next-attempt-at delivery))
                           "a failed delivery has no next attempt to be due at")
                        _ (is
                           (= 1 (count rows))
@@ -227,9 +224,9 @@
          (SUT/drain-once config)
          (SUT/drain-once config)
          (nom-test> [delivery (delivery-of config bank-id delivery-id)
-                     rows (attempts-of config delivery-id)
+                     rows (attempts-of config bank-id delivery-id)
                      _ (is (= 1 (count rows)))
-                     _ (is (= 1 (:attempts delivery)))]))))))
+                     _ (is (= 1 (:attempt-count delivery)))]))))))
 
 (deftest reclaims-a-stranded-claim-test
   (let [seen (atom [])]
@@ -249,27 +246,27 @@
                                            {:bank-id bank-id
                                             :status
                                             :webhook-delivery-status-in-flight
-                                            :claim-lease-expires-at (- now 1)})]
+                                            :claim-lapses-at (- now 1)})]
            (SUT/drain-once config)
            (SUT/drain-once config)
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
-                       rows (attempts-of config delivery-id)
+                       rows (attempts-of config bank-id delivery-id)
                        _ (is (= :webhook-delivery-status-delivered
                                 (:status delivery)))
                        _ (is (= 1 (count rows))
                              "reclaimed once, not once per pass")])))
        (testing "one whose lease still holds is left to the runner holding it"
          (let [bank-id "bnk.claim.held"
-               {:keys [delivery-id]}
-               (seed config
-                     base-url
-                     "/ok"
-                     {:bank-id bank-id
-                      :status :webhook-delivery-status-in-flight
-                      :claim-lease-expires-at (+ now 60000)})]
+               {:keys [delivery-id]} (seed config
+                                           base-url
+                                           "/ok"
+                                           {:bank-id bank-id
+                                            :status
+                                            :webhook-delivery-status-in-flight
+                                            :claim-lapses-at (+ now 60000)})]
            (SUT/drain-once config)
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
-                       rows (attempts-of config delivery-id)
+                       rows (attempts-of config bank-id delivery-id)
                        _ (is (= :webhook-delivery-status-in-flight
                                 (:status delivery)))
                        _ (is (= [] rows))])))))))
@@ -293,10 +290,9 @@
            (is (< elapsed (* 2 request-timeout-ms))
                "the drain slot is given up at the timeout, not held")
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
-                       rows (attempts-of config delivery-id)
+                       rows (attempts-of config bank-id delivery-id)
                        _ (is (= :webhook-delivery-status-pending
                                 (:status delivery)))
-                       _ (is (some? (:last-error delivery)))
                        _ (is (zero? (:response-status (first rows)))
                              "no response arrived, so the row carries none")
                        _ (is (some? (:error (first rows))))])))
@@ -306,13 +302,13 @@
                (seed config base-url "/redirect" {:bank-id bank-id})]
            (SUT/drain-once config)
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
-                       rows (attempts-of config delivery-id)
+                       rows (attempts-of config bank-id delivery-id)
                        _ (is (= :webhook-delivery-status-pending
                                 (:status delivery)))
-                       _ (is
-                          (= 302 (:last-response-status delivery))
-                          "the redirect is the outcome, not what it pointed at")
-                       _ (is (= [302] (mapv :response-status rows)))])))
+                       _
+                       (is
+                        (= [302] (mapv :response-status rows))
+                        "the redirect is the outcome, not what it pointed at")])))
        (testing "an oversized body does not exhaust the reader"
          (let [bank-id "bnk.bound.big"
                {:keys [delivery-id]}
@@ -324,7 +320,7 @@
                "the reader stops at the bound rather than at the body's end")
            (SUT/drain-once config)
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
-                       rows (attempts-of config delivery-id)
+                       rows (attempts-of config bank-id delivery-id)
                        _ (is (= :webhook-delivery-status-delivered
                                 (:status delivery)))
                        _ (is (= [200] (mapv :response-status rows)))])))
@@ -337,10 +333,9 @@
            (SUT/drain-once refusing)
            (is (= before (count @seen)) "no request reached the receiver")
            (nom-test> [delivery (delivery-of config bank-id delivery-id)
-                       rows (attempts-of config delivery-id)
+                       rows (attempts-of config bank-id delivery-id)
                        _ (is (= :webhook-delivery-status-pending
                                 (:status delivery)))
-                       _ (is (some? (:last-error delivery)))
                        _ (is
                           (some? (:error (first rows)))
                           "the refusal is recorded as this attempt's outcome")])))))))
@@ -394,11 +389,11 @@
          (Thread/sleep 10)
          (SUT/drain-once config)
          (nom-test> [delivery (delivery-of config bank-id delivery-id)
-                     rows (attempts-of config delivery-id)
+                     rows (attempts-of config bank-id delivery-id)
                      endpoint (store/find-endpoint config bank-id endpoint-id)
                      _ (is (= :webhook-delivery-status-pending
                               (:status delivery)))
-                     _ (is (= 1 (:attempts delivery)))
+                     _ (is (= 1 (:attempt-count delivery)))
                      _ (is (= 1 (count rows)))
                      _ (is (= :webhook-endpoint-status-enabled
                               (:status endpoint))
@@ -411,6 +406,6 @@
                      breaker (breaker-of config bank-id endpoint-id)
                      _ (is (= :webhook-delivery-status-delivered
                               (:status delivery)))
-                     _ (is (= 2 (:attempts delivery)))
+                     _ (is (= 2 (:attempt-count delivery)))
                      _ (is (= :circuit-breaker-status-closed
                               (:status breaker)))]))))))

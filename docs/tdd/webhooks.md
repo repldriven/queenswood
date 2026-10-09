@@ -198,12 +198,13 @@ and the rejection examples every route shares live in `api-schema`.
   freedom ADR-0036 grants it: a runner claiming each row by a
   conditional transition inside one FDB transaction is not
   exclusive-dispatcher work. A delivery is claimed by moving it from
-  pending to in-flight and stamping a lease, in the transaction that
-  read it, so a second replica reaching the same due row loses that
-  transaction and sends nothing. A pass also takes an in-flight row
-  whose lease has passed, which is what a runner that died between the
-  claim commit and the outcome commit leaves behind. What that leaves
-  is written rather than designed away: a lease expiring while the
+  pending to in-flight with its next attempt at when the claim lapses,
+  in the transaction that read it, so a second replica reaching the
+  same due row loses that transaction and sends nothing. A pass also
+  takes an in-flight row whose claim has lapsed, which is what a runner
+  that died between the claim commit and the outcome commit leaves
+  behind. What that leaves
+  is written rather than designed away: a claim lapsing while the
   first replica is still inside the call lets a second claim the
   delivery and send it again, which the notification id makes safe for
   the tenant to recognise as a repeat.
@@ -519,7 +520,7 @@ sequenceDiagram
     WR->>DB: read the endpoint's breaker, saving it when this pass claims the half-open probe
     end
     opt the breaker closed, or this its probe, and the endpoint under max-in-flight-per-endpoint
-    WR->>DB: save the delivery, in flight, under a claim-lease-ms lease, claimed by this runner
+    WR->>DB: save the delivery, in flight, its next attempt claim-lease-ms away
     end
     end
     end
@@ -729,21 +730,23 @@ type in the `schema` brick's `interface.clj`.
   type and id, the envelope fields above, the rendered body, and the
   relayed changelog event's id as its idempotency key, unique per bank.
 - `WebhookDelivery` — delivery id, notification id, endpoint id,
-  status (pending, in-flight, delivered, failed), the lease a claim
-  stamps, attempts, when the next attempt is due, the last response
-  status or error, the trace each attempt joins, and timestamps. Indexed
+  status (pending, in-flight, delivered, failed), the kind, how many
+  attempts it has made, when the next is due or the claim lapses, the
+  trace each attempt joins, when it was delivered or failed, and who
+  asked for it where a person did. Indexed
   by status and due time for the runner, and by endpoint and time for
   the delivery history. Kind and outcome are denormalised onto the
   delivery, so the history's filters answer off one index rather than
   a join back to the notification.
 - `WebhookDeliveryAttempt` — attempt id, delivery id, when it was
   attempted, the response status or the error, and how long the call
-  took. Indexed by delivery. A re-send is a new delivery of the same
-  notification, so "recorded alongside the original attempts" is
-  satisfied by rows that survive rather than by a history a counter
-  discards. The operator's dispute case reads straight down the four:
-  which notification, which endpoint, every attempt, and what each
-  one answered.
+  took. Keyed under its delivery, so the history reads each listed
+  delivery's last attempt in one round trip. A re-send is a new
+  delivery of the same notification, so "recorded alongside the
+  original attempts" is satisfied by rows that survive rather than by a
+  history a counter discards. The operator's dispute case reads
+  straight down the four: which notification, which endpoint, every
+  attempt, and what each one answered.
 
 A repeated field on the delivery would have kept the attempts in one
 row. It was rejected: the row grows against the retry schedule's

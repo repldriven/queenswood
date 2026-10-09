@@ -145,11 +145,15 @@
   (into [] (comp (filter vector?) (map first)) WebhookDelivery))
 
 (defn ->delivery-body
-  "Project a stored delivery onto the keys `WebhookDelivery` declares.
-  The runner's claim — its lease and the replica holding it — is not
-  among them."
+  "Project a stored delivery onto the keys `WebhookDelivery` declares,
+  its attempt count as `attempts`. The next attempt is shown only while
+  one is pending: in flight it is when the claim lapses."
   [delivery]
-  (select-keys delivery delivery-keys))
+  (let [{:keys [status attempt-count]} delivery]
+    (select-keys (cond-> (assoc delivery :attempts attempt-count)
+                         (not= :webhook-delivery-status-pending status)
+                         (dissoc :next-attempt-at))
+                 delivery-keys)))
 
 (def WebhookDeliveryFilterQuery
   "Nested `filter` deepObject query parameter on the delivery history.

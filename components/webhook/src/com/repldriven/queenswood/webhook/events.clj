@@ -76,7 +76,8 @@
             (let [res (store/save-delivery txn
                                            (domain/new-delivery notification
                                                                 endpoint
-                                                                now))]
+                                                                now
+                                                                nil))]
               (if (error/anomaly? res) (reduced res) nil)))
           nil
           endpoints))

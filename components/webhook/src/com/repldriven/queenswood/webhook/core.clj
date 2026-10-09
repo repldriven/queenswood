@@ -150,19 +150,22 @@
                                              policies)))))))
 
 (defn- save-deliveries
-  "One pending delivery of each notification to `endpoint`, saved in
-  the caller's transaction. Returns the rows written."
-  [txn notifications endpoint now]
+  "One pending delivery of each notification to `endpoint`, asked for
+  by `actor`, saved in the caller's transaction. Returns the rows
+  written."
+  [txn notifications endpoint now actor]
   (reduce (fn [saved notification]
-            (let [row (domain/new-delivery notification endpoint now)
+            (let [row (domain/new-delivery notification endpoint now actor)
                   res (store/save-delivery txn row)]
               (if (error/anomaly? res) (reduced res) (conj saved row))))
           []
           notifications))
 
 (defn- delivered-notification-ids
-  [txn endpoint-id]
-  (let-nom> [deliveries (store/find-deliveries-by-endpoint txn endpoint-id)]
+  [txn bank-id endpoint-id]
+  (let-nom> [deliveries (store/find-deliveries-by-endpoint txn
+                                                           bank-id
+                                                           endpoint-id)]
     (into #{}
           (comp (filter domain/delivered-delivery?) (map :notification-id))
           deliveries)))
@@ -172,10 +175,12 @@
   endpoint has chosen and has never had delivered. Runs in the
   transaction the enable committed in, so resuming and asking for the
   gap land together or not at all."
-  [txn endpoint since now]
+  [txn endpoint since now actor]
   (let-nom>
     [notifications (store/find-notifications-by-bank txn (:bank-id endpoint))
-     delivered (delivered-notification-ids txn (:endpoint-id endpoint))]
+     delivered (delivered-notification-ids txn
+                                           (:bank-id endpoint)
+                                           (:endpoint-id endpoint))]
     (save-deliveries
      txn
      (filterv (fn [notification]
@@ -185,7 +190,8 @@
                                      (:notification-id notification)))))
               notifications)
      endpoint
-     now)))
+     now
+     actor)))
 
 (defn enable
   ([txn bank-id endpoint-id actor]
@@ -200,7 +206,7 @@
          updated (domain/enable existing actor policies)
          _ (store/save-endpoint txn updated)
          _ (when-let [since (:since opts)]
-             (backfill txn updated since (utility/now)))]
+             (backfill txn updated since (utility/now) actor))]
         updated)))))
 
 (defn disable
@@ -257,9 +263,9 @@
     (domain/ensure-deliverable endpoint policies)))
 
 (defn test-notification
-  ([txn bank-id endpoint-id]
-   (test-notification txn bank-id endpoint-id {}))
-  ([txn bank-id endpoint-id opts]
+  ([txn bank-id endpoint-id actor]
+   (test-notification txn bank-id endpoint-id actor {}))
+  ([txn bank-id endpoint-id actor opts]
    (store/transact
     txn
     (fn [txn]
@@ -271,14 +277,14 @@
                          (components/->wire-endpoint-body endpoint)
                          now)
            _ (store/save-notification txn notification)
-           delivery (domain/new-delivery notification endpoint now)
+           delivery (domain/new-delivery notification endpoint now actor)
            _ (store/save-delivery txn delivery)]
           delivery))))))
 
 (defn resend
-  ([txn bank-id endpoint-id delivery-id]
-   (resend txn bank-id endpoint-id delivery-id {}))
-  ([txn bank-id endpoint-id delivery-id opts]
+  ([txn bank-id endpoint-id delivery-id actor]
+   (resend txn bank-id endpoint-id delivery-id actor {}))
+  ([txn bank-id endpoint-id delivery-id actor opts]
    (store/transact
     txn
     (fn [txn]
@@ -298,14 +304,14 @@
                          found-notification
                          bank-id
                          (:notification-id existing))
-           delivery (domain/new-delivery notification endpoint now)
+           delivery (domain/new-delivery notification endpoint now actor)
            _ (store/save-delivery txn delivery)]
           delivery))))))
 
 (defn resend-window
-  ([txn bank-id endpoint-id data]
-   (resend-window txn bank-id endpoint-id data {}))
-  ([txn bank-id endpoint-id data opts]
+  ([txn bank-id endpoint-id data actor]
+   (resend-window txn bank-id endpoint-id data actor {}))
+  ([txn bank-id endpoint-id data actor opts]
    (let [{:keys [from to]} data]
      (store/transact
       txn
@@ -324,7 +330,8 @@
                                                      (:kind notification))))
                               notifications)
                      endpoint
-                     now)]
+                     now
+                     actor)]
             {:deliveries resent})))))))
 
 (defn get-deliveries
@@ -337,9 +344,16 @@
       (let-nom>
         [endpoint (load-endpoint txn bank-id endpoint-id)
          deliveries (store/find-deliveries-by-endpoint txn
-                                                       (:endpoint-id endpoint))]
-        {:deliveries (filterv (fn [delivery]
-                                (and (= bank-id (:bank-id delivery))
-                                     (domain/matches-filters? delivery
-                                                              filters)))
-                              deliveries)})))))
+                                                       bank-id
+                                                       (:endpoint-id endpoint))
+         matching (filterv (fn [delivery]
+                             (domain/matches-filters? delivery filters))
+                           deliveries)
+         last-attempts (store/find-last-attempts txn
+                                                 bank-id
+                                                 (mapv :delivery-id matching))]
+        {:deliveries (mapv (fn [delivery]
+                             (domain/with-last-attempt
+                              delivery
+                              (get last-attempts (:delivery-id delivery))))
+                           matching)})))))

@@ -137,6 +137,7 @@
                  delivery (SUT/test-notification config
                                                  bank-id
                                                  id
+                                                 actor
                                                  {:policies allow-manage})
                  _ (testing "the answer is the delivery it created"
                      (is (re-find #"^whd\." (:delivery-id delivery)))
@@ -152,6 +153,7 @@
                                     bank-id
                                     id
                                     (:delivery-id delivery)
+                                    actor
                                     {:policies allow-manage})
                  _ (testing
                      "a re-send is a new delivery of the same notification"
@@ -176,6 +178,7 @@
                  delivery (SUT/test-notification config
                                                  bank-id
                                                  id
+                                                 actor
                                                  {:policies allow-manage})
                  matching (SUT/get-deliveries config
                                               bank-id
@@ -221,11 +224,13 @@
                  delivery (SUT/test-notification config
                                                  bank-id
                                                  (:endpoint-id first-endpoint)
+                                                 actor
                                                  {:policies allow-manage})
                  _ (let [refused (SUT/resend config
                                              bank-id
                                              (:endpoint-id second-endpoint)
                                              (:delivery-id delivery)
+                                             actor
                                              {:policies allow-manage})]
                      (testing "the delivery is addressed under its own endpoint"
                        (is (= :webhook-delivery/not-found
@@ -246,6 +251,7 @@
                  _ (let [refused (SUT/test-notification config
                                                         bank-id
                                                         id
+                                                        actor
                                                         {:policies
                                                          allow-manage})]
                      (testing "a tenant that stopped the calls is not sent one"

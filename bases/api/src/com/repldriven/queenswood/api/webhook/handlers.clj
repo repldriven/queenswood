@@ -164,7 +164,8 @@
         {:keys [path]} parameters]
     (respond (webhook/test-notification (config request)
                                         bank-id
-                                        (:endpoint-id path))
+                                        (:endpoint-id path)
+                                        (shared.actor/actor auth))
              created-delivery)))
 
 (defn resend
@@ -175,7 +176,8 @@
     (respond (webhook/resend (config request)
                              bank-id
                              (:endpoint-id path)
-                             (:delivery-id path))
+                             (:delivery-id path)
+                             (shared.actor/actor auth))
              created-delivery)))
 
 (defn resend-window
@@ -186,5 +188,6 @@
     (respond (webhook/resend-window (config request)
                                     bank-id
                                     (:endpoint-id path)
-                                    body)
+                                    body
+                                    (shared.actor/actor auth))
              resent)))

@@ -211,7 +211,6 @@
         claimed (store/claim-due-deliveries
                  config
                  {:now now
-                  :claimed-by (:runner-id config)
                   :lease-ms (:claim-lease-ms config)
                   :limit (:batch-size config)
                   :per-endpoint-limit (:max-in-flight-per-endpoint config)
@@ -226,7 +225,6 @@
   [config]
   (let [running (atom true)
         poll-ms (:poll-ms config)
-        config (update config :runner-id #(or % (str (utility/uuidv7))))
         t (doto
             (Thread.
              (fn []

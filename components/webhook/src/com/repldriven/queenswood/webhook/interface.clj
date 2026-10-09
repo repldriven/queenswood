@@ -224,11 +224,12 @@
   - txn: FDB transaction or config map.
   - bank-id: owning bank id.
   - endpoint-id: endpoint id.
+  - actor: who is acting, as `api.shared.actor/actor` builds it.
   - opts (optional): map; `:policies` overrides policy resolution."
-  ([txn bank-id endpoint-id]
-   (core/test-notification txn bank-id endpoint-id))
-  ([txn bank-id endpoint-id opts]
-   (core/test-notification txn bank-id endpoint-id opts)))
+  ([txn bank-id endpoint-id actor]
+   (core/test-notification txn bank-id endpoint-id actor))
+  ([txn bank-id endpoint-id actor opts]
+   (core/test-notification txn bank-id endpoint-id actor opts)))
 
 (defn resend
   "Send one delivery's notification again, as a new delivery to the
@@ -242,11 +243,12 @@
   - endpoint-id: the endpoint the delivery belongs to; one reached
     under any other is `:webhook-delivery/not-found`.
   - delivery-id: the delivery to send again.
+  - actor: who is acting, as `api.shared.actor/actor` builds it.
   - opts (optional): map; `:policies` overrides policy resolution."
-  ([txn bank-id endpoint-id delivery-id]
-   (core/resend txn bank-id endpoint-id delivery-id))
-  ([txn bank-id endpoint-id delivery-id opts]
-   (core/resend txn bank-id endpoint-id delivery-id opts)))
+  ([txn bank-id endpoint-id delivery-id actor]
+   (core/resend txn bank-id endpoint-id delivery-id actor))
+  ([txn bank-id endpoint-id delivery-id actor opts]
+   (core/resend txn bank-id endpoint-id delivery-id actor opts)))
 
 (defn resend-window
   "Send every notification the endpoint has chosen from a window again,
@@ -261,15 +263,17 @@
   - endpoint-id: endpoint id.
   - data: `:from` (required) and `:to`, epoch-ms bounds over when the
     notification was created. An absent `:to` leaves the window open.
+  - actor: who is acting, as `api.shared.actor/actor` builds it.
   - opts (optional): map; `:policies` overrides policy resolution."
-  ([txn bank-id endpoint-id data]
-   (core/resend-window txn bank-id endpoint-id data))
-  ([txn bank-id endpoint-id data opts]
-   (core/resend-window txn bank-id endpoint-id data opts)))
+  ([txn bank-id endpoint-id data actor]
+   (core/resend-window txn bank-id endpoint-id data actor))
+  ([txn bank-id endpoint-id data actor opts]
+   (core/resend-window txn bank-id endpoint-id data actor opts)))
 
 (defn get-deliveries
-  "An endpoint's delivery history, in creation order. Returns
-  `{:deliveries [...]}` or an anomaly.
+  "An endpoint's delivery history, in creation order, each delivery with
+  what its last attempt's call answered. Returns `{:deliveries [...]}`
+  or an anomaly.
 
   Args:
   - txn: FDB transaction or config map.

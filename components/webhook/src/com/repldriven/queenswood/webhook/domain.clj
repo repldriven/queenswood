@@ -368,32 +368,25 @@
   than its `:max-age-ms`. The claim is released either way, so a
   delivery never sits in flight past its outcome.
 
-  `outcome` carries `:status` when a response arrived and `:error` when
-  the call failed before one did."
-  [delivery {:keys [status error]} now retry-policy]
-  (let [attempts (inc (or (:attempts delivery) 0))
-        age-ms (some->> (:created-at delivery)
-                        (- now))
+  `outcome` carries `:status` when a response arrived."
+  [delivery {:keys [status]} now retry-policy]
+  (let [attempt-count (inc (:attempt-count delivery))
+        age-ms (- now (:created-at delivery))
         base (-> delivery
-                 (assoc :attempts attempts :updated-at now)
-                 (dissoc :claim-lease-expires-at :claimed-by :next-attempt-at))]
+                 (assoc :attempt-count attempt-count)
+                 (dissoc :next-attempt-at))]
     (cond
      (delivered? status)
-     (assoc base :status delivery-delivered :last-response-status status)
+     (assoc base :status delivery-delivered :delivered-at now)
 
-     (circuit-breaker/give-up? retry-policy attempts age-ms)
-     (utility/assoc-some (assoc base :status delivery-failed)
-                         :last-response-status status
-                         :last-error error)
+     (circuit-breaker/give-up? retry-policy attempt-count age-ms)
+     (assoc base :status delivery-failed :failed-at now)
 
      :else
-     (utility/assoc-some
-      (assoc base
-             :status delivery-pending
-             :next-attempt-at
-             (+ now (circuit-breaker/backoff-ms retry-policy attempts)))
-      :last-response-status status
-      :last-error error))))
+     (assoc base
+            :status delivery-pending
+            :next-attempt-at
+            (+ now (circuit-breaker/backoff-ms retry-policy attempt-count))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Notifications and their deliveries
@@ -457,19 +450,22 @@
     (assoc row :body body)))
 
 (defn new-delivery
-  "A pending delivery of `notification` to `endpoint`, due now. A
-  re-send takes this same shape: it is a new delivery of the same
-  notification, so the attempts already recorded stay where they are."
-  [notification endpoint now]
-  {:bank-id (:bank-id notification)
-   :delivery-id (utility/generate-id "whd")
-   :notification-id (:notification-id notification)
-   :endpoint-id (:endpoint-id endpoint)
-   :status delivery-pending
-   :kind (:kind notification)
-   :next-attempt-at now
-   :created-at now
-   :updated-at now})
+  "A pending delivery of `notification` to `endpoint`, due now, and
+  `actor` the person who asked for it, where one did. A re-send takes
+  this same shape: it is a new delivery of the same notification, so
+  the attempts already recorded stay where they are."
+  [notification endpoint now actor]
+  (utility/assoc-some {:bank-id (:bank-id notification)
+                       :delivery-id (utility/generate-id "whd")
+                       :status delivery-pending
+                       :notification-id (:notification-id notification)
+                       :endpoint-id (:endpoint-id endpoint)
+                       :kind (:kind notification)
+                       :created-at now
+                       :attempt-count 0
+                       :next-attempt-at now}
+                      :created-by
+                      actor))
 
 (defn ensure-delivery-found
   "Reject when the store answered with no delivery, or with one
@@ -509,6 +505,14 @@
     [_ (ensure-status endpoint #{enabled})
      _ (check-capability :webhook-endpoint-action-manage policies)]
     endpoint))
+
+(defn with-last-attempt
+  "`delivery` with what its last attempt's call answered: the response
+  status, or the error when the call failed before one arrived."
+  [delivery attempt]
+  (utility/assoc-some delivery
+                      :last-response-status (:response-status attempt)
+                      :last-error (:error attempt)))
 
 (defn delivered-delivery?
   [delivery]

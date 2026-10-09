@@ -1523,12 +1523,16 @@
   [m]
   (WebhookEndpointProto$WebhookEndpoint/parseFrom (WebhookEndpoint->pb m)))
 
-(def ^{:doc "Parse WebhookNotification protobuf bytes into a Clojure map."}
-     pb->WebhookNotification
-  (fn [input]
-    (without-unset
-     (webhooks/pb->WebhookNotification input)
-     {:status-before "" :status-after "" :resource-idempotency-key ""})))
+(defn pb->WebhookNotification
+  "Parse WebhookNotification protobuf bytes into a Clojure map, without
+  its unset optional fields.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset
+   (webhooks/pb->WebhookNotification input)
+   {:status-before "" :status-after "" :resource-idempotency-key ""}))
 
 (defn WebhookNotification->pb
   "Serialise a WebhookNotification map to protobuf bytes.
@@ -1547,9 +1551,20 @@
   (WebhookNotificationProto$WebhookNotification/parseFrom
    (WebhookNotification->pb m)))
 
-(def ^{:doc "Parse WebhookDelivery protobuf bytes into a Clojure map."}
-     pb->WebhookDelivery
-  webhooks/pb->WebhookDelivery)
+(defn pb->WebhookDelivery
+  "Parse WebhookDelivery protobuf bytes into a Clojure map, without its
+  unset optional fields, and `created-by` a plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (webhooks/pb->WebhookDelivery input)
+      (without-unset {:delivered-at 0
+                      :failed-at 0
+                      :created-by nil
+                      :next-attempt-at 0
+                      :traceparent ""})
+      (plain-embedded :created-by)))
 
 (defn WebhookDelivery->pb
   "Serialise a WebhookDelivery map to protobuf bytes.

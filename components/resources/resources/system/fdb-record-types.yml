@@ -466,15 +466,11 @@ stores:
       - name: WebhookDelivery_by_endpoint_created
         added: 1
         modified: 1
-        fields: [endpoint_id, created_at]
+        fields: [bank_id, endpoint_id, created_at]
   webhook-delivery-attempts:
     record-type: WebhookDeliveryAttempt
-    primary-key: [bank_id, attempt_id]
-    indexes:
-      - name: WebhookDeliveryAttempt_by_delivery
-        added: 1
-        modified: 1
-        fields: [delivery_id, attempted_at]
+    primary-key: [bank_id, delivery_id, attempt_id]
+    indexes: []
   invitations:
     record-type: Invitation
     primary-key: [bank_id, invitation_id]

@@ -17,7 +17,6 @@
                    :platform-hosts nil
                    :address-rule nil
                    :address-check nil
-                   :runner-id nil
                    :delivery-policy system/required-component
                    :poll-ms system/required-component
                    :batch-size system/required-component

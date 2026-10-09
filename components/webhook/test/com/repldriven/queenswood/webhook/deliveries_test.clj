@@ -68,8 +68,8 @@
                                           actor
                                           opts)
                  id (:endpoint-id registered)
-                 delivered (SUT/test-notification config bank-id id opts)
-                 missed (SUT/test-notification config bank-id id opts)
+                 delivered (SUT/test-notification config bank-id id actor opts)
+                 missed (SUT/test-notification config bank-id id actor opts)
                  _ (mark-delivered config delivered)
                  _ (SUT/disable config bank-id id actor opts)
                  since (min (:created-at delivered) (:created-at missed))
@@ -104,7 +104,7 @@
                                           actor
                                           opts)
                  id (:endpoint-id registered)
-                 sent (SUT/test-notification config bank-id id opts)
+                 sent (SUT/test-notification config bank-id id actor opts)
                  _ (SUT/disable config bank-id id actor opts)
                  _ (SUT/enable config bank-id id actor opts)
                  _ (testing
@@ -126,10 +126,11 @@
                                           actor
                                           opts)
                  id (:endpoint-id registered)
-                 delivered (SUT/test-notification config bank-id id opts)
-                 missed (SUT/test-notification config bank-id id opts)
+                 delivered (SUT/test-notification config bank-id id actor opts)
+                 missed (SUT/test-notification config bank-id id actor opts)
                  _ (mark-delivered config delivered)
-                 covering (SUT/resend-window config bank-id id {:from 0} opts)
+                 covering
+                 (SUT/resend-window config bank-id id {:from 0} actor opts)
                  _ (testing "a window re-sends what was delivered as well"
                      (is (= 2 (count (:deliveries covering))))
                      (is (= 2
@@ -144,6 +145,7 @@
                                          {:from (inc (max
                                                       (:created-at delivered)
                                                       (:created-at missed)))}
+                                         actor
                                          opts)
                  _ (testing "and a window covering nothing re-sends nothing"
                      (is (empty? (:deliveries past))))]))))
