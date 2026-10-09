@@ -75,12 +75,13 @@ message CashAccountMigration {
 Name a field by what it holds: `_on` for a date as an epoch day, `_at`
 for an instant in milliseconds, `_by` for an `Actor` and never a
 process, `failure_reason` for why a record's processing went wrong, and
-an expected outcome's details by the state they explain. A record that retries keeps no error from an attempt it
-will retry, which goes to the log, and `error` belongs to the envelope
-or response carrying a record rather than to the record. Name a count
-`<thing>_count`, keeping a plural for a `repeated` field. The one date
-not named `_on` is `business_day`, the banking term for the day a
-payment or a run counts for.
+an expected outcome's details by the state they explain. A record that
+retries keeps no error from an attempt it will retry, which goes to the
+log, and `error` belongs to the envelope or response carrying a record
+rather than to the record. Name a count `<thing>_count`, keeping a
+plural for a `repeated` field. The one date not named `_on` is
+`business_day`, the banking term for the day a payment or a run counts
+for.
 
 Name a classifying enum `…Type` or `…Kind` by what it classifies. A
 type is what a thing is as banking, accounting or an outside standard
