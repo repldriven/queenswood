@@ -104,12 +104,7 @@
    txn
    (fn [txn]
      (fdb/save-record (fdb/open txn notifications-store-name)
-                      (schema/WebhookNotification->java
-                       (cond-> notification
-                               (nil? (:traceparent notification))
-                               (utility/assoc-some
-                                :traceparent
-                                (telemetry/inject-traceparent))))))
+                      (schema/WebhookNotification->java notification)))
    :webhook-notification/save
    "Failed to save webhook notification"))
 
@@ -125,20 +120,19 @@
    :webhook-notification/find
    "Failed to load webhook notification"))
 
-(defn find-notification-by-changelog-event-id
-  [txn changelog-event-id]
+(defn find-notification-by-idempotency-key
+  [txn bank-id idempotency-key]
   (fdb/transact
    txn
    (fn [txn]
-     (some-> (fdb/query-record
+     (some-> (fdb/query-record-compound
               (fdb/open txn notifications-store-name)
               "WebhookNotification"
-              "changelog_event_id"
-              changelog-event-id
-              {:index "WebhookNotification_by_changelog_event_id"})
+              [["bank_id" bank-id] ["idempotency_key" idempotency-key]]
+              {:index "WebhookNotification_by_idempotency_key"})
              schema/pb->WebhookNotification))
-   :webhook-notification/find-by-changelog-event-id
-   "Failed to find webhook notification by changelog event id"))
+   :webhook-notification/find-by-idempotency-key
+   "Failed to find webhook notification by idempotency key"))
 
 (defn find-notifications-by-bank
   [txn bank-id]
@@ -163,7 +157,12 @@
    txn
    (fn [txn]
      (fdb/save-record (fdb/open txn deliveries-store-name)
-                      (schema/WebhookDelivery->java delivery)))
+                      (schema/WebhookDelivery->java
+                       (cond-> delivery
+                               (nil? (:traceparent delivery))
+                               (utility/assoc-some
+                                :traceparent
+                                (telemetry/inject-traceparent))))))
    :webhook-delivery/save
    "Failed to save webhook delivery"))
 

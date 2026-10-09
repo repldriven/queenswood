@@ -424,7 +424,7 @@
                 {:notification-id (:notification-id row)
                  :kind (:kind row)
                  :change-kind (:change-kind row)
-                 :occurred-at (:occurred-at row)
+                 :occurred-at (:created-at row)
                  :bank-id (:bank-id row)
                  :resource-type (:resource-type row)
                  :resource-id (:resource-id row)
@@ -432,7 +432,7 @@
                  :data data}
                 :status-before (:status-before row)
                 :status-after (:status-after row)
-                :idempotency-key (:idempotency-key row))))]
+                :idempotency-key (:resource-idempotency-key row))))]
     (.getBytes ^String encoded StandardCharsets/UTF_8)))
 
 (defn test-notification
@@ -440,10 +440,8 @@
   as its resource, so its `data` projects onto the same union member
   every other notification does.
 
-  Its changelog event id is minted rather than relayed: the unique
-  index over that field is what stops a redelivered relay event writing
-  a second notification, and a test notification answers to no relayed
-  event."
+  Its idempotency key is minted rather than taken from a relayed
+  event, since a test notification answers to none."
   [endpoint data now]
   (let-nom>
     [row {:bank-id (:bank-id endpoint)
@@ -452,9 +450,8 @@
           :change-kind test-change-kind
           :resource-type test-resource-type
           :resource-id (:endpoint-id endpoint)
-          :occurred-at now
           :correlation-id (str (utility/uuidv7))
-          :changelog-event-id (str (utility/uuidv7))
+          :idempotency-key (str (utility/uuidv7))
           :created-at now}
      body (notification-body row data)]
     (assoc row :body body)))

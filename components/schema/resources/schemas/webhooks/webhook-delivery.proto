@@ -42,4 +42,6 @@ message WebhookDelivery {
   optional string outcome = 13;
   required int64 created_at = 14;
   optional int64 updated_at = 15;
+
+  optional string traceparent = 203;
 }

@@ -1525,7 +1525,10 @@
 
 (def ^{:doc "Parse WebhookNotification protobuf bytes into a Clojure map."}
      pb->WebhookNotification
-  webhooks/pb->WebhookNotification)
+  (fn [input]
+    (without-unset
+     (webhooks/pb->WebhookNotification input)
+     {:status-before "" :status-after "" :resource-idempotency-key ""})))
 
 (defn WebhookNotification->pb
   "Serialise a WebhookNotification map to protobuf bytes.

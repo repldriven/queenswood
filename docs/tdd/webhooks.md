@@ -727,11 +727,11 @@ type in the `schema` brick's `interface.clj`.
   is configuration.
 - `WebhookNotification` — notification id, bank id, kind, resource
   type and id, the envelope fields above, the rendered body, and the
-  changelog event id under a unique index.
+  relayed changelog event's id as its idempotency key, unique per bank.
 - `WebhookDelivery` — delivery id, notification id, endpoint id,
   status (pending, in-flight, delivered, failed), the lease a claim
   stamps, attempts, when the next attempt is due, the last response
-  status or error, and timestamps. Indexed
+  status or error, the trace each attempt joins, and timestamps. Indexed
   by status and due time for the runner, and by endpoint and time for
   the delivery history. Kind and outcome are denormalised onto the
   delivery, so the history's filters answer off one index rather than

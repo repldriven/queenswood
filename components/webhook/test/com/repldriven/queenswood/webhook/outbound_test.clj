@@ -121,10 +121,10 @@
                                    :change-kind "open"
                                    :resource-type "CashAccount"
                                    :resource-id "acc.1"
-                                   :occurred-at now
+                                   :correlation-id (str (utility/uuidv7))
                                    :body (.getBytes "{\"id\":\"acc.1\"}"
                                                     StandardCharsets/UTF_8)
-                                   :changelog-event-id (str "cle." suffix)
+                                   :idempotency-key (str "cle." suffix)
                                    :created-at now})
        _ (store/save-delivery
           config

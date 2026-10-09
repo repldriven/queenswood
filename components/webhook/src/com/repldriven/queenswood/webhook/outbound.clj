@@ -144,7 +144,7 @@
                                            (:notification-id delivery))]
     (telemetry/with-span-parent
      "webhook-delivery"
-     (telemetry/extract-parent-context notification)
+     (telemetry/extract-parent-context delivery)
      (utility/assoc-some {} "delivery.id" (:delivery-id delivery))
      (fn []
        (let [started (utility/now)

@@ -289,7 +289,8 @@
                  _ (testing
                      "including the key the open-cash-account request carried"
                      (is (= "ik-envelope" (:idempotency-key body)))
-                     (is (= "ik-envelope" (:idempotency-key notification))))
+                     (is (= "ik-envelope"
+                            (:resource-idempotency-key notification))))
                  _ (testing
                      "the statuses are published as the read route spells them"
                      (is (= "opening" (:status-before body)))
@@ -299,7 +300,7 @@
                      (is (= kind (:kind body))))
                  _ (testing
                      "and the row records which relayed entry produced it"
-                     (is (= event-id (:changelog-event-id notification)))
+                     (is (= event-id (:idempotency-key notification)))
                      (is (= event-id (:correlation-id body))))]))))
 
 (deftest an-endpoint-that-did-not-choose-the-kind-is-not-told-test

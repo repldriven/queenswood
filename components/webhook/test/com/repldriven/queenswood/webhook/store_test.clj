@@ -39,16 +39,16 @@
    :created-by {:kind :actor-kind-member :principal-id "usr.1"}})
 
 (defn- notification
-  [bank-id notification-id changelog-event-id created-at]
+  [bank-id notification-id idempotency-key created-at]
   {:bank-id bank-id
    :notification-id notification-id
    :kind "cash-account.opened"
    :change-kind "open"
    :resource-type "CashAccount"
    :resource-id "acc.1"
-   :occurred-at 1700000000000
+   :correlation-id "c0ffee00-0000-4000-8000-000000000001"
    :body (.getBytes "{\"id\":\"acc.1\"}" "UTF-8")
-   :changelog-event-id changelog-event-id
+   :idempotency-key idempotency-key
    :created-at created-at})
 
 (defn- delivery
@@ -148,16 +148,17 @@
                      (is (= "CashAccount" (:resource-type loaded)))
                      (is (= "{\"id\":\"acc.1\"}"
                             (String. ^bytes (:body loaded) "UTF-8"))))
-                 by-event (SUT/find-notification-by-changelog-event-id config
-                                                                       "evt-2")
-                 _ (testing "the unique changelog-event-id index finds it"
+                 by-event (SUT/find-notification-by-idempotency-key config
+                                                                    bank-id
+                                                                    "evt-2")
+                 _ (testing "the unique idempotency-key index finds it"
                      (is (= "whn.2" (:notification-id by-event))))
                  by-bank (SUT/find-notifications-by-bank config bank-id)
                  _ (testing "the bank-and-created index lists them in order"
                      (is (= ["whn.1" "whn.2"]
                             (mapv :notification-id by-bank))))]))))
 
-(deftest a-taken-changelog-event-id-refuses-the-second-write-test
+(deftest a-taken-idempotency-key-refuses-the-second-write-test
   (with-test-system
    [sys config-file]
    (let [config (fdb-config sys)

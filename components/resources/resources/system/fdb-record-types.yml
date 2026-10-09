@@ -446,10 +446,10 @@ stores:
     record-type: WebhookNotification
     primary-key: [bank_id, notification_id]
     indexes:
-      - name: WebhookNotification_by_changelog_event_id
+      - name: WebhookNotification_by_idempotency_key
         added: 1
         modified: 1
-        field: changelog_event_id
+        fields: [bank_id, idempotency_key]
         unique: true
       - name: WebhookNotification_by_bank_created
         added: 1
