@@ -4,7 +4,7 @@ package com.repldriven.queenswood.schemas.payee_check;
 
 import "record_metadata_options.proto";
 import "schemas/cash-accounts/types.proto";
-import "schemas/members/actor.proto";
+import "schemas/actor/actor.proto";
 
 option java_outer_classname = "PayeeCheckProto";
 
@@ -44,5 +44,5 @@ message PayeeCheck {
   required PayeeCheckResult result = 4;
 
   required int64 created_at = 101;
-  required com.repldriven.queenswood.schemas.members.Actor created_by = 102;
+  required com.repldriven.queenswood.schemas.actor.Actor created_by = 102;
 }

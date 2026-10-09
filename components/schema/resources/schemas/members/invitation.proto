@@ -3,7 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.members;
 
 import "record_metadata_options.proto";
-import "schemas/members/actor.proto";
+import "schemas/actor/actor.proto";
 import "schemas/members/member.proto";
 
 option java_outer_classname = "InvitationProto";
@@ -33,15 +33,15 @@ message Invitation {
   optional string withdrawn_reason = 10;
 
   optional int64 accepted_at = 51;
-  optional Actor accepted_by = 52;
+  optional com.repldriven.queenswood.schemas.actor.Actor accepted_by = 52;
   optional int64 declined_at = 53;
-  optional Actor declined_by = 54;
+  optional com.repldriven.queenswood.schemas.actor.Actor declined_by = 54;
   optional int64 withdrawn_at = 55;
-  optional Actor withdrawn_by = 56;
+  optional com.repldriven.queenswood.schemas.actor.Actor withdrawn_by = 56;
   optional int64 resent_at = 57;
-  optional Actor resent_by = 58;
+  optional com.repldriven.queenswood.schemas.actor.Actor resent_by = 58;
 
   required int64 created_at = 101;
-  required Actor created_by = 102;
+  required com.repldriven.queenswood.schemas.actor.Actor created_by = 102;
   required int64 updated_at = 103;
 }

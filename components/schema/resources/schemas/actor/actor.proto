@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.members;
+package com.repldriven.queenswood.schemas.actor;
 
 option java_outer_classname = "ActorProto";
 
@@ -10,8 +10,7 @@ enum ActorKind {
   ACTOR_KIND_OPERATOR = 2;
 }
 
-// Who did something to a bank's access: a member of the bank, or an
-// operator acting on it.
+// Who did something: a member of the bank, or an operator acting on it.
 message Actor {
   required ActorKind kind = 1;
   required string principal_id = 2;

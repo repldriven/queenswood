@@ -3,7 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.members;
 
 import "record_metadata_options.proto";
-import "schemas/members/actor.proto";
+import "schemas/actor/actor.proto";
 
 option java_outer_classname = "MemberProto";
 
@@ -36,9 +36,9 @@ message Member {
   optional string ended_reason = 7;
 
   optional int64 ended_at = 51;
-  optional Actor ended_by = 52;
+  optional com.repldriven.queenswood.schemas.actor.Actor ended_by = 52;
 
   required int64 created_at = 101;
-  required Actor created_by = 102;
+  required com.repldriven.queenswood.schemas.actor.Actor created_by = 102;
   required int64 updated_at = 103;
 }

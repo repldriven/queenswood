@@ -3,7 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.idv;
 
 import "record_metadata_options.proto";
-import "schemas/members/actor.proto";
+import "schemas/actor/actor.proto";
 
 option java_outer_classname = "IdvSessionProto";
 
@@ -48,7 +48,7 @@ message IdvSession {
   required int64 opened_on = 9; // epoch day
 
   required int64 created_at = 101;
-  required com.repldriven.queenswood.schemas.members.Actor created_by = 102;
+  required com.repldriven.queenswood.schemas.actor.Actor created_by = 102;
   required int64 updated_at = 103;
 
   optional string failure_reason = 200;

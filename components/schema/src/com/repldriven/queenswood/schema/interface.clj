@@ -6,6 +6,7 @@
   generated Java class. Also exposes enum-label converters used by
   FDB index queries."
   (:require
+    [com.repldriven.queenswood.schemas.actor :as actor]
     [com.repldriven.queenswood.schemas.balances :as balances]
     [com.repldriven.queenswood.schemas.banks :as banks]
     [com.repldriven.queenswood.schemas.cash_account_migrations :as
@@ -52,6 +53,7 @@
      CashAccountProductProto$CashAccountProduct
      CashAccountProductTemplateProto$CashAccountProductTemplate
      CashAccountProductTypesProto$IsoCashAccountType)
+    (com.repldriven.queenswood.schemas.actor ActorProto$ActorKind)
     (com.repldriven.queenswood.schemas.cash_accounts
      CashAccountProto$CashAccount)
     (com.repldriven.queenswood.schemas.company CompanyProto$Company)
@@ -99,7 +101,6 @@
      UserProto$IdentityProvider
      UserProto$UserStatus)
     (com.repldriven.queenswood.schemas.members
-     ActorProto$ActorKind
      InvitationProto$Invitation
      InvitationProto$InvitationStatus
      MemberProto$Member
@@ -1365,7 +1366,7 @@
    (member-status->int member-status)))
 
 (def ^{:doc "Map of ActorKind label to protobuf int value."} actor-kind->int
-  members/ActorKind-label2val)
+  actor/ActorKind-label2val)
 
 (defn actor-kind->pb-enum
   "Convert an actor-kind keyword to the protobuf enum value, for use in
