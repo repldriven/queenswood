@@ -999,9 +999,14 @@
   [m]
   (TransactionProto$TransactionLeg/parseFrom (TransactionLeg->pb m)))
 
-(def ^{:doc "Parse PayeeCheck protobuf bytes into a Clojure map."}
-     pb->PayeeCheck
-  payee-check/pb->PayeeCheck)
+(defn pb->PayeeCheck
+  "Parse PayeeCheck protobuf bytes into a Clojure map, `created-by` a
+  plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (plain-embedded (payee-check/pb->PayeeCheck input) :created-by))
 
 (defn PayeeCheck->pb
   "Serialise a PayeeCheck map to protobuf bytes.

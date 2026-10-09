@@ -2,12 +2,9 @@
   (:require
     [com.repldriven.mono.utility.interface :as utility]))
 
-(def ^:private ttl-hours 24)
-
-(defn- expires-rfc3339
-  [created-at]
-  (str (.plus (java.time.Instant/parse created-at)
-              (java.time.Duration/ofHours ttl-hours))))
+(def ^{:doc "How long a check stands after it is made, in milliseconds."}
+     lifetime-ms
+  (* 24 60 60 1000))
 
 (defn- sanitize-result
   [result]
@@ -17,11 +14,14 @@
    :reason (or (:reason result) "")})
 
 (defn new-check
-  [bank-id request result]
-  (let [created (utility/now-rfc3339)]
-    {:check-id (utility/generate-id "chk")
-     :bank-id bank-id
-     :request request
-     :result (sanitize-result result)
-     :created-at created
-     :expires-at (expires-rfc3339 created)}))
+  [bank-id request result actor]
+  {:bank-id bank-id
+   :check-id (utility/generate-id "chk")
+   :request request
+   :result (sanitize-result result)
+   :created-at (utility/now)
+   :created-by (select-keys actor [:kind :principal-id])})
+
+(defn expires-at
+  [check]
+  (+ (:created-at check) lifetime-ms))

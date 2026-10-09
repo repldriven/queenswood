@@ -38,7 +38,7 @@ import "schemas/zyphe/zyphe-outbox-event.proto";
 import "schemas/clearbank/clearbank-outbound-intent.proto";
 import "schemas/clearbank/clearbank-outbox-event.proto";
 import "schemas/party/party.proto";
-import "schemas/payee-check/payee_check.proto";
+import "schemas/payee-check/payee-check.proto";
 import "schemas/payments/inbound-payment.proto";
 import "schemas/payments/internal-payment.proto";
 import "schemas/payments/outbound-payment.proto";

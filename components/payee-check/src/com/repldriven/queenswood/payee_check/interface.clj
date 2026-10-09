@@ -1,7 +1,8 @@
 (ns com.repldriven.queenswood.payee-check.interface
   "Confirmation of Payee (CoP) outcomes for a bank. Persists
-  each payee check (request + match result) under a 24-hour TTL and
-  exposes single-record reads plus paginated listing per bank."
+  each payee check (request + match result), which stands for 24 hours
+  from `created-at`, and exposes single-record reads plus paginated
+  listing per bank."
   (:require
     [com.repldriven.queenswood.payee-check.system]
 
@@ -17,6 +18,15 @@
   - check-id: payee-check identifier (`chk.<ulid>`)."
   [txn bank-id check-id]
   (core/get-check txn bank-id check-id))
+
+(defn expires-at
+  "When `check` stops standing, in epoch milliseconds: 24 hours after
+  its `created-at`.
+
+  Args:
+  - check: a PayeeCheck map."
+  [check]
+  (core/expires-at check))
 
 (defn get-checks
   "List payee checks for a bank with pagination. Returns
