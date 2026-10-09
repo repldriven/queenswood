@@ -115,6 +115,25 @@
   [run tasks now]
   (assoc run :tasks tasks :updated-at now))
 
+(defn- record-run
+  "Record on the job that it ran at `ran-at`, and when it fires next,
+  reading the job afresh in the same transaction, so an edit committed
+  while the run was in progress is kept."
+  [config bank-id job-id ran-at]
+  (store/transact
+   config
+   (fn [txn]
+     (let-nom> [job (store/get-job txn bank-id job-id)]
+       (when job
+         (store/save-job txn
+                         (assoc job
+                                :last-run-at ran-at
+                                :next-run-at (scheduler/next-fire-at
+                                              (:schedule job)
+                                              ran-at))))))
+   :scheduler/record-run
+   "Failed to record the job's run"))
+
 (defn run-job
   "Execute `job`'s tasks sequentially, recording a `SchedulerRun` that
   lists each task as it starts and as it ends. Refuses with
@@ -152,12 +171,7 @@
                            :status :scheduler-run-status-completed
                            :completed-at now)]
             (store/save-run config run)
-            (store/save-job config
-                            (assoc job
-                                   :last-run-at created-at
-                                   :next-run-at (scheduler/next-fire-at
-                                                 (:schedule job)
-                                                 created-at)))
+            (record-run config bank-id (:job-id job) created-at)
             run)
           (let [label (task-label task-kind)
                 task (domain/started-task label (utility/now))
@@ -231,13 +245,21 @@
            now (utility/now)]
        (let-nom> [_ (domain/validate-system-edits job edits)
                   _ (domain/validate-schedule (:task-kinds job) schedule now)]
-         (let [updated (assoc job
-                              :schedule schedule
-                              :status status
-                              :next-run-at (scheduler/next-fire-at schedule now)
-                              :updated-at now
-                              :updated-by (select-keys actor
-                                                       [:kind :principal-id]))
+         (let [by (select-keys actor [:kind :principal-id])
+               updated (cond-> (assoc job
+                                      :schedule schedule
+                                      :status status
+                                      :next-run-at (scheduler/next-fire-at
+                                                    schedule
+                                                    now)
+                                      :updated-at now
+                                      :updated-by by)
+
+                               (domain/paused? job status)
+                               (assoc :paused-at now :paused-by by)
+
+                               (domain/resumed? job status)
+                               (assoc :resumed-at now :resumed-by by))
                result (store/save-job config updated)]
            (if (error/anomaly? result)
              result
@@ -250,23 +272,31 @@
 
 (defn- template->job
   "A seeded job for `bank-id` from a `jobs.edn` template: the template's
-  fields, the bank, the next fire and the timestamps."
-  [bank-id template now]
-  (assoc template
-         :bank-id bank-id
-         :next-run-at (scheduler/next-fire-at (:schedule template) now)
-         :created-at now))
+  fields, the bank, the next fire, the time and, where one seeded it,
+  the `actor`."
+  [bank-id template now actor]
+  (utility/assoc-some (assoc template
+                             :bank-id bank-id
+                             :next-run-at (scheduler/next-fire-at
+                                           (:schedule template)
+                                           now)
+                             :created-at now)
+                      :created-by
+                      (some-> actor
+                              (select-keys [:kind :principal-id]))))
 
 (defn seed-jobs
   "Seed the bank's default scheduled jobs (FDB only — no triggers).
   Idempotent: re-seeding overwrites by `[bank_id, job_id]`. Runs inside
-  the caller's transaction so a failed row rolls bank creation back."
-  [txn bank-id]
+  the caller's transaction so a failed row rolls bank creation back.
+  `actor`, who creates the bank, creates each job."
+  [txn bank-id actor]
   (reduce (fn [_ template]
             (let [result (store/save-job txn
                                          (template->job bank-id
                                                         template
-                                                        (utility/now)))]
+                                                        (utility/now)
+                                                        actor))]
               (if (error/anomaly? result) (reduced result) nil)))
           nil
           default-jobs))
@@ -281,7 +311,7 @@
     (reduce (fn [written template]
               (if (present (:job-id template))
                 written
-                (let [job (template->job bank-id template (utility/now))
+                (let [job (template->job bank-id template (utility/now) nil)
                       result (store/save-job config job)]
                   (if (error/anomaly? result)
                     (do (log/error "Scheduler could not seed a job"

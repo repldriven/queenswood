@@ -199,6 +199,8 @@
            (is (= "accept-invitation" command))
            (is (= {:invitation-id invitation-id
                    :user-id user-id
+                   :actor
+                   {:kind :actor-kind-member :principal-id user-id :role nil}
                    :proof {:token-hash token-hash
                            :email "Charles@Example.com"
                            :email-verified true}}

@@ -97,7 +97,11 @@
         [policies (get-policies txn bank-id product-id opts)
          existing (q/get-version txn bank-id product-id version-id)
          template (q/get-template txn (:template-id existing))
-         version (domain/update-version existing template data policies)
+         version (domain/update-version existing
+                                        template
+                                        data
+                                        policies
+                                        (:actor opts))
          _ (store/save-version txn version)]
         version)))))
 

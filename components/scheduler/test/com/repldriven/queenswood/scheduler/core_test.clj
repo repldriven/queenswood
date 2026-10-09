@@ -36,7 +36,11 @@
 (defn- seed
   [config bank-id]
   (store/transact config
-                  (fn [txn] (SUT/seed-jobs txn bank-id))
+                  (fn [txn]
+                    (SUT/seed-jobs txn
+                                   bank-id
+                                   {:kind :actor-kind-operator
+                                    :principal-id "usr.operator"}))
                   :test/seed
                   "Failed to seed the jobs"))
 

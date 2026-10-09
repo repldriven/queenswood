@@ -71,7 +71,8 @@
         result (migrations/preview-migration (config request)
                                              bank-id
                                              migration-id
-                                             (utility/today))]
+                                             (utility/today)
+                                             (shared.actor/actor auth))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 201

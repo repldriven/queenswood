@@ -59,11 +59,10 @@
   - bank-id: owning bank id.
   - currency: ISO 4217 currency string.
   - row: chart-of-accounts row (`:code`, `:name`).
-  - opts (optional): `:policies` to check against."
-  ([txn bank-id currency row]
-   (core/new-account txn bank-id currency row))
-  ([txn bank-id currency row opts]
-   (core/new-account txn bank-id currency row opts)))
+  - opts: `:actor` who creates it, and optional `:policies` to check
+    against."
+  [txn bank-id currency row opts]
+  (core/new-account txn bank-id currency row opts))
 
 (defn get-account
   "Return the `LedgerAccount` matching `(bank-id, ledger-account-id)`,

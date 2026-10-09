@@ -82,7 +82,7 @@
   Args:
   - txn: FDB transaction or config.
   - member-id: the caller's Member.
-  - opts: `:user-id` of the caller, and optional `:now`.
+  - opts: `:user-id` and `:actor` of the caller, and optional `:now`.
 
   Returns the ended Member map or an anomaly."
   [txn member-id opts]
@@ -123,7 +123,8 @@
   - txn: FDB transaction or config.
   - invitation-id: the invitation.
   - proof: as `member-query`'s `find-invitation-for-recipient`.
-  - opts: `:user-id` of the accepting person, and optional `:now`.
+  - opts: `:user-id` and `:actor` of the accepting person, and optional
+    `:now`.
 
   Returns the new Member map or an anomaly."
   [txn invitation-id proof opts]
@@ -138,7 +139,8 @@
   - txn: FDB transaction or config.
   - invitation-id: the invitation.
   - proof: as `member-query`'s `find-invitation-for-recipient`.
-  - opts: `:user-id` of the declining person, and optional `:now`.
+  - opts: `:user-id` and `:actor` of the declining person, and optional
+    `:now`.
 
   Returns the declined Invitation map or an anomaly."
   [txn invitation-id proof opts]

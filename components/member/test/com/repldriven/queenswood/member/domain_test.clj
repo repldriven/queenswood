@@ -489,9 +489,14 @@
       (is (not (contains? inv :reason)))
       (is (= {:kind :actor-kind-member :principal-id "usr.role-admin"}
              (:created-by inv)))))
-  (testing "change-role sets the role at now"
+  (testing "change-role sets the role, and who changed it, at now"
     (let [m (member "mem.1" "usr.1" :role-viewer)]
-      (is (= (assoc m :role :role-developer :updated-at now)
+      (is (= (assoc m
+                    :role :role-developer
+                    :role-changed-at now
+                    :role-changed-by {:kind :actor-kind-member
+                                      :principal-id "usr.role-admin"}
+                    :updated-at now)
              (SUT/change-role m
                               :role-developer
                               {:actor (:admin actors) :active-members [m]}

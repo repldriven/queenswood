@@ -276,7 +276,7 @@
   preview of the migration is running. The checks and the save share a
   transaction, so of two previews opened at once one is refused, and a
   refused pass leaves no run behind saying it started."
-  [txn migration business-day dry-run? policies]
+  [txn migration business-day dry-run? policies actor]
   (let [{:keys [bank-id migration-id]} migration]
     (store/transact
      txn
@@ -286,7 +286,7 @@
           _ (if dry-run?
               (check-preview-limit txn bank-id business-day policies)
               (check-run-limit txn bank-id migration policies))
-          run (domain/new-run migration business-day dry-run?)
+          run (domain/new-run migration business-day dry-run? actor)
           _ (store/save-run txn run)]
          run))
      :cash-account-migration/open-run
@@ -299,7 +299,7 @@
   A run is closed as failed only when the pass itself could not finish.
   A pass that decided about every account and moved none succeeded — it
   is the accounts that were ineligible, not the run."
-  [txn bank-id migration-id business-day dry-run?]
+  [txn bank-id migration-id business-day dry-run? actor]
   (let-nom>
     [migration (get-migration txn bank-id migration-id)
      target (products/get-version txn
@@ -311,7 +311,7 @@
      ;; account would let a policy change mid-cohort and move half a
      ;; bank under one set of rules and half under another.
      policies (policy/get-effective-policies txn {:bank-id bank-id})
-     run (open-run txn migration business-day dry-run? policies)
+     run (open-run txn migration business-day dry-run? policies actor)
      tally (evaluate-accounts txn
                               {:migration migration
                                :target target
@@ -331,9 +331,9 @@
   Previews may be re-run as often as wanted, including after approval:
   accounts open and close and balances move, so a preview is a forecast
   of what a run would do rather than a promise, and being able to
-  look again is what makes that drift visible."
-  [txn bank-id migration-id business-day]
-  (pass txn bank-id migration-id business-day true))
+  look again is what makes that drift visible. `actor` is who asked."
+  [txn bank-id migration-id business-day actor]
+  (pass txn bank-id migration-id business-day true actor))
 
 (defn approve-migration
   [txn bank-id migration-id actor]
@@ -367,7 +367,7 @@
   (let-nom>
     [migration (get-migration txn bank-id migration-id)
      _ (domain/ensure-runnable migration)
-     run (pass txn bank-id migration-id business-day false)
+     run (pass txn bank-id migration-id business-day false nil)
      completed (domain/complete-migration migration)
      _ (store/save-migration txn completed)]
     run))

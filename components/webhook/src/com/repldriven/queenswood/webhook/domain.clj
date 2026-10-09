@@ -295,30 +295,39 @@
   (let-nom>
     [_ (ensure-status endpoint #{disabled})
      _ (check-capability :webhook-endpoint-action-manage policies)]
-    (assoc endpoint
-           :status enabled
-           :enabled-at (utility/now)
-           :enabled-by actor)))
+    (let [now (utility/now)]
+      (assoc endpoint
+             :status enabled
+             :enabled-at now
+             :enabled-by actor
+             :updated-at now
+             :updated-by actor))))
 
 (defn disable
   [endpoint actor policies]
   (let-nom>
     [_ (ensure-status endpoint #{enabled})
      _ (check-capability :webhook-endpoint-action-manage policies)]
-    (assoc endpoint
-           :status disabled
-           :disabled-at (utility/now)
-           :disabled-by actor)))
+    (let [now (utility/now)]
+      (assoc endpoint
+             :status disabled
+             :disabled-at now
+             :disabled-by actor
+             :updated-at now
+             :updated-by actor))))
 
 (defn remove-endpoint
   [endpoint actor policies]
   (let-nom>
     [_ (ensure-status endpoint live-statuses)
      _ (check-capability :webhook-endpoint-action-manage policies)]
-    (assoc endpoint
-           :status removed
-           :removed-at (utility/now)
-           :removed-by actor)))
+    (let [now (utility/now)]
+      (assoc endpoint
+             :status removed
+             :removed-at now
+             :removed-by actor
+             :updated-at now
+             :updated-by actor))))
 
 (defn rotate-secret
   "Move the current secret to `:previous-secret`, expiring at
@@ -329,15 +338,18 @@
   (let-nom>
     [_ (ensure-status endpoint live-statuses)
      _ (check-capability :webhook-endpoint-action-manage policies)]
-    (utility/assoc-some
-     (assoc endpoint
-            :secret secret
-            :previous-secret (:secret endpoint)
-            :previous-secret-expires-at previous-expires-at
-            :secret-rotated-at (utility/now)
-            :secret-rotated-by actor)
-     :rotation-idempotency-key
-     idempotency-key)))
+    (let [now (utility/now)]
+      (utility/assoc-some
+       (assoc endpoint
+              :secret secret
+              :previous-secret (:secret endpoint)
+              :previous-secret-expires-at previous-expires-at
+              :secret-rotated-at now
+              :secret-rotated-by actor
+              :updated-at now
+              :updated-by actor)
+       :rotation-idempotency-key
+       idempotency-key))))
 
 ;; ---------------------------------------------------------------------------
 ;; The bound on the call, and the outcome
@@ -435,7 +447,7 @@
 
   Its idempotency key is minted rather than taken from a relayed
   event, since a test notification answers to none."
-  [endpoint data now]
+  [endpoint data now actor]
   (let-nom>
     [row {:bank-id (:bank-id endpoint)
           :notification-id (utility/generate-id "whn")
@@ -445,7 +457,8 @@
           :resource-id (:endpoint-id endpoint)
           :correlation-id (str (utility/uuidv7))
           :idempotency-key (str (utility/uuidv7))
-          :created-at now}
+          :created-at now
+          :created-by actor}
      body (notification-body row data)]
     (assoc row :body body)))
 

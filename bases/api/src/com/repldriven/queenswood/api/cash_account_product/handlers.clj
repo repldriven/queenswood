@@ -104,7 +104,8 @@
                                     bank-id
                                     product-id
                                     version-id
-                                    body)
+                                    body
+                                    {:actor (shared.actor/actor auth)})
              ok)))
 
 (defn discard-draft

@@ -186,7 +186,11 @@
      _ (check-not-last-owner active-members member new-role)]
     (if (= new-role (:role member))
       member
-      (assoc member :role new-role :updated-at now))))
+      (assoc member
+             :role new-role
+             :role-changed-at now
+             :role-changed-by (actor-record actor)
+             :updated-at now))))
 
 (defn new-role-change
   [member new-role {:keys [actor reason]} now]

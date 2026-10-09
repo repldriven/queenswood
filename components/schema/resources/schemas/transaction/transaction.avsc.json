@@ -16,6 +16,17 @@
     {"name": "currency",         "type": "string", "doc": "ISO 4217"},
     {"name": "reference",        "type": ["null", "string"], "default": null},
     {"name": "created_at",       "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "created_by",       "type": ["null", {"type": "record",
+                                          "name": "ActorSpec",
+                                          "doc": "Who asked",
+                                          "fields": [
+                                            {"name": "kind", "type": {"type": "enum",
+                                                                      "name": "ActorKind",
+                                                                      "symbols": ["ACTOR_KIND_MEMBER",
+                                                                                  "ACTOR_KIND_OPERATOR",
+                                                                                  "ACTOR_KIND_BANK"]}},
+                                            {"name": "principal_id", "type": "string"}]}],
+     "default": null, "doc": "who posted it, where a person or an operator did"},
     {"name": "legs",
      "type": {"type": "array",
               "items": {

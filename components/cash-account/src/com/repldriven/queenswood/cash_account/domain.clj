@@ -253,12 +253,11 @@
 
 (defn close-refused-account
   [account]
-  (-> account
-      (dissoc :close-requested-at :close-requested-by)
-      (assoc :status (if (suspended-when-closed? account)
-                       :cash-account-status-suspended
-                       :cash-account-status-opened)
-             :updated-at (utility/now))))
+  (assoc account
+         :status (if (suspended-when-closed? account)
+                   :cash-account-status-suspended
+                   :cash-account-status-opened)
+         :updated-at (utility/now)))
 
 (defn suspend-account
   [account actor policies]
@@ -316,8 +315,8 @@
       (assoc account
              :rotation {:idempotency-key rotation-key
                         :status :address-rotation-status-pending}
-             :address-rotated-at now
-             :address-rotated-by (:actor data)
+             :rotation-requested-at now
+             :rotation-requested-by (:actor data)
              :updated-at now))))
 
 (defn reissue-failed-account

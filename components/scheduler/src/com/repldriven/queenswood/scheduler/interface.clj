@@ -40,9 +40,10 @@
 
   Args:
   - txn: an open FDB transaction or a config map.
-  - bank-id: the bank to seed jobs for."
-  [txn bank-id]
-  (core/seed-jobs txn bank-id))
+  - bank-id: the bank to seed jobs for.
+  - actor: who creates the bank, recorded as each job's creator."
+  [txn bank-id actor]
+  (core/seed-jobs txn bank-id actor))
 
 (defn force-start
   "Run `job-id` now (trigger source forced), as the run for the last

@@ -79,11 +79,12 @@
   - bank-id: owning bank id.
   - migration-id: the migration to evaluate.
   - business-day: epoch-day the run is recorded against.
+  - actor: who asks for the preview, recorded as the run's creator.
 
   Returns the run map — `:accounts-seen`, `:accounts-moved`,
   `:accounts-ineligible` — or an anomaly."
-  [txn bank-id migration-id business-day]
-  (core/preview-migration txn bank-id migration-id business-day))
+  [txn bank-id migration-id business-day actor]
+  (core/preview-migration txn bank-id migration-id business-day actor))
 
 (defn approve-migration
   "Approve a draft, making it work the scheduler will pick up on its due

@@ -42,14 +42,16 @@
   the bootstrap `policies` (the platform tier, which grants it) so
   seeding is allowed even for a tier that denies the capability
   per-bank. Runs inside `new-bank`'s transaction, so a failed row
-  rolls the whole bank creation back."
-  [txn bank-id currencies policies]
+  rolls the whole bank creation back. `actor`, who creates the bank,
+  creates each account."
+  [txn bank-id currencies policies actor]
   (reduce (fn [_ [currency row]]
             (let [result (ledger-accounts/new-account txn
                                                       bank-id
                                                       currency
                                                       row
-                                                      {:policies policies})]
+                                                      {:policies policies
+                                                       :actor actor})]
               (if (error/anomaly? result) (reduced result) nil)))
           nil
           (for [currency currencies
@@ -232,7 +234,7 @@
                             :display-name bank-name
                             :actor actor}
                            {:policies policies})
-       _ (new-ledger-accounts txn bank-id currencies policies)
+       _ (new-ledger-accounts txn bank-id currencies policies actor)
        _ (new-house-accounts txn
                              bank-id
                              party-id
@@ -241,7 +243,7 @@
                              payment-provider
                              actor)
        _ (bind-policies txn bank-id tier-policies actor)
-       _ (scheduler/seed-jobs txn bank-id)
+       _ (scheduler/seed-jobs txn bank-id actor)
        owner (when member
                (members/new-member txn
                                    {:user-id user-id

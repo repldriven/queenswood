@@ -95,7 +95,9 @@
                         ["payment-record-transaction"]
                         (transactions/record-transaction
                          txn
-                         (assoc payment-transaction :legs checked-legs)))
+                         (assoc payment-transaction
+                                :legs checked-legs
+                                :actor (:actor data))))
            {:keys [transaction-id transaction-type legs]} transaction
            _ (telemetry/with-span
               ["payment-apply-legs"]
@@ -209,7 +211,9 @@
                                        txn
                                        (assoc transaction
                                               :legs
-                                              checked-legs)))
+                                              checked-legs
+                                              :actor
+                                              (:actor data))))
                     {:keys [transaction-id transaction-type legs]}
                     transaction+legs
                     stored (telemetry/with-span ["payment-stored-legs"]

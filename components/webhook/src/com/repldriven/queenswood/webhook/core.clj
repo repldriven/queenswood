@@ -275,7 +275,8 @@
            notification (domain/test-notification
                          endpoint
                          (components/->wire-endpoint-body endpoint)
-                         now)
+                         now
+                         actor)
            _ (store/save-notification txn notification)
            delivery (domain/new-delivery notification endpoint now actor)
            _ (store/save-delivery txn delivery)]

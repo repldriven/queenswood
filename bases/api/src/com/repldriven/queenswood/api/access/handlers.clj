@@ -286,6 +286,7 @@
      "accept-invitation"
      {:invitation-id invitation-id
       :user-id (:principal-id auth)
+      :actor (actor auth)
       :proof (proof-data (proof request))}
      (fn [{:keys [bank-id member-id]}]
        (respond (let-nom> [member (members/find-by-id txn
@@ -304,6 +305,7 @@
      "decline-invitation"
      {:invitation-id invitation-id
       :user-id (:principal-id auth)
+      :actor (actor auth)
       :proof (proof-data (proof request))}
      (fn [{:keys [bank-id]}]
        (respond (let-nom> [declined (members/find-invitation txn
@@ -365,7 +367,8 @@
     (send-command request
                   "leave-bank"
                   {:member-id member-id
-                   :user-id (:principal-id auth)}
+                   :user-id (:principal-id auth)
+                   :actor (actor auth)}
                   no-content)))
 
 (defn list-members

@@ -269,8 +269,8 @@
   "Parse CashAccountProduct protobuf bytes into a Clojure map, without the
   optional fields the version was never given: a zero `effective_to`,
   `published_at` or `discarded_at`, an empty idempotency key, no interest
-  terms, or no publishing or discarding actor. An embedded message is a
-  plain map.
+  terms, or no publishing, discarding or updating actor. An embedded
+  message is a plain map.
 
   Args:
   - input: protobuf bytes."
@@ -280,7 +280,7 @@
      (reduce
       plain-embedded
       (update version :reward-terms (fn [terms] (mapv #(into {} %) terms)))
-      [:created-by :published-by :discarded-by])
+      [:created-by :published-by :discarded-by :updated-by])
 
      (nil? (:interest-terms version))
      (dissoc :interest-terms)
@@ -296,6 +296,9 @@
 
      (nil? (:discarded-by version))
      (dissoc :discarded-by)
+
+     (nil? (:updated-by version))
+     (dissoc :updated-by)
 
      (zero? (:effective-to version 0))
      (dissoc :effective-to)
@@ -584,9 +587,16 @@
   (CashAccountMigrationProto$CashAccountMigration/parseFrom
    (CashAccountMigration->pb m)))
 
-(def ^{:doc "Parse CashAccountMigrationRun protobuf bytes into a map."}
-     pb->CashAccountMigrationRun
-  cash-account-migration/pb->CashAccountMigrationRun)
+(defn pb->CashAccountMigrationRun
+  "Parse CashAccountMigrationRun protobuf bytes into a map, a preview's
+  creator a plain map and present only when set.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (cash-account-migration/pb->CashAccountMigrationRun input)
+      (without-unset {:created-by nil})
+      (plain-embedded :created-by)))
 
 (defn CashAccountMigrationRun->pb
   "Serialise a CashAccountMigrationRun map to protobuf bytes.
@@ -704,18 +714,30 @@
    (InterestAccountRun->pb m)))
 
 (def ^:private scheduler-job-unset
-  {:last-run-at 0 :next-run-at 0 :updated-at 0 :updated-by nil})
+  {:last-run-at 0
+   :next-run-at 0
+   :paused-at 0
+   :paused-by nil
+   :resumed-at 0
+   :resumed-by nil
+   :created-by nil
+   :updated-at 0
+   :updated-by nil})
 
 (defn pb->SchedulerJob
   "Parse SchedulerJob protobuf bytes into a Clojure map. A run's
-  `last-run-at` and `next-run-at`, and an edit's `updated-at` and
-  `updated-by`, are present only when set, the actor a plain map.
+  `last-run-at` and `next-run-at`, a pause's, a resume's or an edit's
+  `_at` and `_by`, and a seeding's `created-by`, are present only when
+  set, every actor a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
   (-> (scheduler/pb->SchedulerJob input)
       (without-unset scheduler-job-unset)
+      (plain-embedded :paused-by)
+      (plain-embedded :resumed-by)
+      (plain-embedded :created-by)
       (plain-embedded :updated-by)))
 
 (defn SchedulerJob->pb
@@ -791,8 +813,8 @@
    :close-requested-at 0
    :close-requested-by nil
    :closed-at 0
-   :address-rotated-at 0
-   :address-rotated-by nil
+   :rotation-requested-at 0
+   :rotation-requested-by nil
    :updated-at 0})
 
 (defn pb->CashAccount
@@ -808,7 +830,7 @@
                         (without-unset (cash-account/pb->CashAccount input)
                                        cash-account-unset)
                         [:rotation :created-by :suspended-by :resumed-by
-                         :close-requested-by :address-rotated-by])]
+                         :close-requested-by :rotation-requested-by])]
     (cond-> account
             (:rotation account)
             (update :rotation without-unset {:failed-reason ""}))))
@@ -831,12 +853,14 @@
 
 (defn pb->LedgerAccount
   "Parse LedgerAccount protobuf bytes into a Clojure map, an `updated-at`
-  present only when set.
+  present only when set and the creator a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (without-unset (ledger-account/pb->LedgerAccount input) {:updated-at 0}))
+  (-> (ledger-account/pb->LedgerAccount input)
+      (without-unset {:updated-at 0})
+      (plain-embedded :created-by)))
 
 (defn LedgerAccount->pb
   "Serialise a LedgerAccount map to protobuf bytes.
@@ -985,9 +1009,11 @@
 
 (defn pb->Transaction
   "Parse Transaction protobuf bytes into a Clojure map, without an
-  unset `reference`."
+  unset `reference` or `created-by`, the creator a plain map."
   [input]
-  (without-unset (transaction/pb->Transaction input) {:reference ""}))
+  (-> (transaction/pb->Transaction input)
+      (without-unset {:reference "" :created-by nil})
+      (plain-embedded :created-by)))
 
 (defn Transaction->pb
   "Serialise a Transaction map to protobuf bytes.
@@ -1368,13 +1394,16 @@
    :removed-reason ""
    :left-at 0
    :left-by nil
+   :role-changed-at 0
+   :role-changed-by nil
    :invitation-id ""
    :updated-at 0})
 
 (defn pb->Member
-  "Parse Member protobuf bytes into a Clojure map. A removal's or a
-  leave's `_at`, `_by` and reason, and `invitation-id`, are present only
-  when set, and every actor is a plain map.
+  "Parse Member protobuf bytes into a Clojure map. A removal's, a
+  leave's or a role change's `_at`, `_by` and reason, and
+  `invitation-id`, are present only when set, and every actor is a plain
+  map.
 
   Args:
   - input: protobuf bytes."
@@ -1383,7 +1412,8 @@
       (without-unset member-unset)
       (plain-embedded :created-by)
       (plain-embedded :removed-by)
-      (plain-embedded :left-by)))
+      (plain-embedded :left-by)
+      (plain-embedded :role-changed-by)))
 
 (defn Member->pb
   "Serialise a Member map to protobuf bytes.
@@ -1573,14 +1603,17 @@
 
 (defn pb->WebhookNotification
   "Parse WebhookNotification protobuf bytes into a Clojure map, without
-  its unset optional fields.
+  its unset optional fields, a test notification's creator a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (without-unset
-   (webhook/pb->WebhookNotification input)
-   {:status-before "" :status-after "" :resource-idempotency-key ""}))
+  (-> (webhook/pb->WebhookNotification input)
+      (without-unset {:status-before ""
+                      :status-after ""
+                      :resource-idempotency-key ""
+                      :created-by nil})
+      (plain-embedded :created-by)))
 
 (defn WebhookNotification->pb
   "Serialise a WebhookNotification map to protobuf bytes.

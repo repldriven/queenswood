@@ -118,7 +118,10 @@
                  member (SUT/accept config
                                     (:invitation-id invitation)
                                     (token-proof invitation)
-                                    {:user-id "usr.accept.invitee"})
+                                    {:user-id "usr.accept.invitee"
+                                     :actor {:kind :actor-kind-member
+                                             :principal-id
+                                             "usr.accept.invitee"}})
                  _
                  (testing "accepting writes a member with the invitation's role"
                    (is (= :member-status-active (:status member)))
@@ -129,7 +132,10 @@
                      (let [again (SUT/accept config
                                              (:invitation-id invitation)
                                              (token-proof invitation)
-                                             {:user-id "usr.accept.invitee"})]
+                                             {:user-id "usr.accept.invitee"
+                                              :actor {:kind :actor-kind-member
+                                                      :principal-id
+                                                      "usr.accept.invitee"}})]
                        (is (refused? :invitation/invalid-status again))
                        (is (= :invitation-status-accepted
                               (:status (error/payload again))))
@@ -168,7 +174,9 @@
                                (:invitation-id by-email)
                                {:email "second@example.com"
                                 :email-verified? true}
-                               {:user-id "usr.accept.second"})
+                               {:user-id "usr.accept.second"
+                                :actor {:kind :actor-kind-member
+                                        :principal-id "usr.accept.second"}})
                  history (access-history config bank-id)
                  _ (testing "every act reads back from its record, newest first"
                      (is (= [:audit-event-kind-invitation-accepted
@@ -260,16 +268,22 @@
                      (is (= :invitation-status-expired (:status by-recipient)))
                      (is (= [] pending)))
                  _ (testing "and accept, decline and withdraw are refused"
-                     (doseq [result [(SUT/accept config
-                                                 id
-                                                 proof
-                                                 {:user-id "usr.expiry.late"
-                                                  :now later})
-                                     (SUT/decline config
-                                                  id
-                                                  proof
-                                                  {:user-id "usr.expiry.late"
-                                                   :now later})
+                     (doseq [result [(SUT/accept
+                                      config
+                                      id
+                                      proof
+                                      {:user-id "usr.expiry.late"
+                                       :actor {:kind :actor-kind-member
+                                               :principal-id "usr.expiry.late"}
+                                       :now later})
+                                     (SUT/decline
+                                      config
+                                      id
+                                      proof
+                                      {:user-id "usr.expiry.late"
+                                       :actor {:kind :actor-kind-member
+                                               :principal-id "usr.expiry.late"}
+                                       :now later})
                                      (SUT/withdraw config
                                                    bank-id
                                                    id
@@ -300,6 +314,8 @@
                                     id
                                     (token-proof fresh)
                                     {:user-id "usr.expiry.late"
+                                     :actor {:kind :actor-kind-member
+                                             :principal-id "usr.expiry.late"}
                                      :now (inc later)})
                  _ (testing "while the fresh one accepts"
                      (is (= :role-viewer (:role member))))]))))
@@ -334,7 +350,10 @@
                      (is (refused? :member/not-found
                                    (SUT/leave config
                                               (:member-id target)
-                                              {:user-id "usr.reach.owner-a"}))))
+                                              {:user-id "usr.reach.owner-a"
+                                               :actor {:kind :actor-kind-member
+                                                       :principal-id
+                                                       "usr.reach.owner-a"}}))))
                  _ (testing "an unknown member is not found"
                      (is (refused? :member/not-found
                                    (SUT/change-role config
@@ -429,7 +448,11 @@
                                                    %
                                                    (:invitation-id invitation)
                                                    (token-proof invitation)
-                                                   {:user-id "usr.race.one"})))
+                                                   {:user-id "usr.race.one"
+                                                    :actor {:kind
+                                                            :actor-kind-member
+                                                            :principal-id
+                                                            "usr.race.one"}})))
                                a (accept work)
                                b (accept aliased)]
                            [@a @b])

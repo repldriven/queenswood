@@ -85,8 +85,8 @@ message CashAccount {
   optional int64 close_requested_at = 59;
   optional com.repldriven.queenswood.schema.actor.Actor close_requested_by = 60;
   optional int64 closed_at = 61;
-  optional int64 address_rotated_at = 63;
-  optional com.repldriven.queenswood.schema.actor.Actor address_rotated_by = 64;
+  optional int64 rotation_requested_at = 63;
+  optional com.repldriven.queenswood.schema.actor.Actor rotation_requested_by = 64;
 
   optional string idempotency_key = 100;
   required int64 created_at = 101;

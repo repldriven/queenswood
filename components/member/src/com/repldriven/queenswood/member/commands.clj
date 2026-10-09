@@ -42,7 +42,7 @@
 
 (defn- recipient-opts
   [data]
-  {:user-id (:user-id data)})
+  {:user-id (:user-id data) :actor (actor (:actor data))})
 
 (def ^:private command-handlers
   {"invite-member"

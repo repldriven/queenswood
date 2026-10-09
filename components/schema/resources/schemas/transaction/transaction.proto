@@ -3,6 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schema.transaction;
 
 import "record_metadata_options.proto";
+import "schemas/actor/actor.proto";
 
 option java_outer_classname = "TransactionProto";
 
@@ -32,4 +33,5 @@ message Transaction {
 
   required string idempotency_key = 100;
   required int64 created_at = 101;
+  optional com.repldriven.queenswood.schema.actor.Actor created_by = 102;
 }

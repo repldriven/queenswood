@@ -88,6 +88,18 @@
   [schedule]
   (drop 3 (str/split (str/trim schedule) #"\s+")))
 
+(defn paused?
+  "True when an edit moves `job` from active to `status` paused."
+  [job status]
+  (and (= :scheduler-job-status-active (:status job))
+       (= :scheduler-job-status-paused status)))
+
+(defn resumed?
+  "True when an edit moves `job` from paused to `status` active."
+  [job status]
+  (and (= :scheduler-job-status-paused (:status job))
+       (= :scheduler-job-status-active status)))
+
 (defn validate-system-edits
   "Rejects when a system job's `edits` pause it or change the days its
   schedule fires on: only its time of day is editable."

@@ -16,10 +16,6 @@
   [opts]
   (or (:now opts) (utility/now)))
 
-(defn- member-actor
-  [user-id]
-  {:kind :actor-kind-member :principal-id user-id})
-
 (defn- as-read
   [invitation now]
   (-> invitation
@@ -95,12 +91,11 @@
    "Failed to create invitation"))
 
 (defn accept
-  [txn invitation-id proof {:keys [user-id] :as opts}]
+  [txn invitation-id proof {:keys [user-id actor] :as opts}]
   (store/transact
    txn
    (fn [txn]
-     (let [now (clock opts)
-           actor (member-actor user-id)]
+     (let [now (clock opts)]
        (let-nom>
          [invitation (q/get-invitation-record-for-recipient txn
                                                             invitation-id
@@ -123,7 +118,7 @@
    "Failed to accept invitation"))
 
 (defn decline
-  [txn invitation-id proof {:keys [user-id] :as opts}]
+  [txn invitation-id proof {:keys [actor] :as opts}]
   (store/transact
    txn
    (fn [txn]
@@ -132,9 +127,7 @@
          [invitation (q/get-invitation-record-for-recipient txn
                                                             invitation-id
                                                             proof)
-          declined (domain/decline-invitation invitation
-                                              (member-actor user-id)
-                                              now)
+          declined (domain/decline-invitation invitation actor now)
           _ (store/save-invitation txn declined)]
          (as-read declined now))))
    :invitation/decline
@@ -233,12 +226,11 @@
    "Failed to remove member"))
 
 (defn leave
-  [txn member-id {:keys [user-id] :as opts}]
+  [txn member-id {:keys [user-id actor] :as opts}]
   (store/transact
    txn
    (fn [txn]
-     (let [now (clock opts)
-           actor (member-actor user-id)]
+     (let [now (clock opts)]
        (let-nom>
          [member (q/find-user-member txn user-id member-id)
           members (q/list-active-by-bank txn (:bank-id member))

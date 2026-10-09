@@ -3,6 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schema.ledger_account;
 
 import "record_metadata_options.proto";
+import "schemas/actor/actor.proto";
 
 option java_outer_classname = "LedgerAccountProto";
 
@@ -41,5 +42,6 @@ message LedgerAccount {
   required LedgerAccountStatus status = 6;
 
   required int64 created_at = 101;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
   optional int64 updated_at = 103;
 }

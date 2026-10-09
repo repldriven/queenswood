@@ -192,7 +192,7 @@
 
 (deftest run-lifecycle-test
   (let [migration {:bank-id "org.1" :migration-id "mig.1"}
-        run (SUT/new-run migration 20260801 true)]
+        run (SUT/new-run migration 20260801 true nil)]
     (testing "a run opens as running, and a preview says so on the record"
       (is (= :cash-account-migration-run-status-running (:status run)))
       (is (true? (:dry-run run)))
