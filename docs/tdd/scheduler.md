@@ -36,17 +36,18 @@ progress route for an interest run in flight.
   `utility/today` and passes it to every task. `SchedulerRun` records
   status, per-task counts and timings, but not the date the run was
   for.
-- **A job runs once a period.** A run belongs to the hour, day, month or
-  year of the job's periodicity it starts in, in UTC. `run-job` reads
-  the job's runs and writes the new one `running` in one transaction,
-  and refuses with `:scheduler/period-already-run`, a 409, where a run
-  in that period is `running` or `succeeded`. A `failed` run leaves its
-  period open, so an operator may force it again. A fire and a
-  force-start meet the same check.
+- **A job runs once a fire.** A job's schedule is a Quartz cron in UTC,
+  and a run answers the schedule's last fire before it starts. `run-job`
+  reads the job's runs and writes the new one `running` in one
+  transaction, and refuses with `:scheduler/period-already-run`, a 409,
+  where a run answering that fire is `running` or `succeeded`. A
+  `failed` run leaves its fire open, so an operator may force it again.
+  A fire and a force-start meet the same check.
 - **A crashed run stays running.** `run-job` writes the run `running`,
-  then writes it again after each task. A process that dies between
-  those writes leaves a `running` row that nothing reads again, and it
-  holds its period, so the job runs again only in the next one.
+  then writes it again as each task starts and when the run ends. A
+  process that dies between those writes leaves a `running` row that
+  nothing reads again, and it holds its fire, so the job runs again
+  only at the next one.
 - **A missed fire is lost.** Quartz holds its triggers in memory, so a
   process that is down when a trigger falls due never fires it, and
   nothing compares `next_run_at` with the clock.

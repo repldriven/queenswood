@@ -664,17 +664,12 @@
    (InterestAccountRun->pb m)))
 
 (def ^:private scheduler-job-unset
-  {:monthly-day :scheduler-monthly-day-unknown
-   :last-run-at 0
-   :next-run-at 0
-   :updated-at 0
-   :updated-by nil})
+  {:last-run-at 0 :next-run-at 0 :updated-at 0 :updated-by nil})
 
 (defn pb->SchedulerJob
-  "Parse SchedulerJob protobuf bytes into a Clojure map. A monthly job's
-  `monthly-day`, a run's `last-run-at` and `next-run-at`, and an edit's
-  `updated-at` and `updated-by` are present only when set, the actor a
-  plain map.
+  "Parse SchedulerJob protobuf bytes into a Clojure map. A run's
+  `last-run-at` and `next-run-at`, and an edit's `updated-at` and
+  `updated-by`, are present only when set, the actor a plain map.
 
   Args:
   - input: protobuf bytes."

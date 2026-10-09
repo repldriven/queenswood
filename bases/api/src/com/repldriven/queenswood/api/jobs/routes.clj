@@ -90,9 +90,9 @@
                          :description
                          (str "Runs the job's tasks in order, whether or not "
                               "the job is enabled, and returns the completed "
-                              "run. A job runs once in each period of its "
-                              "periodicity, the hour, day, month or year now "
-                              "falls in: a run there that is running or has "
+                              "run. A job runs once for each fire of its "
+                              "schedule, the last one before now: a run for "
+                              "it that is running or has "
                               "succeeded refuses another with 409, and a "
                               "failed one does not. A failing task ends the "
                               "run as failed, skips the tasks after it and is "

@@ -72,14 +72,13 @@
                                       :name "Account migration"
                                       :task-kinds
                                       [:scheduler-task-kind-account-migration]
-                                      :periodicity :scheduler-periodicity-daily
-                                      :run-time-mins 0
+                                      :schedule "0 0 0 * * ?"
                                       :status :scheduler-job-status-active
                                       :kind :scheduler-job-kind-system
                                       :created-at now})
                    _ (SUT/reconcile! config)
                    seeded (store/get-job config bank-id "daily-interest")
-                   _ (is (= 1020 (:run-time-mins seeded)))
+                   _ (is (= "0 0 17 * * ?" (:schedule seeded)))
                    _ (is (= "0 0 17 * * ?"
                             (registered config bank-id "daily-interest")))])))))
 
@@ -91,17 +90,17 @@
          bank-id (str "bnk.core." (utility/uuidv7))]
      (nom-test> [_ (seed config bank-id)
                  _ (SUT/reconcile! config)
-                 _ (testing
-                     "an edit made as the API makes it, with no scheduler"
-                     (nom-test> [_ (SUT/update-schedule api-config
-                                                        bank-id
-                                                        "daily-interest"
-                                                        {:run-time-mins 300}
-                                                        operator)
-                                 _ (is (= "0 0 17 * * ?"
-                                          (registered config
+                 _
+                 (testing "an edit made as the API makes it, with no scheduler"
+                   (nom-test> [_ (SUT/update-schedule api-config
                                                       bank-id
-                                                      "daily-interest")))]))
+                                                      "daily-interest"
+                                                      {:schedule "0 0 5 * * ?"}
+                                                      operator)
+                               _ (is (= "0 0 17 * * ?"
+                                        (registered config
+                                                    bank-id
+                                                    "daily-interest")))]))
                  _ (testing "reaches the live trigger at the next reconcile"
                      (SUT/reconcile! config)
                      (is (= "0 0 5 * * ?"
@@ -118,12 +117,10 @@
                                                          bank-id
                                                          "daily-interest")))]))
                  _ (testing "while an hourly cadence is refused for its tasks"
-                     (let [result (SUT/update-schedule
-                                   api-config
-                                   bank-id
-                                   "daily-interest"
-                                   {:periodicity :scheduler-periodicity-hourly
-                                    :run-time-mins 5}
-                                   operator)]
+                     (let [result (SUT/update-schedule api-config
+                                                       bank-id
+                                                       "daily-interest"
+                                                       {:schedule "0 5 * * * ?"}
+                                                       operator)]
                        (is (= :scheduler/periodicity-not-allowed
                               (error/kind result)))))]))))

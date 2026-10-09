@@ -47,10 +47,6 @@
   [job]
   (str (:bank-id job) "/" (:job-id job)))
 
-(defn- job-cron
-  [job]
-  (domain/->cron (:periodicity job) (:run-time-mins job) (:monthly-day job)))
-
 (declare register!)
 
 (def ^:private default-jobs
@@ -159,7 +155,7 @@
                             (assoc job
                                    :last-run-at created-at
                                    :next-run-at (scheduler/next-fire-at
-                                                 (job-cron job)
+                                                 (:schedule job)
                                                  created-at)))
             run)
           (let [label (task-label task-kind)
@@ -212,12 +208,12 @@
      (run-job config bank-id job :scheduler-trigger-source-forced actor))))
 
 (defn update-schedule
-  "Edit a job's periodicity, run time, status or monthly day, within
-  the periodicities its tasks allow, recording the `actor` who did.
+  "Edit a job's schedule or status, the schedule within what its tasks
+  allow, recording the `actor` who did.
   Persists the change, recomputes `next-run-at`, and reflects it on the
   live trigger when a scheduler is present in `config`."
   [config bank-id job-id
-   {:keys [periodicity run-time-mins status monthly-day] :as edits}
+   {:keys [schedule status] :as edits}
    actor]
   (let [job (store/get-job config bank-id job-id)]
     (cond
@@ -229,26 +225,18 @@
                    {:bank-id bank-id :job-id job-id})
 
      :else
-     (let [periodicity (or periodicity (:periodicity job))
-           run-time-mins (or run-time-mins (:run-time-mins job))
+     (let [schedule (or schedule (:schedule job))
            status (or status (:status job))
-           monthly-day (or monthly-day (:monthly-day job))]
+           now (utility/now)]
        (let-nom> [_ (domain/validate-system-edits job edits)
-                  _ (domain/validate-periodicity (:task-kinds job) periodicity)
-                  _ (domain/validate-run-time periodicity run-time-mins)]
-         (let [now (utility/now)
-               cron (domain/->cron periodicity run-time-mins monthly-day)
-               updated (utility/assoc-some
-                        (assoc job
-                               :periodicity periodicity
-                               :run-time-mins run-time-mins
-                               :status status
-                               :next-run-at (scheduler/next-fire-at cron now)
-                               :updated-at now
-                               :updated-by (select-keys actor
-                                                        [:kind :principal-id]))
-                        :monthly-day
-                        monthly-day)
+                  _ (domain/validate-schedule (:task-kinds job) schedule now)]
+         (let [updated (assoc job
+                              :schedule schedule
+                              :status status
+                              :next-run-at (scheduler/next-fire-at schedule now)
+                              :updated-at now
+                              :updated-by (select-keys actor
+                                                       [:kind :principal-id]))
                result (store/save-job config updated)]
            (if (error/anomaly? result)
              result
@@ -263,13 +251,10 @@
   "A seeded job for `bank-id` from a `jobs.edn` template: the template's
   fields, the bank, the next fire and the timestamps."
   [bank-id template now]
-  (let [cron (domain/->cron (:periodicity template)
-                            (:run-time-mins template)
-                            (:monthly-day template))]
-    (assoc template
-           :bank-id bank-id
-           :next-run-at (scheduler/next-fire-at cron now)
-           :created-at now)))
+  (assoc template
+         :bank-id bank-id
+         :next-run-at (scheduler/next-fire-at (:schedule template) now)
+         :created-at now))
 
 (defn seed-jobs
   "Seed the bank's default scheduled jobs (FDB only — no triggers).
@@ -351,7 +336,7 @@
         triggers (:triggers config)
         id (trigger-id job)
         want (when (= :scheduler-job-status-active (:status job))
-               (job-cron job))
+               (:schedule job))
         have (when triggers (get @triggers id))]
     (cond
      (and want (not= want have))

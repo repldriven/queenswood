@@ -26,20 +26,6 @@ enum SchedulerTaskKind {
   SCHEDULER_TASK_KIND_ACCOUNT_MIGRATION = 3;
 }
 
-enum SchedulerPeriodicity {
-  SCHEDULER_PERIODICITY_UNKNOWN = 0;
-  SCHEDULER_PERIODICITY_DAILY = 1;
-  SCHEDULER_PERIODICITY_MONTHLY = 2;
-  SCHEDULER_PERIODICITY_YEARLY = 3;
-  SCHEDULER_PERIODICITY_HOURLY = 4;
-}
-
-enum SchedulerMonthlyDay {
-  SCHEDULER_MONTHLY_DAY_UNKNOWN = 0;
-  SCHEDULER_MONTHLY_DAY_FIRST = 1;
-  SCHEDULER_MONTHLY_DAY_LAST = 2;
-}
-
 // A bank's sequence of tasks run on a schedule.
 message SchedulerJob {
   option (com.apple.foundationdb.record.record).usage = RECORD;
@@ -50,11 +36,9 @@ message SchedulerJob {
   required SchedulerJobStatus status = 4;
   required SchedulerJobKind kind = 5;
   repeated SchedulerTaskKind task_kinds = 6;
-  required SchedulerPeriodicity periodicity = 7;
-  optional SchedulerMonthlyDay monthly_day = 8;
-  required int32 run_time_mins = 9; // past midnight UTC, or past the hour when hourly
-  optional int64 last_run_at = 10;
-  optional int64 next_run_at = 11;
+  required string schedule = 7; // Quartz cron, UTC
+  optional int64 last_run_at = 8;
+  optional int64 next_run_at = 9;
 
   required int64 created_at = 101;
   optional int64 updated_at = 103;

@@ -7,7 +7,7 @@
 
     [com.repldriven.queenswood.scheduler.interface :as scheduler]
 
-    [com.repldriven.mono.error.interface :as error]))
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
 (defn start-run
   "Force-start the job now (POST to its runs collection). Runs the task
@@ -33,28 +33,24 @@
   "Edit a job's schedule — any of `:periodicity`, `:run-time-minutes`,
   `:enabled` (omitted fields keep their current value). Toggling
   `:enabled` is the pause/resume control. Persists and recomputes
-  next-run; rejects a periodicity the job's tasks don't allow."
+  next-run; rejects a schedule the job's tasks don't allow."
   [request]
   (let [{:keys [record-db record-store auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [path body]} parameters
         {:keys [job-id]} path
         config {:record-db record-db :record-store record-store}
-        {:keys [run-time-minutes enabled]} body
-        edits (cond-> (dissoc body :run-time-minutes :enabled)
-                      (some? run-time-minutes)
-                      (assoc :run-time-mins run-time-minutes)
-
-                      (some? enabled)
-                      (assoc :status
-                             (if enabled
-                               :scheduler-job-status-active
-                               :scheduler-job-status-paused)))
-        result (scheduler/update-schedule config
-                                          bank-id
-                                          job-id
-                                          edits
-                                          (shared.actor/actor auth))]
+        result (let-nom>
+                 [job (scheduler/get-job config bank-id job-id)
+                  _ (when (nil? job)
+                      (error/reject :scheduler/job-not-found
+                                    {:message "Scheduled job not found"
+                                     :job-id job-id}))]
+                 (scheduler/update-schedule config
+                                            bank-id
+                                            job-id
+                                            (view/api->edits job body)
+                                            (shared.actor/actor auth)))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body (view/job->api result)})))

@@ -71,8 +71,7 @@ bank consuming `reward.paid`, which is the demo's own slice in
 - **The scheduler is per bank, registered at start.** A job is a
   `SchedulerJob` row seeded per bank at creation from
   [jobs.edn](/components/resources/resources/scheduler/jobs.edn), with
-  a periodicity of daily, monthly or yearly and a time of day, turned
-  into a Quartz cron by `domain/->cron` in the `scheduler` brick. The
+  a Quartz cron schedule in UTC, which each of its tasks limits. The
   `bank-scheduler/runner` registers one trigger per enabled job across
   every bank when it starts, and the run calls the task's brick in
   process, synchronously, recording a `SchedulerRun` with per-task
@@ -261,12 +260,10 @@ What moves with it:
 Three changes, made for the hourly reward job the processor replaced
 and kept, since each holds for every job:
 
-- **Hourly.** `SCHEDULER_PERIODICITY_HOURLY` in
-  [scheduler-job.proto](/components/schema/resources/schemas/scheduler/scheduler-job.proto);
-  `->cron` answers `0 m * * * ?` for it, where `run-time-mins` is
-  the minute past the hour and the schedule guard refuses sixty or
-  more; the jobs API's coercion and view order learn the word. No
-  seeded task allows it.
+- **Hourly.** A job's schedule in
+  [scheduler-job.proto](/components/schema/resources/schemas/scheduler/scheduler-job.proto)
+  may fire hourly, `0 m * * * ?`; the jobs API's coercion and view
+  order learn the word. No seeded task allows it.
 - **Declared once, run locally.** A `system/scheduler.yml` declares the
   `scheduler` and `bank-scheduler` components, included by the monolith
   and exclusive-dispatchers manifests in place of their inline copies
@@ -328,7 +325,7 @@ and is built.
 
 ### Tests
 
-- `scheduler` — `->cron` for hourly and the sixty-minute guard in
+- `scheduler` — what each task's cadence allows a schedule in
   `domain_test.clj`; a tick test that starts mono's scheduler and sees
   a job fire; the sweep registering a bank created after start.
 - `cash-account-product` — the term threads through create, new
