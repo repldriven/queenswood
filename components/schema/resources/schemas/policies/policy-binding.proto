@@ -46,6 +46,7 @@ message PolicyBinding {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string binding_id = 1 [(com.apple.foundationdb.record.field).primary_key = true]; // bnd.<ulid>
+
   required string policy_id = 2;
   required Target target = 3;
   optional string reason = 4;

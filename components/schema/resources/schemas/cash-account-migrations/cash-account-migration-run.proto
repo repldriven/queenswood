@@ -19,6 +19,7 @@ message CashAccountMigrationRun {
 
   required string bank_id = 1;
   required string run_id = 2;
+
   required string migration_id = 3;
   required CashAccountMigrationRunStatus status = 4;
   required bool dry_run = 5;

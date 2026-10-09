@@ -18,6 +18,7 @@ message User {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string user_id = 1 [(com.apple.foundationdb.record.field).primary_key = true]; // usr.<uuidv7>
+
   required string issuer = 2;
   required string sub = 3;
   required string name = 4;

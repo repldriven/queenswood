@@ -44,6 +44,7 @@ message SchedulerRun {
 
   required string bank_id = 1;
   required string run_id = 2; // uuidv7
+
   required SchedulerRunStatus status = 3;
   required SchedulerTriggerSource trigger_source = 4;
   required string job_id = 5;

@@ -22,6 +22,7 @@ message TransactionLeg {
   required string account_id = 2;
   required string transaction_id = 3;
   required string leg_id = 4; // leg.<uuidv7>
+
   required com.repldriven.queenswood.schemas.balances.BalanceType balance_type = 5;
   required com.repldriven.queenswood.schemas.balances.BalanceStatus balance_status = 6;
   required LegSide side = 7;

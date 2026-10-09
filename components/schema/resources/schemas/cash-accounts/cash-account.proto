@@ -26,8 +26,7 @@ message ScanAddress {
   required string account_number = 2;
 }
 
-// An address payments reach the account at: a `scan`, or a `value` for
-// any other scheme.
+// An address payments reach the account at.
 message PaymentAddress {
   required com.repldriven.queenswood.schemas.cash_account_products.PaymentAddressScheme scheme = 1;
   optional ScanAddress scan = 2;
@@ -60,6 +59,7 @@ message CashAccount {
 
   required string bank_id = 1;
   required string account_id = 2;
+
   required string product_id = 3;
   required string version_id = 4;
   required int64 version_from_on = 5; // epoch day

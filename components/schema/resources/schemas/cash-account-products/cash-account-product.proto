@@ -93,6 +93,7 @@ message CashAccountProduct {
   required string bank_id = 1;
   required string product_id = 2;
   required string version_id = 3;
+
   required string template_id = 4;
   required string name = 5;
   required int32 version_number = 6;

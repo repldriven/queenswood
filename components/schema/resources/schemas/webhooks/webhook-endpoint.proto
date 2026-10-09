@@ -20,6 +20,7 @@ message WebhookEndpoint {
 
   required string bank_id = 1;
   required string endpoint_id = 2; // whe.<uuidv7>
+
   required WebhookEndpointStatus status = 3;
   required string address = 4;
   optional string description = 5;

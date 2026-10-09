@@ -25,6 +25,7 @@ message Transaction {
 
   required string bank_id = 1;
   required string transaction_id = 2; // txn.<uuidv7>
+
   required TransactionType transaction_type = 3;
   required string currency = 4; // ISO 4217
   optional string reference = 5;

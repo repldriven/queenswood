@@ -28,6 +28,7 @@ message Member {
 
   required string bank_id = 1;
   required string member_id = 2; // mem.<uuidv7>
+
   required MemberStatus status = 3;
   required Role role = 4;
   required string user_id = 5;

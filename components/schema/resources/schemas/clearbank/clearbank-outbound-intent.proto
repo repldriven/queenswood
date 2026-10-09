@@ -20,6 +20,7 @@ message ClearbankOutboundIntent {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string intent_id = 1; // uuidv7
+
   required ClearbankOutboundIntentKind kind = 2;
   required com.repldriven.queenswood.schemas.outbound.OutboundIntentStatus status = 3;
   required string request = 4; // JSON

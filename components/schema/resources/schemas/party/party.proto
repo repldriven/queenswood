@@ -30,6 +30,7 @@ message Party {
 
   required string bank_id = 1;
   required string party_id = 2; // pty.<uuidv7>
+
   required string legal_name = 3;
   optional string display_name = 4;
   required PartyStatus status = 5;

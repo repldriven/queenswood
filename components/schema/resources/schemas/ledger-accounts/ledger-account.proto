@@ -28,13 +28,13 @@ enum LedgerAccountCode {
   LEDGER_ACCOUNT_CODE_INTEREST_EXPENSE = 5100;
 }
 
-// A bank's own general-ledger account, one row of its chart of accounts
-// in one currency.
+// A bank's general-ledger account in one currency.
 message LedgerAccount {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string bank_id = 1;
   required string ledger_account_id = 2; // led.<uuidv7>
+
   required LedgerAccountCode code = 3;
   required string currency = 4; // ISO 4217
   required string name = 5;

@@ -13,6 +13,7 @@ message CashAccountProductTemplate {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string template_id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+
   required string name = 2;
   required com.repldriven.queenswood.schemas.account_product_type.AccountProductType product_type = 3;
   required IsoCashAccountType iso_cash_account_type = 4;

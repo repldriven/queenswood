@@ -29,6 +29,7 @@ message CashAccountMigrationAccountRun {
   required string bank_id = 1;
   required string run_id = 2;
   required string account_id = 3;
+
   required string migration_id = 4;
   required CashAccountMigrationOutcome outcome = 5;
   required string source_version_id = 6;

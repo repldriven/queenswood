@@ -13,6 +13,7 @@ message InternalPayment {
 
   required string bank_id = 1;
   required string payment_id = 2; // pmt.<uuidv7>
+
   required string debtor_account_id = 3;
   required string creditor_account_id = 4;
   required int64 amount = 5; // minor units

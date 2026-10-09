@@ -18,6 +18,7 @@ message CircuitBreaker {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string destination = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+
   required CircuitBreakerStatus status = 2;
   required int64 failure_count = 3;
   optional int64 next_probe_at = 4;

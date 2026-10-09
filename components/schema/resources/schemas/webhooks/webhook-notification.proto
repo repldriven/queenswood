@@ -12,6 +12,7 @@ message WebhookNotification {
 
   required string bank_id = 1;
   required string notification_id = 2; // whn.<uuidv7>
+
   required string kind = 3;
   required string change_kind = 4;
   required string resource_type = 5;

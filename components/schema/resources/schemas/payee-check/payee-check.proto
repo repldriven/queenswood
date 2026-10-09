@@ -40,6 +40,7 @@ message PayeeCheck {
 
   required string bank_id = 1;
   required string check_id = 2; // chk.<uuidv7>
+
   required PayeeCheckRequest request = 3;
   required PayeeCheckResult result = 4;
 

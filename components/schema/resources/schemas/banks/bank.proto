@@ -13,10 +13,12 @@ enum BankStatus {
   BANK_STATUS_LIVE = 2;
 }
 
+// A bank run on the platform.
 message Bank {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string bank_id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+
   required string name = 2;
   required BankStatus status = 3;
   required string tier = 4;
@@ -40,8 +42,7 @@ message BankProvider {
   required string provider = 2; // e.g. "modulr"
 }
 
-// The company a bank is bound to, as the registry confirmed it when the
-// bank was created.
+// The company a bank is bound to, as its registry held it.
 message BankCompanyBinding {
   required string registry = 1; // e.g. "uk-companies-house"
   required string company_number = 2;

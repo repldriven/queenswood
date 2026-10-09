@@ -23,6 +23,7 @@ message InboundPayment {
 
   required string bank_id = 1;
   required string payment_id = 2; // pmt.<uuidv7>
+
   required InboundPaymentStatus status = 3;
   required com.repldriven.queenswood.schemas.schemes.SchemeType scheme_type = 4;
   optional string creditor_account_id = 5;

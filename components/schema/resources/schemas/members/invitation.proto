@@ -23,6 +23,7 @@ message Invitation {
 
   required string bank_id = 1;
   required string invitation_id = 2; // inv.<uuidv7>
+
   required InvitationStatus status = 3;
   required Role role = 4;
   required string email = 5;

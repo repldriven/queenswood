@@ -32,6 +32,7 @@ message SchedulerJob {
 
   required string bank_id = 1;
   required string job_id = 2;
+
   required string name = 3;
   required SchedulerJobStatus status = 4;
   required SchedulerJobKind kind = 5;

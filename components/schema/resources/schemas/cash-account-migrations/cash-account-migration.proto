@@ -15,13 +15,13 @@ enum CashAccountMigrationStatus {
   CASH_ACCOUNT_MIGRATION_STATUS_CANCELLED = 4;
 }
 
-// A planned move of a product's cash accounts onto another product
-// version.
+// A planned move of a product's cash accounts onto another version.
 message CashAccountMigration {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string bank_id = 1;
   required string migration_id = 2;
+
   required string name = 3;
   required CashAccountMigrationStatus status = 4;
   required string source_product_id = 5;

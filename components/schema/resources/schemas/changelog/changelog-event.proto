@@ -4,7 +4,7 @@ package com.repldriven.queenswood.schemas.changelog;
 
 option java_outer_classname = "ChangelogEventProto";
 
-// An entry on a store's changelog, republished to the bus by the relay.
+// An entry on a store's changelog.
 message ChangelogEvent {
   required string event_id = 1; // uuidv7
   required string dedup_key = 2;

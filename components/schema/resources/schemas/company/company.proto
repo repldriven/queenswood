@@ -18,12 +18,13 @@ message RegisteredOfficeAddress {
   optional string country = 4;
 }
 
-// A company's profile as its registry of record holds it.
+// A company as its registry holds it.
 message Company {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required CompanyRegistry registry = 1;
   required string company_number = 2;
+
   required string name = 3;
   required string status = 4; // the registry's, e.g. "active"
   required string company_type = 5; // the registry's, e.g. "ltd"

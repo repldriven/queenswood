@@ -22,6 +22,7 @@ message Policy {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string policy_id = 1 [(com.apple.foundationdb.record.field).primary_key = true]; // pol.<ulid>
+
   required string name = 2;
   required PolicyStatus status = 3;
   required PolicyCategory category = 4;

@@ -20,6 +20,7 @@ message InterestRun {
   required string bank_id = 1;
   required int64 business_day = 2; // epoch day
   required InterestRunKind kind = 3;
+
   required InterestRunStatus status = 4;
 
   optional int64 closed_at = 51;

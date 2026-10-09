@@ -39,6 +39,7 @@ message IdvSession {
 
   required string bank_id = 1;
   required string session_id = 2;
+
   required string verification_id = 3;
   required string party_id = 4;
   required IdvSessionStatus status = 5;

@@ -16,6 +16,7 @@ message AccountBalance {
   required string account_id = 2;
   required BalanceType balance_type = 3;
   required BalanceStatus balance_status = 4;
+
   required com.repldriven.queenswood.schemas.account_product_type.AccountProductType product_type = 5;
   required int64 credit = 6;
   required int64 debit = 7;

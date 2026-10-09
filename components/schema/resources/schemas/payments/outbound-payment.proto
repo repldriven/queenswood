@@ -31,6 +31,7 @@ message OutboundPayment {
 
   required string bank_id = 1;
   required string payment_id = 2; // pmt.<uuidv7>
+
   required OutboundPaymentStatus status = 3;
   required com.repldriven.queenswood.schemas.schemes.SchemeType scheme_type = 4;
   required string debtor_account_id = 5;

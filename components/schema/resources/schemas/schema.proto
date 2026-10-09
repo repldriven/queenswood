@@ -59,9 +59,7 @@ option java_outer_classname = "SchemaProto";
 option (com.apple.foundationdb.record.schema).store_record_versions = true;
 option (com.apple.foundationdb.record.schema).split_long_records = true;
 
-// RecordTypeUnion marks which messages are top-level record types
-// for the FDB Record Layer. Named RecordTypeUnion so the Record
-// Layer recognises it without requiring proto annotations.
+// The record types the Record Layer stores.
 message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.cash_accounts.CashAccount _CashAccount = 1;
   reserved 2;

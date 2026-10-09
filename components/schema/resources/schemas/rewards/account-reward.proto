@@ -19,6 +19,7 @@ message AccountReward {
 
   required string bank_id = 1;
   required string reward_id = 2; // rwd.<uuidv7>
+
   required AccountRewardStatus status = 3;
   required com.repldriven.queenswood.schemas.cash_account_products.RewardKind kind = 4;
   required string account_id = 5;

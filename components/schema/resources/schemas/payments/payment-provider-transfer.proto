@@ -13,12 +13,13 @@ enum PaymentProviderTransferStatus {
   PAYMENT_PROVIDER_TRANSFER_STATUS_FAILED = 3;
 }
 
-// A movement between a bank's payment provider accounts matching a posting.
+// A transfer between a bank's accounts at its payment provider.
 message PaymentProviderTransfer {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string bank_id = 1;
   required string transfer_id = 2; // ptr.<uuidv7>
+
   required PaymentProviderTransferStatus status = 3;
   required string transaction_id = 4;
   optional string debtor_account_id = 5;

@@ -20,12 +20,13 @@ enum EmailDeliveryStatus {
   EMAIL_DELIVERY_STATUS_FAILED = 5;
 }
 
-// An email to send, written before the send.
+// An email to send.
 message EmailDelivery {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string bank_id = 1;
   required string delivery_id = 2;
+
   required EmailKind kind = 3;
   required EmailDeliveryStatus status = 4;
   required string kind_id = 5; // the id of the record the kind names
