@@ -919,18 +919,16 @@
   payments/OutboundPaymentStatus-label2val)
 
 (defn pb->InternalPayment
-  "Parse InternalPayment protobuf bytes into a Clojure map, stripping
-  the optional `reference` when it deserialises as the proto2
-  empty-string default, so the key is present only on a transfer the
-  caller gave one.
+  "Parse InternalPayment protobuf bytes into a Clojure map, `reference`
+  present only on a transfer the caller gave one and `created-by` a
+  plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [payment (payments/pb->InternalPayment input)]
-    (cond-> payment
-            (= "" (:reference payment))
-            (dissoc :reference))))
+  (-> (payments/pb->InternalPayment input)
+      (without-unset {:reference ""})
+      (plain-embedded :created-by)))
 
 (defn InternalPayment->pb
   "Serialise an InternalPayment map to protobuf bytes.

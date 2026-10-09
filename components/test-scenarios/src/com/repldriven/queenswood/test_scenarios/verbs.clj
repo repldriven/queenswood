@@ -858,7 +858,8 @@
                  :creditor-account-id to-real
                  :currency (or currency "GBP")
                  :amount amount
-                 :reference (str "scenario internal " counter)})]
+                 :reference (str "scenario internal " counter)
+                 :actor scenario-operator})]
     (-> ctx
         (update :counter inc)
         (track result))))

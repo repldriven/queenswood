@@ -27,7 +27,7 @@
    :amount 1500
    :transaction-id "txn.internal"
    :created-at (utility/now)
-   :updated-at (utility/now)
+   :created-by {:kind :actor-kind-member :principal-id "usr.payer"}
    :bank-id bank-id
    :business-day 20260101})
 

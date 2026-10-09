@@ -52,20 +52,19 @@
   [data business-day transaction-id]
   (let [{:keys [idempotency-key bank-id debtor-account-id
                 creditor-account-id currency amount
-                reference]}
-        data
-        now (utility/now)]
+                reference actor]}
+        data]
     (utility/assoc-some
-     {:payment-id (utility/generate-id "pmt")
-      :idempotency-key idempotency-key
-      :bank-id bank-id
-      :business-day business-day
+     {:bank-id bank-id
+      :payment-id (utility/generate-id "pmt")
       :debtor-account-id debtor-account-id
       :creditor-account-id creditor-account-id
-      :currency currency
       :amount amount
+      :currency currency
       :transaction-id transaction-id
-      :created-at now
-      :updated-at now}
+      :business-day business-day
+      :idempotency-key idempotency-key
+      :created-at (utility/now)
+      :created-by (select-keys actor [:kind :principal-id])}
      :reference
      reference)))

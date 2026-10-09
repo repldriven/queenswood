@@ -3,16 +3,52 @@
   "name": "InternalPayment",
   "namespace": "com.repldriven.mono.payments",
   "fields": [
-    {"name": "payment_id",          "type": "string"},
-    {"name": "debtor_account_id",   "type": "string"},
-    {"name": "creditor_account_id", "type": "string"},
-    {"name": "currency",            "type": "string"},
-    {"name": "amount",              "type": "long"},
-    {"name": "transaction_id",      "type": "string"},
-    {"name": "reference",           "type": ["null", "string"], "default": null},
-    {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "bank_id",     "type": "string"},
-    {"name": "business_day",        "type": "long"}
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "payment_id",
+      "type": "string"
+    },
+    {
+      "name": "debtor_account_id",
+      "type": "string"
+    },
+    {
+      "name": "creditor_account_id",
+      "type": "string"
+    },
+    {
+      "name": "amount",
+      "type": "long"
+    },
+    {
+      "name": "currency",
+      "type": "string"
+    },
+    {
+      "name": "reference",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "transaction_id",
+      "type": "string"
+    },
+    {
+      "name": "business_day",
+      "type": "long"
+    },
+    {
+      "name": "created_at",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    }
   ]
 }

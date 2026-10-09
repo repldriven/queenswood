@@ -30,10 +30,10 @@
   (fdb/transact
    txn
    (fn [txn]
-     (some->> (fdb/load-record (fdb/open txn internal-payments-store-name)
-                               payment-id)
-              schema/pb->InternalPayment
-              (in-bank bank-id)))
+     (some-> (fdb/load-record (fdb/open txn internal-payments-store-name)
+                              bank-id
+                              payment-id)
+             schema/pb->InternalPayment))
    :payment/find-internal-payment
    "Failed to find internal payment"))
 

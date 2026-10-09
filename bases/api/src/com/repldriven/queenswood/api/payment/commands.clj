@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.api.payment.commands
   (:require
     [com.repldriven.queenswood.api.commands :as commands]
+    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
     [com.repldriven.queenswood.payment-api.interface :as coercion]))
 
@@ -20,7 +21,9 @@
                     request
                     "submit-internal-payment"
                     "internal-payment"
-                    (assoc body :bank-id bank-id)
+                    (assoc body
+                           :bank-id bank-id
+                           :actor (shared.actor/actor auth))
                     ;; Serialise a debtor account's payments: they contend
                     ;; on its available balance, and that is the limit
                     ;; that can actually reject.
