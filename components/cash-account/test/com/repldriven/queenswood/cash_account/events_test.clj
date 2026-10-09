@@ -31,7 +31,7 @@
    :version-from-on 20089
    :created-by {:kind :actor-kind-operator :principal-id "test"}
    :account-type :account-type-personal
-   :product-type :product-type-sub-ledger-current
+   :product-type :account-product-type-sub-ledger-current
    :name "Event Redelivery Test Account"
    :currency "GBP"
    :status status

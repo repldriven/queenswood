@@ -9,7 +9,7 @@
 (def ^:private account
   {:account-id "acc.1"
    :currency "GBP"
-   :product-type :product-type-sub-ledger-current})
+   :product-type :account-product-type-sub-ledger-current})
 
 (defn- fresh-run
   []

@@ -52,7 +52,7 @@
      :version-id version-id
      :version-from-on 20089
      :created-by {:kind :actor-kind-operator :principal-id "test"}
-     :product-type :product-type-sub-ledger-current
+     :product-type :account-product-type-sub-ledger-current
      :name account-id
      :currency "GBP"
      :status :cash-account-status-opened
@@ -69,7 +69,7 @@
   (let [now (utility/now)]
     {:bank-id bank-id
      :account-id account-id
-     :product-type :product-type-sub-ledger-current
+     :product-type :account-product-type-sub-ledger-current
      :balance-type :balance-type-default
      :balance-status balance-status
      :currency "GBP"
@@ -271,7 +271,7 @@
      :version-id (str "prv." product-id)
      :version-number 1
      :status :version-status-published
-     :product-type :product-type-sub-ledger-own-funds
+     :product-type :account-product-type-sub-ledger-own-funds
      :balance-sheet-side :balance-sheet-side-liability
      :name "Bank own funds"
      :currency currency
@@ -298,14 +298,16 @@
                                    (:version-id gbp)
                                    "10000031")
                           :product-id "prd.house.gbp"
-                          :product-type :product-type-sub-ledger-own-funds)
+                          :product-type
+                          :account-product-type-sub-ledger-own-funds)
          house-eur (assoc (account bank-id
                                    "acc.house.eur"
                                    "pty.bank"
                                    (:version-id eur)
                                    "10000032")
                           :product-id "prd.house.eur"
-                          :product-type :product-type-sub-ledger-own-funds
+                          :product-type
+                          :account-product-type-sub-ledger-own-funds
                           :currency "EUR")
          customer
          (account bank-id "acc.house.cust" "pty.cust" "prv.1" "10000033")]

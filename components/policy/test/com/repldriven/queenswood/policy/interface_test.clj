@@ -310,20 +310,21 @@
                                    :value 1
                                    :account-type :account-type-business})))))
   (testing "tuple-filter match — limit applies and bound is checked"
-    (let [policies [(limit-policy
-                     [(limit {:cash-account
-                              {:filters
-                               [{:product-type :product-type-sub-ledger-current
-                                 :account-type :account-type-business}]}}
-                             (max-bound :count 1 :time-window-instant)
-                             "max 1 business current")])]
+    (let [policies [(limit-policy [(limit
+                                    {:cash-account
+                                     {:filters
+                                      [{:product-type
+                                        :account-product-type-sub-ledger-current
+                                        :account-type :account-type-business}]}}
+                                    (max-bound :count 1 :time-window-instant)
+                                    "max 1 business current")])]
           result (SUT/check-limit policies
                                   :cash-account
                                   {:aggregate :count
                                    :window :time-window-instant
                                    :value 2
                                    :product-type
-                                   :product-type-sub-ledger-current
+                                   :account-product-type-sub-ledger-current
                                    :account-type :account-type-business})]
       (is (error/rejection? result))))
   (testing "multi-tuple OR — limit applies when any tuple matches"

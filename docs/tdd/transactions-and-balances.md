@@ -121,7 +121,7 @@ written. Whether its money is still in flight is each leg's
  :side            :debit         ;; or :credit
  :amount          1000           ;; integer minor units (pence)
  :currency        "GBP"          ;; ISO 4217 string
- :product-type    :product-type-sub-ledger-current}
+ :product-type    :account-product-type-sub-ledger-current}
                   ;; on a cash account's leg only
 ```
 

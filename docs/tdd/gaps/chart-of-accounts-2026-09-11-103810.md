@@ -105,7 +105,7 @@ ones that predict runtime behaviour say so.
   own `store/transact`, and the bank brick's rollback test proves a
   failed create leaves no chart behind.
 - Each ledger account opens one `default / posted` balance tagged
-  `:product-type-general-ledger`, which is how read sites tell the
+  `:account-product-type-general-ledger`, which is how read sites tell the
   bank's books from a customer instrument.
 - `product-type->control-code` is the TDD's table: current, savings and
   term-deposit to 2100, 2200 and 2300, own-funds to 3100. The control
@@ -376,7 +376,7 @@ throughout". The outbound reservation credits 1200 at
 `default / pending-outgoing`, settlement and reversal debit it there, and
 the balance brick's `new-zero-balance` opens any `(balance-type,
 balance-status)` a leg names, tagging a leg with no product type as
-`:product-type-general-ledger`. So 1200 carries two buckets on any bank
+`:account-product-type-general-ledger`. So 1200 carries two buckets on any bank
 that has sent a payment, and any GL account gains a bucket the first
 time a leg names one. Evidence: `outbound-payment->transaction` and
 `outbound-settlement->transaction` in the payment brick's `domain.clj`,

@@ -18,11 +18,11 @@
 
 (def ^:private savings-v1
   (version "prd.super" "ver.1"
-           :version-status-published :product-type-sub-ledger-savings))
+           :version-status-published :account-product-type-sub-ledger-savings))
 
 (def ^:private savings-v2
   (version "prd.mega" "ver.2"
-           :version-status-published :product-type-sub-ledger-savings))
+           :version-status-published :account-product-type-sub-ledger-savings))
 
 (def ^:private data
   {:bank-id "org.1"
@@ -70,7 +70,7 @@
   (testing "product type is the one thing that must match"
     (let [current (version "prd.cur" "ver.9"
                            :version-status-published
-                           :product-type-sub-ledger-current)
+                           :account-product-type-sub-ledger-current)
           result (SUT/new-migration data savings-v1 current)]
       (is (error/rejection? result))
       (is (= :cash-account-migration/product-type-mismatch

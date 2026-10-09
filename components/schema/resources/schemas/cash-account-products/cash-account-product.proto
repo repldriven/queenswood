@@ -3,9 +3,9 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.cash_account_products;
 
 import "record_metadata_options.proto";
+import "schemas/account-product-type/account-product-type.proto";
 import "schemas/actor/actor.proto";
 import "schemas/cash-account-products/types.proto";
-import "schemas/types/product-type.proto";
 
 option java_outer_classname = "CashAccountProductProto";
 
@@ -97,7 +97,7 @@ message CashAccountProduct {
   required string name = 5;
   required int32 version_number = 6;
   required VersionStatus status = 7;
-  required com.repldriven.queenswood.schemas.types.ProductType product_type = 8;
+  required com.repldriven.queenswood.schemas.account_product_type.AccountProductType product_type = 8;
   required IsoCashAccountType iso_cash_account_type = 9;
   required BalanceSheetSide balance_sheet_side = 10;
   required bool internal = 11;

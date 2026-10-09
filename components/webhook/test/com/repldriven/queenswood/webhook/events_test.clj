@@ -67,7 +67,7 @@
      :version-id "prv.1"
      :version-from-on 20089
      :created-by {:kind :actor-kind-operator :principal-id "test"}
-     :product-type :product-type-sub-ledger-current
+     :product-type :account-product-type-sub-ledger-current
      :name account-id
      :currency "GBP"
      :status :cash-account-status-opened
@@ -84,7 +84,7 @@
   (let [now (utility/now)]
     {:bank-id bank-id
      :account-id account-id
-     :product-type :product-type-sub-ledger-current
+     :product-type :account-product-type-sub-ledger-current
      :balance-type :balance-type-default
      :balance-status :balance-status-posted
      :currency "GBP"

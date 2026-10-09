@@ -47,7 +47,7 @@
 (defn- version-in
   [currency]
   {:version-id "prv.001"
-   :product-type :product-type-sub-ledger-current
+   :product-type :account-product-type-sub-ledger-current
    :currency currency
    :allowed-payment-address-schemes [:payment-address-scheme-scan]})
 
@@ -199,12 +199,14 @@
         (is (= :policy/limit-exceeded (error/kind result)))))))
 
 (deftest open-account-filtered-count-limit-test
-  (let [term-deposit
-        (assoc scan-version :product-type :product-type-sub-ledger-term-deposit)
-        one-term-deposit
-        (allow-open-within
-         (count-limit 1
-                      [{:product-type :product-type-sub-ledger-term-deposit}]))]
+  (let [term-deposit (assoc scan-version
+                            :product-type
+                            :account-product-type-sub-ledger-term-deposit)
+        one-term-deposit (allow-open-within
+                          (count-limit
+                           1
+                           [{:product-type
+                             :account-product-type-sub-ledger-term-deposit}]))]
     (testing "a limit filtered by product type bites on that type's subtotal"
       (let [result (open-account-past-the-guards term-deposit
                                                  (counts 5 1)

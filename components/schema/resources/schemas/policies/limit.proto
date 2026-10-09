@@ -2,6 +2,7 @@ syntax = "proto2";
 
 package com.repldriven.queenswood.schemas.policies;
 
+import "schemas/account-product-type/account-product-type.proto";
 import "schemas/amounts/amount.proto";
 import "schemas/balances/types.proto";
 import "schemas/banks/bank.proto";
@@ -11,7 +12,6 @@ import "schemas/policies/capability.proto";
 import "schemas/policies/types.proto";
 import "schemas/schemes/types.proto";
 import "schemas/transactions/transaction.proto";
-import "schemas/types/product-type.proto";
 
 option java_outer_classname = "LimitProto";
 
@@ -99,7 +99,7 @@ message BankLimit {
 }
 
 message CashAccountLimitFilter {
-  optional com.repldriven.queenswood.schemas.types.ProductType product_type = 1;
+  optional com.repldriven.queenswood.schemas.account_product_type.AccountProductType product_type = 1;
   optional com.repldriven.queenswood.schemas.cash_accounts.AccountType account_type = 2;
   optional string currency = 3;
 }
@@ -123,7 +123,7 @@ message CashAccountMigrationLimit {
 }
 
 message CashAccountProductLimitFilter {
-  optional com.repldriven.queenswood.schemas.types.ProductType product_type = 1;
+  optional com.repldriven.queenswood.schemas.account_product_type.AccountProductType product_type = 1;
 }
 
 message CashAccountProductLimit {

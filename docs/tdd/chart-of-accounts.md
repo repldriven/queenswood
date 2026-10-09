@@ -213,7 +213,7 @@ message CashAccount {
   required string currency = 9;
   required string name = 8;
   required CashAccountStatus account_status = 10;
-  optional ProductType product_type = 7;   // drives the control mapping
+  optional AccountProductType product_type = 7; // drives the control mapping
   optional AccountType account_type = 3;    // personal, business
   repeated PaymentAddress payment_addresses = 11;
   optional string bban = 12;
@@ -413,7 +413,7 @@ and
 
 A bucket a leg opens takes the leg's `:product-type`, else that of
 the account's existing buckets, and is tagged
-`:product-type-general-ledger` only on an account with neither,
+`:account-product-type-general-ledger` only on an account with neither,
 so a cash account's buckets are always summed into its own
 control.
 
@@ -756,7 +756,7 @@ at any layer holds more than one currency.
   org party.
 - **`cash-account` / `cash-account-product`** carry
   the customer and own-funds cash-accounts. The own-funds
-  product (`:product-type-sub-ledger-own-funds`) maps to
+  product (`:account-product-type-sub-ledger-own-funds`) maps to
   control 3100; customer products map to 2100 / 2200 / 2300.
 - **`payment`** resolves GL accounts via
   `ledger-account/find-by-code`, tags its customer legs with
@@ -774,7 +774,7 @@ at any layer holds more than one currency.
 - **`schema`** defines the `LedgerAccount` message and the
   `LedgerAccountCode` / `LedgerAccountStatus` enums, the
   `LedgerAccount` entry in `RecordTypeUnion`, and the
-  `LedgerAccount_by_bank_code` index. `ProductType`
+  `LedgerAccount_by_bank_code` index. `AccountProductType`
   carries the sub-ledger values `-current` / `-savings` /
   `-term-deposit` / `-own-funds` plus `-general-ledger`.
 - **`api`** exposes a read-only `/ledger-accounts` surface

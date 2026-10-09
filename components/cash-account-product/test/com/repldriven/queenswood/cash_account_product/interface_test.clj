@@ -185,7 +185,7 @@
                             (q/count-by-org-product-type
                              config
                              bank-id
-                             :product-type-sub-ledger-current))))
+                             :account-product-type-sub-ledger-current))))
                  _ (SUT/new-product config
                                     bank-id
                                     (product-data "Savings" savings-template-id)
@@ -196,12 +196,12 @@
                             (q/count-by-org-product-type
                              config
                              bank-id
-                             :product-type-sub-ledger-current)))
+                             :account-product-type-sub-ledger-current)))
                      (is (= 1
                             (q/count-by-org-product-type
                              config
                              bank-id
-                             :product-type-sub-ledger-savings))))
+                             :account-product-type-sub-ledger-savings))))
                  ;; The own-funds template is the one new-bank creates a
                  ;; bank's house product from. No bank system boots here,
                  ;; so this is what such a product does to the counts
@@ -220,7 +220,7 @@
                             (q/count-by-org-product-type
                              config
                              bank-id
-                             :product-type-sub-ledger-own-funds))))
+                             :account-product-type-sub-ledger-own-funds))))
                  listed (q/get-products config bank-id)
                  _ (testing "while the listing hides it"
                      (is (= 2 (count (:items listed))))
@@ -237,7 +237,7 @@
          template
          {:template-id "tpl.00000000000000000000000099"
           :name "Round Trip Current"
-          :product-type :product-type-sub-ledger-current
+          :product-type :account-product-type-sub-ledger-current
           :balance-sheet-side :balance-sheet-side-liability
           :iso-cash-account-type :iso-cash-account-type-cacc
           :allowed-currencies ["GBP"]
@@ -249,7 +249,7 @@
                  _ (testing "the template round-trips through the store"
                      (is (= (:template-id template) (:template-id loaded)))
                      (is (= "Round Trip Current" (:name loaded)))
-                     (is (= :product-type-sub-ledger-current
+                     (is (= :account-product-type-sub-ledger-current
                             (:product-type loaded)))
                      (is (= ["GBP"] (:allowed-currencies loaded)))
                      (is (= (:created-at seeded) (:created-at loaded))))
@@ -312,4 +312,4 @@
                    (q/count-by-org-product-type
                     config
                     bank-id
-                    :product-type-sub-ledger-current))))]))))
+                    :account-product-type-sub-ledger-current))))]))))

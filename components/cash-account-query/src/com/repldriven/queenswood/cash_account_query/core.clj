@@ -89,7 +89,7 @@
     [versions (products/find-products-by-type
                txn
                bank-id
-               :product-type-sub-ledger-own-funds)
+               :account-product-type-sub-ledger-own-funds)
      version (or (first (filter #(= currency (:currency %))
                                 versions))
                  (error/reject :cash-account/house-account-not-found

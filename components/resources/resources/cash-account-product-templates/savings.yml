@@ -1,6 +1,6 @@
 template-id: tpl.00000000000000000000000002
 name: Savings account
-product-type: !keyword product-type-sub-ledger-savings
+product-type: !keyword account-product-type-sub-ledger-savings
 balance-sheet-side: !keyword balance-sheet-side-liability
 iso-cash-account-type: !keyword iso-cash-account-type-svgs
 allowed-currencies: [GBP]

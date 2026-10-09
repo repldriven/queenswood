@@ -48,7 +48,7 @@
    :currency "GBP"
    :status :cash-account-status-opened
    :account-type :account-type-personal
-   :product-type :product-type-sub-ledger-current
+   :product-type :account-product-type-sub-ledger-current
    :payment-addresses [payment-address]
    :bban "04000412345678"
    :created-at 1700000000000
@@ -71,7 +71,7 @@
    :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
    :balance-type :balance-type-default
    :balance-status :balance-status-posted
-   :product-type :product-type-sub-ledger-current
+   :product-type :account-product-type-sub-ledger-current
    :credit 0
    :debit 0
    :created-at 1700000000000
@@ -305,7 +305,7 @@
    :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
    :version-number 1
    :status :version-status-draft
-   :product-type :product-type-sub-ledger-current
+   :product-type :account-product-type-sub-ledger-current
    :template-id "tpl.00000000000000000000000001"
    :balance-sheet-side :balance-sheet-side-liability
    :name "Current Account"

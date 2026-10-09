@@ -79,7 +79,7 @@
      :account-id (:account-id leg)
      :product-type (or (:product-type leg)
                        (some :product-type balances)
-                       :product-type-general-ledger)
+                       :account-product-type-general-ledger)
      :balance-type (:balance-type leg)
      :balance-status (:balance-status leg)
      :credit 0

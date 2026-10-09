@@ -31,7 +31,7 @@
    :currency "GBP"
    :product-id "prd.01kprbmgcj35ptc8npmybhh4se"
    :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
-   :product-type :product-type-sub-ledger-current
+   :product-type :account-product-type-sub-ledger-current
    :account-type :account-type-personal
    :status :cash-account-status-opened
    :payment-addresses [{:scheme :payment-address-scheme-scan

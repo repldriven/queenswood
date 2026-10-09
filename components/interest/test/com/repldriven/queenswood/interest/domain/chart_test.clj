@@ -61,17 +61,19 @@
     ;; funds — which pays no interest today but would land here the day
     ;; it does.
     (is (= {:payable "led.payable.GBP"
-            :controls {:product-type-sub-ledger-current "led.current.GBP"
-                       :product-type-sub-ledger-savings "led.savings.GBP"
-                       :product-type-sub-ledger-term-deposit "led.term.GBP"
-                       :product-type-sub-ledger-own-funds "led.own-funds.GBP"}}
+            :controls
+            {:account-product-type-sub-ledger-current "led.current.GBP"
+             :account-product-type-sub-ledger-savings "led.savings.GBP"
+             :account-product-type-sub-ledger-term-deposit "led.term.GBP"
+             :account-product-type-sub-ledger-own-funds "led.own-funds.GBP"}}
            (SUT/capitalization-accounts full-chart "org.1" "GBP"))))
   (testing "the controls of the currency asked for, not of the first row"
     (is (= {:payable "led.payable.USD"
-            :controls {:product-type-sub-ledger-current "led.current.USD"
-                       :product-type-sub-ledger-savings "led.savings.USD"
-                       :product-type-sub-ledger-term-deposit "led.term.USD"
-                       :product-type-sub-ledger-own-funds "led.own-funds.USD"}}
+            :controls
+            {:account-product-type-sub-ledger-current "led.current.USD"
+             :account-product-type-sub-ledger-savings "led.savings.USD"
+             :account-product-type-sub-ledger-term-deposit "led.term.USD"
+             :account-product-type-sub-ledger-own-funds "led.own-funds.USD"}}
            (SUT/capitalization-accounts full-chart "org.1" "USD"))))
   (testing "a missing deposit control is a rejection, not a nil credit leg"
     ;; Every earning product type must have somewhere for its

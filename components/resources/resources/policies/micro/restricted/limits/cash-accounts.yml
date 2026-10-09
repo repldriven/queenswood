@@ -12,7 +12,7 @@
 - kind:
     cash-account:
       filters:
-        - product-type: !keyword product-type-sub-ledger-term-deposit
+        - product-type: !keyword account-product-type-sub-ledger-term-deposit
   bound:
     kind:
       max:

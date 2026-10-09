@@ -189,7 +189,7 @@ template cannot reach it.
  :allowed-currencies  ["GBP"]       ;; one currency per
                                     ;; product, wrapped in a vec
  :template-id         "tpl.<ulid>"  ;; the template snapshotted
- :product-type        :product-type-sub-ledger-savings    ;; template
+ :product-type        :account-product-type-sub-ledger-savings    ;; template
  :balance-sheet-side  :balance-sheet-side-liability       ;; template
  :balance-products    [...]         ;; balance buckets, template
  :allowed-payment-address-schemes [...]                   ;; template

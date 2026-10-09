@@ -6,6 +6,8 @@
   generated Java class. Also exposes enum-label converters used by
   FDB index queries."
   (:require
+    [com.repldriven.queenswood.schemas.account_product_type :as
+     account-product-type]
     [com.repldriven.queenswood.schemas.actor :as actor]
     [com.repldriven.queenswood.schemas.balances :as balances]
     [com.repldriven.queenswood.schemas.banks :as banks]
@@ -34,7 +36,6 @@
     [com.repldriven.queenswood.schemas.rewards :as rewards]
     [com.repldriven.queenswood.schemas.scheduler :as scheduler]
     [com.repldriven.queenswood.schemas.transactions :as transactions]
-    [com.repldriven.queenswood.schemas.types :as types]
     [com.repldriven.queenswood.schemas.users :as users]
     [com.repldriven.queenswood.schemas.webhooks :as webhooks]
     [com.repldriven.queenswood.schemas.zyphe :as zyphe]
@@ -150,11 +151,13 @@
      balance-status->int
   balances/BalanceStatus-label2val)
 
-(def ^{:doc "Map of ProductType label to protobuf int value."} product-type->int
-  types/ProductType-label2val)
+(def ^{:doc "Map of AccountProductType label to protobuf int value."}
+     product-type->int
+  account-product-type/AccountProductType-label2val)
 
-(def ^{:doc "Map of ProductType protobuf int value to label."} int->product-type
-  types/ProductType-val2label)
+(def ^{:doc "Map of AccountProductType protobuf int value to label."}
+     int->product-type
+  account-product-type/AccountProductType-val2label)
 
 (def ^{:doc "Map of CashAccount AccountType label to protobuf int
   value."}

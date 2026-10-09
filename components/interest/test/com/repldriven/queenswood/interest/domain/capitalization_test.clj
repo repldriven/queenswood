@@ -8,13 +8,13 @@
     [clojure.test :refer [deftest is testing]]))
 
 (def ^:private accrued-balances
-  [{:product-type :product-type-sub-ledger-current
+  [{:product-type :account-product-type-sub-ledger-current
     :balance-type :balance-type-default
     :balance-status :balance-status-posted
     :currency "GBP"
     :credit 2000
     :debit 0}
-   {:product-type :product-type-sub-ledger-current
+   {:product-type :account-product-type-sub-ledger-current
     :balance-type :balance-type-interest-accrued
     :balance-status :balance-status-posted
     :currency "GBP"
@@ -24,14 +24,14 @@
 (def ^:private nothing-accrued (vec (take 1 accrued-balances)))
 
 (def ^:private account
-  {:account-id "acc.1" :product-type :product-type-sub-ledger-current})
+  {:account-id "acc.1" :product-type :account-product-type-sub-ledger-current})
 
 (deftest sweep-test
   (testing "nothing accrued means nothing to sweep, and that is not a failure"
     (is (nil? (SUT/sweep "org.1" account "GBP" nothing-accrued 20260501))))
   (testing "an accrued balance that nets to zero is nothing to sweep either"
     (let [zeroed (conj nothing-accrued
-                       {:product-type :product-type-sub-ledger-current
+                       {:product-type :account-product-type-sub-ledger-current
                         :balance-type :balance-type-interest-accrued
                         :balance-status :balance-status-posted
                         :currency "GBP"
@@ -55,11 +55,12 @@
                (mapv (juxt :account-id :balance-type :side :amount) legs))))
       (testing "both legs carry the product type their controls sum by"
         (is (every? (fn [leg]
-                      (= :product-type-sub-ledger-current (:product-type leg)))
+                      (= :account-product-type-sub-ledger-current
+                         (:product-type leg)))
                     legs)))))
   (testing "an overdrawn principal's charge is swept the other way"
     (let [charged (conj nothing-accrued
-                        {:product-type :product-type-sub-ledger-current
+                        {:product-type :account-product-type-sub-ledger-current
                          :balance-type :balance-type-interest-accrued
                          :balance-status :balance-status-posted
                          :currency "GBP"

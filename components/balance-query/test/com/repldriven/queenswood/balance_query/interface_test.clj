@@ -12,7 +12,7 @@
    :credit credit
    :debit debit})
 
-(def ^:private cust :product-type-sub-ledger-current)
+(def ^:private cust :account-product-type-sub-ledger-current)
 
 (def ^:private customer-balances
   [(balance cust :balance-type-default :balance-status-posted 10000 2000)
@@ -22,7 +22,7 @@
 (def ^:private gl-balances
   "Bank-side GL account — a single default/posted bucket, no pendings,
   tagged general-ledger."
-  [(balance :product-type-general-ledger
+  [(balance :account-product-type-general-ledger
             :balance-type-default :balance-status-posted
             50000 10000)])
 

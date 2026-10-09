@@ -7,17 +7,17 @@
     [clojure.test :refer [deftest is testing]]))
 
 (def ^:private account-balances
-  [{:product-type :product-type-sub-ledger-current
+  [{:product-type :account-product-type-sub-ledger-current
     :balance-type :balance-type-default
     :balance-status :balance-status-posted
     :credit 2000
     :debit 0}
-   {:product-type :product-type-sub-ledger-current
+   {:product-type :account-product-type-sub-ledger-current
     :balance-type :balance-type-default
     :balance-status :balance-status-pending-outgoing
     :credit 0
     :debit 500}
-   {:product-type :product-type-sub-ledger-current
+   {:product-type :account-product-type-sub-ledger-current
     :balance-type :balance-type-interest-accrued
     :balance-status :balance-status-posted
     :credit 40
@@ -58,12 +58,12 @@
   (testing "money still pending inbound has not arrived, so it does not earn"
     (is (= 2000
            (SUT/principal-amount
-            [{:product-type :product-type-sub-ledger-current
+            [{:product-type :account-product-type-sub-ledger-current
               :balance-type :balance-type-default
               :balance-status :balance-status-posted
               :credit 2000
               :debit 0}
-             {:product-type :product-type-sub-ledger-current
+             {:product-type :account-product-type-sub-ledger-current
               :balance-type :balance-type-default
               :balance-status :balance-status-pending-incoming
               :credit 900

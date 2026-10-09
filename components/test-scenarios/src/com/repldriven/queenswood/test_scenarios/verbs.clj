@@ -232,10 +232,11 @@
   template seeded at bootstrap (see templates/*.yml). Products are
   now created from a template-id; the product-type is snapshotted from
   the template."
-  {:product-type-sub-ledger-current "tpl.00000000000000000000000001"
-   :product-type-sub-ledger-savings "tpl.00000000000000000000000002"
-   :product-type-sub-ledger-term-deposit "tpl.00000000000000000000000003"
-   :product-type-sub-ledger-own-funds "tpl.00000000000000000000000004"})
+  {:account-product-type-sub-ledger-current "tpl.00000000000000000000000001"
+   :account-product-type-sub-ledger-savings "tpl.00000000000000000000000002"
+   :account-product-type-sub-ledger-term-deposit
+   "tpl.00000000000000000000000003"
+   :account-product-type-sub-ledger-own-funds "tpl.00000000000000000000000004"})
 
 (defn- version-payload
   "Build a flat version input for open-draft/update-draft, optionally
@@ -327,8 +328,9 @@
                            (products/new-product
                             bank
                             real-bank-id
-                            (product-payload "Scenario Current"
-                                             :product-type-sub-ledger-current)
+                            (product-payload
+                             "Scenario Current"
+                             :account-product-type-sub-ledger-current)
                             {:actor scenario-operator}))
         scenario-product-id (:product-id scenario-product)
         scenario-version-id (:version-id scenario-product)
@@ -393,15 +395,16 @@
                         :number 1}]})))
 
 (def ^:private product-type->kind
-  {:current :product-type-sub-ledger-current
-   :savings :product-type-sub-ledger-savings})
+  {:current :account-product-type-sub-ledger-current
+   :savings :account-product-type-sub-ledger-savings})
 
 (defmethod dispatch :create-product
   [{:keys [bank counter next-product-id banks] :as ctx}
    {[model-bank type rate-bps] :args}]
   (let [model-prod (model-id-for-next-product next-product-id)
         {:keys [real-id]} (get banks model-bank)
-        kind (get product-type->kind type :product-type-sub-ledger-current)
+        kind
+        (get product-type->kind type :account-product-type-sub-ledger-current)
         name
         (str (if (= :savings type) "Savings" "Current") " Product " counter)
         extras (when (and rate-bps (pos? rate-bps))
@@ -589,13 +592,13 @@
                        (model-id-for-next-product next-product-id))
         {bank-real-id :real-id :keys [currency]} (get banks model-bank)
         prod-result (when create-prod?
-                      (products/new-product bank
-                                            bank-real-id
-                                            (product-payload
-                                             (str "Scenario Current Product "
-                                                  counter)
-                                             :product-type-sub-ledger-current)
-                                            {:actor scenario-operator}))
+                      (products/new-product
+                       bank
+                       bank-real-id
+                       (product-payload
+                        (str "Scenario Current Product " counter)
+                        :account-product-type-sub-ledger-current)
+                       {:actor scenario-operator}))
         _
         (when (and create-prod? prod-result (not (error/anomaly? prod-result)))
           (products/publish bank

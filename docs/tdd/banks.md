@@ -202,7 +202,7 @@ user, a member, or else as an operator with principal id
 8. **Seed the ledger chart** — one `LedgerAccount` per seed row
    per currency, described below.
 9. **Open own-funds house accounts** — per currency, draft and
-   publish a `:product-type-sub-ledger-own-funds` product
+   publish a `:account-product-type-sub-ledger-own-funds` product
    ("Bank own funds", `effective-from` today), then open a real
    `CashAccount` on the org party against it, which opens once
    the payment provider has issued its address.
@@ -277,7 +277,7 @@ how legs map to control accounts at posting time.
 ### Own-funds house account
 
 Distinct from the ledger chart: per currency, the create flow
-drafts and publishes a `:product-type-sub-ledger-own-funds`
+drafts and publishes a `:account-product-type-sub-ledger-own-funds`
 product and opens a real, BBAN-addressable `CashAccount` on the
 bank's org party. This is the bank's own money — pre-funded so it
 can pay customers (interest, rewards).

@@ -46,10 +46,10 @@
   the `api` base's coercion table, which a component may not require,
   so the wire vocabulary is named here; the control role behind each
   one, and its chart number, come from `ledger-account`."
-  {"current" :product-type-sub-ledger-current
-   "savings" :product-type-sub-ledger-savings
-   "term-deposit" :product-type-sub-ledger-term-deposit
-   "own-funds" :product-type-sub-ledger-own-funds})
+  {"current" :account-product-type-sub-ledger-current
+   "savings" :account-product-type-sub-ledger-savings
+   "term-deposit" :account-product-type-sub-ledger-term-deposit
+   "own-funds" :account-product-type-sub-ledger-own-funds})
 
 (defn- control-role
   "The `:code` role a cash account's posted default balance

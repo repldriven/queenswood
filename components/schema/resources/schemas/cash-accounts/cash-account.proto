@@ -3,10 +3,10 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.cash_accounts;
 
 import "record_metadata_options.proto";
+import "schemas/account-product-type/account-product-type.proto";
+import "schemas/actor/actor.proto";
 import "schemas/cash-account-products/types.proto";
 import "schemas/cash-accounts/types.proto";
-import "schemas/actor/actor.proto";
-import "schemas/types/product-type.proto";
 
 option java_outer_classname = "CashAccountProto";
 
@@ -66,7 +66,7 @@ message CashAccount {
   required string name = 6;
   required CashAccountStatus status = 7;
   required string party_id = 8;
-  required com.repldriven.queenswood.schemas.types.ProductType product_type = 9;
+  required com.repldriven.queenswood.schemas.account_product_type.AccountProductType product_type = 9;
   required AccountType account_type = 10;
   required string currency = 11; // ISO 4217
   repeated PaymentAddress payment_addresses = 12;

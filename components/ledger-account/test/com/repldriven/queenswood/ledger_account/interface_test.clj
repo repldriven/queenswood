@@ -75,7 +75,7 @@
   sub-ledger, defaulted to the posted default bucket a control sums."
   [overrides]
   (merge {:account-id "acc.customer1"
-          :product-type :product-type-sub-ledger-current
+          :product-type :account-product-type-sub-ledger-current
           :balance-type :balance-type-default
           :balance-status :balance-status-posted
           :side :leg-side-credit
@@ -93,16 +93,19 @@
 
 (deftest product-type->control-code-test
   (is (= :ledger-account-code-customer-deposits-current
-         (SUT/product-type->control-code :product-type-sub-ledger-current)))
+         (SUT/product-type->control-code
+          :account-product-type-sub-ledger-current)))
   (is (= :ledger-account-code-customer-deposits-savings
-         (SUT/product-type->control-code :product-type-sub-ledger-savings)))
+         (SUT/product-type->control-code
+          :account-product-type-sub-ledger-savings)))
   (is (= :ledger-account-code-customer-deposits-term
          (SUT/product-type->control-code
-          :product-type-sub-ledger-term-deposit)))
+          :account-product-type-sub-ledger-term-deposit)))
   (is (= :ledger-account-code-own-funds
-         (SUT/product-type->control-code :product-type-sub-ledger-own-funds)))
+         (SUT/product-type->control-code
+          :account-product-type-sub-ledger-own-funds)))
   (testing "non-customer product types have no control"
-    (is (nil? (SUT/product-type->control-code :product-type-unknown)))))
+    (is (nil? (SUT/product-type->control-code :account-product-type-unknown)))))
 
 (deftest chart-number-test
   (testing "the test chart is the nine seeded roles"
@@ -287,35 +290,38 @@
                        :ledger-account-code-cash-at-correspondent
                        "GBP")
                  cash-id (:ledger-account-id cash)
-                 _ (open-customer-account config
-                                          bank-id
-                                          "acc.current1"
-                                          :product-type-sub-ledger-current)
-                 _ (open-customer-account config
-                                          bank-id
-                                          "acc.current2"
-                                          :product-type-sub-ledger-current)
-                 _ (open-customer-account config
-                                          bank-id
-                                          "acc.savings1"
-                                          :product-type-sub-ledger-savings)
+                 _ (open-customer-account
+                    config
+                    bank-id
+                    "acc.current1"
+                    :account-product-type-sub-ledger-current)
+                 _ (open-customer-account
+                    config
+                    bank-id
+                    "acc.current2"
+                    :account-product-type-sub-ledger-current)
+                 _ (open-customer-account
+                    config
+                    bank-id
+                    "acc.savings1"
+                    :account-product-type-sub-ledger-savings)
                  _ (deposit config
                             bank-id
                             cash-id
                             "acc.current1"
-                            :product-type-sub-ledger-current
+                            :account-product-type-sub-ledger-current
                             1000)
                  _ (deposit config
                             bank-id
                             cash-id
                             "acc.current2"
-                            :product-type-sub-ledger-current
+                            :account-product-type-sub-ledger-current
                             500)
                  _ (deposit config
                             bank-id
                             cash-id
                             "acc.savings1"
-                            :product-type-sub-ledger-savings
+                            :account-product-type-sub-ledger-savings
                             70)
                  control (current-deposits-control config bank-id)
                  bals (SUT/get-balances config bank-id control)
@@ -368,22 +374,22 @@
         _ (open-customer-account config
                                  bank-id
                                  "acc.current1"
-                                 :product-type-sub-ledger-current)
+                                 :account-product-type-sub-ledger-current)
         _ (open-customer-account config
                                  bank-id
                                  "acc.savings1"
-                                 :product-type-sub-ledger-savings)
+                                 :account-product-type-sub-ledger-savings)
         _ (deposit config
                    bank-id
                    cash-id
                    "acc.current1"
-                   :product-type-sub-ledger-current
+                   :account-product-type-sub-ledger-current
                    1000)
         _ (deposit config
                    bank-id
                    cash-id
                    "acc.savings1"
-                   :product-type-sub-ledger-savings
+                   :account-product-type-sub-ledger-savings
                    1000)
         pending (SUT/find-by-code config
                                   bank-id
@@ -393,13 +399,13 @@
                    bank-id
                    (:ledger-account-id pending)
                    "acc.current1"
-                   :product-type-sub-ledger-current
+                   :account-product-type-sub-ledger-current
                    300)
         _ (reserve config
                    bank-id
                    (:ledger-account-id pending)
                    "acc.savings1"
-                   :product-type-sub-ledger-savings
+                   :account-product-type-sub-ledger-savings
                    200)
         bals (SUT/get-balances config bank-id pending)
         _
@@ -483,10 +489,11 @@
    (let [config (fdb-config sys)
          bank-id "bnk.test-inherit"]
      (nom-test> [_ (seed! config bank-id)
-                 _ (open-customer-account config
-                                          bank-id
-                                          "acc.current1"
-                                          :product-type-sub-ledger-current)
+                 _ (open-customer-account
+                    config
+                    bank-id
+                    "acc.current1"
+                    :account-product-type-sub-ledger-current)
                  _ (balance/apply-legs
                     config
                     bank-id
@@ -510,7 +517,8 @@
                                               :balance-status-pending-incoming)
                  _
                  (is
-                  (= :product-type-sub-ledger-current (:product-type opened))
+                  (= :account-product-type-sub-ledger-current
+                     (:product-type opened))
                   "an untagged leg opens the bucket under its account's type")]))))
 
 (deftest ensure-controls-returns-legs-test
@@ -634,10 +642,11 @@
              (fdb/transact
               config
               (fn [txn]
-                (let [_ (SUT/prefetch txn
-                                      bank-id
-                                      "GBP"
-                                      [:product-type-sub-ledger-current])
+                (let [_ (SUT/prefetch
+                         txn
+                         bank-id
+                         "GBP"
+                         [:account-product-type-sub-ledger-current])
                       cash (SUT/find-by-code
                             txn
                             bank-id

@@ -51,14 +51,14 @@
       "name": "product_type",
       "type": {
         "type": "enum",
-        "name": "ProductType",
+        "name": "AccountProductType",
         "symbols": [
-          "PRODUCT_TYPE_UNKNOWN",
-          "PRODUCT_TYPE_GENERAL_LEDGER",
-          "PRODUCT_TYPE_SUB_LEDGER_CURRENT",
-          "PRODUCT_TYPE_SUB_LEDGER_SAVINGS",
-          "PRODUCT_TYPE_SUB_LEDGER_TERM_DEPOSIT",
-          "PRODUCT_TYPE_SUB_LEDGER_OWN_FUNDS"
+          "ACCOUNT_PRODUCT_TYPE_UNKNOWN",
+          "ACCOUNT_PRODUCT_TYPE_GENERAL_LEDGER",
+          "ACCOUNT_PRODUCT_TYPE_SUB_LEDGER_CURRENT",
+          "ACCOUNT_PRODUCT_TYPE_SUB_LEDGER_SAVINGS",
+          "ACCOUNT_PRODUCT_TYPE_SUB_LEDGER_TERM_DEPOSIT",
+          "ACCOUNT_PRODUCT_TYPE_SUB_LEDGER_OWN_FUNDS"
         ]
       }
     },

@@ -1,0 +1,14 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.account_product_type;
+
+option java_outer_classname = "AccountProductTypeProto";
+
+enum AccountProductType {
+  ACCOUNT_PRODUCT_TYPE_UNKNOWN = 0;
+  ACCOUNT_PRODUCT_TYPE_GENERAL_LEDGER = 1;
+  ACCOUNT_PRODUCT_TYPE_SUB_LEDGER_CURRENT = 101;
+  ACCOUNT_PRODUCT_TYPE_SUB_LEDGER_SAVINGS = 102;
+  ACCOUNT_PRODUCT_TYPE_SUB_LEDGER_TERM_DEPOSIT = 103;
+  ACCOUNT_PRODUCT_TYPE_SUB_LEDGER_OWN_FUNDS = 201;
+}

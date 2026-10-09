@@ -136,7 +136,7 @@ reads inside its own FDB transactions, passing the live
  :currency          "GBP"      ;; ISO 4217 string
 
  :name              ;; user-friendly label
- :product-type      :product-type-sub-ledger-current
+ :product-type      :account-product-type-sub-ledger-current
  :account-type      :account-type-personal
                     ;; or -business (derived from party type)
  :account-status    :cash-account-status-opening
@@ -331,7 +331,7 @@ never larger than the total, so the total check refuses
 first and the unfiltered bound adds nothing there. Only a
 limit whose own filter names those terms binds the subtotal,
 and the micro tier seeds one: at most ten
-`:product-type-sub-ledger-term-deposit` accounts.
+`:account-product-type-sub-ledger-term-deposit` accounts.
 
 Neither count index carries a status term. A closed account
 therefore keeps consuming the cap for good, and so do the

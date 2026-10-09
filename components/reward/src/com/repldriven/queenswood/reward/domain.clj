@@ -4,8 +4,9 @@
     [com.repldriven.mono.utility.interface :as utility]))
 
 (def ^:private customer-product-types
-  #{:product-type-sub-ledger-current :product-type-sub-ledger-savings
-    :product-type-sub-ledger-term-deposit})
+  #{:account-product-type-sub-ledger-current
+    :account-product-type-sub-ledger-savings
+    :account-product-type-sub-ledger-term-deposit})
 
 (defn opening?
   "Whether a cash-account changelog entry is an account becoming

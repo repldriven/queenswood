@@ -2,13 +2,13 @@ syntax = "proto2";
 
 package com.repldriven.queenswood.schemas.policies;
 
+import "schemas/account-product-type/account-product-type.proto";
 import "schemas/balances/types.proto";
 import "schemas/banks/bank.proto";
 import "schemas/cash-accounts/types.proto";
 import "schemas/party/party.proto";
 import "schemas/policies/types.proto";
 import "schemas/schemes/types.proto";
-import "schemas/types/product-type.proto";
 
 option java_outer_classname = "CapabilityProto";
 
@@ -69,7 +69,7 @@ enum CashAccountProductAction {
 }
 
 message CashAccountProductCapabilityFilter {
-  optional com.repldriven.queenswood.schemas.types.ProductType product_type = 1;
+  optional com.repldriven.queenswood.schemas.account_product_type.AccountProductType product_type = 1;
 }
 
 message CashAccountProductCapability {

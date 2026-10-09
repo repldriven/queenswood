@@ -26,15 +26,16 @@
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       ;; Skip any account whose product-type reads back unset — proto2
-      ;; deserialises an absent enum as `:product-type-unknown`.
+      ;; deserialises an absent enum as `:account-product-type-unknown`.
       (let [customer-accounts (into []
-                                    (comp (filter (fn [a]
-                                                    (let [pt (:product-type a)]
-                                                      (and
-                                                       (some? pt)
-                                                       (not=
-                                                        :product-type-unknown
-                                                        pt)))))
+                                    (comp (filter
+                                           (fn [a]
+                                             (let [pt (:product-type a)]
+                                               (and
+                                                (some? pt)
+                                                (not=
+                                                 :account-product-type-unknown
+                                                 pt)))))
                                           (map cash-account-api/->body))
                                     (:accounts result))]
         {:status 200

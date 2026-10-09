@@ -15,14 +15,14 @@
    :account-id "acc.1"
    :product-id "prd.1"
    :version-id "prv.1"
-   :product-type :product-type-sub-ledger-current
+   :product-type :account-product-type-sub-ledger-current
    :currency "GBP"
    :status :cash-account-status-opened})
 
 (def ^:private house
   {:bank-id "bnk.1"
    :account-id "acc.house"
-   :product-type :product-type-sub-ledger-own-funds
+   :product-type :account-product-type-sub-ledger-own-funds
    :currency "GBP"
    :status :cash-account-status-opened})
 
@@ -73,10 +73,10 @@
       (is (= "Welcome reward" (:reference transaction)))
       (is (= "acc.house" (:account-id debit)))
       (is (= :leg-side-debit (:side debit)))
-      (is (= :product-type-sub-ledger-own-funds (:product-type debit)))
+      (is (= :account-product-type-sub-ledger-own-funds (:product-type debit)))
       (is (= "acc.1" (:account-id credit)))
       (is (= :leg-side-credit (:side credit)))
-      (is (= :product-type-sub-ledger-current (:product-type credit)))
+      (is (= :account-product-type-sub-ledger-current (:product-type credit)))
       (is (= [1000 1000] (map :amount [debit credit]))))))
 
 (deftest paid-and-deferred-test

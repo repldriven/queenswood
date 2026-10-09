@@ -32,7 +32,7 @@
 
 (def ^:private template
   {:template-id "tpl.00000000000000000000000001"
-   :product-type :product-type-sub-ledger-current
+   :product-type :account-product-type-sub-ledger-current
    :balance-sheet-side :balance-sheet-side-liability
    :allowed-currencies ["GBP"]
    :balance-products [{:balance-type :balance-type-default
@@ -48,7 +48,7 @@
    :status :version-status-published
    :name "Published"
    :currency "GBP"
-   :product-type :product-type-sub-ledger-current
+   :product-type :account-product-type-sub-ledger-current
    :template-id "tpl.00000000000000000000000001"
    :balance-sheet-side :balance-sheet-side-liability
    :balance-products [{:balance-type :balance-type-default
@@ -196,7 +196,7 @@
                              good-data
                              permissive-policies)]
       (is (= "tpl.00000000000000000000000001" (:template-id v)))
-      (is (= :product-type-sub-ledger-current (:product-type v)))
+      (is (= :account-product-type-sub-ledger-current (:product-type v)))
       (is (= :balance-sheet-side-liability (:balance-sheet-side v)))
       (is (= :iso-cash-account-type-cacc (:iso-cash-account-type v)))
       (is (= "GBP" (:currency v)))

@@ -48,7 +48,7 @@
    :version-id "prv.test"
    :version-from-on 20089
    :created-by {:kind :actor-kind-operator :principal-id "test"}
-   :product-type :product-type-sub-ledger-current
+   :product-type :account-product-type-sub-ledger-current
    :name "Provider Legs Account"
    :currency "GBP"
    :status status

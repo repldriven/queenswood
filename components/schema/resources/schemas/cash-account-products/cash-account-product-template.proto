@@ -3,8 +3,8 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.cash_account_products;
 
 import "record_metadata_options.proto";
+import "schemas/account-product-type/account-product-type.proto";
 import "schemas/cash-account-products/types.proto";
-import "schemas/types/product-type.proto";
 
 option java_outer_classname = "CashAccountProductTemplateProto";
 
@@ -14,7 +14,7 @@ message CashAccountProductTemplate {
 
   required string template_id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
   required string name = 2;
-  required com.repldriven.queenswood.schemas.types.ProductType product_type = 3;
+  required com.repldriven.queenswood.schemas.account_product_type.AccountProductType product_type = 3;
   required IsoCashAccountType iso_cash_account_type = 4;
   required BalanceSheetSide balance_sheet_side = 5;
   required bool internal = 6;

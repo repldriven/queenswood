@@ -11,20 +11,20 @@
 (deftest eligible-cash-account?-test
   (testing "an open sub-ledger account is in scope"
     (is (true? (SUT/eligible-cash-account?
-                {:product-type :product-type-sub-ledger-current
+                {:product-type :account-product-type-sub-ledger-current
                  :status :cash-account-status-opened}))))
   (testing "every product type is, not a chosen few"
     ;; Whether an instrument pays is its product's rate. Own funds pays
     ;; nothing today, and the pass must still visit it so that the day
     ;; someone sets a rate it starts accruing without a code change.
     (is (true? (SUT/eligible-cash-account?
-                {:product-type :product-type-sub-ledger-own-funds
+                {:product-type :account-product-type-sub-ledger-own-funds
                  :status :cash-account-status-opened}))))
   (testing "a suspended account still earns — the bank still holds the money"
     ;; Suspension stops the customer moving their balance, not the bank
     ;; owing them for holding it.
     (is (true? (SUT/eligible-cash-account?
-                {:product-type :product-type-sub-ledger-current
+                {:product-type :account-product-type-sub-ledger-current
                  :status :cash-account-status-suspended}))))
   (testing "a ledger account falls out — it has a status, not an account one"
     ;; The bank's own books are not cash accounts and never reach a
@@ -37,7 +37,7 @@
     (is (not (SUT/eligible-cash-account? {:status
                                           :cash-account-status-closing})))
     (is (not (SUT/eligible-cash-account?
-              {:product-type :product-type-sub-ledger-savings
+              {:product-type :account-product-type-sub-ledger-savings
                :status :cash-account-status-closed})))))
 
 (def ^:private accrual-limit-policies

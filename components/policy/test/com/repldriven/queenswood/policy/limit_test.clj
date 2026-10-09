@@ -125,7 +125,7 @@
   [{:status :policy-status-active
     :limits [{:kind {:cash-account
                      {:filters [{:product-type
-                                 :product-type-sub-ledger-term-deposit
+                                 :account-product-type-sub-ledger-term-deposit
                                  :account-type :account-type-unknown
                                  :currency ""}]}}
               :bound {:kind {:max {:aggregate
@@ -150,23 +150,24 @@
       (let [result (SUT/check policies
                               :cash-account
                               (cash-account-count-request
-                               :product-type-sub-ledger-term-deposit
+                               :account-product-type-sub-ledger-term-deposit
                                :account-type-business
                                "GBP" 11))]
         (is (error/rejection? result))
         (is (= :policy/limit-exceeded (error/kind result)))))
     (testing "and matches a second currency the same way"
-      (is (error/rejection? (SUT/check policies
-                                       :cash-account
-                                       (cash-account-count-request
-                                        :product-type-sub-ledger-term-deposit
-                                        :account-type-personal
-                                        "EUR" 11)))))
+      (is (error/rejection? (SUT/check
+                             policies
+                             :cash-account
+                             (cash-account-count-request
+                              :account-product-type-sub-ledger-term-deposit
+                              :account-type-personal
+                              "EUR" 11)))))
     (testing "while the set term still narrows the limit"
       (is (true? (SUT/check policies
                             :cash-account
                             (cash-account-count-request
-                             :product-type-sub-ledger-current
+                             :account-product-type-sub-ledger-current
                              :account-type-business
                              "GBP" 11)))))
     (testing "and a request with no product-type reaches no filter"

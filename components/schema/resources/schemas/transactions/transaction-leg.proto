@@ -3,8 +3,8 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.transactions;
 
 import "record_metadata_options.proto";
+import "schemas/account-product-type/account-product-type.proto";
 import "schemas/balances/types.proto";
-import "schemas/types/product-type.proto";
 
 option java_outer_classname = "TransactionLegProto";
 
@@ -27,5 +27,5 @@ message TransactionLeg {
   required LegSide side = 7;
   required int64 amount = 8; // minor units
   required string currency = 9; // ISO 4217
-  optional com.repldriven.queenswood.schemas.types.ProductType product_type = 10;
+  optional com.repldriven.queenswood.schemas.account_product_type.AccountProductType product_type = 10;
 }
