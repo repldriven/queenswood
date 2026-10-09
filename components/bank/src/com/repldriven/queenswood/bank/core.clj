@@ -31,6 +31,7 @@
     (when (nil? url)
       ;; nosemgrep: no-raw-throw
       (throw (ex-info "Default ledger-accounts resource missing" {:path path})))
+    ;; nosemgrep: no-edn-serialization — reads a classpath resource
     (edn/read-string (slurp url))))
 
 (defn- new-ledger-accounts

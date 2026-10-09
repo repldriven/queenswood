@@ -18,9 +18,9 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.edn :as edn]
     [clojure.test :refer [deftest is testing]]))
 
 (defn- json-response
@@ -64,7 +64,7 @@
    :status :outbound-intent-status-pending
    :attempt-count 0
    :created-at (utility/now)
-   :context (pr-str context)})
+   :context (transit/write-str context)})
 
 (defn- load-intent
   [config intent-id]
@@ -330,8 +330,8 @@
      (is (= :outbound-intent-status-settled
             (:status (load-intent config "int.r1"))))
      (is (= "done"
-            (:step (edn/read-string (:context (load-intent config
-                                                           "int.r1")))))))))
+            (:step (transit/read-str (:context (load-intent config
+                                                            "int.r1")))))))))
 
 (deftest a-refused-close-fails-test
   (with-test-system

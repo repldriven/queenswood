@@ -60,6 +60,7 @@
   (cond-> outcome
           (= :outbound-intent-status-failed (:status outcome))
           (assoc-in [:changes :failure-reason]
+           ;; nosemgrep: no-edn-serialization — text for a failure reason
            (if (string? reason) reason (pr-str reason)))))
 
 (defn- record

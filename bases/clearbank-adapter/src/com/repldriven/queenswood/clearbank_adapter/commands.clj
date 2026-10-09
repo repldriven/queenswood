@@ -8,6 +8,7 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.processor.interface :as processor]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- save-intent
@@ -54,8 +55,8 @@
                               holder-name
                               currency
                               account-id)
-                    :context (pr-str {:bank-id bank-id
-                                      :account-id account-id})}))))
+                    :context (transit/write-str {:bank-id bank-id
+                                                 :account-id account-id})}))))
 
 (defn- close-account-intent
   [config data]
@@ -65,10 +66,10 @@
                   :kind :clearbank-outbound-intent-kind-close-account
                   :subjects [account-id]
                   :request "{}"
-                  :context (pr-str {:bank-id bank-id
-                                    :account-id account-id
-                                    :provider-account-id
-                                    provider-account-id})})))
+                  :context (transit/write-str {:bank-id bank-id
+                                               :account-id account-id
+                                               :provider-account-id
+                                               provider-account-id})})))
 
 (defn- reissue-address-intent
   [config data]
@@ -85,12 +86,12 @@
                               nil
                               nil
                               account-id)
-                    :context (pr-str (utility/assoc-some
-                                      {:bank-id bank-id
-                                       :account-id account-id
-                                       :rotation-key rotation-key}
-                                      :provider-account-id
-                                      provider-account-id))}))))
+                    :context (transit/write-str (utility/assoc-some
+                                                 {:bank-id bank-id
+                                                  :account-id account-id
+                                                  :rotation-key rotation-key}
+                                                 :provider-account-id
+                                                 provider-account-id))}))))
 
 (defn- dispatch
   [config message]

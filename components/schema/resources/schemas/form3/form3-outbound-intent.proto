@@ -24,8 +24,8 @@ message Form3OutboundIntent {
 
   required Form3OutboundIntentKind kind = 2;
   required com.repldriven.queenswood.schema.outbound_intent.OutboundIntentStatus status = 3;
-  required string request = 4; // JSON
-  optional string context = 5; // EDN
+  required string request = 4; // json
+  optional string context = 5; // transit+json
   repeated string subjects = 6;
   optional string correlation_id = 7;
   optional string provider_payment_id = 8;

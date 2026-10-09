@@ -2,10 +2,10 @@
   (:require
     [com.repldriven.queenswood.idempotency.store :as store]
 
-    [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.edn :as edn]
     [clojure.walk :as walk]))
 
 (def ^:private completed-ttl-ms (* 24 60 60 1000))    ; 24 hours
@@ -83,10 +83,12 @@
 
             (and live (= completed (:status existing)))
             (let [{:keys [status headers body]} (:response existing)]
-              {:type ::completed
-               :status status
-               :headers (edn/read-string headers)
-               :body (edn/read-string body)})
+              (let-nom> [headers (transit/read-str headers)
+                         body (transit/read-str body)]
+                {:type ::completed
+                 :status status
+                 :headers headers
+                 :body body}))
 
             (and live (= pending (:status existing)))
             {:type ::in-flight}
@@ -106,10 +108,9 @@
 
 (defn- plain
   "Every record in `body` as a plain map. A handler's response carries
-  the protojure defrecords the schema brick generates, and `pr-str`
-  writes one with a tag `edn/read-string` has no reader for — so a
-  body holding one could be written and never read back, and the
-  replay it was written for would answer 503 instead. The keys and
+  the protojure defrecords the schema brick generates, which transit
+  has no handler for, so a body holding one could not be written and
+  the replay it was written for would never be stored. The keys and
   values are the record's own, which is all the replay needs."
   [body]
   (walk/postwalk (fn [x] (if (record? x) (into {} x) x)) body))
@@ -126,8 +127,9 @@
    (fn [txn]
      (let [existing (store/lookup txn principal-id operation idempotency-key)
            now (utility/now)]
-       (if (error/anomaly? existing)
-         existing
+       (let-nom> [_ existing
+                  written-headers (transit/write-str (or headers {}))
+                  written-body (transit/write-str (plain body))]
          (store/save txn
                      {:principal-id principal-id
                       :operation operation
@@ -135,8 +137,8 @@
                       :status completed
                       :fingerprint fingerprint
                       :response {:status status
-                                 :headers (pr-str (or headers {}))
-                                 :body (pr-str (plain body))}
+                                 :headers written-headers
+                                 :body written-body}
                       :expires-at (+ now completed-ttl-ms)
                       :completed-at now
                       :created-at (or (:created-at existing) now)}))))

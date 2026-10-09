@@ -15,8 +15,8 @@ enum IdempotencyStatus {
 // The response replayed to a repeat of an API call.
 message IdempotencyResponse {
   required int32 status = 1; // HTTP status
-  required string headers = 2; // EDN
-  required string body = 3; // EDN
+  required string headers = 2; // transit+json
+  required string body = 3; // transit+json
 }
 
 // An API call made under an Idempotency-Key.

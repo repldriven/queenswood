@@ -7,6 +7,7 @@
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.processor.interface :as processor]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- save-intent
@@ -48,9 +49,9 @@
                  :beneficiary_party (party creditor-bban creditor-name)}
                 :reference
                 (not-empty reference)))
-     :context (pr-str {:amount amount
-                       :currency currency
-                       :submission-id (str (utility/uuidv7))})}))
+     :context (transit/write-str {:amount amount
+                                  :currency currency
+                                  :submission-id (str (utility/uuidv7))})}))
 
 (defn- return-intent
   [data]
@@ -63,13 +64,13 @@
      :request (json/write-str {:amount (relay/->major-units amount)
                                :currency currency
                                :return_code reason-code})
-     :context (pr-str {:return-id (str (utility/uuidv7))
-                       :submission-id (str (utility/uuidv7))
-                       :end-to-end-id end-to-end-id
-                       :amount amount
-                       :currency currency
-                       :reason-code reason-code
-                       :reason reason})}))
+     :context (transit/write-str {:return-id (str (utility/uuidv7))
+                                  :submission-id (str (utility/uuidv7))
+                                  :end-to-end-id end-to-end-id
+                                  :amount amount
+                                  :currency currency
+                                  :reason-code reason-code
+                                  :reason reason})}))
 
 (defn- open-intent
   [data]
@@ -77,10 +78,10 @@
     {:idempotency-key (str "open:" account-id)
      :kind :form3-outbound-intent-kind-open-account
      :request "{}"
-     :context (pr-str {:bank-id bank-id
-                       :account-id account-id
-                       :holder-name holder-name
-                       :currency currency})}))
+     :context (transit/write-str {:bank-id bank-id
+                                  :account-id account-id
+                                  :holder-name holder-name
+                                  :currency currency})}))
 
 (defn- close-intent
   [data]
@@ -88,9 +89,9 @@
     {:idempotency-key (str "close:" account-id)
      :kind :form3-outbound-intent-kind-close-account
      :request "{}"
-     :context (pr-str {:bank-id bank-id
-                       :account-id account-id
-                       :provider-account-id provider-account-id})}))
+     :context (transit/write-str {:bank-id bank-id
+                                  :account-id account-id
+                                  :provider-account-id provider-account-id})}))
 
 (defn- reissue-intent
   [data]
@@ -98,10 +99,10 @@
     {:idempotency-key (str "reissue:" account-id ":" rotation-key)
      :kind :form3-outbound-intent-kind-reissue-address
      :request "{}"
-     :context (pr-str {:bank-id bank-id
-                       :account-id account-id
-                       :provider-account-id provider-account-id
-                       :rotation-key rotation-key})}))
+     :context (transit/write-str {:bank-id bank-id
+                                  :account-id account-id
+                                  :provider-account-id provider-account-id
+                                  :rotation-key rotation-key})}))
 
 (defn- subjects
   [data]

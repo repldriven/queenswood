@@ -15,6 +15,7 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.test :refer [deftest is testing]]))
@@ -253,7 +254,7 @@
    :idempotency-key dedup-key
    :kind kind
    :request "{}"
-   :context (pr-str context)
+   :context (transit/write-str context)
    :status :outbound-intent-status-pending
    :attempt-count 0
    :created-at (utility/now)})

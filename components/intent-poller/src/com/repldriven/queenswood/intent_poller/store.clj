@@ -5,6 +5,7 @@
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.telemetry.interface :as telemetry]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility :refer [assoc-some]]))
 
 (def transact fdb/transact)
@@ -136,7 +137,7 @@
   attempt count, `changes` merged in."
   [intent ctx changes]
   (-> intent
-      (assoc :context (pr-str ctx) :attempt-count 0)
+      (assoc :context (transit/write-str ctx) :attempt-count 0)
       (dissoc :next-attempt-at)
       (merge changes)))
 

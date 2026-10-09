@@ -124,6 +124,11 @@
                                write)))]
     [block @keys]))
 
+(defn- dissoc-edn
+  [edn ks]
+  ;; nosemgrep: no-edn-serialization — generated source
+  (pr-str (apply dissoc (edn/read-string edn) ks)))
+
 (defn- drop-defaults
   "`content` with `ks` removed from the `<record>-defaults` map, so a
   required field the caller left out stays nil and is not written."
@@ -138,7 +143,7 @@
                    (str "(def "
                         record
                         "-defaults "
-                        (pr-str (apply dissoc (edn/read-string defaults) ks))
+                        (dissoc-edn defaults ks)
                         ")")))))
 
 (defn- write-required-fields

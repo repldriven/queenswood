@@ -21,7 +21,7 @@ message WebhookNotification {
   optional string status_after = 8;
   optional string resource_idempotency_key = 9;
   required string correlation_id = 10;
-  required bytes body = 11; // JSON
+  required bytes body = 11; // json
 
   required string idempotency_key = 100;
   required int64 created_at = 101;

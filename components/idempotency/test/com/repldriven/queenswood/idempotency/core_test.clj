@@ -9,6 +9,7 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.test :refer [deftest is testing]]))
@@ -88,8 +89,9 @@
                                     :idempotency-key key
                                     :status :idempotency-status-completed
                                     :response {:status 200
-                                               :headers (pr-str {})
-                                               :body (pr-str {:ok true})}
+                                               :headers (transit/write-str {})
+                                               :body (transit/write-str {:ok
+                                                                         true})}
                                     :fingerprint fingerprint
                                     :created-at (- now day-ms)
                                     :expires-at (- now 1000)})])

@@ -142,6 +142,7 @@
 
 (defn- js-string
   [s]
+  ;; nosemgrep: no-edn-serialization — a quoted string literal for a script
   (str/replace (pr-str (str s)) "<" "\\u003c"))
 
 (defn message

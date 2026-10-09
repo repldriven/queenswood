@@ -5,8 +5,7 @@
     [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]
-
-    [clojure.edn :as edn]))
+    [com.repldriven.mono.transit.interface :as transit]))
 
 (def spec
   {:adapter :modulr
@@ -72,7 +71,7 @@
 (defn- intent-context
   [intent]
   (or (some-> (not-empty (:context intent))
-              edn/read-string)
+              transit/read-str)
       {}))
 
 (defn provider-account
@@ -82,7 +81,8 @@
   [txn account-id]
   (let-nom> [intent (find-intent txn (open-idempotency-key account-id))]
     (when (= :outbound-intent-status-settled (:status intent))
-      (:provider-account-id (intent-context intent)))))
+      (let-nom> [context (intent-context intent)]
+        (:provider-account-id context)))))
 
 (defn hold
   "Record on `account-id`'s opening that its money is now held in
@@ -90,13 +90,13 @@
   [txn account-id provider-account-id]
   (let-nom> [opening (find-intent txn (open-idempotency-key account-id))]
     (when opening
-      (fdb/save-record (fdb/open txn (:intents spec))
-                       (schema/ModulrOutboundIntent->java
-                        (assoc opening
-                               :context
-                               (pr-str (assoc (intent-context opening)
-                                              :provider-account-id
-                                              provider-account-id))))))))
+      (let-nom> [context (intent-context opening)
+                 written (transit/write-str (assoc context
+                                                   :provider-account-id
+                                                   provider-account-id))]
+        (fdb/save-record (fdb/open txn (:intents spec))
+                         (schema/ModulrOutboundIntent->java
+                          (assoc opening :context written)))))))
 
 (defn advance
   [txn intent-id ctx changes]

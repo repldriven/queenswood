@@ -317,16 +317,16 @@ it created in `Location` as the first one did.
 
 ### Body serialisation
 
-Cached bodies are stored as EDN, not JSON. EDN preserves keyword
-values (e.g. `:cash-account-status-closed`) that a JSON round-trip
-would flatten to plain strings, and downstream malli response
-coercion on replay requires the original type.
+Cached headers and bodies are stored as transit+json through mono's
+`transit` brick, not plain JSON. Transit preserves keyword values
+(e.g. `:cash-account-status-closed`) that a JSON round-trip would
+flatten to plain strings, and downstream malli response coercion on
+replay requires the original type.
 
 A handler's response may carry the protojure records the `schema`
-brick generates, and those print with a tag EDN has no reader for —
-a body holding one could be written and never read back, and the
-replay it was written for would answer 503. Each record is written
-out as a plain map instead, which is all a replay needs.
+brick generates, which transit has no handler for, so a body holding
+one could not be written. Each record is written out as a plain map
+instead, which is all a replay needs.
 
 A route may name paths into the response body that the entry leaves
 out, by declaring `idempotency/cache-response-omitting` with them in
@@ -354,7 +354,7 @@ mints a fresh token.
 | `idempotency_key` | string | required |
 | `status` | `IdempotencyStatus` | `PENDING` or `COMPLETED` |
 | `fingerprint` | string | SHA-256 of path, body and bank |
-| `response` | `IdempotencyResponse` | optional (completed only): `status` int32, `headers` and `body` EDN |
+| `response` | `IdempotencyResponse` | optional (completed only): `status` int32, `headers` and `body` transit+json |
 | `expires_at` | int64 | epoch ms |
 | `completed_at` | int64 | epoch ms, field 51, completed only |
 | `created_at` | int64 | epoch ms, field 101, when the key was claimed |
@@ -530,7 +530,7 @@ header as the store-level key.
   TTL-native delete should be added before sustained high write
   volumes make this significant.
 
-- **Response schema evolution.** A stored EDN body reflects the
+- **Response schema evolution.** A stored body reflects the
   response shape at write time. A deploy that changes the response
   schema may cause a replay to return the old shape during the 24 h
   window. The invariant: stored responses are immutable artefacts of

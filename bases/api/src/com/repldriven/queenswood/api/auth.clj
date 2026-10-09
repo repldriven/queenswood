@@ -173,6 +173,11 @@
          :bank-refused
          (when (and requested (not is-admin?) (nil? member)) true))))))
 
+(defn- claims-text
+  [claims]
+  ;; nosemgrep: no-edn-serialization — logged
+  (str "iss: " (pr-str (:iss claims)) " sub: " (pr-str (:sub claims))))
+
 (def claims->principal
   {:name ::claims->principal
    :enter (fn [ctx]
@@ -185,10 +190,9 @@
                              (user-auth request auth-claims)
                              (service-auth request auth-claims))]
                   (if (error/anomaly? auth)
-                    (do (log/warn "User sign-in failed:" (:message
-                                                          (error/payload auth))
-                                  "iss:" (pr-str (:iss auth-claims))
-                                  "sub:" (pr-str (:sub auth-claims)))
+                    (do (log/warn "User sign-in failed:"
+                                  (:message (error/payload auth))
+                                  (claims-text auth-claims))
                         (sc/terminate ctx (errors/anomaly->response auth)))
                     (-> ctx
                         (assoc-in [:request :auth] auth)

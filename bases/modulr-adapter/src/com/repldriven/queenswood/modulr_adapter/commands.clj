@@ -8,6 +8,7 @@
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.processor.interface :as processor]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- save-intent
@@ -47,9 +48,10 @@
                  :externalReference (relay/->reference end-to-end-id)}
                 :reference
                 (not-empty reference)))
-     :context (pr-str (utility/assoc-some {:amount amount :currency currency}
-                                          :debtor-account-id
-                                          debtor-account-id))}))
+     :context (transit/write-str (utility/assoc-some {:amount amount
+                                                      :currency currency}
+                                                     :debtor-account-id
+                                                     debtor-account-id))}))
 
 (defn- transfer-intent
   [data]
@@ -63,17 +65,18 @@
              :modulr-outbound-intent-kind-transfer
              :modulr-outbound-intent-kind-credit)
      :request "{}"
-     :context (pr-str (utility/assoc-some {:bank-id bank-id
-                                           :amount amount
-                                           :currency currency}
-                                          :debtor-account-id
-                                          debtor-account-id
-                                          :creditor-account-id
-                                          creditor-account-id
-                                          :debtor-provider-account-id
-                                          debtor-provider-account-id
-                                          :creditor-provider-account-id
-                                          creditor-provider-account-id))}))
+     :context (transit/write-str (utility/assoc-some
+                                  {:bank-id bank-id
+                                   :amount amount
+                                   :currency currency}
+                                  :debtor-account-id
+                                  debtor-account-id
+                                  :creditor-account-id
+                                  creditor-account-id
+                                  :debtor-provider-account-id
+                                  debtor-provider-account-id
+                                  :creditor-provider-account-id
+                                  creditor-provider-account-id))}))
 
 (defn- open-intent
   [config data]
@@ -87,7 +90,7 @@
                                                         account-id)}
                                    :productCode
                                    (:product-code config)))
-     :context (pr-str {:bank-id bank-id :account-id account-id})}))
+     :context (transit/write-str {:bank-id bank-id :account-id account-id})}))
 
 (defn- close-intent
   [data]
@@ -96,9 +99,9 @@
      :kind :modulr-outbound-intent-kind-close-account
      :subjects [account-id]
      :request "{}"
-     :context (pr-str {:bank-id bank-id
-                       :account-id account-id
-                       :provider-account-id provider-account-id})}))
+     :context (transit/write-str {:bank-id bank-id
+                                  :account-id account-id
+                                  :provider-account-id provider-account-id})}))
 
 (defn- reissue-intent
   [config data]
@@ -109,11 +112,12 @@
      :request (json/write-str (utility/assoc-some {}
                                                   :productCode
                                                   (:product-code config)))
-     :context (pr-str (utility/assoc-some {:bank-id bank-id
-                                           :account-id account-id
-                                           :rotation-key rotation-key}
-                                          :provider-account-id
-                                          provider-account-id))}))
+     :context (transit/write-str (utility/assoc-some {:bank-id bank-id
+                                                      :account-id account-id
+                                                      :rotation-key
+                                                      rotation-key}
+                                                     :provider-account-id
+                                                     provider-account-id))}))
 
 (defn- dispatch
   [config message]

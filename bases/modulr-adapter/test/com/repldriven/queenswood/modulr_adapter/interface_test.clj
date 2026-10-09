@@ -19,9 +19,9 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.edn :as edn]
     [clojure.test :refer [deftest is testing]])
   (:import
     (com.sun.net.httpserver HttpExchange HttpHandler HttpServer)
@@ -200,10 +200,12 @@
    "http://modulr.invalid"
    (nom-test> [_ (save-intent {:idempotency-key "pmt.1"
                                :kind :modulr-outbound-intent-kind-payment
-                               :context (pr-str {:amount 500 :currency "GBP"})})
+                               :context (transit/write-str {:amount 500
+                                                            :currency "GBP"})})
                _ (save-intent {:idempotency-key "ptr.3"
                                :kind :modulr-outbound-intent-kind-transfer
-                               :context (pr-str {:bank-id "bnk.1"})})])
+                               :context (transit/write-str {:bank-id
+                                                            "bnk.1"})})])
    (testing "a processed payment settles and settles its intent"
      (is (= 200
             (:status (notify "/webhooks/payout"
@@ -292,7 +294,7 @@
   [dedup-key]
   (let [i (relay/find-intent (config) dedup-key)]
     (assoc i
-           :context (edn/read-string (:context i))
+           :context (transit/read-str (:context i))
            :request (json/read-str (:request i) :key-fn keyword))))
 
 (deftest commands-become-intents-test

@@ -15,9 +15,9 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.edn :as edn]
     [clojure.test :refer [deftest is testing]]))
 
 (defn- json-response
@@ -60,7 +60,7 @@
           :status :outbound-intent-status-pending
           :attempt-count 0
           :created-at (utility/now)
-          :context (pr-str context)}
+          :context (transit/write-str context)}
          extra))
 
 (defn- load-intent
@@ -181,7 +181,7 @@
                       (:addresses data)))))
        (is (= :outbound-intent-status-settled
               (:status (load-intent config "int.o1"))))
-       (is (some? (:account-number (edn/read-string
+       (is (some? (:account-number (transit/read-str
                                     (:context (load-intent config
                                                            "int.o1"))))))))))
 

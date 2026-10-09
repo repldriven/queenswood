@@ -5,8 +5,7 @@
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
-
-    [clojure.edn :as edn]))
+    [com.repldriven.mono.transit.interface :as transit]))
 
 (defn post-signed
   "POST a signed request to the provider. An unreachable provider is
@@ -35,7 +34,7 @@
 (defn context
   [intent]
   (or (some-> (not-empty (:context intent))
-              edn/read-string)
+              transit/read-str)
       {}))
 
 (defn post

@@ -6,9 +6,8 @@
     [com.repldriven.queenswood.modulr-webhook.interface :as modulr-webhook]
 
     [com.repldriven.mono.error.interface :as error]
-    [com.repldriven.mono.utility.interface :as utility]
-
-    [clojure.edn :as edn]))
+    [com.repldriven.mono.transit.interface :as transit]
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (defn reconcile-at
   [config now]
@@ -17,7 +16,7 @@
 (defn context
   [intent]
   (or (some-> (not-empty (:context intent))
-              edn/read-string)
+              transit/read-str)
       {}))
 
 (defn held-at

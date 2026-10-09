@@ -58,6 +58,7 @@
     (when (nil? url)
       ;; nosemgrep: no-raw-throw
       (throw (ex-info "Default scheduler jobs resource missing" {:path path})))
+    ;; nosemgrep: no-edn-serialization — reads a classpath resource
     (edn/read-string (slurp url))))
 
 ;; --- queries --------------------------------------------------------------

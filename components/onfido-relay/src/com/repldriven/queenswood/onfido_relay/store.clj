@@ -3,7 +3,7 @@
     [com.repldriven.queenswood.intent-poller.interface :as intent-poller]
     [com.repldriven.queenswood.schema.interface :as schema]
 
-    [clojure.edn :as edn]))
+    [com.repldriven.mono.transit.interface :as transit]))
 
 (def ^:private kept
   "What a settled or failed intent's request keeps: the ids and what was
@@ -13,7 +13,7 @@
 
 (defn- redact
   [request]
-  (pr-str (select-keys (edn/read-string request) kept)))
+  (transit/write-str (select-keys (transit/read-str request) kept)))
 
 (def spec
   {:adapter :onfido

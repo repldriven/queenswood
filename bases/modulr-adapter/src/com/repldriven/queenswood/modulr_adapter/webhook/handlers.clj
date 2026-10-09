@@ -9,9 +9,9 @@
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.edn :as edn]
     [clojure.string :as str]))
 
 (def ^:private move-prefix "move-")
@@ -50,7 +50,7 @@
                 :context
                 (fn [c]
                   (or (some-> (not-empty c)
-                              edn/read-string)
+                              transit/read-str)
                       {})))))))
 
 (defn- persist-one

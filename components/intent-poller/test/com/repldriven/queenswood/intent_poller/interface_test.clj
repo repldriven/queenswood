@@ -12,9 +12,9 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.edn :as edn]
     [clojure.test :refer [deftest is testing]])
   (:import
     (java.util.concurrent Executors)))
@@ -405,19 +405,20 @@
 
 (defn- kept-bank-id
   [request]
-  (pr-str (select-keys (edn/read-string request) [:bank-id])))
+  (transit/write-str (select-keys (transit/read-str request) [:bank-id])))
 
 (deftest redact-test
   (with-test-system
    [sys "classpath:intent-poller/application-test.yml"]
    (let [config (poller-config sys :poller-redact (atom nil))
          redacting (assoc (spec :poller-redact) :redact kept-bank-id)
-         request (pr-str {:bank-id "bnk.1" :email "arthur@example.test"})
+         request (transit/write-str {:bank-id "bnk.1"
+                                     :email "arthur@example.test"})
          saved (fn [id spec]
                  (SUT/save-intent config
                                   spec
                                   (assoc (intent id 1000) :request request)))
-         request-of (fn [id] (edn/read-string (:request (by-id config id))))]
+         request-of (fn [id] (transit/read-str (:request (by-id config id))))]
      (nom-test> [_ (saved "red.1" redacting)
                  _ (saved "red.2" redacting)
                  _ (saved "red.3" (spec :poller-redact))

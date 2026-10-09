@@ -158,3 +158,23 @@ rules:
       exclude:
         - "/components/test-*/**"
         - "/components/changelog-relay/**"
+
+  - id: no-edn-serialization
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      `pr-str` or a `clojure.edn` read in production code: data a record
+      stores or a process hands on is written with `transit/write-str`
+      and read with `transit/read-str`, through mono's `transit` brick,
+      never as printed EDN, which no reader outside Clojure takes and
+      which prints a record with a tag `clojure.edn` cannot read back. A
+      site that prints text for a message or reads an EDN resource puts
+      `;; nosemgrep: no-edn-serialization — <reason>` on the line
+      immediately above.
+    pattern-regex: '\(pr-str\b|\bedn/read(?:-string)?\b'
+    paths:
+      include:
+        - "/components/*/src/**"
+        - "/bases/*/src/**"
+      exclude:
+        - "/components/test-*/**"

@@ -2,9 +2,8 @@
   (:require
     [com.repldriven.queenswood.form3-relay.form3 :as form3]
 
-    [com.repldriven.mono.utility.interface :as utility]
-
-    [clojure.edn :as edn]))
+    [com.repldriven.mono.transit.interface :as transit]
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (defn reconcile-at
   [config now]
@@ -13,7 +12,7 @@
 (defn context
   [intent]
   (or (some-> (not-empty (:context intent))
-              edn/read-string)
+              transit/read-str)
       {}))
 
 (defn call

@@ -20,7 +20,7 @@ message ZypheOutboundIntent {
 
   required ZypheOutboundIntentKind kind = 2;
   required com.repldriven.queenswood.schema.outbound_intent.OutboundIntentStatus status = 3;
-  required string request = 4; // EDN
+  required string request = 4; // transit+json
   repeated string subjects = 5;
   optional string correlation_id = 6;
 

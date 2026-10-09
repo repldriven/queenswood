@@ -16,9 +16,9 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.edn :as edn]
     [clojure.set :as set]
     [clojure.string :as str])
   (:import
@@ -200,7 +200,7 @@
 
 (defn- request
   [intent]
-  (edn/read-string (:request intent)))
+  (transit/read-str (:request intent)))
 
 (defn- check
   [config _now intent]
