@@ -279,7 +279,6 @@
      :iso-cash-account-type :iso-cash-account-type-cacc
      :balance-products [{:balance-type :balance-type-default
                          :balance-status :balance-status-posted}]
-     :internal true
      :effective-from 20089
      :created-at now
      :created-by {:kind :actor-kind-operator :principal-id "queenswood-admin"}

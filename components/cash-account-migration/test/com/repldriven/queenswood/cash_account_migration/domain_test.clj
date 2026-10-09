@@ -228,7 +228,7 @@
                  [(run true :cash-account-migration-run-status-completed now)
                   (run true :cash-account-migration-run-status-failed now)]
                  now))))
-    (testing "a running commit does not hold a preview back"
+    (testing "a run that is not a preview does not hold one back"
       (is (nil? (SUT/check-no-preview-running [(run false running now)] now))))
     (testing "rejects while a preview is running, naming it"
       (let [r (SUT/check-no-preview-running [(run true running (- now minute))]
@@ -311,18 +311,18 @@
       (is (error/rejection? result))
       (is (= :cash-account-migration/invalid-status (error/kind result))))))
 
-(deftest commit-guard-test
-  (testing "only an approved migration may be committed"
+(deftest run-guard-test
+  (testing "only an approved migration may be run"
     (doseq [status [:cash-account-migration-status-draft
                     :cash-account-migration-status-completed
                     :cash-account-migration-status-cancelled]]
-      (let [result (SUT/ensure-committable (assoc approvable :status status))]
+      (let [result (SUT/ensure-runnable (assoc approvable :status status))]
         (is (error/rejection? result))
         (is (= :cash-account-migration/invalid-status (error/kind result))))))
   (testing "an approved migration passes the guard and completes"
     (let [approved
           (assoc approvable :status :cash-account-migration-status-approved)]
-      (is (nil? (SUT/ensure-committable approved)))
+      (is (nil? (SUT/ensure-runnable approved)))
       (let [completed (SUT/complete-migration approved)]
         (is (= :cash-account-migration-status-completed (:status completed)))
         (is (number? (:completed-at completed)))))))
@@ -351,7 +351,7 @@
                                       :effective-to 20260701}
                                      20260801)))))))
 
-(deftest commit-verdict-test
+(deftest run-verdict-test
   (let [run {:bank-id "org.1" :run-id "run.1" :migration-id "mig.1"}]
     (testing "an account that moved records the version it left"
       ;; migrated is a fact where eligible was a forecast, and the two

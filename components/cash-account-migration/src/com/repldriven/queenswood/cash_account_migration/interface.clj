@@ -70,7 +70,7 @@
   account in its cohort. Returns the closed run.
 
   A preview is a forecast, not a promise. Accounts open and close and
-  balances move between one and the commit, so previews may be re-run as
+  balances move between one and the run, so previews may be re-run as
   often as wanted — approval attaches to the migration, never to a
   particular preview's numbers.
 
@@ -125,13 +125,13 @@
   [txn bank-id migration-id actor]
   (core/cancel-migration txn bank-id migration-id actor))
 
-(defn commit-migration
+(defn run-migration
   "Run an approved migration for real, moving every eligible account onto
   the target version, then complete it. Returns the closed run.
 
   The decisions are the preview's decisions — same streaming, same cohort
   test, same eligibility order — so what a preview reported is what a
-  commit acts on, allowing for the population having moved underneath
+  run acts on, allowing for the population having moved underneath
   both. An account that fails is recorded against its own row and the
   pass carries on.
 
@@ -144,10 +144,10 @@
   - migration-id: the migration to run.
   - business-day: epoch-day the run is recorded against."
   [txn bank-id migration-id business-day]
-  (core/commit-migration txn bank-id migration-id business-day))
+  (core/run-migration txn bank-id migration-id business-day))
 
 (defn run-due-migrations
-  "Commit every migration of the bank that is due on `business-day` — the
+  "Run every migration of the bank that is due on `business-day` — the
   scheduler's migration task.
 
   Due is derived, not recorded: a migration is due when it is approved,
@@ -170,7 +170,7 @@
   (core/run-due-migrations txn bank-id business-day))
 
 (defn get-run
-  "One run of a migration, preview or commit, or a
+  "One run of a migration, a preview or not, or a
   `:cash-account-migration/run-not-found` rejection.
 
   Args:

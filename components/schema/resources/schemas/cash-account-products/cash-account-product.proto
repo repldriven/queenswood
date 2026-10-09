@@ -101,14 +101,13 @@ message CashAccountProduct {
   required com.repldriven.queenswood.schemas.account_product_type.AccountProductType product_type = 8;
   required IsoCashAccountType iso_cash_account_type = 9;
   required BalanceSheetSide balance_sheet_side = 10;
-  required bool internal = 11;
-  required string currency = 12; // ISO 4217
-  repeated BalanceProduct balance_products = 13;
-  repeated PaymentAddressScheme allowed_payment_address_schemes = 14;
-  optional InterestTerms interest_terms = 15;
-  repeated RewardTerms reward_terms = 16;
-  required int64 effective_from = 17; // epoch day
-  optional int64 effective_to = 18; // epoch day
+  required string currency = 11; // ISO 4217
+  repeated BalanceProduct balance_products = 12;
+  repeated PaymentAddressScheme allowed_payment_address_schemes = 13;
+  optional InterestTerms interest_terms = 14;
+  repeated RewardTerms reward_terms = 15;
+  required int64 effective_from = 16; // epoch day
+  optional int64 effective_to = 17; // epoch day
 
   optional int64 published_at = 51;
   optional com.repldriven.queenswood.schemas.actor.Actor published_by = 52;

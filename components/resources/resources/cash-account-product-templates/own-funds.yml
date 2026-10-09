@@ -1,12 +1,11 @@
-# Internal template (excluded from the customer-facing list-templates).
-# The bank's own-funds house product is created from this at bank
+# Own-funds template, excluded from the customer-facing list-templates as
+# every own-funds one is. The bank's own-funds house product is created from this at bank
 # provisioning; a single settled bucket, no interest accrual.
 template-id: tpl.00000000000000000000000004
 name: Bank own funds
 product-type: !keyword account-product-type-sub-ledger-own-funds
 balance-sheet-side: !keyword balance-sheet-side-liability
 iso-cash-account-type: !keyword iso-cash-account-type-cacc
-internal: true
 # Must match the API's `Currency` enum in
 # bases/api/src/com/repldriven/queenswood/api/shared/components.clj --
 # a create names its currencies from that enum and every one of them

@@ -73,7 +73,6 @@
         :balance-products (:balance-products template)
         :allowed-payment-address-schemes
         (:allowed-payment-address-schemes template)
-        :internal (boolean (:internal template))
         :iso-cash-account-type (:iso-cash-account-type template)}
        :interest-terms
        (flat-interest interest-rate-bps)
@@ -88,7 +87,6 @@
   (let [now (utility/now)]
     (assoc data
            :template-id (or (:template-id data) (utility/generate-id "tpl"))
-           :internal (boolean (:internal data))
            :created-at now)))
 
 ;; ---------------------------------------------------------------------------

@@ -64,7 +64,7 @@
 
 (defn preview-migration
   "Run a preview. This is the only evaluation the API can perform —
-  committing a migration is the scheduler's, so that no request can move
+  running a migration is the scheduler's, so that no request can move
   a bank's accounts."
   [request]
   (let [{:keys [auth parameters]} request

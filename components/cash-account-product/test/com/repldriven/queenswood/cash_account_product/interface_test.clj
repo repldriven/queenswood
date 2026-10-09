@@ -214,7 +214,8 @@
                                              :actor operator})
                  _ (testing
                      "an own-funds product counts toward the bank's total"
-                     (is (true? (:internal own-funds)))
+                     (is (= :account-product-type-sub-ledger-own-funds
+                            (:product-type own-funds)))
                      (is (= 3 (q/count-by-org config bank-id)))
                      (is (= 1
                             (q/count-by-org-product-type

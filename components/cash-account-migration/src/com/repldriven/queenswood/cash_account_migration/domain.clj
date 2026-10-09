@@ -167,7 +167,7 @@
 
   Approval attaches to the migration — its source, target and selection
   — and not to any preview's numbers. Accounts open and close between
-  approval and the commit, so the figures move; what was agreed does
+  approval and the run, so the figures move; what was agreed does
   not."
   [migration actor]
   (let-nom>
@@ -209,7 +209,7 @@
              :cancelled-by actor
              :updated-at now))))
 
-(defn ensure-committable
+(defn ensure-runnable
   "Asserts a migration may be run for real, before anything moves.
   Separate from `complete-migration` so the guard fires ahead of the
   pass while the completion is stamped after it, rather than dating a
@@ -217,10 +217,10 @@
   [migration]
   (ensure-status migration
                  #{:cash-account-migration-status-approved}
-                 "committed"))
+                 "run"))
 
 (defn complete-migration
-  "Close an approved migration once a commit has run it. Separate from
+  "Close an approved migration once its run has finished. Separate from
   the run's own completion: a run can finish having moved nothing, and
   it is the migration that is done, not the pass."
   [migration]
@@ -275,7 +275,7 @@
 
 (defn new-run
   "A run opens as running, and is closed by whatever finishes it. A
-  preview and a commit are the same record: `dry-run?` decides only
+  preview and a run are the same record: `dry-run?` decides only
   whether accounts are written, never what is decided about them."
   [migration business-day dry-run?]
   {:bank-id (:bank-id migration)
@@ -287,14 +287,14 @@
    :created-at (utility/now)})
 
 (def moved-verdict
-  "What a commit records for an account it actually moved, onto the
+  "What a run records for an account it actually moved, onto the
   migration's target. Distinct from the eligible verdict a preview
   writes: eligible is a forecast, migrated is a fact, and the two sit in
   the same table."
   {:outcome :cash-account-migration-outcome-migrated})
 
 (defn failed-verdict
-  "What a commit records for an account it could not move. One account's
+  "What a run records for an account it could not move. One account's
   failure is its own — the pass carries on, and the row says which one
   and why."
   [anomaly]

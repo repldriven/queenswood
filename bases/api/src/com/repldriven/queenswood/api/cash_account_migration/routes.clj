@@ -24,7 +24,7 @@
 ;; only thing that moves accounts is the scheduler's migration task. The
 ;; API authors a migration, previews it, approves or cancels it, and
 ;; reads outcomes; approving decides that accounts will move, never that
-;; they move now. That the surface cannot express a commit is the point,
+;; they move now. That the surface cannot express a run is the point,
 ;; not an omission.
 (def routes
   [["/cash-account-migrations"

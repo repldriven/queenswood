@@ -3,7 +3,7 @@
 - kind:
     cash-account-migration:
       filters:
-        - action: !keyword cash-account-migration-action-commit
+        - action: !keyword cash-account-migration-action-run
   bound:
     kind:
       max:

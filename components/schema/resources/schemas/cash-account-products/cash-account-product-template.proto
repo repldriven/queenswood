@@ -18,10 +18,9 @@ message CashAccountProductTemplate {
   required com.repldriven.queenswood.schemas.account_product_type.AccountProductType product_type = 3;
   required IsoCashAccountType iso_cash_account_type = 4;
   required BalanceSheetSide balance_sheet_side = 5;
-  required bool internal = 6;
-  repeated string allowed_currencies = 7; // ISO 4217
-  repeated BalanceProduct balance_products = 8;
-  repeated PaymentAddressScheme allowed_payment_address_schemes = 9;
+  repeated string allowed_currencies = 6; // ISO 4217
+  repeated BalanceProduct balance_products = 7;
+  repeated PaymentAddressScheme allowed_payment_address_schemes = 8;
 
   required int64 created_at = 101;
   optional int64 updated_at = 103;

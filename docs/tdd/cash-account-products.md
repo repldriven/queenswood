@@ -99,7 +99,8 @@ writes in the other.
 `cash-account-product-query` holds the reads:
 
 - `store.clj` — the record loads, prefix scans and index counts.
-- `domain.clj` — `active-version`, the pure effective-date resolver.
+- `domain.clj` — `active-version`, the pure effective-date resolver,
+  and `internal?`, true of an own-funds product or template.
 - `core.clj` — the aggregate shape `get-product` and `get-products`
   return, and the internal-product filter on the listing.
 - `interface.clj` — `get-version`, `get-product`, `get-products`,
@@ -134,15 +135,15 @@ A **template** is platform-scoped — a `CashAccountProductTemplate` in
 the `cash-account-product-templates` store, with no `bank-id`. It
 carries the fields a bank does not choose: the product type, the
 balance-sheet side, the balance-bucket layout, the allowed
-payment-address schemes, the ISO cash-account type, the currencies a
-product built from it may use, and whether it is internal.
+payment-address schemes, the ISO cash-account type and the currencies a
+product built from it may use.
 
 Four are seeded, under the ids fixed in their YAML files:
 
 - **Current account** — current, GBP.
 - **Savings account** — savings, GBP.
 - **Term deposit** — term-deposit, GBP.
-- **Bank own funds** — own-funds, EUR, GBP and USD, and `:internal`.
+- **Bank own funds** — own-funds, EUR, GBP and USD.
 
 They are FDB records, not classpath constants. The write brick's
 `system.clj` registers a `cash-account-product-templates/template`
@@ -156,8 +157,8 @@ a pile of rows.
 
 `new-template` is on the write interface; `get-template` and
 `list-templates` are on the query one. `list-templates` drops the
-internal templates, so the own-funds shape the bank's house accounts
-are built from never appears in the customer-facing menu.
+own-funds template, so the shape the bank's house accounts are built
+from never appears in the customer-facing menu.
 
 #### Versions
 
@@ -170,10 +171,10 @@ The caller supplies six fields: `:name`, `:template-id`, `:currency`,
 `:effective-to`. There is no product-type field on the request — the
 product type comes from the template.
 
-`product-fields` writes seven of the version's fields off the resolved
+`product-fields` writes six of the version's fields off the resolved
 template. It snapshots `:product-type`, `:balance-sheet-side`,
-`:balance-products`, `:allowed-payment-address-schemes`,
-`:iso-cash-account-type` and `:internal`, and stamps `:template-id`
+`:balance-products`, `:allowed-payment-address-schemes` and
+`:iso-cash-account-type`, and stamps `:template-id`
 for provenance. Snapshotting rather than referencing is what makes a
 published version immutable in fact and not only by rule: a re-seeded
 template cannot reach it.
@@ -194,7 +195,6 @@ template cannot reach it.
  :balance-products    [...]         ;; balance buckets, template
  :allowed-payment-address-schemes [...]                   ;; template
  :iso-cash-account-type :iso-cash-account-type-svgs       ;; template
- :internal            true          ;; template, present when internal
  :interest-rate-bps   550           ;; 550 bps = 5.5% APR
  :effective-from      20089         ;; epoch-day (required)
  :effective-to        <epoch-day or absent>  ;; open-ended if absent

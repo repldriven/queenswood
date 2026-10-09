@@ -309,7 +309,6 @@
    :balance-sheet-side :balance-sheet-side-liability
    :name "Current Account"
    :currency "GBP"
-   :internal false
    :balance-products [{:balance-type :balance-type-default
                        :balance-status :balance-status-posted}]
    :allowed-payment-address-schemes [:payment-address-scheme-scan]

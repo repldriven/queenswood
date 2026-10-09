@@ -63,7 +63,7 @@
   [{:status :policy-status-active
     :limits
     [{:kind {:cash-account-migration
-             {:filters [{:action :cash-account-migration-action-commit}]}}
+             {:filters [{:action :cash-account-migration-action-run}]}}
       :bound {:kind {:max {:aggregate {:kind {:count
                                               {:value commit-cap
                                                :window
@@ -81,7 +81,7 @@
   [value]
   {:aggregate :count
    :window :time-window-instant
-   :action :cash-account-migration-action-commit
+   :action :cash-account-migration-action-run
    :value value})
 
 (defn- preview-request
