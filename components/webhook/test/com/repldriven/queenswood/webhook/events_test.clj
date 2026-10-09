@@ -537,18 +537,19 @@
   (let [now (utility/now)]
     {:payment-id payment-id
      :idempotency-key (str "ik-" payment-id)
-     :scheme "fps"
+     :scheme-type :scheme-type-fps
      :debtor-account-id "acc.events"
      :creditor-bban "04000412345678"
      :creditor-name "Arthur Dent"
      :currency "GBP"
      :amount 2500
-     :payment-status status
+     :status status
      :transaction-id "txn.events"
      :reference "Towel"
      :bank-id bank-id
      :business-day 20260101
      :created-at now
+     :created-by {:kind :actor-kind-operator :principal-id "queenswood-admin"}
      :updated-at now}))
 
 (defn- seed-outbound

@@ -117,7 +117,7 @@
 (defn- record-submitted
   [txn payment debtor-account]
   (let [{:keys [payment-id bank-id debtor-account-id creditor-bban
-                creditor-name currency amount reference scheme]}
+                creditor-name currency amount reference scheme-type]}
         payment
         {:keys [bban provider-account-id]} debtor-account]
     (bank-activity/record txn
@@ -136,7 +136,7 @@
                                   :reference
                                   reference
                                   :scheme
-                                  scheme)
+                                  (outbound/scheme-name scheme-type))
                            :causation-id payment-id
                            :dedup-key payment-id})))
 

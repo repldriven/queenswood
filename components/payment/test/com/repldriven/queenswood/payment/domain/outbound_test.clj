@@ -129,44 +129,43 @@
                :own-funds "house"}))))))
 
 (deftest returned-outbound-payment-test
-  (let [payment {:payment-id "pmt.1"
-                 :payment-status :outbound-payment-status-completed}
+  (let [payment {:payment-id "pmt.1" :status :outbound-payment-status-completed}
         returned (SUT/returned-outbound-payment payment
                                                 {:reason-code "AC04"
                                                  :reason "Account closed"})]
-    (is (= :outbound-payment-status-returned (:payment-status returned)))
-    (is (= "AC04" (:return-reason-code returned)))
-    (is (= "Account closed" (:return-reason returned)))
+    (is (= :outbound-payment-status-returned (:status returned)))
+    (is (= "AC04" (:returned-reason-code returned)))
+    (is (= "Account closed" (:returned-reason returned)))
+    (is (= (:returned-at returned) (:updated-at returned)))
     (is (not (contains? (SUT/returned-outbound-payment payment
                                                        {:reason-code "NARR"})
-                        :return-reason)))))
+                        :returned-reason)))))
 
 (deftest settleable-outbound?-test
   (testing "pending and held settle"
-    (is (SUT/settleable-outbound? {:payment-status
-                                   :outbound-payment-status-pending}))
-    (is (SUT/settleable-outbound? {:payment-status
-                                   :outbound-payment-status-held})))
+    (is (SUT/settleable-outbound? {:status :outbound-payment-status-pending}))
+    (is (SUT/settleable-outbound? {:status :outbound-payment-status-held})))
   (testing "completed and failed do not"
     (doseq [status [:outbound-payment-status-completed
                     :outbound-payment-status-failed]]
-      (is (not (SUT/settleable-outbound? {:payment-status status}))
+      (is (not (SUT/settleable-outbound? {:status status}))
           (str status " is not settleable")))))
 
 (deftest completed-outbound-payment-test
-  (testing "flips :payment-status to completed"
+  (testing "flips :status to completed"
     (let [pending {:payment-id "pmt-1"
-                   :payment-status :outbound-payment-status-pending
+                   :status :outbound-payment-status-pending
                    :amount 250
                    :created-at 1700000000000
                    :updated-at 1700000000000}
           completed (SUT/completed-outbound-payment pending)]
-      (is (= :outbound-payment-status-completed (:payment-status completed)))
+      (is (= :outbound-payment-status-completed (:status completed)))
       (testing "preserves other fields"
         (is (= "pmt-1" (:payment-id completed)))
         (is (= 250 (:amount completed))))
-      (testing "bumps :updated-at past the original"
-        (is (>= (:updated-at completed) (:updated-at pending)))))))
+      (testing "bumps :updated-at past the original, and records when"
+        (is (>= (:updated-at completed) (:updated-at pending)))
+        (is (= (:completed-at completed) (:updated-at completed)))))))
 
 (def ^:private sweep-thresholds {:report-after-ms 86400000})
 
@@ -174,7 +173,7 @@
   [payment-id payment-status created-at]
   {:payment-id payment-id
    :bank-id "bnk.sweep"
-   :payment-status payment-status
+   :status payment-status
    :created-at created-at})
 
 (deftest stuck-outbound-test
@@ -193,11 +192,11 @@
     (testing "past the report threshold, old pending and held report"
       (is (= [{:payment-id "pmt.pending"
                :bank-id "bnk.sweep"
-               :payment-status :outbound-payment-status-pending
+               :status :outbound-payment-status-pending
                :age-ms 86400001}
               {:payment-id "pmt.held"
                :bank-id "bnk.sweep"
-               :payment-status :outbound-payment-status-held
+               :status :outbound-payment-status-held
                :age-ms 86400001}]
              (SUT/stuck-outbound payments past-report sweep-thresholds))))
     (testing "a young pending payment gives nothing"
@@ -216,22 +215,21 @@
         (is (= "chaps" (:scheme (error/payload res))))))))
 
 (deftest failed-outbound-payment-test
-  (let [payment {:payment-id "pmt.1"
-                 :payment-status :outbound-payment-status-pending}]
+  (let [payment {:payment-id "pmt.1" :status :outbound-payment-status-pending}]
     (testing "the event's failure kind and reason code are recorded"
       (let [failed (SUT/failed-outbound-payment
                     payment
                     {:failure-kind :failure-kind-refused
                      :reason-code "AC01"
                      :cancellation-reason "HTTP 400"})]
-        (is (= :outbound-payment-status-failed (:payment-status failed)))
-        (is (= :outbound-payment-failure-kind-refused (:failure-kind failed)))
-        (is (= "AC01" (:failure-reason-code failed)))
-        (is (= "HTTP 400" (:failure-reason failed)))))
+        (is (= :outbound-payment-status-failed (:status failed)))
+        (is (= :outbound-payment-failed-kind-refused (:failed-kind failed)))
+        (is (= "AC01" (:failed-reason-code failed)))
+        (is (= "HTTP 400" (:failed-reason failed)))))
     (testing "an event that predates them is a decline coded NARR"
       (let [failed (SUT/failed-outbound-payment payment
                                                 {:cancellation-code
                                                  "SCENARIO_REJECTED"})]
-        (is (= :outbound-payment-failure-kind-declined (:failure-kind failed)))
-        (is (= "NARR" (:failure-reason-code failed)))
-        (is (not (contains? failed :failure-reason)))))))
+        (is (= :outbound-payment-failed-kind-declined (:failed-kind failed)))
+        (is (= "NARR" (:failed-reason-code failed)))
+        (is (not (contains? failed :failed-reason)))))))

@@ -861,40 +861,31 @@
      inbound-payment-status->int
   payments/InboundPaymentStatus-label2val)
 
+(def ^:private outbound-payment-unset
+  {:reference ""
+   :failed-kind :outbound-payment-failed-kind-unknown
+   :failed-reason-code ""
+   :failed-reason ""
+   :returned-reason-code ""
+   :returned-reason ""
+   :held-at 0
+   :completed-at 0
+   :failed-at 0
+   :returned-at 0
+   :updated-at 0})
+
 (defn pb->OutboundPayment
-  "Parse OutboundPayment protobuf bytes into a Clojure map, stripping
-  every optional field that deserialises as its proto2 default so each
-  key is present only when the record carries a real value: a payment
-  the caller sent no `reference` for carries none, and only a failed one
-  carries a `failure-kind`, `failure-reason-code` and `failure-reason`,
-  and only a returned one a `return-reason-code` and `return-reason`.
-  Drops `cancellation-code` and `cancellation-reason`, which are
-  deprecated.
+  "Parse OutboundPayment protobuf bytes into a Clojure map. Each optional
+  field is present only when set: a `reference` the caller gave, an
+  outcome's `_at`, and a failed or returned payment's kind, code and
+  reason. `created-by` is a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [payment (dissoc (payments/pb->OutboundPayment input)
-                 :cancellation-code
-                 :cancellation-reason)]
-    (cond-> payment
-            (= "" (:reference payment))
-            (dissoc :reference)
-
-            (= :outbound-payment-failure-kind-unknown (:failure-kind payment))
-            (dissoc :failure-kind)
-
-            (= "" (:failure-reason-code payment))
-            (dissoc :failure-reason-code)
-
-            (= "" (:failure-reason payment))
-            (dissoc :failure-reason)
-
-            (= "" (:return-reason-code payment))
-            (dissoc :return-reason-code)
-
-            (= "" (:return-reason payment))
-            (dissoc :return-reason))))
+  (-> (payments/pb->OutboundPayment input)
+      (without-unset outbound-payment-unset)
+      (plain-embedded :created-by)))
 
 (defn OutboundPayment->pb
   "Serialise an OutboundPayment map to protobuf bytes.

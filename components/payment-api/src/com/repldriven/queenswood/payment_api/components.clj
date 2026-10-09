@@ -135,28 +135,34 @@
 
 (defn- failure
   [payment]
-  (let [{:keys [failure-kind failure-reason-code failure-reason]} payment]
-    (when failure-kind
-      (utility/assoc-some {:kind failure-kind
-                           :reason-code (or failure-reason-code "NARR")}
+  (let [{:keys [failed-kind failed-reason-code failed-reason]} payment]
+    (when failed-kind
+      (utility/assoc-some {:kind failed-kind
+                           :reason-code (or failed-reason-code "NARR")}
                           :reason
-                          failure-reason))))
+                          failed-reason))))
 
 (defn- return
   [payment]
-  (let [{:keys [return-reason-code return-reason]} payment]
-    (when return-reason-code
-      (utility/assoc-some {:reason-code return-reason-code}
+  (let [{:keys [returned-reason-code returned-reason]} payment]
+    (when returned-reason-code
+      (utility/assoc-some {:reason-code returned-reason-code}
                           :reason
-                          return-reason))))
+                          returned-reason))))
+
+(def ^:private scheme-names {:scheme-type-fps :payment-scheme-fps})
 
 (defn ->outbound-body
   [payment]
-  (utility/assoc-some (select-keys payment outbound-payment-keys)
-                      :failure
-                      (failure payment)
-                      :return
-                      (return payment)))
+  (let [{:keys [status scheme-type]} payment]
+    (utility/assoc-some (select-keys (assoc payment
+                                            :payment-status status
+                                            :scheme (scheme-names scheme-type))
+                                     outbound-payment-keys)
+                        :failure
+                        (failure payment)
+                        :return
+                        (return payment))))
 
 (defn ->inbound-body
   [payment]

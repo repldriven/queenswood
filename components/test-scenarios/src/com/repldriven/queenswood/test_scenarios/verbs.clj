@@ -146,7 +146,7 @@
                (fn [] (payment-query/get-outbound-payment bank payment-id))
                (fn [payment]
                  (and (not (error/anomaly? payment))
-                      (= status (:payment-status payment))))))
+                      (= status (:status payment))))))
 
 (defn- await-outbound-completed
   "The outbound payment once the provider's settlement has completed it,
@@ -909,7 +909,8 @@
                  :amount amount
                  :reference (str "scenario payment " counter)
                  :creditor-bban creditor-bban
-                 :creditor-name creditor-name})
+                 :creditor-name creditor-name
+                 :actor scenario-operator})
         real-pmt-id (:payment-id result)
         ;; The model completes the payment at once, so the step waits for
         ;; the provider's debit to complete it and, paying a known
@@ -944,7 +945,8 @@
       :amount amount
       :reference (str "scenario payment " counter)
       :creditor-bban creditor-bban
-      :creditor-name (str "Scenario External Creditor " counter)})))
+      :creditor-name (str "Scenario External Creditor " counter)
+      :actor scenario-operator})))
 
 (defn- record-payment
   [{:keys [next-payment-id] :as ctx} result]
@@ -1038,8 +1040,7 @@
                   ctx
                   (str "outbound payment " real-pmt-id " to be returned")
                   (fn [] (payment-query/get-outbound-payment bank real-pmt-id))
-                  (fn [p]
-                    (= :outbound-payment-status-returned (:payment-status p))))
+                  (fn [p] (= :outbound-payment-status-returned (:status p))))
                  (error/fail :scenario/return-outbound
                              {:message "The simulator refused the return"
                               :payment-id real-pmt-id

@@ -20,13 +20,13 @@
   stores and the API never publishes."
   {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4s5"
    :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :scheme :payment-scheme-fps
+   :scheme-type :scheme-type-fps
    :debtor-account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
    :creditor-bban "04000412345678"
    :creditor-name "Arthur Dent"
    :currency "GBP"
    :amount 2500
-   :payment-status :outbound-payment-status-completed
+   :status :outbound-payment-status-completed
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4s9"
    :reference "Towel"
    :business-day "2023-11-14"
@@ -67,11 +67,19 @@
    :updated-at 1700000000001
    :idempotency-key "5b2f0f6e-internal"})
 
+(def ^:private shown-outbound
+  "The stored outbound payment under the keys a body uses: its `status`
+  as `payment-status`, and its scheme type as the scheme it names."
+  (-> stored-outbound
+      (dissoc :status :scheme-type)
+      (assoc :payment-status (:status stored-outbound)
+             :scheme :payment-scheme-fps)))
+
 (deftest declared-keys-cover-the-fixtures-test
   (testing "each fixture carries every key its component declares"
     (is (= (disj (set (declared-keys "OutboundPayment")) :failure :return)
            (set (filter (set (declared-keys "OutboundPayment"))
-                        (keys stored-outbound)))))
+                        (keys shown-outbound)))))
     (is (= (set (declared-keys "InboundPayment"))
            (set (filter (set (declared-keys "InboundPayment"))
                         (keys stored-inbound)))))
@@ -97,7 +105,7 @@
                           (keys body)))))))
 
 (deftest ->body-keeps-every-declared-key-test
-  (is (= (select-keys stored-outbound (declared-keys "OutboundPayment"))
+  (is (= (select-keys shown-outbound (declared-keys "OutboundPayment"))
          (SUT/->outbound-body stored-outbound)))
   (is (= (select-keys stored-inbound (declared-keys "InboundPayment"))
          (SUT/->inbound-body stored-inbound)))
@@ -125,12 +133,12 @@
 
 (deftest ->outbound-body-projects-a-failure-test
   (let [failed (assoc stored-outbound
-                      :payment-status :outbound-payment-status-failed
-                      :failure-kind :outbound-payment-failure-kind-refused
-                      :failure-reason-code "NARR"
-                      :failure-reason "HTTP 400")]
+                      :status :outbound-payment-status-failed
+                      :failed-kind :outbound-payment-failed-kind-refused
+                      :failed-reason-code "NARR"
+                      :failed-reason "HTTP 400")]
     (testing "a failed payment's kind, reason code and reason form its failure"
-      (is (= {:kind :outbound-payment-failure-kind-refused
+      (is (= {:kind :outbound-payment-failed-kind-refused
               :reason-code "NARR"
               :reason "HTTP 400"}
              (:failure (SUT/->outbound-body failed)))))
@@ -139,15 +147,15 @@
              (name (get-in (SUT/->outbound-wire-body failed)
                            [:failure :kind])))))
     (testing "the stored fields themselves are not published"
-      (is (not (contains? (SUT/->outbound-body failed) :failure-kind))))
+      (is (not (contains? (SUT/->outbound-body failed) :failed-kind))))
     (testing "a payment that has not failed has none"
       (is (not (contains? (SUT/->outbound-body stored-outbound) :failure))))))
 
 (deftest ->outbound-body-projects-a-return-test
   (let [returned (assoc stored-outbound
-                        :payment-status :outbound-payment-status-returned
-                        :return-reason-code "AC04"
-                        :return-reason "Account closed")]
+                        :status :outbound-payment-status-returned
+                        :returned-reason-code "AC04"
+                        :returned-reason "Account closed")]
     (testing "a returned payment's reason code and reason form its return"
       (is (= {:reason-code "AC04" :reason "Account closed"}
              (:return (SUT/->outbound-body returned)))))

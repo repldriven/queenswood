@@ -3,6 +3,8 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.payments;
 
 import "record_metadata_options.proto";
+import "schemas/members/actor.proto";
+import "schemas/schemes/scheme.proto";
 
 option java_outer_classname = "OutboundPaymentProto";
 
@@ -16,36 +18,42 @@ enum OutboundPaymentStatus {
   OUTBOUND_PAYMENT_STATUS_RETURNED = 6;
 }
 
-enum OutboundPaymentFailureKind {
-  OUTBOUND_PAYMENT_FAILURE_KIND_UNKNOWN = 0;
-  OUTBOUND_PAYMENT_FAILURE_KIND_DECLINED = 1;
-  OUTBOUND_PAYMENT_FAILURE_KIND_REFUSED = 2;
-  OUTBOUND_PAYMENT_FAILURE_KIND_UNDELIVERED = 3;
+enum OutboundPaymentFailedKind {
+  OUTBOUND_PAYMENT_FAILED_KIND_UNKNOWN = 0;
+  OUTBOUND_PAYMENT_FAILED_KIND_DECLINED = 1;
+  OUTBOUND_PAYMENT_FAILED_KIND_REFUSED = 2;
+  OUTBOUND_PAYMENT_FAILED_KIND_UNDELIVERED = 3;
 }
 
+// A payment out of a bank to an account at another, over a scheme.
 message OutboundPayment {
   option (com.apple.foundationdb.record.record).usage = RECORD;
-  required string payment_id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
-  required string idempotency_key = 2;
-  required string scheme = 3;
-  required string debtor_account_id = 4;
-  required string creditor_bban = 5;
-  required string creditor_name = 6;
-  required string currency = 7;
-  required int64 amount = 8;
-  required OutboundPaymentStatus payment_status = 9;
-  required string transaction_id = 10;
-  optional string reference = 11;
-  optional string cancellation_code = 12 [deprecated = true];
-  optional string cancellation_reason = 13 [deprecated = true];
-  required int64 created_at = 14;
-  optional int64 updated_at = 15;
-  required string bank_id = 16;
-  required int64 business_day = 17;
-  optional OutboundPaymentFailureKind failure_kind = 18;
-  optional string failure_reason_code = 19;
-  optional string return_reason_code = 21;
-  optional string return_reason = 22;
 
-  optional string failure_reason = 200;
+  required string bank_id = 1;
+  required string payment_id = 2; // pmt.<uuidv7>
+  required OutboundPaymentStatus status = 3;
+  required com.repldriven.queenswood.schemas.schemes.SchemeType scheme_type = 4;
+  required string debtor_account_id = 5;
+  required string creditor_name = 6;
+  required string creditor_bban = 7; // sort code and account number
+  required int64 amount = 8; // minor units
+  required string currency = 9; // ISO 4217
+  optional string reference = 10;
+  required string transaction_id = 11;
+  required int64 business_day = 12; // epoch day
+  optional OutboundPaymentFailedKind failed_kind = 13;
+  optional string failed_reason_code = 14; // ISO 20022
+  optional string failed_reason = 15;
+  optional string returned_reason_code = 16; // ISO 20022
+  optional string returned_reason = 17;
+
+  optional int64 held_at = 51;
+  optional int64 completed_at = 53;
+  optional int64 failed_at = 55;
+  optional int64 returned_at = 57;
+
+  required string idempotency_key = 100;
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schemas.members.Actor created_by = 102;
+  optional int64 updated_at = 103;
 }

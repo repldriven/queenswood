@@ -61,8 +61,12 @@ message CashAccountMigration {
   created the record is recognised by, whether the request is an API
   call carrying an `Idempotency-Key` or a changelog event a consumer
   may be handed twice.
-- **200, the failure.** `failure_reason` on any record that can end in
-  a failed status or outcome.
+- **200, the failure.** `failure_reason` on any record whose own
+  processing can go wrong, as an interest run or a delivery can. An
+  outcome the domain expects, such as a payment the scheme declines,
+  is not a failure in this sense: its details sit beside its `_at`,
+  each named for the state it explains, as `failed_kind`,
+  `failed_reason_code` and `failed_reason` beside `failed_at`.
 - **201 to 203, delivery.** On a record that retries an outbound call,
   as an email delivery does: `attempt_count` 201, `next_attempt_at` 202
   and `traceparent` 203. An in-flight item's `next_attempt_at` is when
@@ -70,8 +74,8 @@ message CashAccountMigration {
 
 Name a field by what it holds: `_on` for a date as an epoch day, `_at`
 for an instant in milliseconds, `_by` for an `Actor` and never a
-process, and `failure_reason` for why a record ended in a failed status
-or outcome. A record that retries keeps no error from an attempt it
+process, `failure_reason` for why a record's processing went wrong, and
+an expected outcome's details by the state they explain. A record that retries keeps no error from an attempt it
 will retry, which goes to the log, and `error` belongs to the envelope
 or response carrying a record rather than to the record. Name a count
 `<thing>_count`, keeping a plural for a `repeated` field. The one date
@@ -125,8 +129,9 @@ the record's fields in the proto's order.
 - Take a record's `idempotency_key` from the request that created it,
   an API call's `Idempotency-Key` or the changelog event it answers.
 - Name a date `_on`, `business_day` excepted, an instant `_at`, an
-  actor `_by`, a count `_count`, and the reason a record failed
-  `failure_reason`.
+  actor `_by`, a count `_count`, the reason a record's processing went
+  wrong `failure_reason`, and an expected outcome's details by the
+  state they explain, beside its `_at`.
 - Name an enum `…Type` for what a thing is in banking, accounting or an
   outside standard, and `…Kind` for which of the platform's own variants
   selects the code that handles it.

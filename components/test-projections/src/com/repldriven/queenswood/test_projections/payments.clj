@@ -12,7 +12,7 @@
   (->> model->real
        (map (fn [[model-id {:keys [real-id]}]]
               [model-id
-               (bare-status (:payment-status
+               (bare-status (:status
                              (payment/get-outbound-payment bank real-id)))]))
        (into {})))
 

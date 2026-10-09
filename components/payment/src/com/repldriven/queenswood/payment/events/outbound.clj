@@ -101,7 +101,7 @@
             "Failed to find corresponding outbound payment for settlement"
             :payment-id payment-id})
 
-          (= :outbound-payment-status-completed (:payment-status payment))
+          (= :outbound-payment-status-completed (:status payment))
           (do (log/infof "Outbound payment settlement already completed: %s"
                          payment-id)
               payment)
@@ -110,7 +110,7 @@
           (do (log/errorf
                "Outbound payment settlement skipped, not settleable: %s"
                {:payment-id payment-id
-                :payment-status (:payment-status payment)
+                :status (:status payment)
                 :failure-reason-code (:failure-reason-code payment)
                 :scheme-transaction-id (:scheme-transaction-id data)})
               payment)
@@ -124,7 +124,7 @@
                  txn
                  completed
                  {:change-kind :outbound-payment-change-kind-settle
-                  :status-before (:payment-status payment)}))
+                  :status-before (:status payment)}))
              _ (record-settlement-leg config txn payment)]
             (log/infof "Outbound payment settlement now completed: %s"
                        {:payment-id payment-id})
@@ -149,10 +149,10 @@
            {:message "Failed to find corresponding outbound payment to hold"
             :payment-id payment-id})
 
-          (not= :outbound-payment-status-pending (:payment-status payment))
+          (not= :outbound-payment-status-pending (:status payment))
           (do (log/infof "Outbound payment hold ignored, not pending: %s"
                          {:payment-id payment-id
-                          :payment-status (:payment-status payment)})
+                          :status (:status payment)})
               payment)
 
           :else
@@ -162,7 +162,7 @@
                 txn
                 held
                 {:change-kind :outbound-payment-change-kind-hold
-                 :status-before (:payment-status payment)})]
+                 :status-before (:status payment)})]
             (log/infof "Outbound payment now held: %s" {:payment-id payment-id})
             held))))
      :payment/hold-outbound
@@ -237,7 +237,7 @@
            {:message "Failed to find corresponding outbound payment to reject"
             :payment-id payment-id})
 
-          (= :outbound-payment-status-failed (:payment-status payment))
+          (= :outbound-payment-status-failed (:status payment))
           (do (log/infof "Outbound payment rejection already processed: %s"
                          {:payment-id payment-id})
               payment)
@@ -247,7 +247,7 @@
            :payment/reject-outbound
            {:message "Cannot reverse an outbound payment no longer in flight"
             :payment-id payment-id
-            :payment-status (:payment-status payment)})
+            :status (:status payment)})
 
           :else
           (let-nom>
@@ -256,7 +256,7 @@
                 txn
                 failed
                 {:change-kind :outbound-payment-change-kind-fail
-                 :status-before (:payment-status payment)})
+                 :status-before (:status payment)})
              _ (record-reversal-leg config txn payment)]
             (log/infof "Outbound payment rejected and reversed: %s"
                        {:payment-id payment-id
@@ -332,17 +332,17 @@
                        "Failed to find corresponding outbound payment to return"
                        :payment-id payment-id})
 
-          (= :outbound-payment-status-returned (:payment-status payment))
+          (= :outbound-payment-status-returned (:status payment))
           (do (log/infof "Outbound payment return already processed: %s"
                          {:payment-id payment-id})
               payment)
 
-          (not= :outbound-payment-status-completed (:payment-status payment))
+          (not= :outbound-payment-status-completed (:status payment))
           (error/fail :payment/return-outbound
                       {:message
                        "Cannot return an outbound payment not completed"
                        :payment-id payment-id
-                       :payment-status (:payment-status payment)})
+                       :status (:status payment)})
 
           :else
           (let-nom>
@@ -351,7 +351,7 @@
                 txn
                 returned
                 {:change-kind :outbound-payment-change-kind-return
-                 :status-before (:payment-status payment)})
+                 :status-before (:status payment)})
              _ (record-return-leg config txn payment amount)]
             (log/infof "Outbound payment returned: %s"
                        {:payment-id payment-id

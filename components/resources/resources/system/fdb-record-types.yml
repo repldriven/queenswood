@@ -265,7 +265,13 @@ stores:
         fields: [bank_id, payment_status, created_at]
   outbound-payments:
     record-type: OutboundPayment
+    primary-key: [bank_id, payment_id]
     indexes:
+      - name: OutboundPayment_by_payment_id
+        added: 1
+        modified: 1
+        field: payment_id
+        unique: true
       - name: OutboundPayment_by_idempotency_key
         added: 1
         modified: 1
@@ -284,7 +290,7 @@ stores:
       - name: OutboundPayment_by_status_created_at
         added: 1
         modified: 1
-        fields: [payment_status, created_at]
+        fields: [status, created_at]
   internal-payments:
     record-type: InternalPayment
     primary-key: [bank_id, payment_id]

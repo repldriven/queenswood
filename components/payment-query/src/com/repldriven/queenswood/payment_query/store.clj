@@ -42,8 +42,11 @@
   (fdb/transact
    txn
    (fn [txn]
-     (some-> (fdb/load-record (fdb/open txn outbound-payments-store-name)
-                              payment-id)
+     (some-> (fdb/query-record (fdb/open txn outbound-payments-store-name)
+                               "OutboundPayment"
+                               "payment_id"
+                               payment-id
+                               {:index "OutboundPayment_by_payment_id"})
              schema/pb->OutboundPayment))
    :payment/get-outbound-payment
    "Failed to get outbound payment"))
@@ -53,10 +56,10 @@
   (fdb/transact
    txn
    (fn [txn]
-     (some->> (fdb/load-record (fdb/open txn outbound-payments-store-name)
-                               payment-id)
-              schema/pb->OutboundPayment
-              (in-bank bank-id)))
+     (some-> (fdb/load-record (fdb/open txn outbound-payments-store-name)
+                              bank-id
+                              payment-id)
+             schema/pb->OutboundPayment))
    :payment/find-outbound-payment
    "Failed to find outbound payment"))
 

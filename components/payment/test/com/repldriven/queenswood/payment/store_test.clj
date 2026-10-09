@@ -35,15 +35,17 @@
   [payment-id bank-id idempotency-key]
   {:payment-id payment-id
    :idempotency-key idempotency-key
-   :scheme "fps"
+   :scheme-type :scheme-type-fps
    :debtor-account-id "acc.debtor"
    :creditor-bban "12345678901234"
    :creditor-name "Acme Ltd"
    :currency "GBP"
    :amount 2500
-   :payment-status :outbound-payment-status-pending
+   :status :outbound-payment-status-pending
    :transaction-id "txn.outbound"
    :created-at (utility/now)
+   :created-by {:kind :actor-kind-member :principal-id "usr.payer"}
+   :updated-at (utility/now)
    :bank-id bank-id
    :business-day 20260101})
 
@@ -262,7 +264,7 @@
          outbound
          (fn [payment-id bank-id status created-at]
            (assoc (outbound-payment payment-id bank-id (str "idem-" payment-id))
-                  :payment-status status
+                  :status status
                   :created-at created-at))
          inbound (fn [payment-id bank-id status created-at]
                    (inbound-payment {:payment-id payment-id

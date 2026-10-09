@@ -31,11 +31,11 @@
           name))
 
 (def ^:private outbound-payment-failure-kind-enum
-  (coercion/enum-coercion {"declined" :outbound-payment-failure-kind-declined
-                           "refused" :outbound-payment-failure-kind-refused
+  (coercion/enum-coercion {"declined" :outbound-payment-failed-kind-declined
+                           "refused" :outbound-payment-failed-kind-refused
                            "undelivered"
-                           :outbound-payment-failure-kind-undelivered}
-                          :outbound-payment-failure-kind-unknown))
+                           :outbound-payment-failed-kind-undelivered}
+                          :outbound-payment-failed-kind-unknown))
 
 (def outbound-payment-failure-kind-enum-schema
   (:enum-schema outbound-payment-failure-kind-enum))

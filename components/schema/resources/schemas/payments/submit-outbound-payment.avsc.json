@@ -3,13 +3,66 @@
   "name": "SubmitOutboundPayment",
   "namespace": "com.repldriven.mono.payments",
   "fields": [
-    {"name": "bank_id",   "type": "string"},
-    {"name": "debtor_account_id", "type": "string"},
-    {"name": "creditor_bban",     "type": "string"},
-    {"name": "creditor_name",     "type": "string"},
-    {"name": "currency",          "type": "string"},
-    {"name": "amount",            "type": "long"},
-    {"name": "scheme",            "type": "string"},
-    {"name": "reference",         "type": ["null", "string"], "default": null}
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "debtor_account_id",
+      "type": "string"
+    },
+    {
+      "name": "creditor_bban",
+      "type": "string"
+    },
+    {
+      "name": "creditor_name",
+      "type": "string"
+    },
+    {
+      "name": "currency",
+      "type": "string"
+    },
+    {
+      "name": "amount",
+      "type": "long"
+    },
+    {
+      "name": "scheme",
+      "type": "string"
+    },
+    {
+      "name": "reference",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "actor",
+      "type": {
+        "type": "record",
+        "name": "ActorSpec",
+        "doc": "Who asked",
+        "fields": [
+          {
+            "name": "kind",
+            "type": {
+              "type": "enum",
+              "name": "ActorKind",
+              "symbols": [
+                "ACTOR_KIND_MEMBER",
+                "ACTOR_KIND_OPERATOR"
+              ]
+            }
+          },
+          {
+            "name": "principal_id",
+            "type": "string"
+          }
+        ]
+      }
+    }
   ]
 }

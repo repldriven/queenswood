@@ -80,28 +80,43 @@
        :reference
        reference))))
 
+(def ^:private scheme-types
+  "Each scheme's name, as a provider declares it and an adapter is told
+  it, by its `SchemeType`."
+  {:scheme-type-fps "fps"})
+
+(defn scheme-name
+  [scheme-type]
+  (scheme-types scheme-type))
+
+(defn- scheme-type
+  [scheme]
+  (some (fn [[scheme-type scheme-name]]
+          (when (= scheme scheme-name) scheme-type))
+        scheme-types))
+
 (defn new-outbound-payment
   [data business-day transaction-id]
   (let [{:keys [idempotency-key bank-id debtor-account-id
                 creditor-bban creditor-name scheme
-                currency amount reference]}
+                currency amount reference actor]}
         data
         now (utility/now)]
     (utility/assoc-some
-     {:payment-id (utility/generate-id "pmt")
-      :idempotency-key idempotency-key
-      :scheme scheme
-      :bank-id bank-id
-      :business-day business-day
+     {:bank-id bank-id
+      :payment-id (utility/generate-id "pmt")
+      :status :outbound-payment-status-pending
+      :scheme-type (scheme-type scheme)
       :debtor-account-id debtor-account-id
-      :creditor-bban creditor-bban
       :creditor-name creditor-name
-      :currency currency
+      :creditor-bban creditor-bban
       :amount amount
-      :payment-status :outbound-payment-status-pending
+      :currency currency
       :transaction-id transaction-id
+      :business-day business-day
+      :idempotency-key idempotency-key
       :created-at now
-      :updated-at now}
+      :created-by (select-keys actor [:kind :principal-id])}
      :reference
      reference)))
 
@@ -110,7 +125,7 @@
 
 (defn settleable-outbound?
   [payment]
-  (contains? settleable-outbound-statuses (:payment-status payment)))
+  (contains? settleable-outbound-statuses (:status payment)))
 
 (def ^:private reportable-outbound-statuses
   #{:outbound-payment-status-pending :outbound-payment-status-held})
@@ -123,55 +138,59 @@
     (into []
           (comp (filter (fn [payment]
                           (and (contains? reportable-outbound-statuses
-                                          (:payment-status payment))
+                                          (:status payment))
                                (> (age-ms payment) report-after-ms))))
                 (map (fn [payment]
                        {:payment-id (:payment-id payment)
                         :bank-id (:bank-id payment)
-                        :payment-status (:payment-status payment)
+                        :status (:status payment)
                         :age-ms (age-ms payment)})))
           payments)))
 
+(defn- moved
+  [payment status at-key]
+  (let [now (utility/now)]
+    (assoc payment
+           :status
+           status
+           at-key
+           now
+           :updated-at
+           now)))
+
 (defn completed-outbound-payment
   [payment]
-  (assoc payment
-         :payment-status :outbound-payment-status-completed
-         :updated-at (utility/now)))
+  (moved payment :outbound-payment-status-completed :completed-at))
 
 (defn held-outbound-payment
   [payment]
-  (assoc payment
-         :payment-status :outbound-payment-status-held
-         :updated-at (utility/now)))
+  (moved payment :outbound-payment-status-held :held-at))
 
-(def ^:private failure-kinds
-  {:failure-kind-declined :outbound-payment-failure-kind-declined
-   :failure-kind-refused :outbound-payment-failure-kind-refused
-   :failure-kind-undelivered :outbound-payment-failure-kind-undelivered})
+(def ^:private failed-kinds
+  {:failure-kind-declined :outbound-payment-failed-kind-declined
+   :failure-kind-refused :outbound-payment-failed-kind-refused
+   :failure-kind-undelivered :outbound-payment-failed-kind-undelivered})
 
 (defn failed-outbound-payment
   [payment rejection]
   (let [{:keys [failure-kind reason-code cancellation-reason]} rejection]
     (utility/assoc-some
-     (assoc payment
-            :payment-status :outbound-payment-status-failed
-            :failure-kind (get failure-kinds
-                               failure-kind
-                               :outbound-payment-failure-kind-declined)
-            :failure-reason-code (or reason-code "NARR")
-            :updated-at (utility/now))
-     :failure-reason
+     (assoc (moved payment :outbound-payment-status-failed :failed-at)
+            :failed-kind (get failed-kinds
+                              failure-kind
+                              :outbound-payment-failed-kind-declined)
+            :failed-reason-code (or reason-code "NARR"))
+     :failed-reason
      cancellation-reason)))
 
 (defn returned-outbound-payment
   [payment returned]
   (let [{:keys [reason-code reason]} returned]
     (utility/assoc-some
-     (assoc payment
-            :payment-status :outbound-payment-status-returned
-            :return-reason-code reason-code
-            :updated-at (utility/now))
-     :return-reason
+     (assoc (moved payment :outbound-payment-status-returned :returned-at)
+            :returned-reason-code
+            reason-code)
+     :returned-reason
      reason)))
 
 (defn outbound-settlement->transaction
