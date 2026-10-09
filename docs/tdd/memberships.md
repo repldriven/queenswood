@@ -231,10 +231,11 @@ it.
   `created_by`, keyed `[bank_id, member_id, role_change_id]`. A
   membership's role changes any number of times and the membership
   keeps only the latest, so each change is a record of its own.
-- **`Actor`** — a message the three share: kind (member or operator)
-  and the principal id, a user id for a member or an operator-realm
-  user, the client id for the admin client. Kind is the capacity the
-  person acted in; the id is who.
+- **`Actor`** — a message the three share: kind (member, bank or
+  operator) and the principal id, a user id for a member or an
+  operator-realm user, the bank's id for a call with its credential,
+  the client id for the admin client. Kind is the capacity the caller
+  acted in; the id is who.
 
 The access history the PRD's "What is recorded" reads is built on read
 from these records and the `Bank`'s own `created_at` and `created_by`,

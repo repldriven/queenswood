@@ -8,9 +8,11 @@ enum ActorKind {
   ACTOR_KIND_UNKNOWN = 0;
   ACTOR_KIND_MEMBER = 1;
   ACTOR_KIND_OPERATOR = 2;
+  ACTOR_KIND_BANK = 3;
 }
 
-// Who did something: a member of the bank, or an operator acting on it.
+// Who did something: a member of the bank, the bank through its
+// credential, or an operator acting on it.
 message Actor {
   required ActorKind kind = 1;
   required string principal_id = 2;

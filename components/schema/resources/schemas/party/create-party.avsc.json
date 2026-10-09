@@ -52,7 +52,8 @@
               "name": "ActorKind",
               "symbols": [
                 "ACTOR_KIND_MEMBER",
-                "ACTOR_KIND_OPERATOR"
+                "ACTOR_KIND_OPERATOR",
+                "ACTOR_KIND_BANK"
               ]
             }
           },

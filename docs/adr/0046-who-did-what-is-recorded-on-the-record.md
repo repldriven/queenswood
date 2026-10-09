@@ -58,7 +58,9 @@ The decision has these parts:
   its own.
 - Build the caller's actor in one place in the API, from the request's
   authentication, and pass it to the domain rather than having the
-  domain look it up.
+  domain look it up: a member for a person at the customer, the bank
+  for a call with the bank's credential, and an operator for anyone
+  acting as the platform.
 - Keep a record's history, where it needs one, on its store's
   changelog, and carry the actor on the changelog envelope when that
   history is built.
