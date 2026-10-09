@@ -61,3 +61,11 @@
   (components-registry [#'PolicyId #'PolicyCategory #'Capability #'Limit
                         #'Policy #'PolicyList #'Origin #'EffectiveCapability
                         #'EffectiveLimit #'EffectivePolicy]))
+
+(defn ->body
+  [policy]
+  (let [{:keys [status created-at updated-at]} policy]
+    (-> policy
+        (dissoc :status :archived-at)
+        (assoc :enabled (= :policy-status-active status)
+               :updated-at (or updated-at created-at)))))

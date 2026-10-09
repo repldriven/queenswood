@@ -16,7 +16,7 @@
   "Single allow-everything policy — an empty fields map in the oneof
   variant matches every request because the matcher only constrains
   on set fields."
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:kind {:bank {}} :effect :effect-allow}
                    {:kind {:idv {}} :effect :effect-allow}]}])
 
@@ -28,7 +28,7 @@
 (def ^:private address-tier-policies
   "A tier requiring a person's address to be verified."
   [{:policy-id "pol.address"
-    :enabled true
+    :status :policy-status-active
     :capabilities [{:kind {:idv {:action :idv-action-accept
                                  :filters [{:party-type :party-type-person
                                             :unverified

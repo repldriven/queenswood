@@ -22,7 +22,7 @@
 (def ^:private test-bank-id "bnk_party_retry_test")
 
 (def ^:private allow-create
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:effect :effect-allow
                     :kind {:party {:action :party-action-create}}}]}])
 

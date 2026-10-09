@@ -17,7 +17,7 @@
   "Single allow-everything policy. The `:kind` is a oneof map, and an
   empty fields map matches every request because the matcher only
   constrains on set fields."
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:kind {:webhook-endpoint {}} :effect :effect-allow}]}])
 
 (def ^:private public-address ["93.184.216.34"])

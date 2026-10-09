@@ -123,7 +123,7 @@
   (testing "a criterion no deny requires does not hold it up"
     (is (= :idv-status-accepted
            (:status (decide {:document document :liveness passed}
-                            [{:enabled true
+                            [{:status :policy-status-active
                               :capabilities
                               [{:effect :effect-allow
                                 :kind {:idv {:action

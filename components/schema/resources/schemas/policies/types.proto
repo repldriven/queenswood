@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.policies;
+
+option java_outer_classname = "PolicyTypesProto";
+
+enum PolicyCategory {
+  POLICY_CATEGORY_UNKNOWN = 0;
+  POLICY_CATEGORY_STANDARD = 1;
+  POLICY_CATEGORY_RESTRICTED = 2;
+  POLICY_CATEGORY_EMERGENCY = 3;
+}

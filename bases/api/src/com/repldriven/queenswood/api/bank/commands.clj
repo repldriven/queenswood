@@ -216,7 +216,9 @@
                               request
                               "change-bank-tier"
                               "bank"
-                              {:bank-id bank-id :tier tier})]
+                              {:bank-id bank-id
+                               :tier tier
+                               :actor (shared.actor/actor auth)})]
     (if (not= 200 (:status result))
       result
       (let [txn {:record-db record-db :record-store record-store}

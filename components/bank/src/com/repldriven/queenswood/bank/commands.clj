@@ -63,13 +63,14 @@
 
 (defn- change-bank-tier
   [config data]
-  (let [{:keys [bank-id tier]} data
+  (let [{:keys [bank-id tier actor]} data
         result (core/change-tier config
                                  bank-id
                                  tier
                                  {:idv-providers (get-in config
                                                          [:providers
-                                                          :idv])})]
+                                                          :idv])
+                                  :actor actor})]
     (if (error/anomaly? result)
       result
       (->response config {:bank result}))))

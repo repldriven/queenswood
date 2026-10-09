@@ -2,9 +2,9 @@
 policy-id: pol.00000000000000000000000005
 name: Perf tier policy
 description: Perf tier - load-test banks, bound by the platform policy alone
-enabled: true
 labels: !strs
   tier: perf
 category: !keyword policy-category-restricted
+status: !keyword policy-status-active
 capabilities: []
 limits: []

@@ -670,7 +670,7 @@
    [sys "classpath:ledger-account/application-test.yml"]
    (let [config (fdb-config sys)
          bank-id "bnk.test-close-denied"
-         deny-policy {:enabled true
+         deny-policy {:status :policy-status-active
                       :capabilities [{:effect :effect-deny
                                       :reason "Test deny"
                                       :kind {:ledger-account

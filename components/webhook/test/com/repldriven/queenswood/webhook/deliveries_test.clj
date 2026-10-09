@@ -28,7 +28,7 @@
 (def ^:private config-file "classpath:webhook/application-test.yml")
 
 (def ^:private allow-manage
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:effect :effect-allow :kind {:webhook-endpoint {}}}]}])
 
 (def ^:private opts {:policies allow-manage})

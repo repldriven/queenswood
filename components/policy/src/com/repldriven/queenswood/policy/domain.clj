@@ -4,13 +4,10 @@
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn live?
-  "Whether a policy participates in evaluation. `:enabled` is the
-  reversible pause; `:status` is the lifecycle — an archived policy is
-  permanently out of evaluation. An unset/`:policy-status-unknown`
-  status counts as active."
+  "Whether a policy participates in evaluation: only an active one does,
+  a disabled one being paused and an archived one retired."
   [policy]
-  (and (:enabled policy)
-       (not= :policy-status-archived (:status policy))))
+  (= :policy-status-active (:status policy)))
 
 (defn new-policy
   [data]
@@ -20,11 +17,13 @@
                 capabilities
                 limits
                 description
-                enabled
+                status
                 labels]
-         :or {capabilities [] limits [] enabled true labels {}}}
-        data
-        now (utility/now)]
+         :or {capabilities []
+              limits []
+              status :policy-status-active
+              labels {}}}
+        data]
     ;; A supplied :policy-id makes the resulting save idempotent --
     ;; seed data (e.g. the bootstrap-service's platform / micro
     ;; restricted policies loaded from YAML) carries a stable id so
@@ -38,10 +37,8 @@
       :capabilities capabilities
       :limits limits
       :labels labels
-      :enabled enabled
-      :status :policy-status-active
-      :created-at now
-      :updated-at now}
+      :status status
+      :created-at (utility/now)}
      :description
      description)))
 
@@ -55,18 +52,20 @@
                   {:message "Cannot archive a policy that is still bound"
                    :policy-id (:policy-id policy)
                    :binding-count (count bindings)})
-    (assoc policy
-           :status :policy-status-archived
-           :updated-at (utility/now))))
+    (let [now (utility/now)]
+      (assoc policy
+             :status :policy-status-archived
+             :archived-at now
+             :updated-at now))))
 
 (defn new-binding
   [data]
-  (let [{:keys [policy-id target reason]} data
-        now (utility/now)]
+  (let [{:keys [policy-id target reason actor]} data]
     (utility/assoc-some
      {:binding-id (utility/generate-id "bnd")
       :policy-id policy-id
       :target target
-      :created-at now}
+      :created-at (utility/now)
+      :created-by (select-keys actor [:kind :principal-id])}
      :reason
      reason)))

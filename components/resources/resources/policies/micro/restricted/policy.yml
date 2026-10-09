@@ -2,10 +2,10 @@
 policy-id: pol.00000000000000000000000002
 name: Micro tier policy
 description: Micro tier policy - capabilities and limits
-enabled: true
 labels: !strs
   tier: micro
 category: !keyword policy-category-restricted
+status: !keyword policy-status-active
 capabilities: !concat
   - !include policies/micro/restricted/capabilities/banks.yml
   - !include policies/micro/restricted/capabilities/ledger-accounts.yml

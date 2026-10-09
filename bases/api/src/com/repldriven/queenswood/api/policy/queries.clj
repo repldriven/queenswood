@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
+    [com.repldriven.queenswood.policy-api.interface :as policy-api]
     [com.repldriven.queenswood.policy.interface :as policies]
 
     [com.repldriven.mono.error.interface :as error]))
@@ -16,7 +17,10 @@
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200
-       :body (cursor/page-body "/v1/policies" page (:items result) result)})))
+       :body (cursor/page-body "/v1/policies"
+                               page
+                               (mapv policy-api/->body (:items result))
+                               result)})))
 
 (defn list-bank-policies
   "The policies effective for the bank the request names — the always-on
@@ -28,7 +32,7 @@
         result (policies/get-effective-policies config {:bank-id bank-id})]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body {:items result}})))
+      {:status 200 :body {:items (mapv policy-api/->body result)}})))
 
 (defn get-effective-policy
   "The bank's effective policies collapsed into the resolved decision
@@ -53,4 +57,4 @@
         result (policies/get-policy config policy-id)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body result})))
+      {:status 200 :body (policy-api/->body result)})))

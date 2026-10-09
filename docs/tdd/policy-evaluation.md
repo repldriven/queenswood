@@ -55,7 +55,7 @@ of design work) replaced tiers with **policies and bindings**,
 both first-class records:
 
 - Rules are **data** — stored, listable, edit-able, pausable
-  via `:enabled`. You can answer "what rules apply here?" by
+  through `:status`. You can answer "what rules apply here?" by
   loading effective policies.
 - Rules are **centralised** — domains call
   `check-capability` and `check-limit`; they do not implement
@@ -97,8 +97,9 @@ contract stays uniform.
 **Policy** — a unit of rules:
 
 - `:policy-id`
-- `:enabled` — boolean. Disabled policies are skipped during
-  evaluation.
+- `:status` — active, disabled or archived. Only an active
+  policy is evaluated: a disabled one is paused, an archived
+  one retired.
 - `:capabilities` — list of capability rules.
 - `:limits` — list of limit rules.
 - `:labels` — keyword-keyed labels (e.g.
@@ -158,7 +159,7 @@ non-matches.
 ```clojure
 (check matching-rules-only)
 ;;
-;; matching = enabled-policies → :capabilities
+;; matching = active-policies → :capabilities
 ;;          → filter (matches? c kind request)
 ;;
 ;; if any deny in matching → :unauthorized/policy-denied
@@ -184,7 +185,7 @@ The request shape:
 
 The decision rule:
 
-- For each enabled policy's matching limit (kind + filters):
+- For each active policy's matching limit (kind + filters):
   - Evaluate each side of the bound (`:max`, `:min`, or both
     sides of `:range`) against the request's aggregate.
   - The bound's aggregate must match the request's
@@ -271,7 +272,7 @@ settlement and on the release of a hold alike. See
 - **Visible.** A list of policies is a list of rules. You
   can answer "what rules govern outbound transfers?" by
   filtering the policy set.
-- **Editable.** Pause a policy with `:enabled false`. Edit
+- **Editable.** Pause a policy by disabling it. Edit
   a limit value. No code change, no redeploy.
 - **Composable.** Multiple policies stack via bindings.
   Adding a constraint is adding a policy + binding.

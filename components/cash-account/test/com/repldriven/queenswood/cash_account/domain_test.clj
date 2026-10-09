@@ -23,7 +23,7 @@
 
 (defn- policy-allowing
   [& actions]
-  {:enabled true
+  {:status :policy-status-active
    :capabilities (mapv (fn [action]
                          {:effect :effect-allow
                           :kind {:cash-account {:action action}}})

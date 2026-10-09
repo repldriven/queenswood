@@ -33,7 +33,7 @@
    :record-store (system/instance sys [:fdb :store])})
 
 (def ^:private allow-rotate
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:effect :effect-allow
                     :kind {:cash-account
                            {:action :cash-account-action-rotate-address}}}]}])

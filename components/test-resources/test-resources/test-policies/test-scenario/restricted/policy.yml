@@ -9,7 +9,7 @@
 policy-id: pol.00000000000000000000000003
 name: Test-scenario policy
 description: Test-scenario tier - test-owned; relies on the platform baseline
-enabled: true
+status: !keyword policy-status-active
 labels: !strs
   tier: test-scenario
 category: !keyword policy-category-restricted

@@ -10,7 +10,7 @@
   "One policy with a single `kind` amount max limit of `value` minor
   units in `currency` over `window`."
   [kind value currency window]
-  [{:enabled true
+  [{:status :policy-status-active
     :limits [{:kind {kind {}}
               :bound {:kind {:max {:aggregate
                                    {:kind {:amount
@@ -60,7 +60,7 @@
   and a daily cap on previews. One kind, told apart by action — the
   same shape interest uses for accrue and capitalize."
   [commit-cap preview-cap]
-  [{:enabled true
+  [{:status :policy-status-active
     :limits
     [{:kind {:cash-account-migration
              {:filters [{:action :cash-account-migration-action-commit}]}}
@@ -122,7 +122,7 @@
   the store: proto2 has filled the two terms the seed left unset with
   their zero values."
   []
-  [{:enabled true
+  [{:status :policy-status-active
     :limits [{:kind {:cash-account
                      {:filters [{:product-type
                                  :product-type-sub-ledger-term-deposit
@@ -179,7 +179,7 @@
 (def ^:private available-floor
   "The platform's floor on available balance, for the transfers it
   names."
-  [{:enabled true
+  [{:status :policy-status-active
     :limits
     [{:kind {:balance {:filters [{:kind {:computed {:name "available"}}
                                   :transaction-type

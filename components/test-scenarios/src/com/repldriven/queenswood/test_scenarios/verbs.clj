@@ -819,11 +819,12 @@
         result (let [created (policy/new-policy bank policy-data)]
                  (if (error/anomaly? created)
                    created
-                   (policy/new-binding
-                    bank
-                    {:policy-id (:policy-id created)
-                     :target {:kind {:bank {:bank-id bank-real-id}}}
-                     :reason "scenario-bound test policy"})))]
+                   (policy/new-binding bank
+                                       {:policy-id (:policy-id created)
+                                        :target {:kind {:bank {:bank-id
+                                                               bank-real-id}}}
+                                        :reason "scenario-bound test policy"
+                                        :actor scenario-operator})))]
     (track ctx result)))
 
 ;; Closes a bank's own ledger account, which no route or command does, so

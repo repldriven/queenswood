@@ -35,7 +35,7 @@
 
 (def ^:private allow-manage
   "Capability without limits, for the tests that are not about the cap."
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:effect :effect-allow :kind {:webhook-endpoint {}}}]}])
 
 (def ^:private tenant-address

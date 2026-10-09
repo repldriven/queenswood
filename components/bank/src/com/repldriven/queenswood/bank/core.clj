@@ -111,12 +111,13 @@
           currencies))
 
 (defn- bind-policies
-  [txn bank-id policies]
+  [txn bank-id policies actor]
   (reduce (fn [_ {:keys [policy-id]}]
             (let [result (policy/new-binding
                           txn
                           {:policy-id policy-id
-                           :target {:kind {:bank {:bank-id bank-id}}}})]
+                           :target {:kind {:bank {:bank-id bank-id}}}
+                           :actor actor})]
               (if (error/anomaly? result) (reduced result) nil)))
           nil
           policies))
@@ -238,7 +239,7 @@
                              policies
                              payment-provider
                              actor)
-       _ (bind-policies txn bank-id tier-policies)
+       _ (bind-policies txn bank-id tier-policies actor)
        _ (scheduler/seed-jobs txn bank-id)
        owner (when member
                (members/new-member txn
@@ -316,7 +317,7 @@
                                     policies
                                     declaration)
         _ (unbind-tier-policies txn bank-id)
-        _ (bind-policies txn bank-id new-tier-policies)
+        _ (bind-policies txn bank-id new-tier-policies (:actor opts))
         entry (changelog/tier-changed {:bank-id bank-id
                                        :tier-before (:tier bank)
                                        :tier-after tier})

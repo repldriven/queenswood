@@ -44,6 +44,7 @@ import "schemas/payments/internal-payment.proto";
 import "schemas/payments/outbound-payment.proto";
 import "schemas/payments/payment-provider-transfer.proto";
 import "schemas/policies/policy.proto";
+import "schemas/policies/policy-binding.proto";
 import "schemas/rewards/reward.proto";
 import "schemas/transactions/transaction.proto";
 import "schemas/users/user.proto";

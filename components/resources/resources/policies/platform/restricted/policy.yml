@@ -6,10 +6,10 @@
 policy-id: pol.00000000000000000000000001
 name: Platform policy
 description: Platform policy - all capabilities and safety limits
-enabled: true
 labels: !strs
   tier: platform
 category: !keyword policy-category-restricted
+status: !keyword policy-status-active
 capabilities: !concat
   - !include policies/platform/restricted/capabilities/balances.yml
   - !include policies/platform/restricted/capabilities/cash-account-products.yml

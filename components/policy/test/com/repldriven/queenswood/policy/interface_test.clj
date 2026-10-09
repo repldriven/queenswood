@@ -18,9 +18,12 @@
   {:record-db (system/instance sys [:fdb :record-db])
    :record-store (system/instance sys [:fdb :store])})
 
+(def ^:private operator
+  {:kind :actor-kind-operator :principal-id "queenswood-admin"})
+
 (defn- policy
-  [capabilities & {:keys [enabled] :or {enabled true}}]
-  {:enabled enabled
+  [capabilities & {:keys [status] :or {status :policy-status-active}}]
+  {:status status
    :capabilities capabilities})
 
 (defn- allow
@@ -126,8 +129,8 @@
   (testing "disabled policy is ignored"
     (let [policies [(policy [(allow {:organization
                                      {:action :organization-action-create}})]
-                            :enabled
-                            false)]
+                            :status
+                            :policy-status-disabled)]
           result (SUT/check-capability policies
                                        :organization
                                        {:action :organization-action-create})]
@@ -181,8 +184,8 @@
                                         :idv-verification-address}))))))
 
 (defn- limit-policy
-  [limits & {:keys [enabled] :or {enabled true}}]
-  {:enabled enabled :limits limits})
+  [limits & {:keys [status] :or {status :policy-status-active}}]
+  {:status status :limits limits})
 
 (defn- limit
   ([kind bound] (limit kind bound nil))
@@ -286,8 +289,8 @@
     (let [policies [(limit-policy [(limit
                                     {:internal-payment {}}
                                     (max-bound :count 5 :time-window-instant))]
-                                  :enabled
-                                  false)]]
+                                  :status
+                                  :policy-status-disabled)]]
       (is (true? (SUT/check-limit policies
                                   :internal-payment
                                   {:aggregate :count
@@ -500,7 +503,7 @@
        (nom-test> [{:keys [policy-id]} (SUT/new-policy
                                         config
                                         {:name "Roundtrip"
-                                         :enabled true
+                                         :status :policy-status-active
                                          :category :policy-category-standard
                                          :capabilities []
                                          :limits []
@@ -518,7 +521,7 @@
                    (SUT/new-policy
                     config
                     {:name "Idv criteria"
-                     :enabled true
+                     :status :policy-status-active
                      :category :policy-category-standard
                      :capabilities
                      [(allow {:idv {:action :idv-action-accept}})
@@ -569,22 +572,19 @@
                    _ (is (= "Platform policy" (:name p)))
                    _ (is (= "platform" (get-in p [:labels "tier"])))])))))
 
-;; Pure evaluation-exclusion: `live?` gates archived policies out of the
-;; capability/limit matchers, the same way `:enabled false` does. In-memory
-;; policy maps (no persistence) — mirrors the other check-* tests.
 (deftest archived-policy-excluded-from-evaluation-test
   (let [cap (allow {:organization {:action :organization-action-create}})
         req {:action :organization-action-create}
-        with-status (fn [status]
-                      {:enabled true :status status :capabilities [cap]})]
+        with-status (fn [status] {:status status :capabilities [cap]})]
     (testing "an active policy's capability is in effect"
       (is (true? (SUT/check-capability [(with-status :policy-status-active)]
                                        :organization
                                        req))))
-    (testing "a policy with no status set is treated as active"
-      (is (true? (SUT/check-capability [{:enabled true :capabilities [cap]}]
-                                       :organization
-                                       req))))
+    (testing "a disabled policy contributes no capability"
+      (is (error/unauthorized? (SUT/check-capability [(with-status
+                                                       :policy-status-disabled)]
+                                                     :organization
+                                                     req))))
     (testing "an archived policy contributes no capability"
       (is (error/unauthorized? (SUT/check-capability [(with-status
                                                        :policy-status-archived)]
@@ -595,7 +595,7 @@
   [config]
   (SUT/new-policy config
                   {:name "Lifecycle"
-                   :enabled true
+                   :status :policy-status-active
                    :category :policy-category-standard
                    :capabilities []
                    :limits []
@@ -621,8 +621,9 @@
      (testing "archiving a bound policy is rejected and leaves it active"
        (let [created (new-policy! config)
              policy-id (:policy-id created)
-             _ (SUT/new-binding config
-                                {:policy-id policy-id :target a-bank-target})
+             _ (SUT/new-binding
+                config
+                {:policy-id policy-id :target a-bank-target :actor operator})
              result (SUT/archive-policy config policy-id)
              loaded (SUT/get-policy config policy-id)]
          (is (error/anomaly? result))
@@ -635,7 +636,8 @@
              _ (SUT/archive-policy config policy-id)
              result (SUT/new-binding config
                                      {:policy-id policy-id
-                                      :target a-bank-target})]
+                                      :target a-bank-target
+                                      :actor operator})]
          (is (error/anomaly? result))
          (is (= :policy/archived (error/kind result))))))))
 
@@ -648,7 +650,8 @@
                    policy-id (:policy-id created)
                    binding (SUT/new-binding config
                                             {:policy-id policy-id
-                                             :target a-bank-target})
+                                             :target a-bank-target
+                                             :actor operator})
                    binding-id (:binding-id binding)
                    removed (SUT/remove-binding config binding-id)
                    _ (is (= binding-id (:binding-id removed)))
@@ -664,7 +667,8 @@
                    policy-id (:policy-id created)
                    binding (SUT/new-binding config
                                             {:policy-id policy-id
-                                             :target a-bank-target})
+                                             :target a-bank-target
+                                             :actor operator})
                    _ (let [blocked (SUT/archive-policy config policy-id)]
                        (is (error/anomaly? blocked))
                        (is (= :policy/still-bound (error/kind blocked))
@@ -705,7 +709,7 @@
                  {:keys [policy-id]} (SUT/new-policy
                                       config
                                       {:name "Cached tier"
-                                       :enabled true
+                                       :status :policy-status-active
                                        :category :policy-category-standard
                                        :capabilities []
                                        :limits []
@@ -714,7 +718,8 @@
                  (SUT/new-binding config
                                   {:policy-id policy-id
                                    :target {:kind {:bank {:bank-id bank-id}}}
-                                   :reason "cache test"})
+                                   :reason "cache test"
+                                   :actor operator})
                  bound (cached)
                  _ (is (= #{policy-id} (bound-ids bound))
                        "a binding takes effect in the next read")

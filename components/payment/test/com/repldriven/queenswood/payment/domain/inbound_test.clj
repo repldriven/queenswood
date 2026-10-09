@@ -98,7 +98,7 @@
 
 (defn- inbound-count-capped
   [cap]
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:effect :effect-allow
                     :kind {:inbound-payment
                            {:action :inbound-payment-action-receive}}}]

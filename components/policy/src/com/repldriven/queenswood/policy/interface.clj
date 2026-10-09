@@ -22,7 +22,7 @@
 (defn archive-policy
   "Archive a policy — a terminal lifecycle state that excludes it from
   evaluation and blocks new bindings, distinct from the reversible
-  `:enabled` pause. Rejects `:policy/still-bound` when the policy still
+  `:policy-status-disabled` pause. Rejects `:policy/still-bound` when the policy still
   has bindings (the operator unbinds first). Returns the archived
   policy map or an anomaly.
 
@@ -61,8 +61,8 @@
 
   Args:
   - config: FDB config map.
-  - data: input binding data — `:policy-id`, `:target`, optional
-    `:reason`."
+  - data: input binding data — `:policy-id`, `:target`, the `:actor`
+    binding it, and an optional `:reason`."
   [config data]
   (core/new-binding config data))
 

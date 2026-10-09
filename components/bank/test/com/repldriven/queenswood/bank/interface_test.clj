@@ -341,7 +341,7 @@
         _ (SUT/change-tier config
                            bank-id
                            "test-scenario"
-                           {:idv-providers (:idv providers)})
+                           {:idv-providers (:idv providers) :actor operator})
         ;; `:deduplicate? false` matters: the default keeps only
         ;; the latest entry per record id, which would collapse
         ;; both writes on this one bank into one.

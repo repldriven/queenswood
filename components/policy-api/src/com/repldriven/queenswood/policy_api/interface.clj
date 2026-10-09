@@ -20,6 +20,16 @@
   registry
   components/registry)
 
+(defn ->body
+  "Project a stored policy onto the keys `Policy` publishes: `enabled`
+  where it is active, and its creation time as `updated-at` where it
+  has never changed.
+
+  Args:
+  - policy: a policy as `policy` hands it back."
+  [policy]
+  (components/->body policy))
+
 ;; ---
 ;; examples
 ;; ---

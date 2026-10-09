@@ -3,7 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.idv;
 
 import "record_metadata_options.proto";
-import "schemas/policies/policy.proto";
+import "schemas/policies/capability.proto";
 
 option java_outer_classname = "IdvProto";
 

@@ -27,7 +27,7 @@
   reach a downstream check pass this in. The `:kind` is a oneof
   map (variant → fields), and an empty fields map matches every
   request because the matcher only constrains on set fields."
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:kind {:cash-account-product {}} :effect :effect-allow}]}])
 
 (def ^:private template

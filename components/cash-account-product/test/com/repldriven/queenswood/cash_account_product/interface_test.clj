@@ -44,7 +44,7 @@
 (def ^:private allow-draft
   "Capability without limits — the tests that are not about the cap
   reach the write without a policy read against the store."
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:effect :effect-allow
                     :kind {:cash-account-product
                            {:action :cash-account-product-action-draft}}}]}])
@@ -289,7 +289,9 @@
         _ (is (= 1 (count micro)))
         _ (policy/new-binding config
                               {:policy-id (:policy-id (first micro))
-                               :target {:kind {:bank {:bank-id bank-id}}}})
+                               :target {:kind {:bank {:bank-id bank-id}}}
+                               :actor {:kind :actor-kind-operator
+                                       :principal-id "queenswood-admin"}})
         results (with-redefs [q/count-by-org-product-type
                               gated-count-by-org-product-type]
                   (let [left (racing-create "Current A")

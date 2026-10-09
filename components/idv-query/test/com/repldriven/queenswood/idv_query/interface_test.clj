@@ -34,7 +34,7 @@
                "pep"}
              (set (keys by-name)))))
     (testing "a criterion nothing requires and nothing settled is left out"
-      (let [allow-only [{:enabled true
+      (let [allow-only [{:status :policy-status-active
                          :capabilities [{:effect :effect-allow
                                          :kind {:idv {:action
                                                       :idv-action-accept}}}]}]]

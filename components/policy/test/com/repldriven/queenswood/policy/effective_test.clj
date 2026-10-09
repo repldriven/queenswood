@@ -6,11 +6,11 @@
 
 (defn- policy
   [tier id name &
-   {:keys [capabilities limits enabled]
-    :or {capabilities [] limits [] enabled true}}]
+   {:keys [capabilities limits status]
+    :or {capabilities [] limits [] status :policy-status-active}}]
   {:policy-id id
    :name name
-   :enabled enabled
+   :status status
    :labels {"tier" tier}
    :capabilities capabilities
    :limits limits})
@@ -61,7 +61,7 @@
   (testing "a disabled policy contributes nothing"
     (let [policies [(policy "micro"
                             "pol.micro" "Micro"
-                            :enabled false
+                            :status :policy-status-disabled
                             :capabilities
                             [(cap :effect-deny :bank :bank-action-create)])]
           {:keys [capabilities]} (SUT/resolve-effective policies)]

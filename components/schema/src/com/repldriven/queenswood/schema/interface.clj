@@ -86,7 +86,7 @@
      OnfidoOutboundIntentProto$OnfidoOutboundIntent)
     (com.repldriven.queenswood.schemas.policies
      PolicyProto$Policy
-     PolicyProto$PolicyBinding)
+     PolicyBindingProto$PolicyBinding)
     (com.repldriven.queenswood.schemas.rewards RewardProto$Reward)
     (com.repldriven.queenswood.schemas.transactions
      TransactionProto$Transaction
@@ -1198,8 +1198,16 @@
   (PaymentProviderTransferProto$PaymentProviderTransfer/parseFrom
    (PaymentProviderTransfer->pb m)))
 
-(def ^{:doc "Parse Policy protobuf bytes into a Clojure map."} pb->Policy
-  policies/pb->Policy)
+(def ^:private policy-unset {:description "" :archived-at 0 :updated-at 0})
+
+(defn pb->Policy
+  "Parse Policy protobuf bytes into a Clojure map, a `description`,
+  `archived-at` and `updated-at` present only when set.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset (policies/pb->Policy input) policy-unset))
 
 (defn Policy->pb
   "Serialise a Policy map to protobuf bytes.
@@ -1217,10 +1225,16 @@
   [m]
   (PolicyProto$Policy/parseFrom (Policy->pb m)))
 
-(def ^{:doc "Parse PolicyBinding protobuf bytes into a Clojure
-  map."}
-     pb->PolicyBinding
-  policies/pb->PolicyBinding)
+(defn pb->PolicyBinding
+  "Parse PolicyBinding protobuf bytes into a Clojure map, a `reason`
+  present only when set and `created-by` a plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (policies/pb->PolicyBinding input)
+      (without-unset {:reason ""})
+      (plain-embedded :created-by)))
 
 (defn PolicyBinding->pb
   "Serialise a PolicyBinding map to protobuf bytes.
@@ -1237,7 +1251,7 @@
   Args:
   - m: PolicyBinding map matching the generated schema."
   [m]
-  (PolicyProto$PolicyBinding/parseFrom (PolicyBinding->pb m)))
+  (PolicyBindingProto$PolicyBinding/parseFrom (PolicyBinding->pb m)))
 
 (def ^{:doc "Parse User protobuf bytes into a Clojure map."} pb->User
   users/pb->User)

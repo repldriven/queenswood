@@ -42,7 +42,7 @@
 
 (def ^:private accrual-limit-policies
   "One platform policy: at most one accrual run per org per day."
-  [{:enabled true
+  [{:status :policy-status-active
     :limits [{:kind {:interest {:filters [{:action :interest-action-accrue}]}}
               :bound {:kind {:max {:aggregate {:kind {:count
                                                       {:value 1
