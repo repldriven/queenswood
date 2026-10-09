@@ -25,7 +25,7 @@
    :kind :reward-kind-opening
    :amount 5000
    :currency "GBP"
-   :status :reward-status-paid
+   :status :account-reward-status-paid
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
    :paid-at 1700000000000
    :created-at 1700000000000

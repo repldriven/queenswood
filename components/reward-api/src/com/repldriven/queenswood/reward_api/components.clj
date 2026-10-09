@@ -8,7 +8,9 @@
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]
     [com.repldriven.queenswood.transaction-api.interface :as
-     transaction-api]))
+     transaction-api]
+
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (def RewardId (schema/id-schema "RewardId" "rwd" examples/RewardId))
 
@@ -23,7 +25,7 @@
    [:reward-id [:ref "RewardId"]]
    [:bank-id [:ref "BankId"]]
    [:account-id [:ref "CashAccountId"]]
-   [:party-id [:ref "PartyId"]]
+   [:party-id {:optional true} [:maybe [:ref "PartyId"]]]
    [:product-id [:ref "ProductId"]]
    [:version-id [:ref "VersionId"]]
    [:kind [:ref "RewardKind"]]
@@ -52,7 +54,13 @@
 
 (defn ->body
   [reward]
-  (select-keys reward reward-keys))
+  (let [{:keys [deferred-reason created-at updated-at]} reward]
+    (utility/assoc-some (select-keys (assoc reward
+                                            :updated-at
+                                            (or updated-at created-at))
+                                     reward-keys)
+                        :error
+                        deferred-reason)))
 
 (def ^:private wire-registry
   "What the wire encoder resolves a `$ref` against: the shared schemas,

@@ -648,7 +648,7 @@
 
 (def ^:private rewards-store
   "Must match `reward.store`'s store name."
-  "rewards")
+  "account-rewards")
 
 (defn- reward
   "A reward as `reward.store` leaves it once paid."
@@ -657,25 +657,22 @@
     {:bank-id bank-id
      :reward-id reward-id
      :account-id "acc.events.rewarded"
-     :party-id "pty.events"
      :product-id "prd.events"
      :version-id "prv.events"
      :kind :reward-kind-opening
      :amount 5000
      :currency "GBP"
-     :status :reward-status-paid
+     :status :account-reward-status-paid
      :transaction-id "txn.events.reward"
-     :run-id "run.events"
      :paid-at now
-     :created-at now
-     :updated-at now}))
+     :created-at now}))
 
 (defn- seed-reward
   [config reward]
   (fdb/transact config
                 (fn [txn]
                   (fdb/save-record (fdb/open txn rewards-store)
-                                   (schema/Reward->java reward))
+                                   (schema/AccountReward->java reward))
                   nil)
                 :test/seed
                 "Failed to seed the reward"))
@@ -721,18 +718,19 @@
                             :reward-id reward-id
                             :change-kind :reward-change-kind-defer
                             :status-before nil
-                            :status-after :reward-status-due})
+                            :status-after :account-reward-status-deferred})
                  _ (is (not (error/anomaly? (consume sys deferred))))
                  none (notifications config bank-id)
                  _ (testing "a defer is acknowledged and writes nothing"
                      (is (empty? none)))
-                 paid (reward-envelope sys
-                                       {:event-id (str "evt.reward.pay." suffix)
-                                        :bank-id bank-id
-                                        :reward-id reward-id
-                                        :change-kind :reward-change-kind-pay
-                                        :status-before :reward-status-due
-                                        :status-after :reward-status-paid})
+                 paid (reward-envelope
+                       sys
+                       {:event-id (str "evt.reward.pay." suffix)
+                        :bank-id bank-id
+                        :reward-id reward-id
+                        :change-kind :reward-change-kind-pay
+                        :status-before :account-reward-status-deferred
+                        :status-after :account-reward-status-paid})
                  _ (is (not (error/anomaly? (consume sys paid))))
                  written (notifications config bank-id)
                  _ (is (= 1 (count written)))

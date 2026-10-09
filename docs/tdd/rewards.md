@@ -132,16 +132,17 @@ published version with a one-month window.
 
 ### The record
 
-A `Reward` is what was paid, or is due, to one account, in a new
-`rewards` store:
+An `AccountReward` is what was paid, or is owed, to one account, in a
+new `account-rewards` store:
 
-- `bank_id`, `reward_id` (`rwd.` prefix), `account_id`, `party_id`,
-  `product_id`, `version_id`, `kind` (`REWARD_KIND_OPENING`),
-  `amount`, `currency`, `status` (`DUE`, `PAID`), `transaction_id`,
-  `error`, `created_at`, `updated_at`, `paid_at`, and `run_id`,
-  deprecated, since a reward is paid by no run.
-- Primary key `[bank_id, reward_id]`; index `Reward_by_bank_account` on
-  `[bank_id, account_id, kind]`, which is the once-only check.
+- `bank_id`, `reward_id` (`rwd.` prefix), `status` (`DEFERRED`,
+  `PAID`), `kind` (`REWARD_KIND_OPENING`), `account_id`, `product_id`,
+  `version_id`, `amount`, `currency`, `transaction_id`,
+  `deferred_reason`, `deferred_at`, `paid_at`, `created_at` and
+  `updated_at`.
+- Primary key `[bank_id, reward_id]`; index
+  `AccountReward_by_bank_account` on `[bank_id, account_id, kind]`,
+  which is the once-only check.
 
 `fdb-record-types.yml` bumps its `version` and declares the store with
 `since` at that version, per
@@ -166,10 +167,10 @@ none of them pays. `pay-opening` takes `{:bank-id :account-id}`:
 1. Read the account, and keep it only where its status is `opened` and
    its product type a customer's.
 2. Read its pinned version through `products/get-version`. A version
-   with no `opening-reward`, or an account with a `Reward` row of kind
-   `opening` already `paid`, pays nothing.
+   with no `opening-reward`, or an account with an `AccountReward` row
+   of kind `opening` already `paid`, pays nothing.
 3. Pay the rest in the same FDB transaction as those reads: the
-   `Reward` row `paid` with its changelog entry, and the transaction
+   `AccountReward` row `paid` with its changelog entry, and the transaction
    below, all committed together, so a crash leaves either nothing or a
    paid reward with its posting, and a redelivered entry finds the row
    paid and pays nothing. The house account comes from a cache keyed by
@@ -177,9 +178,10 @@ none of them pays. `pay-opening` takes `{:bank-id :account-id}`:
    control accounts' ids from the ledger cache the payment processor
    uses.
 4. Where the posting is refused — the house account short of funds, or
-   missing for the currency — write the row `due` with the refusal's
-   message in `error`, in a transaction of its own. Any other anomaly is
-   answered, so the consumer delivers the entry again.
+   missing for the currency — write the row `deferred` with the
+   refusal's message in `deferred_reason`, in a transaction of its own.
+   Any other anomaly is answered, so the consumer delivers the entry
+   again.
 
 The financial-processors service hosts it because a reward is a
 posting. It is its own brick, rather than a reaction inside
@@ -207,12 +209,12 @@ shares.
 
 ### Telling the bank
 
-The `Reward` row's changelog entry, `reward-status-changed`, carries the
-bank, the reward and account ids, the status before and after and a
-change kind of `pay` or `defer`, in a new Avro schema under
+The `AccountReward` row's changelog entry, `reward-status-changed`,
+carries the bank, the reward and account ids, the status before and
+after and a change kind of `pay` or `defer`, in a new Avro schema under
 `components/schema/resources/schemas/rewards/`. A `reward-relay.yml`
-declares the handler and one runner over the `rewards` store onto a
-`rewards-event` channel, wired through the Kafka topics, the exclusive
+declares the handler and one runner over the `account-rewards` store
+onto a `rewards-event` channel, wired through the Kafka topics, the exclusive
 dispatchers and external adapters services, the monoliths and the test
 rigs exactly as `payments-event` was. The webhook brick catalogues
 `reward.paid`, terminal on status `paid`, loading the record through

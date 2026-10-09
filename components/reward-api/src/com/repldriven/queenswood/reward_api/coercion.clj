@@ -3,8 +3,9 @@
     [com.repldriven.queenswood.api-schema.interface :as coercion]))
 
 (def ^:private reward-status-enum
-  (coercion/enum-coercion {"due" :reward-status-due "paid" :reward-status-paid}
-                          :reward-status-unknown))
+  (coercion/enum-coercion {"due" :account-reward-status-deferred
+                           "paid" :account-reward-status-paid}
+                          :account-reward-status-unknown))
 
 (def reward-status-enum-schema (:enum-schema reward-status-enum))
 

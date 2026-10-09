@@ -13,7 +13,6 @@
 (def ^:private account
   {:bank-id "bnk.1"
    :account-id "acc.1"
-   :party-id "pty.1"
    :product-id "prd.1"
    :version-id "prv.1"
    :product-type :product-type-sub-ledger-current
@@ -64,8 +63,7 @@
   (let [reward (SUT/new-reward account 1000)
         transaction (SUT/reward-transaction house account reward)
         [debit credit] (:legs transaction)]
-    (testing "the row is due, keyed by the account, in its currency"
-      (is (= :reward-status-due (:status reward)))
+    (testing "the row is for the account's opening, in its currency"
       (is (= :reward-kind-opening (:kind reward)))
       (is (= "GBP" (:currency reward)))
       (is (re-matches #"rwd\..+" (:reward-id reward))))
@@ -87,11 +85,16 @@
                               {:message "Available balance would go negative"})
         deferred (SUT/deferred reward refusal)
         paid (SUT/paid deferred "txn.1")]
-    (testing "a deferred row stays due and says why"
-      (is (= :reward-status-due (:status deferred)))
-      (is (re-find #"limit-exceeded" (:error deferred))))
-    (testing "a paid row carries the transaction and drops the error"
+    (testing "a deferred row says why and when, and is new rather than changed"
+      (is (= :account-reward-status-deferred (:status deferred)))
+      (is (re-find #"limit-exceeded" (:deferred-reason deferred)))
+      (is (some? (:deferred-at deferred)))
+      (is (not (contains? deferred :updated-at))))
+    (testing "a paid row carries the transaction and drops the reason"
       (is (SUT/paid? paid))
       (is (= "txn.1" (:transaction-id paid)))
-      (is (some? (:paid-at paid)))
-      (is (not (contains? paid :error))))))
+      (is (= (:paid-at paid) (:updated-at paid)))
+      (is (not (contains? paid :deferred-reason)))))
+  (testing "a reward paid as it is created was never changed"
+    (is (not (contains? (SUT/paid (SUT/new-reward account 1000) "txn.2")
+                        :updated-at)))))

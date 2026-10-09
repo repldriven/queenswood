@@ -87,7 +87,8 @@
     (com.repldriven.queenswood.schemas.policies
      PolicyProto$Policy
      PolicyBindingProto$PolicyBinding)
-    (com.repldriven.queenswood.schemas.rewards RewardProto$Reward)
+    (com.repldriven.queenswood.schemas.rewards
+     AccountRewardProto$AccountReward)
     (com.repldriven.queenswood.schemas.transactions
      TransactionProto$Transaction
      TransactionProto$TransactionLeg
@@ -1617,37 +1618,42 @@
   [m]
   (CircuitBreakerProto$CircuitBreaker/parseFrom (CircuitBreaker->pb m)))
 
-(def ^:private reward-unset
-  {:transaction-id "" :run-id "" :error "" :paid-at 0})
+(def ^:private account-reward-unset
+  {:transaction-id ""
+   :deferred-reason ""
+   :deferred-at 0
+   :paid-at 0
+   :updated-at 0})
 
-(defn pb->Reward
-  "Parse Reward protobuf bytes into a Clojure map. `transaction-id`,
-  `run-id`, `error` and `paid-at` are present only when set.
+(defn pb->AccountReward
+  "Parse AccountReward protobuf bytes into a Clojure map. A paid one's
+  `transaction-id` and `paid-at`, a deferred one's `deferred-reason` and
+  `deferred-at`, and `updated-at` are present only when set.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (without-unset (rewards/pb->Reward input) reward-unset))
+  (without-unset (rewards/pb->AccountReward input) account-reward-unset))
 
-(defn Reward->pb
-  "Serialise a Reward map to protobuf bytes.
-
-  Args:
-  - m: Reward map matching the generated schema."
-  [m]
-  (proto/->pb (rewards/new-Reward m)))
-
-(defn Reward->java
-  "Parse a Reward map into the generated Java protobuf class.
+(defn AccountReward->pb
+  "Serialise an AccountReward map to protobuf bytes.
 
   Args:
-  - m: Reward map matching the generated schema."
+  - m: AccountReward map matching the generated schema."
   [m]
-  (RewardProto$Reward/parseFrom (Reward->pb m)))
+  (proto/->pb (rewards/new-AccountReward m)))
+
+(defn AccountReward->java
+  "Parse an AccountReward map into the generated Java protobuf class.
+
+  Args:
+  - m: AccountReward map matching the generated schema."
+  [m]
+  (AccountRewardProto$AccountReward/parseFrom (AccountReward->pb m)))
 
 (def ^{:doc "Map of RewardKind label to protobuf int value."} reward-kind->int
   cash-account-products/RewardKind-label2val)
 
-(def ^{:doc "Map of RewardStatus label to protobuf int value."}
-     reward-status->int
-  rewards/RewardStatus-label2val)
+(def ^{:doc "Map of AccountRewardStatus label to protobuf int value."}
+     account-reward-status->int
+  rewards/AccountRewardStatus-label2val)

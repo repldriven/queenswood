@@ -512,11 +512,11 @@ stores:
         added: 1
         modified: 1
         fields: [bank_id, kind, kind_id]
-  rewards:
-    record-type: Reward
+  account-rewards:
+    record-type: AccountReward
     primary-key: [bank_id, reward_id]
     indexes:
-      - name: Reward_by_bank_account
+      - name: AccountReward_by_bank_account
         added: 1
         modified: 1
         fields: [bank_id, account_id, kind]

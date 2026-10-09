@@ -29,40 +29,41 @@
           (when (= :reward-kind-opening kind) amount))
         (:reward-terms version)))
 
-(defn paid? [reward] (= :reward-status-paid (:status reward)))
+(defn paid? [reward] (= :account-reward-status-paid (:status reward)))
 
 (defn new-reward
   [account amount]
+  {:bank-id (:bank-id account)
+   :reward-id (utility/generate-id "rwd")
+   :kind :reward-kind-opening
+   :account-id (:account-id account)
+   :product-id (:product-id account)
+   :version-id (:version-id account)
+   :amount amount
+   :currency (:currency account)
+   :created-at (utility/now)})
+
+(defn- changed
+  "`reward` as it reaches `status`, recording when: a new one is
+  created in it, an existing one is updated into it."
+  [reward status at-key]
   (let [now (utility/now)]
-    {:bank-id (:bank-id account)
-     :reward-id (utility/generate-id "rwd")
-     :account-id (:account-id account)
-     :party-id (:party-id account)
-     :product-id (:product-id account)
-     :version-id (:version-id account)
-     :kind :reward-kind-opening
-     :amount amount
-     :currency (:currency account)
-     :status :reward-status-due
-     :created-at now
-     :updated-at now}))
+    (cond-> (assoc reward :status status at-key now)
+            (:status reward)
+            (assoc :updated-at now))))
 
 (defn paid
   [reward transaction-id]
-  (let [now (utility/now)]
-    (-> reward
-        (dissoc :error)
-        (assoc :status :reward-status-paid
-               :transaction-id transaction-id
-               :paid-at now
-               :updated-at now))))
+  (-> reward
+      (dissoc :deferred-reason)
+      (changed :account-reward-status-paid :paid-at)
+      (assoc :transaction-id transaction-id)))
 
 (defn deferred
   [reward anomaly]
-  (assoc reward
-         :status :reward-status-due
-         :error (error/format-anomaly anomaly)
-         :updated-at (utility/now)))
+  (-> reward
+      (changed :account-reward-status-deferred :deferred-at)
+      (assoc :deferred-reason (error/format-anomaly anomaly))))
 
 (defn reward-transaction
   "The posting that pays `reward` to `account` from `house`: a debit on

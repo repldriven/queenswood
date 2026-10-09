@@ -350,36 +350,35 @@
                  (assoc draft-version :interest-terms interest)))]
       (is (= interest (:interest-terms read))))))
 
-(def ^:private due-reward
+(def ^:private deferred-reward
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
    :reward-id "rwd.01kprbmgcj35ptc8npmybhh4t9"
+   :status :account-reward-status-deferred
+   :kind :reward-kind-opening
    :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
-   :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
    :product-id "prd.01kprbmgcj35ptc8npmybhh4se"
    :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
-   :kind :reward-kind-opening
    :amount 1000
    :currency "GBP"
-   :status :reward-status-due
-   :run-id "run.01kprbmgcj35ptc8npmybhh4ta"
-   :error "house account cannot cover it"
-   :created-at 1700000000000
-   :updated-at 1700000000000})
+   :deferred-reason "house account cannot cover it"
+   :deferred-at 1700000000000
+   :created-at 1700000000000})
 
-(deftest reward-record-round-trip-test
-  (testing "a due reward carries no transaction and no paid-at"
-    (is (= due-reward (SUT/pb->Reward (SUT/Reward->pb due-reward))))
-    (is (some? (SUT/Reward->java due-reward))))
+(deftest account-reward-record-round-trip-test
+  (testing "a deferred reward carries no transaction, paid-at or update"
+    (is (= deferred-reward
+           (SUT/pb->AccountReward (SUT/AccountReward->pb deferred-reward))))
+    (is (some? (SUT/AccountReward->java deferred-reward))))
   (testing "a paid reward carries the transaction that paid it"
-    (let [paid (-> due-reward
-                   (dissoc :error)
-                   (assoc :status :reward-status-paid
+    (let [paid (-> deferred-reward
+                   (dissoc :deferred-reason)
+                   (assoc :status :account-reward-status-paid
                           :transaction-id "txn.01kprbmgcj35ptc8npmybhh4tb"
                           :paid-at 1700003600000
                           :updated-at 1700003600000))]
-      (is (= paid (SUT/pb->Reward (SUT/Reward->pb paid))))
-      (is (= (SUT/reward-status->int :reward-status-paid)
-             (.getNumber (.getStatus (SUT/Reward->java paid))))))))
+      (is (= paid (SUT/pb->AccountReward (SUT/AccountReward->pb paid))))
+      (is (= (SUT/account-reward-status->int :account-reward-status-paid)
+             (.getNumber (.getStatus (SUT/AccountReward->java paid))))))))
 
 (def ^:private failed-outbound
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"

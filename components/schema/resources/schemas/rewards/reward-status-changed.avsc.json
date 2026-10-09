@@ -21,11 +21,11 @@
         "null",
         {
           "type": "enum",
-          "name": "RewardStatus",
+          "name": "AccountRewardStatus",
           "symbols": [
-            "REWARD_STATUS_UNKNOWN",
-            "REWARD_STATUS_DUE",
-            "REWARD_STATUS_PAID"
+            "ACCOUNT_REWARD_STATUS_UNKNOWN",
+            "ACCOUNT_REWARD_STATUS_DEFERRED",
+            "ACCOUNT_REWARD_STATUS_PAID"
           ]
         }
       ],
@@ -33,7 +33,7 @@
     },
     {
       "name": "status_after",
-      "type": "com.repldriven.mono.rewards.RewardStatus"
+      "type": "com.repldriven.mono.rewards.AccountRewardStatus"
     },
     {
       "name": "change_kind",

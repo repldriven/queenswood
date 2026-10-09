@@ -45,7 +45,7 @@ import "schemas/payments/outbound-payment.proto";
 import "schemas/payments/payment-provider-transfer.proto";
 import "schemas/policies/policy.proto";
 import "schemas/policies/policy-binding.proto";
-import "schemas/rewards/reward.proto";
+import "schemas/rewards/account-reward.proto";
 import "schemas/transactions/transaction.proto";
 import "schemas/users/user.proto";
 import "schemas/webhooks/webhook-delivery.proto";
@@ -104,7 +104,7 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schemas.members.Invitation _Invitation = 43;
   optional com.repldriven.queenswood.schemas.members.MemberRoleChange _MemberRoleChange = 44;
   optional com.repldriven.queenswood.schemas.emails.EmailDelivery _EmailDelivery = 45;
-  optional com.repldriven.queenswood.schemas.rewards.Reward _Reward = 46;
+  optional com.repldriven.queenswood.schemas.rewards.AccountReward _AccountReward = 46;
   optional com.repldriven.queenswood.schemas.zyphe.ZypheOutboxEvent _ZypheOutboxEvent = 47;
   optional com.repldriven.queenswood.schemas.zyphe.ZypheOutboundIntent _ZypheOutboundIntent = 48;
   optional com.repldriven.queenswood.schemas.idv.IdvSession _IdvSession = 49;

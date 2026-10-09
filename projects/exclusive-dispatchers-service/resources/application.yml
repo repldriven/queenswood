@@ -160,7 +160,7 @@ system:
       system/component-kind: changelog-relay/envelope-handler
       bus: !system/ref message-bus.bus
       event-channel: !keyword rewards-event
-      store-name: rewards
+      store-name: account-rewards
     schemes-payments-handler: !system/component
       system/component-kind: changelog-relay/envelope-handler
       bus: !system/ref message-bus.bus
@@ -255,7 +255,7 @@ system:
         record-db: !system/ref fdb.record-db
         keyspace-prefix: !system/ref fdb.keyspace-prefix
         consumer-id: rewards-relay
-        store-name: rewards
+        store-name: account-rewards
         handler: !system/local-ref rewards-handler
   bank-activity-relay: !include system/bank-activity-relay.yml
   scheduler: !include system/scheduler.yml
