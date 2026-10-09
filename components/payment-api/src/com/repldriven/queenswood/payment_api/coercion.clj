@@ -19,7 +19,9 @@
                            "suspended" :inbound-payment-status-suspended
                            "held" :inbound-payment-status-held
                            "returned" :inbound-payment-status-returned
-                           "admitted" :inbound-payment-status-admitted}
+                           "admitted" :inbound-payment-status-admitted
+                           "return-failed"
+                           :inbound-payment-status-return-failed}
                           :inbound-payment-status-unknown))
 
 (def inbound-payment-status-enum-schema

@@ -283,15 +283,23 @@
   (moved held :inbound-payment-status-returned :returned-at))
 
 (defn return-failed-inbound-payment
-  "A suspended inbound the provider did not send back: it stays suspended,
-  carrying why."
+  "A suspended inbound the provider did not send back: its return failed,
+  the money still in suspense, carrying why."
   [payment reason]
-  (let [now (utility/now)]
-    (utility/assoc-some (assoc payment
-                               :return-failed-at now
-                               :updated-at now)
-                        :return-failed-reason
-                        reason)))
+  (utility/assoc-some (moved payment
+                             :inbound-payment-status-return-failed
+                             :return-failed-at)
+                      :return-failed-reason
+                      reason))
+
+(def ^:private in-suspense
+  #{:inbound-payment-status-suspended :inbound-payment-status-return-failed})
+
+(defn in-suspense?
+  "True where the inbound's money is in 2500 suspense: suspended, or its
+  return failed."
+  [payment]
+  (contains? in-suspense (:status payment)))
 
 (defn returns-inbound?
   "True where the provider declares that an inbound may be returned."

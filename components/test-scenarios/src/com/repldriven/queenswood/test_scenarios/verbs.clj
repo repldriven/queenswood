@@ -1427,7 +1427,8 @@
    :inbound-payment-status-suspended
    :inbound-payment-status-held
    :inbound-payment-status-returned
-   :inbound-payment-status-admitted])
+   :inbound-payment-status-admitted
+   :inbound-payment-status-return-failed])
 
 (defn- inbound-statuses
   "The statuses of the inbound payments carrying `e2e` in the run's banks,

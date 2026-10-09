@@ -54,13 +54,13 @@
  [{:command :api/poll
    :request {:method :get
              :path "/v1/payments/inbound"
-             :query-params {"status" "suspended"}
+             :query-params {"status" "return-failed"}
              :auth [:ref :bank-0 :token]}
    :until
    {:status 200
     :body {:items [{:amount 700
                     :currency "GBP"
-                    :payment-status "suspended"
+                    :payment-status "return-failed"
                     :return-failure-reason [:m/regex ".+"]}]}}
    :timeout-ms 20000}
   {:command :api/request

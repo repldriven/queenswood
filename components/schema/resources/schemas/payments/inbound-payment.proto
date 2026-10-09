@@ -14,6 +14,7 @@ enum InboundPaymentStatus {
   INBOUND_PAYMENT_STATUS_HELD = 3;
   INBOUND_PAYMENT_STATUS_RETURNED = 4;
   INBOUND_PAYMENT_STATUS_ADMITTED = 5;
+  INBOUND_PAYMENT_STATUS_RETURN_FAILED = 6;
 }
 
 // A payment into a bank from an account at another, over a scheme.

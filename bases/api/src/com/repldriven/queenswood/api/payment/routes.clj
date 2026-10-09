@@ -164,7 +164,8 @@
                        (str "An inbound payment is settled, held while the "
                             "scheme screens it, returned to the remitter, or "
                             "suspended when no opened account could take it "
-                            "or the bank's policies refused it.")}
+                            "or the bank's policies refused it, and stays in "
+                            "suspense when its return to the remitter fails.")}
              :responses {200 (SuccessResponse
                               "The inbound payment, in any status."
                               [:ref "InboundPayment"]

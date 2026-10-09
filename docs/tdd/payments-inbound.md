@@ -44,7 +44,7 @@ kept, see [chart-of-accounts.md](chart-of-accounts.md).
   an inbound they are screening; Form3 is admitted and returning, and
   screens nothing.
 - **Statuses.** An inbound payment is `admitted`, `settled`, `held`,
-  `suspended` or `returned`.
+  `suspended`, `returned` or `return-failed`.
 
 ## Solution
 
@@ -81,10 +81,12 @@ stateDiagram-v2
     held --> suspended: transaction-settled (credit)<br/>release refused, park in 🟦 2500
     held --> returned: transaction-rejected (credit)<br/>back to the remitter
     suspended --> returned: transaction-returned (credit)<br/>🟦 2500 to 🟧 1100
-    suspended --> suspended: inbound-return-failed<br/>return-failure-reason
+    suspended --> return_failed: inbound-return-failed<br/>stays in 🟦 2500
+    return_failed --> returned: transaction-returned (credit)<br/>🟦 2500 to 🟧 1100
     settled --> [*]
     returned --> [*]
     suspended --> [*]
+    return_failed --> [*]
 ```
 
 - A settlement is deduplicated on `scheme-transaction-id`, and a hold
@@ -876,7 +878,7 @@ sequenceDiagram
     SE->>PE: transaction-returned (credit)
     critical transact
     PE->>DB: read the InboundPayment by its scheme transaction id
-    alt suspended
+    alt suspended, or its return failed
     PE->>DB: read the policy stamp, at snapshot
     opt the bank's policies not cached under the stamp
     PE->>DB: read the platform Policies, by label
@@ -899,7 +901,7 @@ sequenceDiagram
     PE->>DB: write return to the inbound-payments changelog
     else returned already, a redelivery
     Note over PE: nothing saved
-    else none, or not suspended
+    else none, or not in suspense
     Note over PE: the handler fails
     end
     end
@@ -907,8 +909,8 @@ sequenceDiagram
     SE->>PE: inbound-return-failed
     critical transact
     PE->>DB: read the InboundPayment by its scheme transaction id
-    alt suspended, no failure recorded
-    PE->>DB: save InboundPayment, suspended with the return-failure-reason
+    alt suspended
+    PE->>DB: save InboundPayment, return-failed with the reason
     PE->>DB: write return-failed to the inbound-payments changelog
     else recorded already, or no longer suspended
     Note over PE: nothing saved
@@ -923,7 +925,8 @@ sequenceDiagram
 `transaction-returned` (credit) is deduplicated on Form3's id for the
 inbound, and empties suspense of the payment. A return the provider
 refuses or does not deliver is reported as `inbound-return-failed`, and
-the payment stays suspended carrying it as `return-failure-reason`.
+the payment becomes `return-failed`, its money still in suspense, with
+the provider's reason.
 
 ### Tests
 

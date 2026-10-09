@@ -582,7 +582,7 @@
                          {:payment-id (:payment-id payment)})
               payment)
 
-          (not= :inbound-payment-status-suspended (:status payment))
+          (not (inbound/in-suspense? payment))
           (error/fail :payment/return-inbound
                       {:message "Cannot return an inbound payment not suspended"
                        :payment-id (:payment-id payment)
@@ -642,8 +642,7 @@
                        "No inbound payment carries the failed return's id"
                        :scheme-transaction-id scheme-transaction-id})
 
-          (or (not= :inbound-payment-status-suspended (:status payment))
-              (:return-failed-reason payment))
+          (not= :inbound-payment-status-suspended (:status payment))
           (do (log/infof "Inbound return failure already processed: %s"
                          {:payment-id (:payment-id payment)
                           :status (:status payment)})
