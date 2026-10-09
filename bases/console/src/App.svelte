@@ -38,7 +38,7 @@
 
   // The bank the console acts on. A person may belong to several — a
   // fresh sandbox bank leaves the old one standing — and every page
-  // reads `members[0]` as its bank, so the list is kept with the
+  // reads `myMembers[0]` as its bank, so the list is kept with the
   // current bank first: the one this browser last chose, where it is
   // still held, else the newest member.
   const BANK_KEY = "queenswood.console.bank";
@@ -70,53 +70,53 @@
     // Kicker is the org name when /v1/me has surfaced it. If absent
     // (older bank-api that hasn't been restarted yet), pass undefined
     // — PageHeader hides empty kickers cleanly.
-    const kicker = members?.[0]?.["bank-name"];
+    const kicker = myMembers?.[0]?.["bank-name"];
     authRoutes = {
       "/products": wrap({
         component: Products,
-        props: { user, members },
+        props: { user, myMembers },
       }),
       "/parties": wrap({
         component: Parties,
-        props: { user, members },
+        props: { user, myMembers },
       }),
       "/ledger": wrap({
         component: LedgerAccounts,
-        props: { user, members },
+        props: { user, myMembers },
       }),
       "/accounts": wrap({
         component: Accounts,
-        props: { user, members },
+        props: { user, myMembers },
       }),
       "/migrations": wrap({
         component: Migrations,
-        props: { user, members },
+        props: { user, myMembers },
       }),
       "/jobs": wrap({
         component: Jobs,
-        props: { user, members },
+        props: { user, myMembers },
       }),
       "/scenarios": wrap({
         component: Scenarios,
-        props: { user, members },
+        props: { user, myMembers },
       }),
       "/people": wrap({
         component: People,
-        props: { user, members, onAccessChanged: refresh_me },
+        props: { user, myMembers, onAccessChanged: refresh_me },
       }),
       "/policies": wrap({
         component: Policies,
-        props: { user, members },
+        props: { user, myMembers },
       }),
       "/bank": wrap({
         component: Bank,
-        props: { user, members, onSwitch: switchBank, onFreshBank: startFreshBank },
+        props: { user, myMembers, onSwitch: switchBank, onFreshBank: startFreshBank },
       }),
       // Catch-all: render Products. Anyone landing on /#/ or a bad
       // path sees the default surface, matching what onboarding push.
       "*": wrap({
         component: Products,
-        props: { user, members },
+        props: { user, myMembers },
       }),
     };
   }
@@ -130,7 +130,7 @@
   // out of.
   let stage = $state("loading");
   let user = $state(null);
-  let members = $state([]);
+  let myMembers = $state([]);
   let invitationLink = $state(null);
 
   $effect(() => {
@@ -156,11 +156,11 @@
       return;
     }
     user = me.body;
-    members = currentFirst(mine.body.items ?? [], rememberedBank());
-    set_bank_id(members[0]?.["bank-id"]);
+    myMembers = currentFirst(mine.body.items ?? [], rememberedBank());
+    set_bank_id(myMembers[0]?.["bank-id"]);
     if (invitationLink) {
       stage = "invitation";
-    } else if (members.length === 0) {
+    } else if (myMembers.length === 0) {
       stage = "onboarding";
     } else {
       buildAuthRoutes();
@@ -185,9 +185,9 @@
   function handleOnboardComplete(bank) {
     const bankId = bank.member?.["bank-id"];
     const joined = { ...bank.member, "bank-name": bank.name };
-    const others = members.filter((m) => m["bank-id"] !== bankId);
+    const others = myMembers.filter((m) => m["bank-id"] !== bankId);
     rememberBank(bankId);
-    members = currentFirst([joined, ...others], bankId);
+    myMembers = currentFirst([joined, ...others], bankId);
     set_bank_id(bankId);
     buildAuthRoutes();
     stage = "app";
@@ -195,9 +195,9 @@
   }
 
   function switchBank(bankId) {
-    if (!members.some((m) => m["bank-id"] === bankId)) return;
+    if (!myMembers.some((m) => m["bank-id"] === bankId)) return;
     rememberBank(bankId);
-    members = currentFirst(members, bankId);
+    myMembers = currentFirst(myMembers, bankId);
     set_bank_id(bankId);
     buildAuthRoutes();
     push("/products");
@@ -229,7 +229,7 @@
     <!-- The router takes its routes at mount, so a bank switch remounts
          it: every page then reads the new bank rather than the props it
          was mounted with. -->
-    {#key members[0]?.["bank-id"]}
+    {#key myMembers[0]?.["bank-id"]}
       <Router routes={authRoutes} />
     {/key}
   </AppShell>

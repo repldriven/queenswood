@@ -44,7 +44,7 @@
     list_ledger_account_balances,
   } from "./api.mjs";
 
-  let { user, members } = $props();
+  let { user, myMembers } = $props();
 
   let loading = $state(true);
   let error = $state(null);
@@ -60,7 +60,7 @@
   // expanding an account lazily fetches its balance decomposition.
   let open = $state({});
 
-  const kicker = $derived(members?.[0]?.["bank-name"]);
+  const kicker = $derived(myMembers?.[0]?.["bank-name"]);
 
   // The band only adds presentation (currency symbol + name) to each
   // server-computed block; the figures themselves are not re-derived.

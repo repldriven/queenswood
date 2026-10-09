@@ -43,9 +43,9 @@
   } from "./api.mjs";
   import PeopleDrawer from "./PeopleDrawer.svelte";
 
-  let { user, members, onAccessChanged } = $props();
+  let { user, myMembers, onAccessChanged } = $props();
 
-  const member = $derived(members?.[0]);
+  const member = $derived(myMembers?.[0]);
   const kicker = $derived(member?.["bank-name"]);
   const myRole = $derived(accessEnum(member?.role));
   const myUserId = $derived(user?.["user-id"]);

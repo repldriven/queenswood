@@ -17,7 +17,7 @@
   import { list_parties } from "./api.mjs";
   import PartyDrawer from "./PartyDrawer.svelte";
 
-  let { user, members } = $props();
+  let { user, myMembers } = $props();
 
   let loading = $state(true);
   let error = $state(null);
@@ -27,7 +27,7 @@
   let drawerMode = $state("read");
   let drawerTarget = $state(null);
 
-  const kicker = $derived(members?.[0]?.["bank-name"]);
+  const kicker = $derived(myMembers?.[0]?.["bank-name"]);
 
   // bank-api `PartyStatus` enum → ui Badge tones.
   const TONE = {

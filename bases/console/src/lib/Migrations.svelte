@@ -37,8 +37,8 @@
   import MigrationDetail from "./MigrationDetail.svelte";
   import MigrationDrawer from "./MigrationDrawer.svelte";
 
-  let { user, members } = $props();
-  const kicker = $derived(members?.[0]?.["bank-name"]);
+  let { user, myMembers } = $props();
+  const kicker = $derived(myMembers?.[0]?.["bank-name"]);
 
   let loading = $state(true);
   let error = $state(null);
