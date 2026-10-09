@@ -252,9 +252,9 @@ Notes:
   `control` for a code standing for a sub-ledger — the deposit and
   own-funds controls and 2400 — and `detail` otherwise. No stored
   class or type can disagree with the code, and neither depends on
-  the seed chart after a bank is created. The API still names the
-  class `gl-account-type`, and the type `gl-account-class`, until
-  its names are revisited.
+  the seed chart after a bank is created. The API publishes them as
+  `account-class` and `account-type`, beside the chart number as
+  `code`.
 - **A ledger account's type** is one of:
   - `detail` — leaf, accepts legs.
   - `control` — special leaf that aggregates a sub-ledger.

@@ -1,6 +1,6 @@
 <script>
   /* GlClass — squared mono chip for a ledger account's role in the
-     chart hierarchy (gl-account-class):
+     chart hierarchy (account-type):
 
        control  a sub-ledger rollup (customer cash-accounts / own funds).
                 Emphasised — the crown/gold accent — so the rollup

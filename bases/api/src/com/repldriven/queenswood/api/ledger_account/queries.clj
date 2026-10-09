@@ -10,21 +10,14 @@
     [clojure.set :as set]))
 
 (defn- ->api
-  "Present a stored LedgerAccount over the wire: the internal
-  `:ledger-account-id` is exposed as `:account-id` so the resource speaks
-  the same id key as the path parameter and the balance API, and the
-  `:code` role is rendered back to its chart number as the `:gl-code`
-  string clients (and the console's ledger view) expect. The class
-  and the type derived from the code are `:gl-account-type` and
-  `:gl-account-class`, the names the API has used throughout."
+  "Present a stored LedgerAccount over the wire: its `code` role as its
+  chart number, and the class and type the code determines."
   [account]
   (let [{:keys [code]} account]
-    (-> account
-        (set/rename-keys {:ledger-account-id :account-id})
-        (assoc :gl-code (ledger-accounts/chart-number code)
-               :gl-account-type (ledger-accounts/account-class code)
-               :gl-account-class (ledger-accounts/account-type code))
-        (dissoc :code))))
+    (assoc account
+           :code (ledger-accounts/chart-number code)
+           :account-class (ledger-accounts/account-class code)
+           :account-type (ledger-accounts/account-type code))))
 
 (defn- with-posted-balance
   "Attach the account's derived `:posted-balance` ({value, currency}),
@@ -66,16 +59,16 @@
   (let [{:keys [record-db record-store auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [path]} parameters
-        {:keys [account-id]} path
+        {:keys [ledger-account-id]} path
         config {:record-db record-db :record-store record-store}
         result (let-nom>
                  [account (ledger-accounts/get-account config
                                                        bank-id
-                                                       account-id)
+                                                       ledger-account-id)
                   _ (when (nil? account)
                       (error/reject :ledger-account/not-found
                                     {:message "Ledger account not found"
-                                     :account-id account-id}))]
+                                     :ledger-account-id ledger-account-id}))]
                  (->api account))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
@@ -86,16 +79,16 @@
   (let [{:keys [record-db record-store auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [path]} parameters
-        {:keys [account-id]} path
+        {:keys [ledger-account-id]} path
         config {:record-db record-db :record-store record-store}
         result (let-nom>
                  [account (ledger-accounts/get-account config
                                                        bank-id
-                                                       account-id)
+                                                       ledger-account-id)
                   _ (when (nil? account)
                       (error/reject :ledger-account/not-found
                                     {:message "Ledger account not found"
-                                     :account-id account-id}))
+                                     :ledger-account-id ledger-account-id}))
                   found (ledger-accounts/get-balances config bank-id account)]
                  (set/rename-keys found {:balances :items}))]
     (if (error/anomaly? result)

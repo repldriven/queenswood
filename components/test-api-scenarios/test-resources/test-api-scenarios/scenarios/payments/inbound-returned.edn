@@ -88,6 +88,6 @@
    :assert
    {:status 200
     :body {:items [:m/embeds
-                   [{:gl-code "1100" :posted-balance {:value 0 :currency "GBP"}}
-                    {:gl-code "2500"
+                   [{:code "1100" :posted-balance {:value 0 :currency "GBP"}}
+                    {:code "2500"
                      :posted-balance {:value 0 :currency "GBP"}}]]}}}]}

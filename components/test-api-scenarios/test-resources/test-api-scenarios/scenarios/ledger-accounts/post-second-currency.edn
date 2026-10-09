@@ -23,7 +23,7 @@
    :until
    {:status 200
     :body {:items [:m/embeds
-                   [{:gl-code "1100"
+                   [{:code "1100"
                      :currency "USD"
                      :posted-balance {:value -750000 :currency "USD"}}]]}}}
   ;; The USD legs, and only the USD legs: 1100 is debited (asset up,
@@ -37,22 +37,22 @@
    :assert
    {:status 200
     :body {:items [:m/embeds
-                   [{:gl-code "1100"
+                   [{:code "1100"
                      :currency "USD"
                      :posted-balance {:value -750000 :currency "USD"}}
-                    {:gl-code "3100"
+                    {:code "3100"
                      :currency "USD"
                      :posted-balance {:value 750000 :currency "USD"}}
-                    {:gl-code "1100"
+                    {:code "1100"
                      :currency "EUR"
                      :posted-balance {:value 0 :currency "EUR"}}
-                    {:gl-code "3100"
+                    {:code "3100"
                      :currency "EUR"
                      :posted-balance {:value 0 :currency "EUR"}}
-                    {:gl-code "1100"
+                    {:code "1100"
                      :currency "GBP"
                      :posted-balance {:value 0 :currency "GBP"}}
-                    {:gl-code "3100"
+                    {:code "3100"
                      :currency "GBP"
                      :posted-balance {:value 0 :currency "GBP"}}]]
            :trial-balance

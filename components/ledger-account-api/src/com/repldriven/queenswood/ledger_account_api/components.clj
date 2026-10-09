@@ -9,11 +9,11 @@
 (def LedgerAccountId
   (schema/id-schema "LedgerAccountId" "led" examples/LedgerAccountId))
 
-(def GlAccountType
-  (coercion/gl-account-type-enum-schema {:json-schema/example "liability"}))
+(def LedgerAccountClass
+  (coercion/account-class-enum-schema {:json-schema/example "liability"}))
 
-(def GlAccountClass
-  (coercion/gl-account-class-enum-schema {:json-schema/example "control"}))
+(def LedgerAccountType
+  (coercion/account-type-enum-schema {:json-schema/example "control"}))
 
 (def LedgerAccountStatus
   (coercion/ledger-account-status-enum-schema {:json-schema/example "open"}))
@@ -21,12 +21,12 @@
 (def LedgerAccount
   [:map {:json-schema/example examples/LedgerAccount}
    [:bank-id [:ref "BankId"]]
-   [:account-id [:ref "LedgerAccountId"]]
-   [:gl-code string?]
+   [:ledger-account-id [:ref "LedgerAccountId"]]
+   [:code string?]
    [:name [:ref "Name"]]
    [:currency [:ref "CurrencyCode"]]
-   [:gl-account-type [:ref "GlAccountType"]]
-   [:gl-account-class [:ref "GlAccountClass"]]
+   [:account-class [:ref "LedgerAccountClass"]]
+   [:account-type [:ref "LedgerAccountType"]]
    [:status [:ref "LedgerAccountStatus"]]
    ;; Present on the list (derived server-side); absent on the single-get.
    [:posted-balance {:optional true} [:ref "SignedAmount"]]
@@ -65,7 +65,7 @@
    [:available-balance [:ref "SignedAmount"]]])
 
 (def registry
-  (components-registry [#'LedgerAccountId #'GlAccountType #'GlAccountClass
-                        #'LedgerAccountStatus #'LedgerAccount
-                        #'TrialBalanceEntry #'LedgerAccountList #'LedgerBalance
-                        #'LedgerBalanceList]))
+  (components-registry [#'LedgerAccountId #'LedgerAccountClass
+                        #'LedgerAccountType #'LedgerAccountStatus
+                        #'LedgerAccount #'TrialBalanceEntry #'LedgerAccountList
+                        #'LedgerBalance #'LedgerBalanceList]))

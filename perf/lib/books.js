@@ -56,7 +56,7 @@ function ledger(bearer) {
   const body = res.json();
   const byCode = {};
   for (const a of body.items) {
-    byCode[a["gl-code"]] = (a["posted-balance"] || {}).value || 0;
+    byCode[a.code] = (a["posted-balance"] || {}).value || 0;
   }
   const gbp = (body["trial-balance"] || []).find((t) => t.currency === "GBP");
   return {

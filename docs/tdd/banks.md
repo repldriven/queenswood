@@ -311,8 +311,7 @@ over the command bus. The handler calls `rotate-secret` once the
 reply arrives and returns what that mints, so the credential
 exists only on the response. The view walks the org party and the
 cash accounts, with balances; it does not list the seeded ledger
-accounts. No `:gl-code` is carried: `gl_code` is reserved on the
-product schema, so the enrichment reads nil and omits the key.
+accounts, and carries no ledger code.
 
 ### Tier and the policy-binding model
 

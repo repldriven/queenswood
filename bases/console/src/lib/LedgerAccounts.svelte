@@ -4,7 +4,7 @@
      balances that comprise it. Read-only by design; creation of GL
      accounts happens when a bank is provisioned, not from here.
 
-     Each row leads with its gl-code and shows class (the account's role —
+     Each row leads with its code and shows class (the account's role —
      control accounts roll up a sub-ledger, the emphasised chip) and type
      (accounting family) via the <GlClass>/<GlType> chips.
 
@@ -123,16 +123,16 @@
       // until the row is expanded (lazily fetched then), since the
       // headline figure comes from the backend-derived posted-balance.
       accounts = list.map((a) => ({
-        id: a["account-id"],
+        id: a["ledger-account-id"],
         name: a.name,
-        gl: a["gl-code"],
+        gl: a.code,
         ccy: a.currency,
         // Chart-of-accounts classification (short forms from the API):
-        // glClass = role in the hierarchy (control/summary/detail),
-        // glType = accounting family. subLedgerKind is set on controls.
-        glClass: a["gl-account-class"],
-        glType: a["gl-account-type"],
-        subLedgerKind: a["sub-ledger-kind"],
+        // glClass = role in the hierarchy, the API's account-type
+        // (control/summary/detail); glType = accounting family, its
+        // account-class.
+        glClass: a["account-type"],
+        glType: a["account-class"],
         postedMinor: a["posted-balance"]?.value ?? 0,
         balances: null,
         balancesLoading: false,

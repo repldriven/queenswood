@@ -59,9 +59,9 @@
   (get ledger-accounts/product-type->control-code
        (get wire-product-type product-type)))
 
-(def ^:private role-by-gl-code
-  "Every control role a sub-ledger rolls into, keyed by the `:gl-code`
-  the API renders on that control's ledger account."
+(def ^:private role-by-code
+  "Every control role a sub-ledger rolls into, keyed by the `:code` the
+  API renders on that control's ledger account."
   (into {}
         (map (fn [role] [(ledger-accounts/chart-number role) role]))
         (vals ledger-accounts/product-type->control-code)))
@@ -91,7 +91,7 @@
      :body body
      :trial-balance trial-balance
      :controls (reduce (fn [acc account]
-                         (if-let [role (role-by-gl-code (:gl-code account))]
+                         (if-let [role (role-by-code (:code account))]
                            (assoc acc
                                   [role (:currency account)]
                                   (:value (:posted-balance account) 0))

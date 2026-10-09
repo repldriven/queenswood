@@ -7,7 +7,7 @@
  ;; coercion admits it and the existence guard is what refuses.
  [{:command :api/request
    :request {:method :get
-             :path "/v1/ledger-accounts/{account-id}"
-             :path-params {:account-id "led.00000000000000000000000000"}
+             :path "/v1/ledger-accounts/{ledger-account-id}"
+             :path-params {:ledger-account-id "led.00000000000000000000000000"}
              :auth [:ref :org-0 :token]}
    :assert {:status 404 :problem {:type ":ledger-account/not-found"}}}]}

@@ -22,10 +22,8 @@
      ;; One own-funds house account per requested currency -- the
      ;; chart identifies an account by role and currency, not by
      ;; number, so all three are the same own-funds role. Their
-     ;; 3100 coding lives on the ledger side; a cash account
-     ;; carries no :gl-code, because CashAccountProduct reserves
-     ;; the field and bank-query resolves it off the product
-     ;; version. in-any-order pins the count at three, and maps in
+     ;; 3100 coding lives on the ledger side and a cash account
+     ;; carries none. in-any-order pins the count at three, and maps in
      ;; expected position embed, so no other field needs listing.
      ;; :party-id is read back off this same response rather than
      ;; matched by pattern, so the assertion is identity with the

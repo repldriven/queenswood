@@ -14,19 +14,19 @@
  ;; every row the seed creates.
  [{:command :api/request
    :request {:method :get
-             :path "/v1/ledger-accounts/{account-id}"
-             :path-params {:account-id [:ref-find :chart :items :gl-code "2100"
-                                        :account-id]}
+             :path "/v1/ledger-accounts/{ledger-account-id}"
+             :path-params {:ledger-account-id [:ref-find :chart :items :code "2100"
+                                        :ledger-account-id]}
              :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:bank-id [:ref :org-0 :bank :bank-id]
-                   :account-id [:ref-find :chart :items :gl-code "2100"
-                                :account-id]
-                   :gl-code "2100"
+                   :ledger-account-id [:ref-find :chart :items :code "2100"
+                                       :ledger-account-id]
+                   :code "2100"
                    :name "Customer deposits - current"
                    :currency "GBP"
-                   :gl-account-type "liability"
-                   :gl-account-class "control"
+                   :account-class "liability"
+                   :account-type "control"
                    :status "open"
                    :posted-balance [:m/absent]
                    :created-at [:m/regex ".+"]

@@ -139,8 +139,8 @@
                    :available-balance {:value 0 :currency "GBP"}}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/ledger-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref-find :ledgers :items
-                                        :gl-code "2500" :account-id]}
+             :path "/v1/ledger-accounts/{ledger-account-id}/balances"
+             :path-params {:ledger-account-id [:ref-find :ledgers :items
+                                        :code "2500" :ledger-account-id]}
              :auth [:ref :org-0 :token]}
    :assert {:status 200 :body {:items [:m/embeds [{:credit 0 :debit 0}]]}}}]}

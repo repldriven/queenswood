@@ -22,8 +22,8 @@
  "GET /v1/jobs/{job-id}" #{["path" "job-id"]}
  "GET /v1/jobs/{job-id}/runs" #{["path" "job-id"]}
  "GET /v1/jobs/{job-id}/runs/{run-id}" #{["path" "job-id"] ["path" "run-id"]}
- "GET /v1/ledger-accounts/{account-id}" #{["path" "account-id"]}
- "GET /v1/ledger-accounts/{account-id}/balances" #{["path" "account-id"]}
+ "GET /v1/ledger-accounts/{ledger-account-id}" #{["path" "ledger-account-id"]}
+ "GET /v1/ledger-accounts/{ledger-account-id}/balances" #{["path" "ledger-account-id"]}
  "GET /v1/parties" #{["query" "page"]}
  "GET /v1/parties/{party-id}" #{["path" "party-id"] ["query" "embed"]}
  "GET /v1/payee-checks" #{["query" "page"]}

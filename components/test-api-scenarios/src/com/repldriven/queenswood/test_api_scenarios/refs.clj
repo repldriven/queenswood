@@ -38,7 +38,7 @@
   selecting the first item in the captured `alias`'s `coll-key`
   collection whose `match-key` equals `match-val`, then reading `path`
   out of it. Lets scenarios target an account by stable attribute
-  (e.g. `:gl-code \"1100\"`) instead of a brittle seed-order index. A
+  (e.g. `:code \"1100\"`) instead of a brittle seed-order index. A
   fixture's alias is a vector, the path to its capture."
   [captures [_ alias coll-key match-key match-val & path]]
   (let [coll (get-in captures

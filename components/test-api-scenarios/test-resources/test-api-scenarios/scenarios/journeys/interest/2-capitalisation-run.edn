@@ -61,6 +61,6 @@
             :body
             {:items
              [:m/embeds
-              [{:gl-code "2400" :posted-balance {:value 0 :currency "GBP"}}
-               {:gl-code "5100" :posted-balance {:value -100 :currency "GBP"}}]]
+              [{:code "2400" :posted-balance {:value 0 :currency "GBP"}}
+               {:code "5100" :posted-balance {:value -100 :currency "GBP"}}]]
              :trial-balance [:m/embeds [{:currency "GBP"}]]}}}]}
