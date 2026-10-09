@@ -21,8 +21,7 @@
                    :delivery-policy system/required-component
                    :poll-ms system/required-component
                    :batch-size system/required-component
-                   :claim-lease-ms system/required-component
-                   :runner-id nil}
+                   :claim-lease-ms system/required-component}
    :system/config-schema [:map
                           [:delivery-policy
                            circuit-breaker/delivery-policy-schema]

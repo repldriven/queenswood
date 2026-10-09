@@ -376,7 +376,6 @@ stores:
         fields: [bank_id, job_id]
   circuit-breakers:
     record-type: CircuitBreaker
-    primary-key: [destination]
     indexes: []
   clearbank-outbox:
     record-type: ClearbankOutboxEvent

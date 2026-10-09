@@ -156,9 +156,10 @@
      (log/error "Circuit breaker not recorded"
                 {:destination destination :anomaly breaker})
 
-     (= "open" (:state breaker))
+     (= :circuit-breaker-status-open (:status breaker))
      (log/warn "Circuit breaker open; email deliveries held"
-               {:destination destination :retry-at (:retry-at breaker)}))))
+               {:destination destination
+                :next-probe-at (:next-probe-at breaker)}))))
 
 (defn deliver-claimed
   "Send one claimed delivery and record what came back, and the mail
@@ -203,8 +204,7 @@
   (let [decision (circuit-breaker/allow config
                                         (breaker-policy config)
                                         destination
-                                        now
-                                        (:runner-id config))]
+                                        now)]
     (cond
      (error/anomaly? decision)
      (do (log/error "Circuit breaker not read; sending as though closed"
@@ -254,9 +254,6 @@
   [config]
   (let [running (atom true)
         poll-ms (:poll-ms config)
-        config (update config
-                       :runner-id
-                       (fn [runner-id] (or runner-id (str (utility/uuidv7)))))
         t (doto (Thread.
                  (fn []
                    (while @running

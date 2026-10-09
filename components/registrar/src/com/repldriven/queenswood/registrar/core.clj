@@ -55,7 +55,8 @@
   (let [breaker (circuit-breaker/breaker config destination)]
     (or (nil? held-at)
         (error/anomaly? breaker)
-        (and (some? breaker) (not= "closed" (:state breaker)))
+        (and (some? breaker)
+             (not= :circuit-breaker-status-closed (:status breaker)))
         (<= (:check-ms config) (- (utility/now) held-at)))))
 
 (defn start

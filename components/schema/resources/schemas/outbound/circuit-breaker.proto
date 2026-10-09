@@ -6,24 +6,25 @@ import "record_metadata_options.proto";
 
 option java_outer_classname = "CircuitBreakerProto";
 
-// The circuit breaker on one destination an outbound call goes to: an
-// external adapter's API, a customer's webhook endpoint, the mail
-// server (ADR-0034). Written when a call to it fails and when its state
-// changes, and read by every replica before it calls.
+enum CircuitBreakerStatus {
+  CIRCUIT_BREAKER_STATUS_UNKNOWN = 0;
+  CIRCUIT_BREAKER_STATUS_CLOSED = 1;
+  CIRCUIT_BREAKER_STATUS_OPEN = 2;
+  CIRCUIT_BREAKER_STATUS_HALF_OPEN = 3;
+}
+
+// The circuit breaker on an outbound destination.
 message CircuitBreaker {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
-  required string destination = 1;     // primary key
-  required string state = 2;           // closed | open | half-open
-  optional int64  consecutive_failures = 3;
-  // Epoch millis. When the breaker last opened, and when it may next
-  // let a probe through.
-  optional int64  opened_at = 4;
-  optional int64  retry_at = 5;
-  // The cool-down the breaker last opened for, doubled on a failed probe.
-  optional int64  cool_down_ms = 6;
-  // The runner holding the half-open probe, and until when.
-  optional string probe_claimed_by = 7;
-  optional int64  probe_lease_expires_at = 8;
-  optional int64  updated_at = 9;
+  required string destination = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  required CircuitBreakerStatus status = 2;
+  required int64 failure_count = 3;
+  optional int64 next_probe_at = 4;
+  optional int64 cool_down_ms = 5;
+
+  optional int64 opened_at = 51;
+
+  required int64 created_at = 101;
+  required int64 updated_at = 103;
 }

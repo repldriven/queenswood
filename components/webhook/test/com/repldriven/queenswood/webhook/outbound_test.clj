@@ -388,7 +388,7 @@
        (testing "a failing endpoint opens its breaker"
          (SUT/drain-once config)
          (nom-test> [breaker (breaker-of config bank-id endpoint-id)
-                     _ (is (= "open" (:state breaker)))]))
+                     _ (is (= :circuit-breaker-status-open (:status breaker)))]))
        (testing "an open breaker claims nothing, the delivery left due"
          (Thread/sleep 10)
          (SUT/drain-once config)
@@ -411,4 +411,5 @@
                      _ (is (= :webhook-delivery-status-delivered
                               (:status delivery)))
                      _ (is (= 2 (:attempts delivery)))
-                     _ (is (= "closed" (:state breaker)))]))))))
+                     _ (is (= :circuit-breaker-status-closed
+                              (:status breaker)))]))))))

@@ -92,10 +92,10 @@
      (log/error "Circuit breaker not recorded"
                 {:destination (destination endpoint) :anomaly res})
 
-     (= "open" (:state res))
+     (= :circuit-breaker-status-open (:status res))
      (log/warn "Circuit breaker open; webhook deliveries held"
                {:destination (destination endpoint)
-                :retry-at (:retry-at res)}))))
+                :next-probe-at (:next-probe-at res)}))))
 
 (defn address-refusal
   "Why the endpoint's address may not be called now, or nil. The host
@@ -184,8 +184,7 @@
                                           (destination {:bank-id bank-id
                                                         :endpoint-id
                                                         endpoint-id})
-                                          now
-                                          (:runner-id config))]
+                                          now)]
       (cond
        (error/anomaly? decision)
        (do (log/error "Circuit breaker not read; delivering as though closed"

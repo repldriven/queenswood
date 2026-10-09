@@ -104,10 +104,6 @@
   [config]
   (str "adapter:" (name (:adapter config))))
 
-(defn- claimant
-  [config]
-  (or (:runner-id config) "intent-poller"))
-
 (defn- breaker-policy
   [config]
   (get-in config [:delivery-policy :breaker]))
@@ -130,10 +126,10 @@
        (log/error "Circuit breaker not recorded"
                   {:destination (destination config) :anomaly breaker})
 
-       (= "open" (:state breaker))
+       (= :circuit-breaker-status-open (:status breaker))
        (do (log/warn "Circuit breaker open; calls held"
                      {:destination (destination config)
-                      :retry-at (:retry-at breaker)})
+                      :next-probe-at (:next-probe-at breaker)})
            (swap! pass assoc :budget 0))))))
 
 (defn- retry
@@ -307,8 +303,7 @@
   (let [decision (circuit-breaker/allow config
                                         (breaker-policy config)
                                         (destination config)
-                                        now
-                                        (claimant config))]
+                                        now)]
     (if (error/anomaly? decision)
       (do (log/error "Circuit breaker not read; calling as though closed"
                      {:destination (destination config) :anomaly decision})
@@ -322,8 +317,8 @@
   (let [breaker (circuit-breaker/breaker config (destination config))]
     (and (not (error/anomaly? breaker))
          (or (nil? breaker)
-             (and (= "closed" (:state breaker))
-                  (zero? (or (:consecutive-failures breaker) 0)))))))
+             (and (= :circuit-breaker-status-closed (:status breaker))
+                  (zero? (:failure-count breaker)))))))
 
 (defn- run-intent
   [config now pass intent]
@@ -544,11 +539,7 @@
   [config]
   (let [{:keys [adapter poll-ms concurrency]} config
         executor (worker-pool adapter concurrency)
-        config (utility/assoc-some (assoc config
-                                          :runner-id
-                                          (str (utility/uuidv7)))
-                                   :executor
-                                   executor)
+        config (utility/assoc-some config :executor executor)
         running (atom true)
         store-name (get-in config [:store :intents])
         wake (LinkedBlockingQueue.)

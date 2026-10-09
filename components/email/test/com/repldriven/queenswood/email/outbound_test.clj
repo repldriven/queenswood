@@ -37,7 +37,6 @@
   [sys]
   {:record-db (system/instance sys [:fdb :record-db])
    :record-store (system/instance sys [:fdb :store])
-   :runner-id "runner-a"
    :delivery-policy delivery-policy
    :batch-size 16
    :claim-lease-ms 60000})
@@ -59,7 +58,7 @@
                  opened
                  (circuit-breaker/record config breaker "smtp" :failed now)
                  _ (testing "a failed send opens the mail server's breaker"
-                     (is (= "open" (:state opened))))
+                     (is (= :circuit-breaker-status-open (:status opened))))
                  _ (SUT/drain-once config)
                  held (store/find-delivery config bank-id delivery-id)
                  _ (testing "an open breaker claims nothing and counts nothing"

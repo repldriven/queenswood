@@ -1470,12 +1470,14 @@
 
 (defmethod dispatch :assert-breaker
   [{:keys [bank] :as ctx} {[destination expected] :args}]
-  (let [breaker (await/value ctx
-                             (str "breaker " destination " to be " expected)
-                             (fn [] (circuit-breaker/breaker bank destination))
-                             (fn [b]
-                               (and (not (error/anomaly? b))
-                                    (= expected (:state b "closed")))))]
+  (let [breaker (await/value
+                 ctx
+                 (str "breaker " destination " to be " expected)
+                 (fn [] (circuit-breaker/breaker bank destination))
+                 (fn [b]
+                   (and (not (error/anomaly? b))
+                        (= (keyword (str "circuit-breaker-status-" expected))
+                           (:status b :circuit-breaker-status-closed)))))]
     (is (not (await/timed-out? breaker))
         (str "breaker " destination " — expected " expected))
     ctx))

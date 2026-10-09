@@ -1604,17 +1604,11 @@
   emails/EmailKind-label2val)
 
 (def ^:private circuit-breaker-unset
-  {:consecutive-failures 0
-   :opened-at 0
-   :retry-at 0
-   :cool-down-ms 0
-   :probe-claimed-by ""
-   :probe-lease-expires-at 0
-   :updated-at 0})
+  {:next-probe-at 0 :cool-down-ms 0 :opened-at 0})
 
 (defn pb->CircuitBreaker
-  "Parse CircuitBreaker protobuf bytes into a Clojure map. Each optional
-  field is present only when set.
+  "Parse CircuitBreaker protobuf bytes into a Clojure map. `next-probe-at`,
+  `cool-down-ms` and `opened-at` are present only when set.
 
   Args:
   - input: protobuf bytes."

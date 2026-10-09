@@ -71,7 +71,7 @@
 (defn allow
   "What a call to `destination` may do at `now`: `:closed` lets it
   through, `:open` holds it, and `:probe` lets it through as the
-  half-open probe, now claimed by `claimant` for the policy's
+  half-open probe, holding every other call for the policy's
   `:probe-lease-ms`, so no other replica probes while it does. Returns
   the decision, or an anomaly.
 
@@ -79,10 +79,9 @@
   - config: `{:record-db :record-store}`.
   - policy: the delivery policy's `:breaker`.
   - destination: the destination's name.
-  - now: epoch millis.
-  - claimant: the caller's runner id."
-  [config policy destination now claimant]
-  (core/allow config policy destination now claimant))
+  - now: epoch millis."
+  [config policy destination now]
+  (core/allow config policy destination now))
 
 (defn record
   "Record a call's outcome on `destination`'s breaker: `:answered`, a

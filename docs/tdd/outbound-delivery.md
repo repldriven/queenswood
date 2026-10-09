@@ -57,7 +57,7 @@ record and its FDB store:
 
 - **States.** `closed` lets calls through and counts consecutive
   failures; at `failure-threshold` it opens. `open` lets none through
-  until `retry-at`. Past `retry-at` the next call is the probe, made in
+  until `next-probe-at`. Past it the next call is the probe, made in
   `half-open`; its success closes the breaker and resets the count, its
   failure reopens it with the cool-down doubled, up to
   `max-cool-down-ms`.
@@ -65,18 +65,17 @@ record and its FDB store:
   since the destination answered it, or `:failed`, where it did not
   answer or answered with a 5xx, a 408 or a 429. Only `:failed` counts.
   A customer's endpoint answering anything but a 2xx counts.
-- **The record.** `CircuitBreaker` in a new
+- **The record.** `CircuitBreaker` in
   `schemas/outbound/circuit-breaker.proto`, keyed by `destination`, with
-  `state`, `consecutive_failures`, `opened_at`, `retry_at`,
-  `cool_down_ms`, `probe_claimed_by` and `probe_lease_expires_at`, in a
-  `circuit-breakers` store with the meta-data version bumped and the
-  store's `since` set, per
+  its `status` (closed, open or half-open), `failure_count`,
+  `next_probe_at`, `cool_down_ms` and `opened_at`, in a
+  `circuit-breakers` store, per
   [schema-evolution](../recipes/code/schema-evolution.md).
 - **Writes.** A failed call increments the count, and a transition
   writes the new state; a success writes only where it closes the
-  breaker or resets a count above zero. A probe is claimed in one
-  transaction under a lease, so of two replicas past `retry-at` one
-  probes and the other waits.
+  breaker or resets a count above zero. A probe is taken in one
+  transaction that moves `next_probe_at` on by `probe-lease-ms`, so of
+  two replicas past it one probes and the other waits.
 - **Destinations.** `adapter:<adapter>` for an external adapter's API,
   `webhook-endpoint:<bank-id>:<endpoint-id>` for a customer's endpoint,
   and `smtp` for the mail server.
@@ -277,8 +276,8 @@ the runner had.
 
 - **circuit-breaker** — the state machine over a sequence of outcomes:
   opening at the threshold, no call while open, one probe past
-  `retry-at`, closing on its success, reopening with a doubled cool-down
-  on its failure. Two claims of one probe, one winning. `retry-policy`
+  `next-probe-at`, closing on its success, reopening with a doubled cool-down
+  on its failure. Two callers past `next-probe-at`, one probing. `retry-policy`
   taking an operation's entry over the default. `guard` calling through
   a closed breaker and answering at once, without calling, through an
   open one. `start-probe` opening a destination that does not answer and
