@@ -116,7 +116,7 @@
       const res = await lookup_company(number);
       if (res.status === 200) {
         match = res.body;
-        bankName = match["company-name"] ?? "";
+        bankName = match.name ?? "";
         createError = null;
         focus(() => (isActive(match) ? nameInput : changeButton));
       } else {
@@ -263,7 +263,7 @@
             <div>
               <dt>Company</dt>
               <dd>
-                {match["company-name"]}
+                {match.name}
                 <span class="sub">No. {match["company-number"]} · Companies House</span>
               </dd>
             </div>
@@ -287,16 +287,16 @@
               <div class="match">
                 <div class="match-head">
                   <div>
-                    <h2 class="co-name">{match["company-name"]}</h2>
+                    <h2 class="co-name">{match.name}</h2>
                     <p class="co-sub">No. {match["company-number"]} · Companies House</p>
                   </div>
                   <span class="pill" class:ok={matched}>
-                    <span class="dot"></span>{statusLabel(match["company-status"])}
+                    <span class="dot"></span>{statusLabel(match.status)}
                   </span>
                 </div>
                 <dl class="facts">
                   <div><dt>Company type</dt><dd>{companyTypeLabel(match.type)}</dd></div>
-                  <div><dt>Incorporated</dt><dd>{fmtIncorporated(match["date-of-creation"])}</dd></div>
+                  <div><dt>Incorporated</dt><dd>{fmtIncorporated(match["incorporated-on"])}</dd></div>
                   <div><dt>Jurisdiction</dt><dd>{jurisdictionLabel(match.jurisdiction)}</dd></div>
                   <div><dt>Company number</dt><dd class="mono">{match["company-number"]}</dd></div>
                   <div class="full"><dt>Registered office</dt><dd>{joinAddress(match["registered-office-address"])}</dd></div>
@@ -309,7 +309,7 @@
               {#if !matched}
                 <p class="error" role="alert">
                   <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" /><path d="M8 5v3.5M8 11h.01" /></svg>
-                  This company is {match["company-status"]}, so it can't be bound to a bank.
+                  This company is {match.status}, so it can't be bound to a bank.
                 </p>
               {/if}
             {:else}

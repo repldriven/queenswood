@@ -49,12 +49,12 @@
                         :tier tier}))
      _ (idv/check-criteria (concat policies tier-policies) idv-provider)
      _ (when (and company-binding
-                  (not= "active" (:company-status company-binding)))
+                  (not= "active" (:status company-binding)))
          (error/reject
           :bank/company-not-active
           {:message "Only an active company can be bound to a bank"
            :company-number (:company-number company-binding)
-           :company-status (:company-status company-binding)}))]
+           :company-status (:status company-binding)}))]
     (let [now (utility/now)]
       (utility/assoc-some {:bank-id (utility/generate-id "bnk")
                            :name bank-name

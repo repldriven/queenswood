@@ -4,6 +4,7 @@ package com.repldriven.queenswood.schema.bank;
 
 import "record_metadata_options.proto";
 import "schemas/actor/actor.proto";
+import "schemas/company/company.proto";
 
 option java_outer_classname = "BankProto";
 
@@ -44,12 +45,12 @@ message BankProvider {
 
 // The company a bank is bound to, as its registry held it.
 message BankCompanyBinding {
-  required string registry = 1; // e.g. "uk-companies-house"
+  required com.repldriven.queenswood.schema.company.CompanyRegistry registry = 1;
   required string company_number = 2;
-  optional string company_name = 3;
-  optional string company_status = 4;
-  optional string type = 5;
+  required string name = 3;
+  required string status = 4; // the registry's, e.g. "active"
+  required string company_type = 5; // the registry's, e.g. "ltd"
   optional string jurisdiction = 6;
-  optional string date_of_creation = 7;
-  optional string registered_office_address = 8; // joined address lines
+  optional int64 incorporated_on = 7; // epoch day
+  optional com.repldriven.queenswood.schema.company.RegisteredOfficeAddress registered_office_address = 8;
 }

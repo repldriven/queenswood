@@ -364,6 +364,15 @@
 (def ^:private address-unset
   {:address-line-1 "" :locality "" :postal-code "" :country ""})
 
+(defn- plain-company
+  "A company, or a bank's binding to one, as a plain map without the
+  optional fields and address lines it was never given."
+  [company]
+  (let [company (without-unset company company-unset)]
+    (cond-> company
+            (:registered-office-address company)
+            (update :registered-office-address without-unset address-unset))))
+
 (defn pb->Company
   "Parse Company protobuf bytes into a Clojure map. Each optional field,
   and each line of the registered office address, is present only when
@@ -372,10 +381,7 @@
   Args:
   - input: protobuf bytes."
   [input]
-  (let [company (without-unset (company/pb->Company input) company-unset)]
-    (cond-> company
-            (:registered-office-address company)
-            (update :registered-office-address without-unset address-unset))))
+  (plain-company (company/pb->Company input)))
 
 (defn Company->pb
   "Serialise a Company map to protobuf bytes.
@@ -424,12 +430,16 @@
 
 (defn pb->Bank
   "Parse Bank protobuf bytes into a Clojure map, a status or tier
-  change's `_at` and `_by` present only when set, and its actors plain
-  maps."
+  change's `_at` and `_by` present only when set, its actors plain maps,
+  and its company binding, where it has one, as a company is."
   [input]
-  (reduce plain-embedded
-          (without-unset (bank/pb->Bank input) bank-unset)
-          [:created-by :status-changed-by :tier-changed-by]))
+  (let [bank (reduce plain-embedded
+                     (without-unset (bank/pb->Bank input)
+                                    (assoc bank-unset :company-binding nil))
+                     [:created-by :status-changed-by :tier-changed-by])]
+    (cond-> bank
+            (:company-binding bank)
+            (update :company-binding plain-company))))
 
 (defn Bank->pb
   "Serialise a Bank map to protobuf bytes.

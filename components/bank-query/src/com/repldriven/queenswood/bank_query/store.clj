@@ -3,8 +3,7 @@
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]
 
-    [com.repldriven.mono.error.interface :as error]
-    [com.repldriven.mono.utility.interface :as utility]))
+    [com.repldriven.mono.error.interface :as error]))
 
 ;; must match bank-bank.store/store-name — same FDB store
 (def ^:private store-name "banks")
@@ -12,19 +11,11 @@
 (def transact fdb/transact)
 
 (defn- ->bank
-  "Translate a Bank protobuf record to a plain map. The protojure
-  record carries `:company-binding nil` for admin-provisioned banks, and
-  the key must be absent so API response coercion (optional key, no
-  nil) passes. `:providers` is a vector of `{:kind :provider}` maps."
+  "Translate a Bank protobuf record to a plain map, `:providers` a vector
+  of `{:kind :provider}` maps."
   [record]
-  (let [{:keys [company-binding providers] :as bank} (schema/pb->Bank
-                                                      record)]
-    (-> (into {} bank)
-        (dissoc :company-binding)
-        (assoc :providers (mapv (fn [p] (into {} p)) providers))
-        (utility/assoc-some :company-binding
-                            (some->> company-binding
-                                     (into {}))))))
+  (let [bank (schema/pb->Bank record)]
+    (update bank :providers (partial mapv (fn [p] (into {} p))))))
 
 (defn get-bank
   [txn bank-id]

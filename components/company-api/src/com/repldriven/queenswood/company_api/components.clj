@@ -1,13 +1,14 @@
 (ns com.repldriven.queenswood.company-api.components
   (:require
+    [com.repldriven.queenswood.company-api.coercion :as coercion]
     [com.repldriven.queenswood.company-api.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :refer
-     [components-registry]]
+     [components-registry]]))
 
-    [com.repldriven.mono.utility.interface :as utility]
-
-    [clojure.string :as str]))
+(def CompanyRegistry
+  (coercion/company-registry-enum-schema {:json-schema/example
+                                          "uk-companies-house"}))
 
 (def RegisteredOfficeAddress
   [:map
@@ -17,34 +18,24 @@
    [:country {:optional true} string?]])
 
 (def Company
-  "A company profile in the Companies House shape, as resolved from a
-  registry lookup."
+  "A company as its registry holds it."
   [:map {:json-schema/example examples/Company}
+   [:registry [:ref "CompanyRegistry"]]
    [:company-number string?]
-   [:registry-id {:optional true} string?]
-   [:company-name {:optional true} string?]
-   [:company-status {:optional true} string?]
-   [:type {:optional true} string?]
+   [:name string?]
+   [:status string?]
+   [:company-type string?]
    [:jurisdiction {:optional true} string?]
-   [:date-of-creation {:optional true} string?]
+   [:incorporated-on {:optional true} [:ref "BusinessDay"]]
    [:registered-office-address {:optional true}
     [:ref "RegisteredOfficeAddress"]]])
 
+(def ^:private company-keys
+  (into [] (comp (filter vector?) (map first)) Company))
+
 (defn ->body
   [company]
-  (let [{:keys [registry company-number name status company-type jurisdiction
-                incorporated-on registered-office-address]}
-        company]
-    (utility/assoc-some {:company-number company-number
-                         :registry-id (str/replace (clojure.core/name registry)
-                                                   #"^company-registry-"
-                                                   "")
-                         :company-name name
-                         :company-status status
-                         :type company-type}
-                        :jurisdiction jurisdiction
-                        :date-of-creation (some-> incorporated-on
-                                                  utility/epoch-day->iso-date)
-                        :registered-office-address registered-office-address)))
+  (select-keys company company-keys))
 
-(def registry (components-registry [#'RegisteredOfficeAddress #'Company]))
+(def registry
+  (components-registry [#'CompanyRegistry #'RegisteredOfficeAddress #'Company]))

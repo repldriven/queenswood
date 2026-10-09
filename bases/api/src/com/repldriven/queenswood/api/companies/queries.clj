@@ -13,9 +13,7 @@
 (defn lookup
   "Resolve `company-number` against the registry of record. Returns the
   `commands/send` ring response — 200 plus the company body on success.
-  Onboarding calls this directly; the body carries `:registry-id`, the
-  registry the adapter answered for, which the caller snapshots onto the
-  bank."
+  Onboarding calls this directly and snapshots the body onto the bank."
   [request company-number]
   (let [response (commands/send (dispatcher request)
                                 request

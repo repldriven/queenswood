@@ -23,14 +23,26 @@
       "type": "record",
       "name": "CompanyBinding",
       "fields": [
-        {"name": "registry",                  "type": "string"},
-        {"name": "company_number",            "type": "string"},
-        {"name": "company_name",              "type": ["null", "string"], "default": null},
-        {"name": "company_status",            "type": ["null", "string"], "default": null},
-        {"name": "type",                      "type": ["null", "string"], "default": null},
-        {"name": "jurisdiction",              "type": ["null", "string"], "default": null},
-        {"name": "date_of_creation",          "type": ["null", "string"], "default": null},
-        {"name": "registered_office_address", "type": ["null", "string"], "default": null}
+        {"name": "registry", "type": {"type": "enum",
+                                      "name": "CompanyRegistry",
+                                      "symbols": ["COMPANY_REGISTRY_UNKNOWN",
+                                                  "COMPANY_REGISTRY_UK_COMPANIES_HOUSE"]}},
+        {"name": "company_number",  "type": "string"},
+        {"name": "name",            "type": "string"},
+        {"name": "status",          "type": "string"},
+        {"name": "company_type",    "type": "string"},
+        {"name": "jurisdiction",    "type": ["null", "string"], "default": null},
+        {"name": "incorporated_on", "type": ["null", "long"], "default": null},
+        {"name": "registered_office_address", "type": ["null", {
+          "type": "record",
+          "name": "RegisteredOfficeAddress",
+          "fields": [
+            {"name": "address_line_1", "type": ["null", "string"], "default": null},
+            {"name": "locality",       "type": ["null", "string"], "default": null},
+            {"name": "postal_code",    "type": ["null", "string"], "default": null},
+            {"name": "country",        "type": ["null", "string"], "default": null}
+          ]
+        }], "default": null}
       ]
     }], "default": null},
     {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},

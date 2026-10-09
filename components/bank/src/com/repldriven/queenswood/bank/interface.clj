@@ -49,7 +49,7 @@
     for the new client; `:company-binding` (map, optional) is the
     confirmed legal-entity snapshot to bind the bank to (onboarding) —
     creation is rejected `:bank/company-not-active` unless its
-    `:company-status` is active; `:member` (map, optional) is
+    `:status` is active; `:member` (map, optional) is
     `{:user-id … :role …}` for the owner member, and a user may own
     any number of banks; `:owner-invitation` (map, optional) is
     `{:email …}` for the owner invitation, refused as

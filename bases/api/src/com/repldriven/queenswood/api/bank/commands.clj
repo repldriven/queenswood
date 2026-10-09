@@ -84,26 +84,9 @@
   "What an operator chooses and a person creating their own bank may not."
   [:status :tier :currencies :owner-email])
 
-(defn- office->string
-  "Join the non-blank registered-office address lines into one string."
-  [{:keys [address-line-1 locality postal-code country]}]
-  (->> [address-line-1 locality postal-code country]
-       (remove str/blank?)
-       (str/join ", ")))
-
-(defn- ->binding
-  "Snapshot the confirmed company into the bank's company-binding shape."
-  [registry company]
-  (let [office (office->string (:registered-office-address company))]
-    (utility/assoc-some
-     {:registry registry
-      :company-number (:company-number company)}
-     :company-name (:company-name company)
-     :company-status (:company-status company)
-     :type (:type company)
-     :jurisdiction (:jurisdiction company)
-     :date-of-creation (:date-of-creation company)
-     :registered-office-address (when-not (str/blank? office) office))))
+(def ^:private binding-keys
+  [:registry :company-number :name :status :company-type :jurisdiction
+   :incorporated-on :registered-office-address])
 
 (defn- operator?
   [auth]
@@ -151,7 +134,7 @@
       :audience (get audiences-by-status status)
       :actor (shared.actor/actor auth)}
      :company-binding (when company
-                        (->binding (:registry-id company) company))
+                        (select-keys company binding-keys))
      :member (when person?
                {:user-id (:principal-id auth) :role :role-owner})
      :owner-invitation (when owner-email {:email owner-email})

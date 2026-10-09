@@ -110,15 +110,17 @@
 (def ChangeBankStatusRequest {:status "live"})
 
 (def CompanyBinding
-  {:registry "uk-companies-house"
+  {:registry :uk-companies-house
    :company-number "SC998137"
-   :company-name "SIRIUS CYBERNETICS CORPORATION LTD"
-   :company-status "active"
-   :type "ltd"
+   :name "SIRIUS CYBERNETICS CORPORATION LTD"
+   :status "active"
+   :company-type "ltd"
    :jurisdiction "england-wales"
-   :date-of-creation "2009-02-11"
-   :registered-office-address
-   "42 Improbability Way, London, QZ1 9ZX, United Kingdom"})
+   :incorporated-on "2009-02-11"
+   :registered-office-address {:address-line-1 "42 Improbability Way"
+                               :locality "London"
+                               :postal-code "QZ1 9ZX"
+                               :country "United Kingdom"}})
 
 (def ^:private owner-invitation
   (assoc access-api/Invitation

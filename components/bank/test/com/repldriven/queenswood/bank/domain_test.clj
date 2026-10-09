@@ -41,10 +41,11 @@
   [{:policy-id "pol.micro"}])
 
 (def ^:private active-binding
-  {:registry "uk-companies-house"
+  {:registry :company-registry-uk-companies-house
    :company-number "12345678"
-   :company-name "Acme Ltd"
-   :company-status "active"})
+   :name "Acme Ltd"
+   :status "active"
+   :company-type "ltd"})
 
 (deftest new-bank-test
   (testing "builds a bnk.-prefixed bank stamped with the binding"
@@ -92,7 +93,7 @@
     (let [r (SUT/new-bank "Acme"
                           :bank-status-test
                           "micro"
-                          (assoc active-binding :company-status "dissolved")
+                          (assoc active-binding :status "dissolved")
                           tier-policies
                           permissive-policies
                           idv-provider)]

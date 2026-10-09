@@ -74,14 +74,15 @@
   "The confirmed legal-entity snapshot a bank is bound to (onboarding
   via a company registry). Absent for admin-provisioned banks."
   [:map {:json-schema/example examples/CompanyBinding}
-   [:registry string?]
+   [:registry [:ref "CompanyRegistry"]]
    [:company-number string?]
-   [:company-name string?]
-   [:company-status string?]
-   [:type {:optional true} string?]
+   [:name string?]
+   [:status string?]
+   [:company-type string?]
    [:jurisdiction {:optional true} string?]
-   [:date-of-creation {:optional true} string?]
-   [:registered-office-address {:optional true} string?]])
+   [:incorporated-on {:optional true} [:ref "BusinessDay"]]
+   [:registered-office-address {:optional true}
+    [:ref "RegisteredOfficeAddress"]]])
 
 (def CreateBankResponse
   [:map {:json-schema/example examples/CreateBankResponse}

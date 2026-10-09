@@ -16,7 +16,7 @@
                    :auth :person-token}
          :assert {:status 200
                   :body
-                  {:company-number "SC998137" :company-name [:m/non-empty]}}}
+                  {:company-number "SC998137" :name [:m/non-empty]}}}
         {:command :api/request
          :request {:method :get
                    :path "/v1/companies/{company-number}"
