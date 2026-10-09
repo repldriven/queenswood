@@ -190,7 +190,7 @@
           :creditor-name "Arthur Dent"
           :currency "GBP"
           :amount 2500
-          :scheme "fps"
+          :scheme-type "fps"
           :reference "Towel"}
          (SUT/outbound-payment-request "acc.1" {:name "Arthur Dent"
                                                 :sort-code "040062"

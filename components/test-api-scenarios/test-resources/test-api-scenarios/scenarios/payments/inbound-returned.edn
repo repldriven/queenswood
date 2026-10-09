@@ -80,7 +80,7 @@
              :auth [:ref :bank-0 :token]}
    :until {:status 200
            :body {:items
-                  [{:amount 700 :currency "GBP" :payment-status "returned"}]}}
+                  [{:amount 700 :currency "GBP" :status "returned"}]}}
    :timeout-ms 20000}
   {:command :api/request
    :request

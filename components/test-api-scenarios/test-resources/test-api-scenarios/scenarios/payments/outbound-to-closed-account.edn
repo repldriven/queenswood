@@ -94,7 +94,7 @@
                     :creditor-name "Closed Creditor"
                     :currency "GBP"
                     :amount 4200
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Inbound to a closed address"}}
    :as :outbound
    :assert {:status 201}}]
@@ -105,8 +105,8 @@
              :path-params {:payment-id [:ref :outbound :payment-id]}
              :auth [:ref :org-0 :token]}
    :until {:status 200
-           :body {:payment-status "returned"
-                  :return {:reason-code "AC04" :reason "BENACCCLOSED"}}}
+           :body {:status "returned"
+                  :returned-reason-code "AC04" :returned-reason "BENACCCLOSED"}}
    :timeout-ms 10000}
   {:command :api/request
    :request {:method :get

@@ -325,7 +325,7 @@
                    :creditor-name (:name payee)
                    :currency currency
                    :amount amount
-                   :scheme "fps"}
+                   :scheme-type "fps"}
                   reference))
 
 (defn internal-payment-request
@@ -397,7 +397,7 @@
   "An outbound payment as the app shows it once sent."
   [platform-payment payee]
   {:id (:payment-id platform-payment)
-   :status (some-> (:payment-status platform-payment)
+   :status (some-> (:status platform-payment)
                    name)
    :from (:debtor-account-id platform-payment)
    :payee payee

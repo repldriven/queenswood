@@ -130,7 +130,7 @@
                     :creditor-name "Rails Customer"
                     :currency "GBP"
                     :amount 4200
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "To the rails bank"}}
    :as :to-rails
    :assert {:status 201}}
@@ -139,7 +139,7 @@
              :path "/v1/payments/outbound/{payment-id}"
              :path-params {:payment-id [:ref :to-rails :payment-id]}
              :auth :per-account-token}
-   :until {:status 200 :body {:payment-status "completed"}}
+   :until {:status 200 :body {:status "completed"}}
    :timeout-ms 15000}
   {:command :api/poll
    :request {:method :get
@@ -164,7 +164,7 @@
                     :creditor-name "Per-account Customer"
                     :currency "GBP"
                     :amount 1000
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Back to the per-account bank"}}
    :as :to-per-account
    :assert {:status 201}}
@@ -173,7 +173,7 @@
              :path "/v1/payments/outbound/{payment-id}"
              :path-params {:payment-id [:ref :to-per-account :payment-id]}
              :auth :rails-token}
-   :until {:status 200 :body {:payment-status "completed"}}
+   :until {:status 200 :body {:status "completed"}}
    :timeout-ms 15000}]
  :then
  [{:command :api/poll

@@ -84,7 +84,7 @@ function follow(paymentId, sent) {
     const res = get(`/v1/payments/outbound/${paymentId}`, bearer(), {
       tags: { name: "payments/outbound/{payment-id}", phase: "follow" },
     });
-    const status = res.status === 200 ? res.json()["payment-status"] : null;
+    const status = res.status === 200 ? res.json().status : null;
     if (status === "completed") {
       settleTime.add(Date.now() - sent);
       return;
@@ -113,7 +113,7 @@ export default function (bank) {
       "creditor-name": "Perf Payee",
       currency: "GBP",
       amount,
-      scheme: "fps",
+      "scheme-type": "fps",
       reference: "Perf",
     },
     bearer,

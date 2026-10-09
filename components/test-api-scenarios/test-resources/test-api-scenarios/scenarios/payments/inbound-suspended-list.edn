@@ -85,7 +85,7 @@
                     :creditor-name "Fenchurch Wells"
                     :currency "GBP"
                     :amount 2500
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Inbound to a suspended account"}}
    :assert {:status 201}}]
  :then
@@ -100,7 +100,7 @@
     :body {:items [{:bank-id [:ref :bank-a :bank :bank-id]
                     :amount 2500
                     :currency "GBP"
-                    :payment-status "suspended"
+                    :status "suspended"
                     :scheme-transaction-id [:m/non-empty]}]}}
    :timeout-ms 10000
    :as :suspended}
@@ -115,7 +115,7 @@
                    :scheme-transaction-id [:ref :suspended :items 0
                                            :scheme-transaction-id]
                    :amount 2500
-                   :payment-status "suspended"}}}
+                   :status "suspended"}}}
   ;; Bank B cannot read it, and lists no suspended inbound of its own.
   {:command :api/request
    :request {:method :get

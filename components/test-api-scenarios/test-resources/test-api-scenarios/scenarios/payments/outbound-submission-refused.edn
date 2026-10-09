@@ -66,10 +66,10 @@
                     :creditor-name "Refused Creditor"
                     :currency "GBP"
                     :amount 2500
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Submission refused"}}
    :as :payment
-   :assert {:status 201 :body {:payment-status "pending"}}}]
+   :assert {:status 201 :body {:status "pending"}}}]
  :then
  ;; The payment fails with the refusal code, and the £25 returns to the
  ;; debtor's available balance, which was never posted away.
@@ -79,8 +79,8 @@
              :path-params {:payment-id [:ref :payment :payment-id]}
              :auth [:ref :bank-0 :token]}
    :until {:status 200
-           :body {:payment-status "failed"
-                  :failure {:kind "refused" :reason-code "NARR"}}}
+           :body {:status "failed"
+                  :failed-kind "refused" :failed-reason-code "NARR"}}
    :timeout-ms 10000}
   {:command :api/poll
    :request {:method :get

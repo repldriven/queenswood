@@ -79,7 +79,7 @@
                     :creditor-name "6a41a29eafcf455493"
                     :currency "GBP"
                     :amount 2500
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Held then declined"}}
    :as :payment
    :assert {:status 201}}]
@@ -93,8 +93,8 @@
              :path-params {:payment-id [:ref :payment :payment-id]}
              :auth [:ref :bank-0 :token]}
    :until {:status 200
-           :body {:payment-status "failed"
-                  :failure {:kind "declined" :reason-code "NARR"}}}
+           :body {:status "failed"
+                  :failed-kind "declined" :failed-reason-code "NARR"}}
    :timeout-ms 10000}
   {:command :api/poll
    :request {:method :get

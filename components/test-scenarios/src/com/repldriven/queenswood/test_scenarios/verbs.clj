@@ -906,7 +906,7 @@
                 {:idempotency-key (str "scen-pay-" run-id "-" counter)
                  :bank-id bank-real-id
                  :debtor-account-id real-acct-id
-                 :scheme "fps"
+                 :scheme-type :scheme-type-fps
                  :currency "GBP"
                  :amount amount
                  :reference (str "scenario payment " counter)
@@ -942,7 +942,7 @@
      {:idempotency-key (str "scen-pay-" run-id "-" counter)
       :bank-id (get-in banks [model-bank :real-id])
       :debtor-account-id (id-mapping/real id-mapping model-acct)
-      :scheme "fps"
+      :scheme-type :scheme-type-fps
       :currency "GBP"
       :amount amount
       :reference (str "scenario payment " counter)

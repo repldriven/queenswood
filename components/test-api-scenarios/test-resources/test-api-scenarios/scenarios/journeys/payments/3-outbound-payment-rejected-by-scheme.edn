@@ -24,7 +24,7 @@
                     :creditor-name "Unreachable Creditor"
                     :currency "GBP"
                     :amount 2500
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Rejected"}}
    :as :payment
    :assert {:status 201}}]
@@ -34,8 +34,8 @@
                    :path-params {:payment-id [:ref :payment :payment-id]}
                    :auth [:ref :bank-0 :token]}
          :until {:status 200
-                 :body {:payment-status "failed"
-                        :failure {:kind "declined" :reason-code "NARR"}}}}
+                 :body {:status "failed"
+                        :failed-kind "declined" :failed-reason-code "NARR"}}}
         {:command :api/poll
          :request {:method :get
                    :path "/v1/cash-accounts/{account-id}/balances"

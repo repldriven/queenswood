@@ -635,8 +635,8 @@
                      (is (= payment-id (:resource-id body)))
                      (is (= "pending" (:status-before body)))
                      (is (= "completed" (:status-after body)))
-                     (is (= "completed" (get-in body [:data :payment-status])))
-                     (is (= "fps" (get-in body [:data :scheme])))
+                     (is (= "completed" (get-in body [:data :status])))
+                     (is (= "fps" (get-in body [:data :scheme-type])))
                      (is (= (str "ik-" payment-id) (:idempotency-key body)))
                      (is (not (contains? (:data body) :idempotency-key))))
                  _ (testing "and one delivery to the endpoint that chose it"

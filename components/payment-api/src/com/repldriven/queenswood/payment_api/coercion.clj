@@ -4,7 +4,6 @@
 
 (def ^:private outbound-payment-status-enum
   (coercion/enum-coercion {"pending" :outbound-payment-status-pending
-                           "processing" :outbound-payment-status-processing
                            "completed" :outbound-payment-status-completed
                            "failed" :outbound-payment-status-failed
                            "held" :outbound-payment-status-held
@@ -32,24 +31,17 @@
   (some-> ((:encode inbound-payment-status-enum) status)
           name))
 
-(def ^:private outbound-payment-failure-kind-enum
+(def ^:private outbound-payment-failed-kind-enum
   (coercion/enum-coercion {"declined" :outbound-payment-failed-kind-declined
                            "refused" :outbound-payment-failed-kind-refused
                            "undelivered"
                            :outbound-payment-failed-kind-undelivered}
                           :outbound-payment-failed-kind-unknown))
 
-(def outbound-payment-failure-kind-enum-schema
-  (:enum-schema outbound-payment-failure-kind-enum))
+(def outbound-payment-failed-kind-enum-schema
+  (:enum-schema outbound-payment-failed-kind-enum))
 
-(def ^:private payment-scheme-enum
-  (coercion/enum-coercion {"fps" :payment-scheme-fps} :payment-scheme-unknown))
+(def ^:private scheme-type-enum
+  (coercion/enum-coercion {"fps" :scheme-type-fps} :scheme-type-unknown))
 
-(def payment-scheme-enum-schema (:enum-schema payment-scheme-enum))
-
-(defn encode-payment-scheme
-  "Convert a decoded payment scheme keyword back to its wire string,
-  e.g. :payment-scheme-fps -> \"fps\". Required before Avro serialization."
-  [scheme]
-  (some-> ((:encode payment-scheme-enum) scheme)
-          name))
+(def scheme-type-enum-schema (:enum-schema scheme-type-enum))

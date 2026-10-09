@@ -160,7 +160,9 @@
                    [declaration (telemetry/with-span
                                  ["payment-declaration"]
                                  (provider/declaration config txn bank-id))
-                    _ (outbound/check-scheme (:scheme data) declaration)
+                    _ (outbound/check-scheme (scheme/scheme-name (:scheme-type
+                                                                  data))
+                                             declaration)
                     debtor-account (telemetry/with-span
                                     ["payment-debtor-account"]
                                     (cash-accounts/get-account

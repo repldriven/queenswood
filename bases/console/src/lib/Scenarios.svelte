@@ -674,7 +674,7 @@
           "creditor-name": "Arthur Dent",
           currency: "GBP",
           amount: FORD_PAYS,
-          scheme: "fps",
+          "scheme-type": "fps",
           reference: "Beer and nuts",
         });
         if (!ok2xx(r)) throw new Error(`outbound submit: ${r.status}`);
@@ -683,7 +683,7 @@
       await step(2, () =>
         poll(
           () => api.get_outbound_payment(paymentId),
-          (r) => r.status === 200 && r.body?.["payment-status"] === "completed",
+          (r) => r.status === 200 && r.body?.status === "completed",
           { tries: 40, delay: 600 },
         ));
       // Outbound to a same-bank account round-trips back as an inbound:

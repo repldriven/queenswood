@@ -48,9 +48,8 @@
                      request
                      "submit-outbound-payment"
                      "outbound-payment"
-                     (-> body
-                         (update :scheme coercion/encode-payment-scheme)
-                         (assoc :bank-id bank-id
-                                :actor (shared.actor/actor auth)))
+                     (assoc body
+                            :bank-id bank-id
+                            :actor (shared.actor/actor auth))
                      {:ordering-key (:debtor-account-id body)}))
      #(str "/v1/payments/outbound/" (:payment-id %)))))

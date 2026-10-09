@@ -438,7 +438,7 @@
     (or (replay state request)
         (let [{:keys [body-params]} request
               {:keys [debtor-account-id creditor-bban creditor-name amount
-                      currency reference scheme]}
+                      currency reference scheme-type]}
               body-params
               debtor (operable state debtor-account-id)]
           (cond (:body debtor)
@@ -453,13 +453,13 @@
                       now (util/now-rfc3339)
                       payment {:payment-id payment-id
                                :bank-id "bnk.00000000000000000000000001"
-                               :scheme scheme
+                               :status "pending"
+                               :scheme-type scheme-type
                                :debtor-account-id debtor-account-id
                                :creditor-bban creditor-bban
                                :creditor-name creditor-name
                                :currency currency
                                :amount amount
-                               :payment-status "pending"
                                :transaction-id transaction-id
                                :reference reference
                                :business-day (subs now 0 10)
@@ -577,7 +577,7 @@
                   reference)])
     (get-in (swap! state
               assoc-in
-              [:payments payment-id :payment-status]
+              [:payments payment-id :status]
               "completed")
             [:payments payment-id])))
 
@@ -604,7 +604,9 @@
               :payments
               (fn [payments]
                 (-> payments
-                    (assoc-in [payment-id :payment-status] "failed")
-                    (assoc-in [payment-id :failure]
-                              {:kind "declined" :reason-code "NARR"}))))
+                    (update payment-id
+                            assoc
+                            :status "failed"
+                            :failed-kind "declined"
+                            :failed-reason-code "NARR"))))
             [:payments payment-id])))

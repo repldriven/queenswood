@@ -88,7 +88,7 @@
                     :creditor-name "Trillian Astra"
                     :currency "GBP"
                     :amount 1500
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Cross bank outbound"}}
    :as :outbound
    :assert {:status 201 :body {:bank-id [:ref :bank-a :bank :bank-id]}}}
@@ -97,7 +97,7 @@
              :path "/v1/payments/outbound/{payment-id}"
              :path-params {:payment-id [:ref :outbound :payment-id]}
              :auth [:ref :bank-a :token]}
-   :until {:status 200 :body {:payment-status "completed"}}
+   :until {:status 200 :body {:status "completed"}}
    :timeout-ms 10000}]
  :then
  [;; Bank B reads neither, and cannot tell them from a missing payment.
@@ -154,4 +154,4 @@
             :body {:payment-id [:ref :outbound :payment-id]
                    :bank-id [:ref :bank-a :bank :bank-id]
                    :amount 1500
-                   :payment-status "completed"}}}]}
+                   :status "completed"}}}]}

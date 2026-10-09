@@ -28,8 +28,15 @@
       "type": "long"
     },
     {
-      "name": "scheme",
-      "type": "string"
+      "name": "scheme_type",
+      "type": {
+        "type": "enum",
+        "name": "SchemeType",
+        "symbols": [
+          "SCHEME_TYPE_UNKNOWN",
+          "SCHEME_TYPE_FPS"
+        ]
+      }
     },
     {
       "name": "reference",

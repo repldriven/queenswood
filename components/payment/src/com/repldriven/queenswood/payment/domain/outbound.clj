@@ -1,7 +1,6 @@
 (ns com.repldriven.queenswood.payment.domain.outbound
   (:require
     [com.repldriven.queenswood.payment.domain.checks :as checks]
-    [com.repldriven.queenswood.payment.domain.scheme :as scheme]
 
     [com.repldriven.queenswood.policy.interface :as policy]
 
@@ -84,7 +83,7 @@
 (defn new-outbound-payment
   [data business-day transaction-id]
   (let [{:keys [idempotency-key bank-id debtor-account-id
-                creditor-bban creditor-name scheme
+                creditor-bban creditor-name scheme-type
                 currency amount reference actor]}
         data
         now (utility/now)]
@@ -92,7 +91,7 @@
      {:bank-id bank-id
       :payment-id (utility/generate-id "pmt")
       :status :outbound-payment-status-pending
-      :scheme-type (scheme/scheme-type scheme)
+      :scheme-type scheme-type
       :debtor-account-id debtor-account-id
       :creditor-name creditor-name
       :creditor-bban creditor-bban

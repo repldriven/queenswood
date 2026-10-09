@@ -30,7 +30,7 @@
                     :creditor-name "Arthur Dent"
                     :currency "GBP"
                     :amount 2500
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Checked"}}
    :as :payment
    :assert {:status 201}}]
@@ -39,4 +39,4 @@
                    :path "/v1/payments/outbound/{payment-id}"
                    :path-params {:payment-id [:ref :payment :payment-id]}
                    :auth [:ref :bank-0 :token]}
-         :until {:status 200 :body {:payment-status "completed"}}}]}
+         :until {:status 200 :body {:status "completed"}}}]}

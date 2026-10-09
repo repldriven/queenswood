@@ -51,7 +51,7 @@
     :body {:items [{:end-to-end-id [:ref :released :endToEndIdentification]
                     :creditor-account-id [:ref :creditor :account :account-id]
                     :amount 2500
-                    :payment-status "settled"
+                    :status "settled"
                     :transaction-id [:m/non-empty]}]}}
    :as :settled}
   {:command :api/poll
@@ -64,7 +64,7 @@
     :body {:items [{:end-to-end-id [:ref :returned :endToEndIdentification]
                     :creditor-account-id [:ref :creditor :account :account-id]
                     :amount 1500
-                    :payment-status "returned"}]}}}
+                    :status "returned"}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/payments/inbound"
