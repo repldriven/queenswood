@@ -16,7 +16,7 @@
       [balances (when (:embed-balances opts)
                   (balances/get-balances txn bank-id account-id currency))
        transactions (when (:embed-transactions opts)
-                      (transactions/get-transactions txn account-id))]
+                      (transactions/get-transactions txn bank-id account-id))]
       (cond-> account
 
               balances
@@ -136,6 +136,9 @@
   (store/transact txn
                   (fn [txn]
                     (let-nom> [_ (get-account txn bank-id account-id)]
-                      (transactions/page-transactions txn account-id opts)))
+                      (transactions/page-transactions txn
+                                                      bank-id
+                                                      account-id
+                                                      opts)))
                   :cash-account/page-transactions
                   "Failed to page the account's transactions"))

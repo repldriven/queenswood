@@ -53,8 +53,8 @@ are left out of the balance writes.
 
 The parts:
 
-- Declare `TransactionLeg_sum_amount_by_account_bucket_side` on
-  `transaction-legs`, summing `amount` grouped by `[account_id,
+- Declare `TransactionLeg_sum_amount_by_bank_account_bucket_side` on
+  `transaction-legs`, summing `amount` grouped by `[bank_id, account_id,
   balance_type, balance_status, side]`, at meta-data version 75.
 - Read an account's summed `{:credit :debit}` through
   `transaction/sum-legs`.

@@ -21,7 +21,7 @@
 (def ^:private legs-store-name "transaction-legs")
 
 (def ^:private account-leg-sum-index
-  "TransactionLeg_sum_amount_by_account_bucket_side")
+  "TransactionLeg_sum_amount_by_bank_account_bucket_side")
 
 (def ^:private sub-ledger-leg-sum-index
   "TransactionLeg_sum_amount_by_bank_product_currency_bucket_side")
@@ -29,20 +29,21 @@
 (defn- start-account-sums
   "Starts one scan of each account's leg sums, every bucket and side, and
   returns a function that waits on them and returns a map of bucket key
-  to `[credit debit]`, so the rows can be scanned meanwhile."
-  [txn account-ids snapshot?]
+  to `[credit debit]`, so the rows can be scanned meanwhile. Each of
+  `accounts` is a `[bank-id account-id]` prefix."
+  [txn accounts snapshot?]
   (let [store (fdb/open txn legs-store-name)
-        scans (mapv (fn [id]
+        scans (mapv (fn [prefix]
                       (fdb/sum-groups-later store
                                             account-leg-sum-index
-                                            [id]
+                                            prefix
                                             {:isolation (if snapshot?
                                                           :snapshot
                                                           :serializable)}))
-                    account-ids)
+                    accounts)
         credit (schema/leg-side->int :leg-side-credit)]
     (fn []
-      (reduce (fn [by-bucket [[id balance-type balance-status side] sum]]
+      (reduce (fn [by-bucket [[_ id balance-type balance-status side] sum]]
                 (update by-bucket
                         [id balance-type balance-status]
                         (fnil
@@ -72,12 +73,14 @@
 
 (defn with-leg-sums
   [txn balances snapshot?]
-  (let [ids (into []
-                  (comp (filter domain/derived?) (map :account-id) (distinct))
-                  balances)]
-    (if (empty? ids)
+  (let [accounts (into []
+                       (comp (filter domain/derived?)
+                             (map (juxt :bank-id :account-id))
+                             (distinct))
+                       balances)]
+    (if (empty? accounts)
       balances
-      (summed balances ((start-account-sums txn ids snapshot?))))))
+      (summed balances ((start-account-sums txn accounts snapshot?))))))
 
 (defn find-balance
   [txn bank-id account-id balance-type balance-status]
@@ -115,7 +118,8 @@
   [txn bank-id account-id]
   (fdb/transact txn
                 (fn [txn]
-                  (let [sums (start-account-sums txn [account-id] false)
+                  (let [sums
+                        (start-account-sums txn [[bank-id account-id]] false)
                         rows (mapv schema/pb->AccountBalance
                                    (:records (fdb/scan-records
                                               (fdb/open txn store-name)
@@ -134,10 +138,12 @@
            (group-by (fn [id] (contains? stored-ids id)) account-ids)
            {snapshot true serializable false}
            (group-by (fn [id] (contains? snapshot-ids id)) summed-ids)
-           snapshot-sums (start-account-sums txn snapshot true)
-           serializable-sums (start-account-sums txn serializable false)
-           store (fdb/open txn store-name)
            prefixes (fn [ids] (mapv (fn [id] [bank-id id]) ids))
+           snapshot-sums (start-account-sums txn (prefixes snapshot) true)
+           serializable-sums (start-account-sums txn
+                                                 (prefixes serializable)
+                                                 false)
+           store (fdb/open txn store-name)
            rows (merge (zipmap stored
                                (fdb/scan-prefixes store (prefixes stored) 100))
                        (zipmap summed-ids
@@ -152,7 +158,9 @@
                              stored)
            by-bucket (merge (snapshot-sums)
                             (serializable-sums)
-                            ((start-account-sums txn unsummed false)))]
+                            ((start-account-sums txn
+                                                 (prefixes unsummed)
+                                                 false)))]
        (zipmap account-ids
                (map (fn [id] (summed (get balances id) by-bucket))
                     account-ids))))

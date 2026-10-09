@@ -4,7 +4,8 @@
     [com.repldriven.queenswood.cash-account-api.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
-     [components-registry]]))
+     [components-registry]]
+    [com.repldriven.queenswood.transaction-api.interface :as transaction-api]))
 
 (def CashAccountId
   (schema/id-schema "CashAccountId" "acc" examples/CashAccountId))
@@ -70,7 +71,11 @@
                       (:failure-reason rotation)))]
     (select-keys (cond-> (assoc account :account-status status)
                          refusal
-                         (assoc :refusal-reason refusal))
+                         (assoc :refusal-reason refusal)
+
+                         (:transactions account)
+                         (update :transactions
+                                 (partial mapv transaction-api/->body)))
                  cash-account-keys)))
 
 (def CreateCashAccountRequest

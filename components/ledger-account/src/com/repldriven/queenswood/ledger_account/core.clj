@@ -60,6 +60,7 @@
   (let-nom>
     [sums (if (:journal? spec)
             (transactions/sum-legs txn
+                                   (:bank-id account)
                                    (:ledger-account-id account)
                                    :balance-type-default
                                    (:balance-status spec)

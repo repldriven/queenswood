@@ -14,7 +14,7 @@
                                                       "TRANSACTION_TYPE_OUTBOUND_TRANSFER",
                                                       "TRANSACTION_TYPE_FEE",
                                                       "TRANSACTION_TYPE_INTEREST_ACCRUAL",
-                                                      "TRANSACTION_TYPE_INTEREST_CAPITAL",
+                                                      "TRANSACTION_TYPE_INTEREST_CAPITALIZATION",
                                                       "TRANSACTION_TYPE_REWARD",
                                                       "TRANSACTION_TYPE_OUTBOUND_RETURN",
                                                       "TRANSACTION_TYPE_INBOUND_RETURN"]}},
@@ -44,8 +44,7 @@
                                                       "symbols": ["LEG_SIDE_UNKNOWN",
                                                                   "LEG_SIDE_DEBIT",
                                                                   "LEG_SIDE_CREDIT"]}},
-                  {"name": "amount",         "type": "long"},
-                  {"name": "control",        "type": ["null", "boolean"], "default": null}
+                  {"name": "amount",         "type": "long", "doc": "minor units"}
                 ]}}}
   ]
 }

@@ -93,28 +93,27 @@ one FDB transaction. Both commit or neither does.
 **Transaction** — the immutable record of an event:
 
 ```clojure
-{:transaction-id   "txn.<ulid>"
- :idempotency-key  "<from envelope :id>"
+{:bank-id          "bnk.<uuidv7>"
+ :transaction-id   "txn.<uuidv7>"
  :transaction-type :transaction-type-internal-transfer
                    ;; or -inbound, -outbound, -fee, -interest, ...
  :currency         "GBP"          ;; ISO 4217 string
  :reference        "<optional human-readable>"
- :status           :transaction-status-pending
-                   ;; or -posted, -reversed, ...
- :created-at       <ms>
- :updated-at       <ms>}
+ :idempotency-key  "<from envelope :id>"
+ :created-at       <ms>}
 ```
 
-Internal transfers post immediately; other types start
-pending and are promoted to posted on settlement (or
-reversed).
+A transaction has no status: it is never changed once
+written. Whether its money is still in flight is each leg's
+`balance-status`.
 
 **Leg** — one side of a posting against one balance bucket:
 
 ```clojure
-{:leg-id          "leg.<ulid>"
- :transaction-id  "<parent>"
+{:bank-id         "<parent's>"
  :account-id
+ :transaction-id  "<parent>"
+ :leg-id          "leg.<uuidv7>"
  :balance-type    :balance-type-default
                   ;; or :balance-type-interest-accrued
  :balance-status  :balance-status-posted
@@ -122,7 +121,8 @@ reversed).
  :side            :debit         ;; or :credit
  :amount          1000           ;; integer minor units (pence)
  :currency        "GBP"          ;; ISO 4217 string
- :created-at      <ms>}
+ :product-type    :product-type-sub-ledger-current}
+                  ;; on a cash account's leg only
 ```
 
 A leg targets a specific
@@ -397,13 +397,6 @@ A caller of `record-transaction` + `apply-legs` must:
   product-type requires editing the brick. A
   policy-configurable mapping would belong here if the
   variation grew, but today the set is small and stable.
-- **Transaction-status flow is implicit.** The set of
-  statuses and the legal transitions between them aren't
-  documented in one place; today it's discovered by reading
-  the type → initial-status table plus the various command
-  handlers that promote or reverse. A formal state diagram
-  would help; the cash-account-lifecycle TDD will sketch
-  the parallel concept on the account side.
 - **Multi-chunk runs aren't atomic across chunks.** This is
   the cost of the bounded-batch discipline (see Proposed
   Solution). Operations that genuinely need all-or-nothing

@@ -39,6 +39,14 @@
 
 (def TransactionList (list-schema "Transaction" nil))
 
+(defn ->body
+  [leg]
+  (assoc leg
+         :status
+         (if (= :balance-status-posted (:balance-status leg))
+           :transaction-status-posted
+           :transaction-status-pending)))
+
 (def registry
   (components-registry [#'TransactionId #'LegId #'TransactionStatus
                         #'TransactionType #'LegSide #'Transaction

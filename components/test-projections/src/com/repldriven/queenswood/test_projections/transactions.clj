@@ -3,10 +3,14 @@
     [com.repldriven.queenswood.transaction.interface :as transactions]))
 
 (defn project-transactions
-  [bank id-mapping]
+  [bank real->bank-id id-mapping]
   (->> id-mapping
        (map (fn [[real-id model-id]]
-              [model-id (count (transactions/get-transactions bank real-id))]))
+              [model-id
+               (count (transactions/get-transactions bank
+                                                     (get real->bank-id
+                                                          real-id)
+                                                     real-id))]))
        (into {})))
 
 (defn project-model-transactions

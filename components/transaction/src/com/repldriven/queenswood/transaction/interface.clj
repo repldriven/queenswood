@@ -63,33 +63,35 @@
 
 (defn page-transactions
   "One page of an account's transaction legs, newest first by default,
-  each enriched with the parent transaction's type, status and
-  reference. Returns `{:transactions [...] :before key|nil :after
+  each enriched with the parent transaction's type, reference and
+  creation time. Returns `{:transactions [...] :before key|nil :after
   key|nil}`, a cursor being the leg's `[transaction-id leg-id]` and set
   only where legs lie on that side of the page, or an anomaly.
 
   Args:
   - txn: FDB handle or open transaction.
+  - bank-id: the account's bank.
   - account-id: account whose legs to return.
   - opts: map with `:after`, `:before`, `:limit` (default 1000) and
     `:order` (`:desc` default)."
-  [txn account-id opts]
-  (store/page-transactions txn account-id opts))
+  [txn bank-id account-id opts]
+  (store/page-transactions txn bank-id account-id opts))
 
 (defn get-transactions
   "List transaction legs for an account, enriched with the parent
-  transaction's type, status, and reference.
+  transaction's type, reference and creation time.
 
   Args:
   - txn: FDB handle or open transaction.
+  - bank-id: the account's bank.
   - account-id: account whose legs to return.
   - opts: optional map with :limit and :order (`:desc` default).
 
   Returns a vector of leg maps or an anomaly."
-  ([txn account-id]
-   (store/get-transactions txn account-id))
-  ([txn account-id opts]
-   (store/get-transactions txn account-id opts)))
+  ([txn bank-id account-id]
+   (store/get-transactions txn bank-id account-id))
+  ([txn bank-id account-id opts]
+   (store/get-transactions txn bank-id account-id opts)))
 
 (defn sum-legs
   "The summed `{:credit :debit}` of every leg recorded against
@@ -102,14 +104,16 @@
 
   Args:
   - txn: FDB handle or open transaction.
+  - bank-id: the account's bank.
   - account-id: the account whose legs to sum.
   - balance-type: the bucket's balance type keyword.
   - balance-status: the bucket's balance status keyword.
   - opts: optional `{:isolation :snapshot | :serializable}`."
-  ([txn account-id balance-type balance-status]
-   (sum-legs txn account-id balance-type balance-status {}))
-  ([txn account-id balance-type balance-status opts]
+  ([txn bank-id account-id balance-type balance-status]
+   (sum-legs txn bank-id account-id balance-type balance-status {}))
+  ([txn bank-id account-id balance-type balance-status opts]
    (store/sum-legs txn
+                   bank-id
                    account-id
                    balance-type
                    balance-status

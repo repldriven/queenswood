@@ -3,13 +3,8 @@
   "name": "Transaction",
   "namespace": "com.repldriven.mono.transactions",
   "fields": [
+    {"name": "bank_id",          "type": "string"},
     {"name": "transaction_id",   "type": "string"},
-    {"name": "status",           "type": {"type": "enum",
-                                           "name": "TransactionStatus",
-                                           "symbols": ["TRANSACTION_STATUS_PENDING",
-                                                        "TRANSACTION_STATUS_POSTED",
-                                                        "TRANSACTION_STATUS_FAILED",
-                                                        "TRANSACTION_STATUS_REVERSED"]}},
     {"name": "transaction_type", "type": {"type": "enum",
                                            "name": "TransactionType",
                                            "symbols": ["TRANSACTION_TYPE_INTERNAL_TRANSFER",
@@ -17,20 +12,19 @@
                                                         "TRANSACTION_TYPE_OUTBOUND_TRANSFER",
                                                         "TRANSACTION_TYPE_FEE",
                                                         "TRANSACTION_TYPE_INTEREST_ACCRUAL",
-                                                        "TRANSACTION_TYPE_INTEREST_CAPITAL"]}},
+                                                        "TRANSACTION_TYPE_INTEREST_CAPITALIZATION"]}},
     {"name": "currency",         "type": "string", "doc": "ISO 4217"},
     {"name": "reference",        "type": ["null", "string"], "default": null},
     {"name": "created_at",       "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "updated_at",       "type": {"type": "long", "logicalType": "timestamp-millis"}},
     {"name": "legs",
      "type": {"type": "array",
               "items": {
                 "type": "record",
                 "name": "TransactionLeg",
                 "fields": [
-                  {"name": "leg_id",         "type": "string"},
-                  {"name": "transaction_id", "type": "string"},
                   {"name": "account_id",     "type": "string"},
+                  {"name": "transaction_id", "type": "string"},
+                  {"name": "leg_id",         "type": "string"},
                   {"name": "balance_type",   "type": {"type": "enum",
                                                        "name": "BalanceType",
                                                        "symbols": ["BALANCE_TYPE_DEFAULT",
@@ -45,8 +39,7 @@
                                                        "symbols": ["LEG_SIDE_DEBIT",
                                                                     "LEG_SIDE_CREDIT"]}},
                   {"name": "amount",         "type": "long", "doc": "minor units"},
-                  {"name": "currency",       "type": "string"},
-                  {"name": "created_at",     "type": {"type": "long", "logicalType": "timestamp-millis"}}
+                  {"name": "currency",       "type": "string", "doc": "ISO 4217"}
                 ]}},
      "default": []}
   ]

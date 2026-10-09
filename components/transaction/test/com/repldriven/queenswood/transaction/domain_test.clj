@@ -43,27 +43,12 @@
    :transaction-type transaction-type
    :currency "GBP"})
 
-(deftest new-transaction-status-test
-  (testing "internal and inbound transfers are born posted"
-    (is (= :transaction-status-posted
-           (:status (SUT/new-transaction
-                     (of-type :transaction-type-internal-transfer)))))
-    (is (= :transaction-status-posted
-           (:status (SUT/new-transaction
-                     (of-type :transaction-type-inbound-transfer))))))
-  (testing "an outbound transfer is born pending — in-flight at the scheme"
-    (is (= :transaction-status-pending
-           (:status (SUT/new-transaction
-                     (of-type :transaction-type-outbound-transfer)))))))
-
 (deftest new-transaction-bank-id-test
   (testing "the bank the key is scoped by is carried onto the transaction"
     (is (= "bnk.test"
            (:bank-id (SUT/new-transaction
                       (of-type :transaction-type-internal-transfer))))))
-  (testing
-    "data with no bank is rejected — the record's bank_id is
-           optional on the wire, the domain's is not"
+  (testing "data with no bank is rejected"
     (let [result (SUT/new-transaction
                   (dissoc (of-type :transaction-type-internal-transfer)
                    :bank-id))]

@@ -209,7 +209,7 @@
            (SUT/sides-in-force available-floor
                                :balance
                                (available-request
-                                :transaction-type-interest-capital)))))
+                                :transaction-type-interest-capitalization)))))
   (testing "a cap bounds the maximum side, in its own currency only"
     (let [policies (amount-max-policy :outbound-payment 1000000
                                       "GBP" :time-window-instant)]

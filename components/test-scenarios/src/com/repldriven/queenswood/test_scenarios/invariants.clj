@@ -162,14 +162,14 @@
      :pending-outgoing pending-outgoing}))
 
 (defn- account-legs
-  "Every leg recorded against `account-id`, following the cursor to the
-  last page."
-  [txn account-id]
+  "Every leg recorded against `account-id` in `bank-id`, following the
+  cursor to the last page."
+  [txn bank-id account-id]
   (let [store (fdb/open txn legs-store-name)]
     (loop [after nil
            legs []]
       (let [page (fdb/scan-records store
-                                   (cond-> {:prefix [account-id]
+                                   (cond-> {:prefix [bank-id account-id]
                                             :limit legs-page-size}
                                            after
                                            (assoc :after after)))
@@ -179,16 +179,16 @@
           legs)))))
 
 (defn- foreign-legs
-  "The legs of each account in `currencies`, a map of account id to its
-  currency, recorded in another currency, as `[account-id currency
-  leg]`."
-  [txn currencies]
+  "The legs of each of `bank-id`'s accounts in `currencies`, a map of
+  account id to its currency, recorded in another currency, as
+  `[account-id currency leg]`."
+  [txn bank-id currencies]
   (into []
         (mapcat (fn [[account-id currency]]
                   (keep (fn [leg]
                           (when (not= currency (:currency leg))
                             [account-id currency leg]))
-                        (account-legs txn account-id))))
+                        (account-legs txn bank-id account-id))))
         currencies))
 
 (defn- books-snapshot
@@ -222,6 +222,7 @@
                                   {:sub-ledger {} :currencies {}})]
            (let [{:keys [sub-ledger currencies]} walked
                  foreign (foreign-legs txn
+                                       bank-id
                                        (into currencies
                                              (map (fn [account]
                                                     [(:ledger-account-id

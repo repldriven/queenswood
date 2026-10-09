@@ -16,7 +16,7 @@
     "outbound-transfer" :transaction-type-outbound-transfer
     "fee" :transaction-type-fee
     "interest-accrual" :transaction-type-interest-accrual
-    "interest-capital" :transaction-type-interest-capital
+    "interest-capital" :transaction-type-interest-capitalization
     "reward" :transaction-type-reward
     "outbound-return" :transaction-type-outbound-return
     "inbound-return" :transaction-type-inbound-return}

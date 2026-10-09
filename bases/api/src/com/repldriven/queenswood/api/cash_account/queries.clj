@@ -5,6 +5,7 @@
 
     [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
+    [com.repldriven.queenswood.transaction-api.interface :as transaction-api]
 
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.utility.interface :as utility]))
@@ -77,7 +78,8 @@
                          (cursor/page-opts page))]
                  (cursor/page-body (cursor/request-path request)
                                    page
-                                   (:transactions found)
+                                   (mapv transaction-api/->body
+                                         (:transactions found))
                                    found))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)

@@ -90,8 +90,8 @@
     (com.repldriven.queenswood.schemas.rewards
      AccountRewardProto$AccountReward)
     (com.repldriven.queenswood.schemas.transactions
+     TransactionLegProto$TransactionLeg
      TransactionProto$Transaction
-     TransactionProto$TransactionLeg
      TransactionProto$TransactionType)
     (com.repldriven.queenswood.schemas.users
      UserProto$User
@@ -946,15 +946,10 @@
    (InternalPayment->pb m)))
 
 (defn pb->Transaction
-  "Parse Transaction protobuf bytes into a Clojure map. Strips
-  `bank-id` when it deserialises as the proto2 empty-string default
-  — records written before the idempotency-key index was scoped by
-  bank carry no bank."
+  "Parse Transaction protobuf bytes into a Clojure map, without an
+  unset `reference`."
   [input]
-  (let [transaction (transactions/pb->Transaction input)]
-    (cond-> transaction
-            (= "" (:bank-id transaction))
-            (dissoc :bank-id))))
+  (without-unset (transactions/pb->Transaction input) {:reference ""}))
 
 (defn Transaction->pb
   "Serialise a Transaction map to protobuf bytes.
@@ -992,7 +987,7 @@
   Args:
   - m: TransactionLeg map matching the generated schema."
   [m]
-  (TransactionProto$TransactionLeg/parseFrom (TransactionLeg->pb m)))
+  (TransactionLegProto$TransactionLeg/parseFrom (TransactionLeg->pb m)))
 
 (defn pb->PayeeCheck
   "Parse PayeeCheck protobuf bytes into a Clojure map, `created-by` a

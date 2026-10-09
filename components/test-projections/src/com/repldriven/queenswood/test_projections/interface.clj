@@ -132,6 +132,8 @@
   legs touching each account via `bank-transaction/get-transactions`.
   Returns `{model-acct-id leg-count}`. Args:
   - bank: FDB config map.
+  - real->bank-id: `{real-acct-id -> real-bank-id}`, as `real->bank`
+    builds it.
   - id-mapping: `{real-id -> model-id}` map."}
   project-transactions
   transactions/project-transactions)

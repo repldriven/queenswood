@@ -44,7 +44,7 @@
           legs (:legs transaction)]
       (is (= "org.1" (:bank-id transaction)))
       (is (= "capitalize-acc.1-20260501" (:idempotency-key transaction)))
-      (is (= :transaction-type-interest-capital
+      (is (= :transaction-type-interest-capitalization
              (:transaction-type transaction)))
       (testing "amount and input are the same figure — a sweep takes it all"
         (is (= 110 amount))

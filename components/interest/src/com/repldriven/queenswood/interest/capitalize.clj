@@ -57,7 +57,7 @@
            (balances/apply-legs txn
                                 bank-id
                                 legs
-                                :transaction-type-interest-capital
+                                :transaction-type-interest-capitalization
                                 {:policies (policy/platform-policies
                                             policies)}))]
       (into {}

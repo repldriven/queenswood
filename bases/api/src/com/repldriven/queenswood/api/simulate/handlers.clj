@@ -70,4 +70,7 @@
             ;; names the one credited.
             (cond-> response
                     (= 200 (:status response))
-                    (assoc-in [:body :account-id] (:account-id house)))))))))
+                    (update :body
+                            assoc
+                            :account-id (:account-id house)
+                            :status :transaction-status-posted))))))))

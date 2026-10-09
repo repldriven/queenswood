@@ -47,6 +47,7 @@ import "schemas/policies/policy.proto";
 import "schemas/policies/policy-binding.proto";
 import "schemas/rewards/account-reward.proto";
 import "schemas/transactions/transaction.proto";
+import "schemas/transactions/transaction-leg.proto";
 import "schemas/users/user.proto";
 import "schemas/webhooks/webhook-delivery.proto";
 import "schemas/webhooks/webhook-delivery-attempt.proto";

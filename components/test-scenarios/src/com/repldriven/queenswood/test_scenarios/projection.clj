@@ -24,7 +24,9 @@
                                            (with-bank-real-id parties banks))
      :banks (projections/project-banks bank ctx)
      :accounts (projections/project-accounts bank ctx)
-     :transactions (projections/project-transactions bank real->model)
+     :transactions (projections/project-transactions bank
+                                                     real->bank
+                                                     real->model)
      :outbound-payments (projections/project-outbound-payments bank payments)
      :inbound-payments (projections/project-inbound-payments
                         bank

@@ -3,26 +3,12 @@
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.utility.interface :as utility]))
 
-(def ^:private type->status
-  {:transaction-type-internal-transfer :transaction-status-posted
-   :transaction-type-inbound-transfer :transaction-status-posted
-   :transaction-type-reward :transaction-status-posted
-   :transaction-type-outbound-return :transaction-status-posted
-   :transaction-type-inbound-return :transaction-status-posted})
-
 (defn new-transaction
   [data]
   (let [{:keys [bank-id idempotency-key transaction-type currency
                 reference]}
-        data
-        now (utility/now)
-        status (get type->status
-                    transaction-type
-                    :transaction-status-pending)]
+        data]
     (if (nil? bank-id)
-      ;; The record's bank_id is optional on the wire so older records
-      ;; still parse, but it heads the idempotency-key index — a
-      ;; transaction written without one takes an unscoped entry.
       (error/reject :transaction/missing-bank-id
                     "Transaction must carry a bank-id")
       (utility/assoc-some
@@ -31,9 +17,7 @@
         :idempotency-key idempotency-key
         :transaction-type transaction-type
         :currency currency
-        :status status
-        :created-at now
-        :updated-at now}
+        :created-at (utility/now)}
        :reference
        reference))))
 
@@ -69,8 +53,7 @@
                          :balance-status balance-status
                          :side side
                          :amount amount
-                         :currency currency
-                         :created-at (utility/now)}
+                         :currency currency}
                         :product-type
                         product-type)))
 

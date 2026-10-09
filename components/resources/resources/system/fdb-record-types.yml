@@ -335,15 +335,15 @@ stores:
         field: policy_id
   transaction-legs:
     record-type: TransactionLeg
-    primary-key: [account_id, transaction_id, leg_id]
+    primary-key: [bank_id, account_id, transaction_id, leg_id]
     # A ledger account with no balance row of its own, as 1100 is, sums
     # its legs from this rather than having every posting rewrite one
     # row. ADR-0039.
     indexes:
-      - name: TransactionLeg_sum_amount_by_account_bucket_side
+      - name: TransactionLeg_sum_amount_by_bank_account_bucket_side
         added: 1
         modified: 1
-        fields: [account_id, balance_type, balance_status, side, amount]
+        fields: [bank_id, account_id, balance_type, balance_status, side, amount]
         type: sum
       # A deposit or own-funds control, and 1200, sum the legs of every
       # cash account of a product type in the bank. ADR-0042.
@@ -354,6 +354,7 @@ stores:
         type: sum
   transactions:
     record-type: Transaction
+    primary-key: [bank_id, transaction_id]
     indexes:
       - name: Transaction_by_idempotency_key
         added: 1

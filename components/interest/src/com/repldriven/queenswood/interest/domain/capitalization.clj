@@ -31,7 +31,7 @@
         amount (abs accrued)]
     {:bank-id bank-id
      :idempotency-key (idempotency-key (:account-id account) as-of-date)
-     :transaction-type :transaction-type-interest-capital
+     :transaction-type :transaction-type-interest-capitalization
      :currency currency
      :reference (str "Monthly interest capitalization "
                      (utility/epoch-day->iso-date as-of-date))

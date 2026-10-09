@@ -18,3 +18,18 @@
   any route."}
   registry
   components/registry)
+
+;; ---
+;; projections
+;; ---
+
+(defn ->body
+  "Project a leg, as the transaction brick pages it, onto the keys
+  `Transaction` declares: its `status` is posted where the leg moved a
+  posted balance, and pending otherwise.
+
+  Args:
+  - leg: a leg map, enriched with its transaction's type, reference and
+    creation time."
+  [leg]
+  (components/->body leg))
