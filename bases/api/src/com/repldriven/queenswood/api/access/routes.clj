@@ -9,8 +9,8 @@
 
     [com.repldriven.queenswood.access-api.interface :refer
      [InvitationAlreadyExists InvitationAlreadyMember InvitationInvalidStatus
-      InvitationNotFound MembershipAlreadyExists MembershipInvalidStatus
-      MembershipLastOwner MembershipNotFound ReasonRequired RoleNotGranted]]
+      InvitationNotFound MemberAlreadyExists MemberInvalidStatus
+      MemberLastOwner MemberNotFound ReasonRequired RoleNotGranted]]
     [com.repldriven.queenswood.api-schema.interface :refer
      [ErrorExamples ErrorResponse]]
     [com.repldriven.queenswood.bank-api.interface :refer [BankUnnamed]]
@@ -32,49 +32,48 @@
   [level]
   [{"bearerAuth" [level]}])
 
-(def ^:private my-memberships
-  ["/me/memberships"
+(def ^:private my-members
+  ["/me/members"
    {:openapi {:tags ["Me"] :security (gate "user")}}
    [""
-    {:get {:summary "List the signed-in person's memberships"
-           :openapi {:operationId "ListMyMemberships"
+    {:get {:summary "List the signed-in person's members"
+           :openapi {:operationId "ListMyMembers"
                      :description
-                     (str "The caller's active memberships in every bank, "
+                     (str "The caller's active members in every bank, "
                           "in the order they joined, a page at a time, each "
                           "naming its bank and role.")
                      :parameters ^:replace [shared.parameters/ref-page]}
            :parameters {:query shared.parameters/page-query}
            :responses {200 {:description
-                            "A page of the caller's active memberships."
-                            :body [:ref "MembershipList"]}}
-           :handler handlers/list-my-memberships}}]
-   ["/{membership-id}"
-    {:parameters {:path {:membership-id [:ref "MembershipId"]}}}
+                            "A page of the caller's active members."
+                            :body [:ref "MemberList"]}}
+           :handler handlers/list-my-members}}]
+   ["/{member-id}"
+    {:parameters {:path {:member-id [:ref "MemberId"]}}}
     [""
-     {:get {:summary "Retrieve one of the signed-in person's memberships"
-            :openapi {:operationId "RetrieveMyMembership"
+     {:get {:summary "Retrieve one of the signed-in person's members"
+            :openapi {:operationId "RetrieveMyMember"
                       :description
-                      (str "One of the caller's active memberships. Returns "
-                           "404 for a membership that has ended or is not "
+                      (str "One of the caller's active members. Returns "
+                           "404 for a member that has ended or is not "
                            "the caller's.")}
-            :responses {200 {:description "The membership."
-                             :body [:ref "Membership"]}
-                        404 (ErrorResponse [#'MembershipNotFound])}
-            :handler handlers/get-my-membership}}]
+            :responses {200 {:description "The member." :body [:ref "Member"]}
+                        404 (ErrorResponse [#'MemberNotFound])}
+            :handler handlers/get-my-member}}]
     ["/leave"
      {:post {:summary "Leave a bank"
-             :openapi {:operationId "LeaveMyMembership"
+             :openapi {:operationId "LeaveMyMember"
                        :description
-                       (str "Ends the caller's own membership. Returns 404 "
-                            "for a membership that is not the caller's. A "
-                            "membership that has already ended is refused "
+                       (str "Ends the caller's own member. Returns 404 "
+                            "for a member that is not the caller's. A "
+                            "member that has already ended is refused "
                             "with 409, as is the bank's last active owner "
                             "leaving.")}
-             :responses {204 {:description "The membership was ended. No body."}
-                         404 (ErrorResponse [#'MembershipNotFound])
-                         409 (ErrorResponse [#'MembershipInvalidStatus
-                                             #'MembershipLastOwner])}
-             :handler handlers/leave-my-membership}}]]])
+             :responses {204 {:description "The member was ended. No body."}
+                         404 (ErrorResponse [#'MemberNotFound])
+                         409 (ErrorResponse [#'MemberInvalidStatus
+                                             #'MemberLastOwner])}
+             :handler handlers/leave-my-member}}]]])
 
 (def ^:private my-invitations
   ["/me/invitations"
@@ -125,13 +124,13 @@
                  :parameters ^:replace
                              [shared.parameters/ref-invitation-id
                               shared.parameters/ref-invitation-token]}
-       :responses {201 {:description "The membership created."
-                        :body [:ref "Membership"]
+       :responses {201 {:description "The member created."
+                        :body [:ref "Member"]
                         :openapi {:headers {"Location" (shared.headers/location
-                                                        "membership")}}}
+                                                        "member")}}}
                    404 (ErrorResponse [#'InvitationNotFound])
                    409 (ErrorResponse [#'InvitationInvalidStatus
-                                       #'MembershipAlreadyExists])}
+                                       #'MemberAlreadyExists])}
        :handler handlers/accept-my-invitation}}]
     ["/decline"
      {:post {:summary "Decline an invitation"
@@ -149,85 +148,83 @@
                          409 (ErrorResponse [#'InvitationInvalidStatus])}
              :handler handlers/decline-my-invitation}}]]])
 
-(def ^:private memberships
-  ["/memberships"
-   {:openapi {:tags ["Memberships"]}}
+(def ^:private members
+  ["/members"
+   {:openapi {:tags ["Members"]}}
    [""
     {:openapi {:security (gate "org:viewer")}
-     :get {:summary "List the bank's memberships"
-           :openapi {:operationId "ListMemberships"
+     :get {:summary "List the bank's members"
+           :openapi {:operationId "ListMembers"
                      :description
-                     (str "The active memberships of the bank the `Bank-Id` "
+                     (str "The active members of the bank the `Bank-Id` "
                           "header names, in the order they joined, a page at "
                           "a time, each with the person's name and email, "
                           "their role, and who invited them. The founding "
-                          "owner's membership is marked as having created "
+                          "owner's member is marked as having created "
                           "the organisation.")
                      :parameters ^:replace
                                  [shared.parameters/ref-page
                                   shared.parameters/ref-bank-id-header]}
            :parameters {:query shared.parameters/page-query}
-           :responses {200 {:description
-                            "A page of the bank's active memberships."
-                            :body [:ref "MembershipList"]}}
-           :handler handlers/list-memberships}}]
-   ["/{membership-id}"
-    {:parameters {:path {:membership-id [:ref "MembershipId"]}}}
+           :responses {200 {:description "A page of the bank's active members."
+                            :body [:ref "MemberList"]}}
+           :handler handlers/list-members}}]
+   ["/{member-id}"
+    {:parameters {:path {:member-id [:ref "MemberId"]}}}
     [""
      {:openapi {:security (gate "org:viewer")
                 :parameters [shared.parameters/ref-bank-id-header]}
-      :get {:summary "Retrieve a membership"
-            :openapi
-            {:operationId "RetrieveMembership"
-             :description
-             (str "An active membership of the bank the `Bank-Id` header "
-                  "names, as the membership list shows it. Returns 404 for "
-                  "a membership that has ended or belongs to another bank.")}
-            :responses {200 {:description "The membership."
-                             :body [:ref "Membership"]}
-                        404 (ErrorResponse [#'MembershipNotFound])}
-            :handler handlers/get-membership}}]
+      :get {:summary "Retrieve a member"
+            :openapi {:operationId "RetrieveMember"
+                      :description
+                      (str
+                       "An active member of the bank the `Bank-Id` header "
+                       "names, as the member list shows it. Returns 404 for "
+                       "a member that has ended or belongs to another bank.")}
+            :responses {200 {:description "The member." :body [:ref "Member"]}
+                        404 (ErrorResponse [#'MemberNotFound])}
+            :handler handlers/get-member}}]
     ["/change-role"
      {:openapi {:security (gate "org:admin")
                 :parameters [shared.parameters/ref-bank-id-header]}
       :post {:summary "Change a member's role"
-             :openapi {:operationId "ChangeMembershipRole"
+             :openapi {:operationId "ChangeMemberRole"
                        :description
                        (str "An owner may set any role, and an admin may "
                             "move a member only between admin, developer and "
                             "viewer, any other change being refused with "
                             "403. Demoting the bank's last active owner, or "
-                            "changing an ended membership, is refused with "
+                            "changing an ended member, is refused with "
                             "409. Setting the role already held changes and "
                             "records nothing.")
                        :requestBody {:required true}}
              :parameters {:body [:ref "ChangeRoleRequest"]}
-             :responses {200 {:description "The membership with the new role."
-                              :body [:ref "Membership"]}
+             :responses {200 {:description "The member with the new role."
+                              :body [:ref "Member"]}
                          403 (ErrorExamples [#'RoleNotGranted])
-                         404 (ErrorResponse [#'MembershipNotFound])
-                         409 (ErrorResponse [#'MembershipInvalidStatus
-                                             #'MembershipLastOwner])}
+                         404 (ErrorResponse [#'MemberNotFound])
+                         409 (ErrorResponse [#'MemberInvalidStatus
+                                             #'MemberLastOwner])}
              :handler handlers/change-role}}]
     ["/remove"
      {:openapi {:security (gate "org:admin")
                 :parameters [shared.parameters/ref-bank-id-header]}
       :post {:summary "Remove a member from the bank"
-             :openapi {:operationId "RemoveMembership"
+             :openapi {:operationId "RemoveMember"
                        :description
                        (str
-                        "Ends the membership, recording the optional reason "
+                        "Ends the member, recording the optional reason "
                         "in the bank's audit log. An admin removing an "
                         "owner is refused with 403. Removing the last active "
-                        "owner, or an ended membership, is refused with 409.")
+                        "owner, or an ended member, is refused with 409.")
                        :requestBody optional-reason-request-body}
              :parameters {:body optional-reason}
-             :responses {204 {:description "The membership was ended. No body."}
+             :responses {204 {:description "The member was ended. No body."}
                          403 (ErrorExamples [#'RoleNotGranted])
-                         404 (ErrorResponse [#'MembershipNotFound])
-                         409 (ErrorResponse [#'MembershipInvalidStatus
-                                             #'MembershipLastOwner])}
-             :handler handlers/remove-membership}}]]])
+                         404 (ErrorResponse [#'MemberNotFound])
+                         409 (ErrorResponse [#'MemberInvalidStatus
+                                             #'MemberLastOwner])}
+             :handler handlers/remove-member}}]]])
 
 (def ^:private invitations
   ["/invitations"
@@ -326,14 +323,12 @@
                    "earlier emails stop working. An invitation in any other"
                    " status is refused with 409. An admin resending an "
                    "owner's invitation is refused with 403.")
-              :requestBody optional-reason-request-body
               :parameters ^:replace
                           [shared.parameters/ref-invitation-id
                            shared.parameters/ref-bank-id-header
                            shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
-             :parameters {:body optional-reason}
              :responses (shared.idempotency/with-responses
                          {200 {:description (str "The invitation, with a "
                                                  "fresh expiry.")
@@ -369,5 +364,4 @@
                       403 (ErrorExamples [#'BankUnnamed])}
           :handler handlers/list-audit-events}}])
 
-(def routes
-  [my-memberships my-invitations memberships invitations audit-events])
+(def routes [my-members my-invitations members invitations audit-events])

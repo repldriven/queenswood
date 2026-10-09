@@ -28,10 +28,10 @@ profile and the chart; the SMTP values and credential at an
 installation; and the tests.
 
 Out of scope: the `Invitation` record, the invitation changelog and the
-`record-invitation-token` guard, which [memberships.md](memberships.md) covers;
+`record-invitation-token` guard, which [members.md](members.md) covers;
 the `smtp` brick, which mono's SMTP TDD covers; the accept screen the
-link lands on, which [memberships.md](memberships.md) covers under The console;
-emails other than invitations, which the memberships PRD lists as open;
+link lands on, which [members.md](members.md) covers under The console;
+emails other than invitations, which the members PRD lists as open;
 Keycloak's own mail, which it never sends, since every person signs in
 through a federated identity and [authentication.md](authentication.md)
 has no local account to verify; and bounce handling.
@@ -80,7 +80,7 @@ is.
 The invitation and its `invitation-created` or `invitation-resent`
 changelog entry commit together, in the `member` processor's
 transaction, or the `bank` processor's for a new bank's owner, as
-[memberships.md](memberships.md) describes. Three hops follow.
+[members.md](members.md) describes. Three hops follow.
 
 #### The invitation is published
 
@@ -291,7 +291,7 @@ token exists in the runner's memory and the message, and nowhere else.
 `record-invitation-token` is a `member` processor command on the
 `members-command` topic, its Avro payload
 `schemas/member/record-invitation-token.avsc.json` registered in
-`avro-schemas.yml`. The guard is in [memberships.md](memberships.md). The runner holds a
+`avro-schemas.yml`. The guard is in [members.md](members.md). The runner holds a
 dispatcher for the topic and its reply topic, as the `api` base does.
 
 ### The message
@@ -382,14 +382,14 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
 
 1. The `member` processor and `member-query` split, the
    invitation changelog and its relay runner, and the token leaving the
-   API, under [memberships.md](memberships.md)'s slice 3.
+   API, under [members.md](members.md)'s slice 3.
 2. The records: `EmailDelivery` under a version bump, and the guard
    green under `just test-all`.
 3. The `email` brick: the event processor, the runner, the message, and
    `record-invitation-token` in the `member` processor.
 4. The wiring: `system/email.yml`, the external-adapters base and
    project, and Mailpit in the monolith's dev profile.
-5. The accept screen, under [memberships.md](memberships.md).
+5. The accept screen, under [members.md](members.md).
 6. The chart: Mailpit for kind, then the values, credential and DNS
    records for an installation, with a recipe for the provider.
 
@@ -430,7 +430,7 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
   carried to the adapter. Rejected: the plaintext would sit on the bus
   or in a store, since only the hash is kept.
 - **A second hash on the invitation**, one shown to the inviter and one
-  emailed. Rejected with the shown link, which [memberships.md](memberships.md)
+  emailed. Rejected with the shown link, which [members.md](members.md)
   removes.
 - **A provider's HTTP API** rather than SMTP. Rejected: SMTP names no
   provider, and mono's `smtp` brick exists.
@@ -452,9 +452,9 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
 
 ## References
 
-- [memberships](../prd/memberships.md) — Memberships, the product requirements that
+- [members](../prd/members.md) — Members, the product requirements that
   say what an invitation email carries.
-- [memberships.md](memberships.md) — the invitation, its changelog and the guard
+- [members.md](members.md) — the invitation, its changelog and the guard
   on the token.
 - [webhooks.md](webhooks.md) — the claimed-intent runner this adapter
   copies.

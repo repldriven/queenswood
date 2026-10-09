@@ -174,12 +174,12 @@ resource-based operation, model it as a verb.
 A path names a record, and its prefix says whose:
 
 - `/v1/<records>` — the bank the `Bank-Id` header names, or the one a
-  service token or a person's only membership resolves.
+  service token or a person's only member resolves.
 - `/v1/me/<records>` — the signed-in person's, across every bank, under
   the `user` gate and never with a `Bank-Id` header. Where the bank has
   the same record, both use one noun and one id:
-  `/v1/memberships/{membership-id}` and
-  `/v1/me/memberships/{membership-id}` are one membership.
+  `/v1/members/{member-id}` and
+  `/v1/me/members/{member-id}` are one member.
 - `/v1/bank` and `/v1/bank/<resource>` — the bank the header names, and
   what describes it as a whole rather than a record it holds: its
   policies, its effective policy and its audit log. The bank's own
@@ -345,7 +345,7 @@ A successful identification attaches `:auth` to the request:
 
 `org-viewer` and the rest are the organisation levels
 `org:viewer`, `org:developer`, `org:admin` and `org:owner`; a user
-carries the levels their membership's role holds. The
+carries the levels their member's role holds. The
 [authentication TDD](authentication.md) gives each principal in
 full.
 
@@ -354,7 +354,7 @@ full.
 short-circuits on a token that does not, and an operation without
 `:openapi :security` is genuinely public. `claims->principal` does end
 the request where the store fails while resolving a person, since a
-store it cannot reach is not a person with no memberships.
+store it cannot reach is not a person with no members.
 
 `server/require-scopes` reads the operation's `:openapi :security`
 (e.g. `[{"bearerAuth" ["org:developer"]}]`) when the router is built
@@ -480,12 +480,12 @@ sequenceDiagram
     end
     end
     critical transact
-    API->>DB: read the User's active Memberships
+    API->>DB: read the User's active Members
     end
     alt either transaction failed
     API-->>C: 5xx, the store's anomaly
     else
-    API->>API: the membership the Bank-Id header names,<br/>or the only one, its role's levels,<br/>every level and the header's bank for an operator
+    API->>API: the member the Bank-Id header names,<br/>or the only one, its role's levels,<br/>every level and the header's bank for an operator
     end
     else any other azp, a bank's backend
     API->>API: the bank id is azp, every level for an operator<br/>with the header's bank, refused for another bank's header
@@ -513,7 +513,7 @@ sequenceDiagram
     else
     alt the Bank-Id header names a bank the caller is not in
     API-->>C: 403 not a member of this bank
-    else no header, and several memberships
+    else no header, and several members
     API-->>C: 403 name the bank in the Bank-Id header
     else an organisation route, and no bank
     API-->>C: 403 the token names no bank
@@ -680,10 +680,10 @@ auth boundaries — is pinned here, never in a brick's
 - **A refusal's `type` is spelled two ways.** A refusal from the
   edge writes its `type` with no leading colon, `auth/forbidden`,
   while one derived from an anomaly kind carries it,
-  `:membership/role-not-granted`. A client matching on `type`
+  `:member/role-not-granted`. A client matching on `type`
   matches each as emitted.
 - **Some lists page a set read whole.** Job runs, migration previews,
-  memberships, the caller's invitations, cash account products, inbound
+  members, the caller's invitations, cash account products, inbound
   payments and webhook deliveries are read in full and windowed with
   `cursor/window`, so a page costs the whole read. Job runs and
   migration previews have indexes a cursor could scan instead.

@@ -125,7 +125,7 @@
   "True for a write on the bank's members or invitations."
   [{:keys [path method]}]
   (boolean (and (write-methods method)
-                (or (str/starts-with? path "/v1/memberships")
+                (or (str/starts-with? path "/v1/members")
                     (str/starts-with? path "/v1/invitations")))))
 
 (defn- org-operation?

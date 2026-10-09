@@ -100,8 +100,8 @@ _demo-digital-bank-owner-accept client_id:
     #!/usr/bin/env zsh
     set -e
     OWNER=$(just _demo-digital-bank-user-token {{ DEMO_OWNER_USERNAME }} {{ DEMO_OWNER_PASSWORD }})
-    RES=$(curl -sS {{ DEMO_API_URL }}/v1/me/memberships -H "authorization: Bearer $OWNER")
-    if [[ -n "$(jq -r --arg b "{{ client_id }}" '.items[] | select(."bank-id" == $b) | ."membership-id"' <<<"$RES")" ]]; then
+    RES=$(curl -sS {{ DEMO_API_URL }}/v1/me/members -H "authorization: Bearer $OWNER")
+    if [[ -n "$(jq -r --arg b "{{ client_id }}" '.items[] | select(."bank-id" == $b) | ."member-id"' <<<"$RES")" ]]; then
       echo "owner {{ DEMO_OWNER_EMAIL }} already a member"
     else
       RES=$(curl -sS {{ DEMO_API_URL }}/v1/me/invitations -H "authorization: Bearer $OWNER")

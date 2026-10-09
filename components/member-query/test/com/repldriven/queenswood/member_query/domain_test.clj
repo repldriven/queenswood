@@ -55,7 +55,7 @@
       (is (= m (SUT/ensure-found m "mem.1"))))
     (testing "no member is not found"
       (let [result (SUT/ensure-found nil "mem.9")]
-        (is (rejected? :membership/not-found result))
+        (is (rejected? :member/not-found result))
         (is (= "mem.9" (:member-id (error/payload result))))))))
 
 (deftest check-recipient-test

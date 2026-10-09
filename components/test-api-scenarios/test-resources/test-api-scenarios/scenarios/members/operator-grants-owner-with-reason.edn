@@ -33,7 +33,7 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation
                                            :invitation-id]}
              :auth :founder-token}
-   :as :founder-membership
+   :as :founder-member
    :assert {:status 201}}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :founder-token}
@@ -42,12 +42,12 @@
  :when
  [{:command :api/request
    :request {:method :post
-             :path "/v1/memberships/{membership-id}/remove"
-             :path-params {:membership-id [:ref :founder-membership
-                                           :membership-id]}
+             :path "/v1/members/{member-id}/remove"
+             :path-params {:member-id [:ref :founder-member
+                                           :member-id]}
              :auth :admin
              :headers {:bank-id [:ref :bank :bank-id]}}
-   :assert {:status 409 :problem {:type ":membership/last-owner"}}}
+   :assert {:status 409 :problem {:type ":member/last-owner"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
@@ -76,13 +76,13 @@
              :path "/v1/me/invitations/{invitation-id}/accept"
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :owner-token}
-   :as :owner-membership
+   :as :owner-member
    :assert {:status 201 :body {:role "owner"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/memberships/{membership-id}/remove"
-             :path-params {:membership-id [:ref :founder-membership
-                                           :membership-id]}
+             :path "/v1/members/{member-id}/remove"
+             :path-params {:member-id [:ref :founder-member
+                                           :member-id]}
              :auth :admin
              :headers {:bank-id [:ref :bank :bank-id]}
              :body {:reason "Handed over to the new owner"}}
@@ -90,13 +90,13 @@
  :then
  [{:command :api/request
    :request {:method :get
-             :path "/v1/memberships"
+             :path "/v1/members"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert
    {:status 200
-    :body {:items [{:membership-id [:ref :owner-membership
-                                    :membership-id]
+    :body {:items [{:member-id [:ref :owner-member
+                                    :member-id]
                     :role "owner"
                     :invited-by {:kind "operator"
                                  :principal-id "queenswood-admin"
@@ -114,12 +114,12 @@
      [{:kind "member-removed"
        :actor
        {:kind "operator" :principal-id "queenswood-admin" :name "Queenswood"}
-       :subject-user-id [:ref :founder-membership :user-id]
+       :subject-user-id [:ref :founder-member :user-id]
        :subject-name [:ref :founder-me :name]
        :role-before "owner"
        :reason "Handed over to the new owner"}
       {:kind "invitation-accepted"
-       :actor {:kind "member" :principal-id [:ref :owner-membership :user-id]}}
+       :actor {:kind "member" :principal-id [:ref :owner-member :user-id]}}
       {:kind "invitation-created"
        :actor
        {:kind "operator" :principal-id "queenswood-admin" :name "Queenswood"}
@@ -127,5 +127,5 @@
        :role-after "owner"
        :reason "The founder has left and asked for a handover"}]}}}
   {:command :api/request
-   :request {:method :get :path "/v1/me/memberships" :auth :founder-token}
+   :request {:method :get :path "/v1/me/members" :auth :founder-token}
    :assert {:status 200 :body {:items []}}}]}

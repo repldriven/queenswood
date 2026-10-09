@@ -40,10 +40,10 @@
 
 (defn change-role
   "Set a member's role, recording a MemberRoleChange. Refuses a
-  member of another bank as `:membership/not-found`, an ended one
-  as `:membership/invalid-status`, a change the actor's role does not
-  allow as `:membership/role-not-granted` (unauthorized), and a demotion
-  of the bank's last active owner as `:membership/last-owner`. After the
+  member of another bank as `:member/not-found`, an ended one
+  as `:member/invalid-status`, a change the actor's role does not
+  allow as `:member/role-not-granted` (unauthorized), and a demotion
+  of the bank's last active owner as `:member/last-owner`. After the
   same refusals, a role equal to the current one returns the member
   unchanged and writes neither the member nor a role change.
 
@@ -76,8 +76,8 @@
 (defn leave
   "Leave a bank as the caller, ending their own Member as left, with
   them as `left-by`. Refuses another person's Member as
-  `:membership/not-found`, an ended one as `:membership/invalid-status`,
-  and the bank's last active owner as `:membership/last-owner`.
+  `:member/not-found`, an ended one as `:member/invalid-status`,
+  and the bank's last active owner as `:member/last-owner`.
 
   Args:
   - txn: FDB transaction or config.
@@ -96,7 +96,7 @@
   "Create a pending invitation, with the actor as `created-by`, and its
   changelog entry. Its token hash is its id until an email's token is
   recorded. Refuses a role the actor may not grant as
-  `:membership/role-not-granted` (unauthorized), an operator's invitation
+  `:member/role-not-granted` (unauthorized), an operator's invitation
   without a reason as `:invitation/reason-required`, an address an active
   member holds as `:invitation/already-member`, and an address with a
   pending invitation in the bank as `:invitation/already-exists`.
@@ -117,7 +117,7 @@
   with the person as `accepted-by`. Refuses an invitation the proof
   does not reach as `:invitation/not-found`, one that is not pending as
   `:invitation/invalid-status`, and a person already an active member of
-  the bank as `:membership/already-exists`.
+  the bank as `:member/already-exists`.
 
   Args:
   - txn: FDB transaction or config.
@@ -150,7 +150,7 @@
   Refuses an unknown invitation as
   `:invitation/not-found`, one that is not pending as
   `:invitation/invalid-status`, and an invitation to a role the actor
-  may not grant as `:membership/role-not-granted` (unauthorized).
+  may not grant as `:member/role-not-granted` (unauthorized).
 
   Args:
   - txn: FDB transaction or config.

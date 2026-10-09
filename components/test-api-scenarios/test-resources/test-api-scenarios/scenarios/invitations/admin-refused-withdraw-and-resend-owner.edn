@@ -63,7 +63,7 @@
                    {:invitation-id [:ref :owner-invitation :invitation-id]}
                    :auth :admin-token
                    :headers {:bank-id [:ref :bank :bank-id]}}
-         :assert {:status 403 :problem {:type ":membership/role-not-granted"}}}
+         :assert {:status 403 :problem {:type ":member/role-not-granted"}}}
         {:command :api/request
          :request {:method :post
                    :path "/v1/invitations/{invitation-id}/resend"
@@ -71,7 +71,7 @@
                    {:invitation-id [:ref :owner-invitation :invitation-id]}
                    :auth :admin-token
                    :headers {:bank-id [:ref :bank :bank-id]}}
-         :assert {:status 403 :problem {:type ":membership/role-not-granted"}}}]
+         :assert {:status 403 :problem {:type ":member/role-not-granted"}}}]
  :then
  ;; Neither refusal wrote: the invitation is still pending.
  [{:command :api/request

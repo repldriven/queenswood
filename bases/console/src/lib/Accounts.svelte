@@ -18,8 +18,8 @@
   } from "./api.mjs";
   import AccountDetail from "./AccountDetail.svelte";
 
-  let { user, memberships } = $props();
-  const kicker = $derived(memberships?.[0]?.["bank-name"]);
+  let { user, members } = $props();
+  const kicker = $derived(members?.[0]?.["bank-name"]);
 
   let loading = $state(true);
   let error = $state(null);

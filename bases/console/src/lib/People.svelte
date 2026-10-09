@@ -43,11 +43,11 @@
   } from "./api.mjs";
   import PeopleDrawer from "./PeopleDrawer.svelte";
 
-  let { user, memberships, onAccessChanged } = $props();
+  let { user, members, onAccessChanged } = $props();
 
-  const membership = $derived(memberships?.[0]);
-  const kicker = $derived(membership?.["bank-name"]);
-  const myRole = $derived(accessEnum(membership?.role));
+  const member = $derived(members?.[0]);
+  const kicker = $derived(member?.["bank-name"]);
+  const myRole = $derived(accessEnum(member?.role));
   const myUserId = $derived(user?.["user-id"]);
   const admin = $derived(canManagePeople(myRole));
 
@@ -281,7 +281,7 @@
               </Td>
             </Tr>
           {:else}
-            {#each membersShown as m (m["membership-id"])}
+            {#each membersShown as m (m["member-id"])}
               {@const role = accessEnum(m.role)}
               {@const mayAct = canActOn(myRole, role)}
               <Tr class="clickable" onclick={() => openDrawer("member", { member: m })}>

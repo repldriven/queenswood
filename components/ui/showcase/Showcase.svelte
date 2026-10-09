@@ -1219,7 +1219,7 @@
             { id: "history", label: "History", count: "8+" },
           ]}
         />
-        <Callout tone="danger" title="Make someone else an owner first" type="409 · :membership/last-owner">
+        <Callout tone="danger" title="Make someone else an owner first" type="409 · :member/last-owner">
           Ada Lovelace is this organisation’s only owner. Grant the owner role to another member, then change this one.
         </Callout>
         <Callout tone="warn" title="You won’t see this again">

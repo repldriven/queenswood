@@ -1,11 +1,11 @@
 (ns com.repldriven.queenswood.api.bank.queries-test
   "Every bank `GET /v1/banks` lists carries `owners` (REQ-003): one entry
-  per active membership of role owner, named from its user record, and
+  per active member of role owner, named from its user record, and
   empty when the bank has none. A failed read answers that anomaly's
   problem response rather than a bank with no owners.
 
   No system is booted, and no var is redefined: the bank list and the
-  membership and user reads are the functions each test hands to
+  member and user reads are the functions each test hands to
   `banks-response` and `names/owners`. A bank shows the provider of each
   kind offered it records, and the default where it records none."
   (:require
@@ -34,29 +34,23 @@
    charles {:user-id charles :name "Charles Babbage" :email "cb@example.com"}
    unnamed {:user-id unnamed :name "" :email "unnamed@example.com"}})
 
-(defn- membership
-  [membership-id bank-id user-id role]
-  {:member-id membership-id :bank-id bank-id :user-id user-id :role role})
+(defn- member
+  [member-id bank-id user-id role]
+  {:member-id member-id :bank-id bank-id :user-id user-id :role role})
 
-(def ^:private active-memberships
+(def ^:private active-members
   {owned-bank-id
-   [(membership "mem.01kprbpdwa9q5n2t7vwsx84a3m" owned-bank-id ada :role-owner)
-    (membership "mem.01kprbpdwa9q5n2t7vwsx84a3n"
-                owned-bank-id
-                charles
-                :role-admin)
-    (membership "mem.01kprbpdwa9q5n2t7vwsx84a3p"
-                owned-bank-id
-                unnamed
-                :role-owner)
-    (membership "mem.01kprbpdwa9q5n2t7vwsx84a3q"
-                owned-bank-id
-                departed
-                :role-owner)]
-   ownerless-bank-id [(membership "mem.01kprbpdwa9q5n2t7vwsx84a3r"
-                                  ownerless-bank-id
-                                  charles
-                                  :role-developer)]})
+   [(member "mem.01kprbpdwa9q5n2t7vwsx84a3m" owned-bank-id ada :role-owner)
+    (member "mem.01kprbpdwa9q5n2t7vwsx84a3n" owned-bank-id charles :role-admin)
+    (member "mem.01kprbpdwa9q5n2t7vwsx84a3p" owned-bank-id unnamed :role-owner)
+    (member "mem.01kprbpdwa9q5n2t7vwsx84a3q"
+            owned-bank-id
+            departed
+            :role-owner)]
+   ownerless-bank-id [(member "mem.01kprbpdwa9q5n2t7vwsx84a3r"
+                              ownerless-bank-id
+                              charles
+                              :role-developer)]})
 
 (def ^:private listed-banks
   [{:bank-id owned-bank-id :name "Ada's Bank"}
@@ -67,16 +61,16 @@
   (or (get people id)
       (error/reject :user/not-found {:message "User not found" :user-id id})))
 
-(defn- active-memberships-of
+(defn- active-members-of
   [bank-id]
-  (get active-memberships bank-id []))
+  (get active-members bank-id []))
 
 (defn- list-banks
   ([] (list-banks {}))
   ([reads]
    (let [{:keys [found list-active lookup]}
          (merge {:found {:banks listed-banks}
-                 :list-active active-memberships-of
+                 :list-active active-members-of
                  :lookup find-person}
                 reads)]
      (SUT/banks-response {}
@@ -94,15 +88,14 @@
   (let [response (list-banks)]
     (is (= 200 (:status response)))
     (testing "an owner is named from their user record, an admin is left out"
-      (is (= [{:membership-id "mem.01kprbpdwa9q5n2t7vwsx84a3m"
+      (is (= [{:member-id "mem.01kprbpdwa9q5n2t7vwsx84a3m"
                :user-id ada
                :name "Ada Lovelace"
                :email "ada@example.com"}
-              {:membership-id "mem.01kprbpdwa9q5n2t7vwsx84a3p"
+              {:member-id "mem.01kprbpdwa9q5n2t7vwsx84a3p"
                :user-id unnamed
                :email "unnamed@example.com"}
-              {:membership-id "mem.01kprbpdwa9q5n2t7vwsx84a3q"
-               :user-id departed}]
+              {:member-id "mem.01kprbpdwa9q5n2t7vwsx84a3q" :user-id departed}]
              (:owners (listed-bank response owned-bank-id)))))))
 
 (deftest a-bank-with-no-owner-lists-none-test
@@ -113,11 +106,11 @@
     (is (= [] (:owners ownerless)))))
 
 (deftest a-failed-read-answers-its-problem-response-test
-  (testing "a membership read"
-    (let [failure (error/fail :membership/read {:message "Store unavailable"})]
+  (testing "a member read"
+    (let [failure (error/fail :member/read {:message "Store unavailable"})]
       (is (= {:status 500
               :body {:title "FAILED"
-                     :type ":membership/read"
+                     :type ":member/read"
                      :status 500
                      :detail "Store unavailable"}}
              (list-banks {:list-active (fn [_] failure)})))))

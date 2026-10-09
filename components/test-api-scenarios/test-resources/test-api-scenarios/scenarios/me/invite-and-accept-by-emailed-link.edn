@@ -38,7 +38,7 @@
              :path-params {:invitation-id [:ref :owner-email :invitation-id]}
              :auth :owner-token
              :headers {:invitation-token [:ref :owner-email :token]}}
-   :as :owner-membership
+   :as :owner-member
    :assert {:status 201}}]
  :when
  [{:command :api/request

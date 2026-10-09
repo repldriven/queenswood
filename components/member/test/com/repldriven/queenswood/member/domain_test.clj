@@ -69,7 +69,7 @@
 (defn- not-granted?
   [result]
   (and (error/unauthorized? result)
-       (= :membership/role-not-granted (error/kind result))))
+       (= :member/role-not-granted (error/kind result))))
 
 (defn- rejected?
   [kind result]
@@ -162,14 +162,14 @@
     (doseq [[label ctx] [["an owner" member-ctx] ["an operator" operator-ctx]]]
       (testing (str label " demoting the only owner is refused")
         (let [result (SUT/change-role founder :role-admin ctx now)]
-          (is (rejected? :membership/last-owner result))
+          (is (rejected? :member/last-owner result))
           (is (= "Make someone else an owner first"
                  (:message (error/payload result))))))
       (testing (str label " removing the only owner is refused")
-        (is (rejected? :membership/last-owner
+        (is (rejected? :member/last-owner
                        (SUT/end-member founder :remove ctx now)))))
     (testing "the only owner leaving is refused"
-      (is (rejected? :membership/last-owner
+      (is (rejected? :member/last-owner
                      (SUT/end-member founder :leave member-ctx now))))
     (testing "setting the only owner to owner changes no owner count"
       (is (nil? (SUT/check-not-last-owner active founder :role-owner))))
@@ -187,7 +187,7 @@
                                        {:actor actor :active-members [a b]}
                                        now)]
           (is (= :role-admin (:role demoted)))
-          (is (rejected? :membership/last-owner
+          (is (rejected? :member/last-owner
                          (SUT/change-role b
                                           :role-admin
                                           {:actor actor
@@ -199,7 +199,7 @@
                                       {:actor actor :active-members [a b]}
                                       now)]
           (is (= :member-status-removed (:status removed)))
-          (is (rejected? :membership/last-owner
+          (is (rejected? :member/last-owner
                          (SUT/end-member b
                                          :remove
                                          {:actor actor
@@ -212,7 +212,7 @@
                                   :active-members [a b]}
                                  now)]
         (is (= :member-status-left (:status left)))
-        (is (rejected? :membership/last-owner
+        (is (rejected? :member/last-owner
                        (SUT/end-member b
                                        :leave
                                        {:actor (member-actor :role-owner)
@@ -229,14 +229,14 @@
                             ["leave"
                              (SUT/end-member ended :leave ctx now)]]]
       (testing (str label " refuses an ended member with its payload")
-        (is (rejected? :membership/invalid-status result))
+        (is (rejected? :member/invalid-status result))
         (is (= {:member-id "mem.1"
                 :status :member-status-removed
                 :allowed #{:member-status-active}}
                (dissoc (error/payload result) :message)))
         (is (string? (:message (error/payload result))))))
     (testing "the source state is checked before the grant"
-      (is (rejected? :membership/invalid-status
+      (is (rejected? :member/invalid-status
                      (SUT/change-role ended
                                       :role-admin
                                       {:actor (:viewer actors)
@@ -262,7 +262,7 @@
                                           :active-members active}
                                          now))))
     (testing "an ended member is still refused on its status"
-      (is (rejected? :membership/invalid-status
+      (is (rejected? :member/invalid-status
                      (SUT/change-role
                       (assoc admin-m :status :member-status-removed)
                       :role-admin
@@ -351,9 +351,9 @@
         ended (member "mem.2" "usr.2" :role-viewer :member-status-removed)
         pending (invitation :invitation-status-pending (+ now day-ms))]
     (testing "an active member of the bank is refused"
-      (is (rejected? :membership/already-exists
+      (is (rejected? :member/already-exists
                      (SUT/check-not-member [existing] "usr.1")))
-      (is (rejected? :membership/already-exists
+      (is (rejected? :member/already-exists
                      (SUT/accept-invitation pending
                                             (recipient "usr.1")
                                             {:active-members [existing]}

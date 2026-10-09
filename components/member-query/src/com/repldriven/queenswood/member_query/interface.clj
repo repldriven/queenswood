@@ -90,7 +90,7 @@
 
 (defn find-by-id
   "Load a bank's Member by id, active or ended. Returns the map or a
-  `:membership/not-found` rejection anomaly, for an id the bank does not
+  `:member/not-found` rejection anomaly, for an id the bank does not
   hold too.
 
   Args:
@@ -102,7 +102,7 @@
 
 (defn find-user-member
   "Load a user's own Member by id, active or ended, whichever bank
-  it is of. Returns the map or a `:membership/not-found` rejection
+  it is of. Returns the map or a `:member/not-found` rejection
   anomaly, for an id held by another user too.
 
   Args:

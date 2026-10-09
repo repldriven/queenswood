@@ -33,7 +33,7 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation
                                            :invitation-id]}
              :auth :owner-token}
-   :as :owner-membership
+   :as :owner-member
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
@@ -91,6 +91,6 @@
     {:items [:m/embeds
              [{:kind "invitation-resent"
                :actor
-               {:kind "member" :principal-id [:ref :owner-membership :user-id]}
+               {:kind "member" :principal-id [:ref :owner-member :user-id]}
                :invitation-id [:ref :invitation
                                :invitation-id]}]]}}}]}

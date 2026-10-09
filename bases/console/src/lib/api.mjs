@@ -6,7 +6,7 @@
 import { fresh_token } from "./auth.mjs";
 
 // The bank every bank-scoped call acts on, sent as `Bank-Id`. Without it
-// the API resolves the person's only membership, and refuses a person
+// the API resolves the person's only member, and refuses a person
 // who holds several.
 let bank_id = null;
 
@@ -82,8 +82,8 @@ export function get_me() {
 }
 
 // Every bank the signed-in person belongs to, each with its role and name.
-export function list_my_memberships() {
-  return all_pages("/v1/me/memberships");
+export function list_my_members() {
+  return all_pages("/v1/me/members");
 }
 
 // Look up a company on the register of record (used during onboarding,
@@ -104,7 +104,7 @@ export function get_bank() {
 }
 
 // A person creates a bank for the confirmed legal entity and becomes its
-// owner; the answer is the bank with the person's owner membership.
+// owner; the answer is the bank with the person's owner member.
 // `{ companyNumber, bankName, providers, key, onRetry }`, `providers` a
 // map from kind to provider key, each kind left out taking its default,
 // `key` the submission's `Idempotency-Key`, so creating again after a
@@ -128,7 +128,7 @@ export function create_bank({ companyNumber, bankName, providers, key, onRetry }
 // Ported from bank-app/src/lib/api.mjs. bank-app uses an org-selector
 // (operator acting on behalf of any org) and so wraps each call in
 // `org_request` to mint a per-org service-account JWT. The console
-// user has a single membership; their own user JWT already carries
+// user has a single member; their own user JWT already carries
 // the right org context, so we just use `request()` and let bank-api
 // resolve the org from the token's claims.
 
@@ -472,7 +472,7 @@ export function simulate_inbound_transfer(data) {
 // Every level reads the members, invitations and history; changing them
 // needs `org:admin`, and the rules that depend on the target (an admin
 // never acts on an owner, a bank is never ownerless) refuse in the
-// domain. The membership and invitation lists are read whole, a page at
+// domain. The member and invitation lists are read whole, a page at
 // a time; the history pages by cursor, and its `links.next` is a
 // ready-made `/v1/...` path. Creating
 // and resending an invitation answer the invitation, and email its link.
@@ -482,25 +482,25 @@ function with_reason(reason) {
 }
 
 export function list_members() {
-  return all_pages("/v1/memberships");
+  return all_pages("/v1/members");
 }
 
-export function change_member_role(membership_id, { role, reason }) {
-  return mutate(`/v1/memberships/${membership_id}/change-role`, {
+export function change_member_role(member_id, { role, reason }) {
+  return mutate(`/v1/members/${member_id}/change-role`, {
     method: "POST",
     body: JSON.stringify(reason ? { role, reason } : { role }),
   });
 }
 
-export function remove_member(membership_id, { reason } = {}) {
-  return mutate(`/v1/memberships/${membership_id}/remove`, {
+export function remove_member(member_id, { reason } = {}) {
+  return mutate(`/v1/members/${member_id}/remove`, {
     method: "POST",
     body: with_reason(reason),
   });
 }
 
-export function leave_membership(membership_id) {
-  return mutate(`/v1/me/memberships/${membership_id}/leave`, {
+export function leave_member(member_id) {
+  return mutate(`/v1/me/members/${member_id}/leave`, {
     method: "POST",
   });
 }
@@ -523,10 +523,9 @@ export function withdraw_invitation(invitation_id, { reason } = {}) {
   });
 }
 
-export function resend_invitation(invitation_id, { reason } = {}) {
+export function resend_invitation(invitation_id) {
   return mutate(`/v1/invitations/${invitation_id}/resend`, {
     method: "POST",
-    body: with_reason(reason),
   });
 }
 

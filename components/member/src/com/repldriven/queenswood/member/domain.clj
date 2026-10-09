@@ -61,7 +61,7 @@
               :remove (may-remove? actor target-role)
               :leave (may-leave? actor)
               false)
-    (error/unauthorized :membership/role-not-granted
+    (error/unauthorized :member/role-not-granted
                         (utility/assoc-some
                          {:message "Your role does not allow this"
                           :action action
@@ -100,7 +100,7 @@
              (not-any? #(and (active-owner? %)
                              (not= (:member-id target) (:member-id %)))
                        active-members))
-    (error/reject :membership/last-owner
+    (error/reject :member/last-owner
                   {:message "Make someone else an owner first"
                    :member-id (:member-id target)})))
 
@@ -108,7 +108,7 @@
   [active-members user-id]
   (when (some #(and (= user-id (:user-id %)) (= active (:status %)))
               active-members)
-    (error/reject :membership/already-exists
+    (error/reject :member/already-exists
                   {:message "Already a member of this bank"
                    :user-id user-id})))
 
@@ -158,7 +158,7 @@
 (defn ensure-member-status
   [member allowed]
   (when-not (contains? allowed (:status member))
-    (error/reject :membership/invalid-status
+    (error/reject :member/invalid-status
                   {:message "Member is not in a state that allows this"
                    :member-id (:member-id member)
                    :status (:status member)

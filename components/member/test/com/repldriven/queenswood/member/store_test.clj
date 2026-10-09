@@ -71,14 +71,14 @@
                  _ (testing "a member round-trips through its bank"
                      (is (= member loaded)))
                  _ (testing "and is not found through another bank"
-                     (is (= :membership/not-found
+                     (is (= :member/not-found
                             (error/kind (q/find-by-id config
                                                       "bnk.store.other"
                                                       "mem.scoped")))))
                  own (q/find-user-member config "usr.scoped" "mem.scoped")
                  _ (testing "its user finds it by id" (is (= member own)))
                  _ (testing "and another user does not"
-                     (is (= :membership/not-found
+                     (is (= :member/not-found
                             (error/kind (q/find-user-member config
                                                             "usr.other"
                                                             "mem.scoped")))))

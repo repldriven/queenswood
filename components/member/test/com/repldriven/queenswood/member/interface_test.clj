@@ -328,15 +328,15 @@
                                                       "bnk.reach.a"
                                                       (:member-id target)
                                                       {:actor owner-a})]
-                       (is (refused? :membership/not-found changed))
-                       (is (refused? :membership/not-found removed))))
+                       (is (refused? :member/not-found changed))
+                       (is (refused? :member/not-found removed))))
                  _ (testing "another person's member is not found to leave"
-                     (is (refused? :membership/not-found
+                     (is (refused? :member/not-found
                                    (SUT/leave config
                                               (:member-id target)
                                               {:user-id "usr.reach.owner-a"}))))
                  _ (testing "an unknown member is not found"
-                     (is (refused? :membership/not-found
+                     (is (refused? :member/not-found
                                    (SUT/change-role config
                                                     "bnk.reach.a" "mem.unknown"
                                                     :role-viewer {:actor
@@ -394,7 +394,7 @@
                            [@a @b])
                  _ (testing "exactly one demotion commits"
                      (is (= 1 (count (remove error/anomaly? results))))
-                     (is (= [:membership/last-owner]
+                     (is (= [:member/last-owner]
                             (map error/kind (filter error/anomaly? results)))))
                  members (q/list-active-by-bank config bank-id)
                  history (access-history config bank-id)
@@ -436,7 +436,7 @@
                            [@a @b])
                  _ (testing "exactly one accept commits"
                      (is (= 1 (count (remove error/anomaly? results))))
-                     (is (= [:membership/already-exists]
+                     (is (= [:member/already-exists]
                             (map error/kind (filter error/anomaly? results)))))
                  held (q/list-active-by-user config "usr.race.one")
                  _ (testing "and the person holds one member of the bank"

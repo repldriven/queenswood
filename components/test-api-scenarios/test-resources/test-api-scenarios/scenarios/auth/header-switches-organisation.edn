@@ -33,7 +33,7 @@
              :path-params {:invitation-id [:ref :bank-a :owner-invitation
                                            :invitation-id]}
              :auth :person-token}
-   :as :a-membership
+   :as :a-member
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
@@ -52,7 +52,7 @@
              :path-params {:invitation-id [:ref :bank-b :owner-invitation
                                            :invitation-id]}
              :auth :owner-token}
-   :as :b-owner-membership
+   :as :b-owner-member
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
@@ -79,7 +79,7 @@
    :assert {:status 201}}]
  :when
  [{:command :api/request
-   :request {:method :get :path "/v1/me/memberships" :auth :person-token}
+   :request {:method :get :path "/v1/me/members" :auth :person-token}
    :assert
    {:status 200
     :body
@@ -133,26 +133,26 @@
    :assert {:status 403
             :problem {:type "auth/forbidden"
                       :detail "The caller is not a member of this bank"}}}
-  ;; An owner of A naming A may change roles in A only: a membership of
+  ;; An owner of A naming A may change roles in A only: a member of
   ;; B is not found there, rather than refused as someone else's.
   {:command :api/request
    :request {:method :post
-             :path "/v1/memberships/{membership-id}/change-role"
-             :path-params {:membership-id [:ref :b-owner-membership
-                                           :membership-id]}
+             :path "/v1/members/{member-id}/change-role"
+             :path-params {:member-id [:ref :b-owner-member
+                                           :member-id]}
              :auth :person-token
              :headers {:bank-id [:ref :bank-a :bank-id]}
              :body {:role "viewer"}}
-   :assert {:status 404 :problem {:type ":membership/not-found"}}}]
+   :assert {:status 404 :problem {:type ":member/not-found"}}}]
  :then
  [{:command :api/request
    :request {:method :get
-             :path "/v1/memberships/{membership-id}"
-             :path-params {:membership-id [:ref :b-owner-membership
-                                           :membership-id]}
+             :path "/v1/members/{member-id}"
+             :path-params {:member-id [:ref :b-owner-member
+                                           :member-id]}
              :auth :person-token
              :headers {:bank-id [:ref :bank-a :bank-id]}}
-   :assert {:status 404 :problem {:type ":membership/not-found"}}}
+   :assert {:status 404 :problem {:type ":member/not-found"}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/invitations/{invitation-id}"
@@ -162,9 +162,9 @@
    :assert {:status 404 :problem {:type ":invitation/not-found"}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/memberships/{membership-id}"
-             :path-params {:membership-id [:ref :b-owner-membership
-                                           :membership-id]}
+             :path "/v1/members/{member-id}"
+             :path-params {:member-id [:ref :b-owner-member
+                                           :member-id]}
              :auth :person-token
              :headers {:bank-id [:ref :bank-b :bank-id]}}
    :assert {:status 200 :body {:role "owner"}}}
@@ -177,14 +177,14 @@
    :assert {:status 200 :body {:status "accepted"}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/memberships"
+             :path "/v1/members"
              :auth :owner-token
              :headers {:bank-id [:ref :bank-b :bank-id]}}
    :assert
    {:status 200
     :body
     {:items [:m/in-any-order
-             [{:membership-id [:ref :b-owner-membership
-                               :membership-id]
+             [{:member-id [:ref :b-owner-member
+                               :member-id]
                :role "owner"}
               {:email "multi-person@queenswood.local" :role "viewer"}]]}}}]}

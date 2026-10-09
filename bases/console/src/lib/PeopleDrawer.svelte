@@ -11,7 +11,7 @@
 
      The drawer makes the writes itself and tells the page through
      `onChanged`, passing `self: true` when the change was to the
-     signed-in person's own membership. */
+     signed-in person's own member. */
 
   import {
     Drawer,
@@ -38,7 +38,7 @@
   import {
     change_member_role,
     remove_member,
-    leave_membership,
+    leave_member,
     create_invitation,
     withdraw_invitation,
   } from "./api.mjs";
@@ -58,18 +58,18 @@
     onChanged,
   } = $props();
 
-  const LAST_OWNER = ":membership/last-owner";
+  const LAST_OWNER = ":member/last-owner";
 
   const REFUSAL_COPY = {
     ":invitation/already-member": (email) => [
       "Already a member",
-      `${email} already holds an active membership in ${bankName}. Change their role instead of inviting them again.`,
+      `${email} already holds an active member of ${bankName}. Change their role instead of inviting them again.`,
     ],
     ":invitation/already-exists": (email) => [
       "Already invited",
       `${email} has a pending invitation to ${bankName}. Resend it for a fresh link, or withdraw it first.`,
     ],
-    ":membership/role-not-granted": (_email, role) => [
+    ":member/role-not-granted": (_email, role) => [
       "Your role can’t grant this role",
       `An admin grants admin, developer and viewer. The ${role} role is an owner’s to give.`,
     ],
@@ -131,7 +131,7 @@
     }
     busy = true;
     problem = null;
-    const res = await change_member_role(member["membership-id"], {
+    const res = await change_member_role(member["member-id"], {
       role: newRole,
       reason: reason.trim() || undefined,
     });
@@ -149,8 +149,8 @@
     busy = true;
     problem = null;
     const res = isMe
-      ? await leave_membership(member["membership-id"])
-      : await remove_member(member["membership-id"], {
+      ? await leave_member(member["member-id"])
+      : await remove_member(member["member-id"], {
           reason: reason.trim() || undefined,
         });
     busy = false;
@@ -253,7 +253,7 @@
 
     {#if lastOwner && canManagePeople(myRole)}
       <Callout tone="warn" title="The only owner">
-        Make someone else an owner before changing this role or ending this membership.
+        Make someone else an owner before changing this role or ending this member.
       </Callout>
     {/if}
     {#if !canManagePeople(myRole)}
@@ -282,12 +282,12 @@
     </section>
 
     <section class="section">
-      <h3 class="section-title">Membership</h3>
+      <h3 class="section-title">Member</h3>
       <dl class="detail-list">
         <dt>Joined</dt>
         <dd>{fmtUtcDateTime(member["created-at"])}</dd>
-        <dt>Membership id</dt>
-        <dd class="mono">{member["membership-id"]}</dd>
+        <dt>Member id</dt>
+        <dd class="mono">{member["member-id"]}</dd>
         <dt>User id</dt>
         <dd class="mono">{member["user-id"]}</dd>
         <dt>How they joined</dt>
@@ -357,13 +357,13 @@
       </Callout>
     {:else}
       <Callout tone="warn" title={isMe ? `You lose access to ${bankName}` : `${nameOf(member)} loses access to ${bankName}`}>
-        The membership is ended, not deleted: it stays in the history with who ended it and when. An open session survives one more request.
+        The member is ended, not deleted: it stays in the history with who ended it and when. An open session survives one more request.
       </Callout>
     {/if}
     {#if problem}
       <Callout
         tone="danger"
-        title={problem.body?.type === LAST_OWNER ? "Make someone else an owner first" : "The membership was not ended"}
+        title={problem.body?.type === LAST_OWNER ? "Make someone else an owner first" : "The member was not ended"}
         type={problemLine(problem)}
       >
         {problem.body?.detail ?? "The API refused the change."}

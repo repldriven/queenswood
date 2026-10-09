@@ -34,22 +34,22 @@
   } from "@queenswood/ui";
   import * as api from "./api.mjs";
 
-  let { user, memberships = [] } = $props();
+  let { user, members = [] } = $props();
 
-  const bankName = $derived(memberships?.[0]?.["bank-name"]);
+  const bankName = $derived(members?.[0]?.["bank-name"]);
   const kicker = $derived(bankName ? `${bankName} · Sandbox` : "Sandbox");
 
-  // The bank whose books we move. From the membership prop, or /v1/me
+  // The bank whose books we move. From the member prop, or /v1/me
   // if the prop didn't carry it (older bank-api).
   let bankId = $state();
   $effect(() => {
     if (bankId) return;
-    const m = memberships?.[0]?.["bank-id"];
+    const m = members?.[0]?.["bank-id"];
     if (m) {
       bankId = m;
       return;
     }
-    api.list_my_memberships().then((r) => {
+    api.list_my_members().then((r) => {
       bankId = r.body?.items?.[0]?.["bank-id"];
     });
   });
@@ -157,7 +157,7 @@
       id: "s2", num: "02", title: "Invite", view: "people",
       story:
         "The owner invites a developer and a viewer to the bank's team in the console, resends the developer's invitation, and reads the audit log the platform keeps of each act.",
-      backing: ["journeys/memberships/1-a-founding-owner-brings-in-a-colleague", "resend-replaces-emailed-link", "audit-log-pages-in-order"],
+      backing: ["journeys/members/1-a-founding-owner-brings-in-a-colleague", "resend-replaces-emailed-link", "audit-log-pages-in-order"],
       steps: [
         { name: "Invite Trillian as a developer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
         { name: "Invite Marvin as a viewer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
@@ -277,7 +277,7 @@
   // Keyed by bank as well, so a fresh sandbox bank starts with no
   // scenes run and switching back finds the old bank's progress where
   // it was.
-  const bankKey = memberships?.[0]?.["bank-id"];
+  const bankKey = members?.[0]?.["bank-id"];
   const DONE_KEY = `queenswood.scenarios.v6.done${bankKey ? "." + bankKey : ""}`;
   const CTX_KEY = `queenswood.scenarios.v6.ctx${bankKey ? "." + bankKey : ""}`;
   const load = (k, fb) => {

@@ -7,18 +7,18 @@
      is leave the old one standing, with its books intact, and move the
      console onto a new, empty bank: the old one stays in the list here
      and switching back is how it is restored. Every page reads
-     `memberships[0]` as the bank it acts on, so switching is App's
+     `members[0]` as the bank it acts on, so switching is App's
      job; this page only asks for it. */
 
   import { PageHeader, Panel, PanelHead, Button, Badge, RolePill, accessEnum } from "@queenswood/ui";
   import { get_bank } from "./api.mjs";
   import { kindLabel, providerLabel } from "./providers.mjs";
 
-  let { user, memberships = [], onSwitch, onFreshBank } = $props();
+  let { user, members = [], onSwitch, onFreshBank } = $props();
 
-  const current = $derived(memberships?.[0]);
+  const current = $derived(members?.[0]);
   const kicker = $derived(current?.["bank-name"]);
-  const others = $derived(memberships.slice(1));
+  const others = $derived(members.slice(1));
   const isCurrent = (m) => m["bank-id"] === current?.["bank-id"];
 
   let providers = $state(null);
@@ -64,12 +64,12 @@
 <Panel>
   <PanelHead
     title="Your banks"
-    count={memberships.length}
+    count={members.length}
     note="switching changes the bank every page acts on"
   />
   <div class="body">
   <ul class="banks">
-    {#each memberships as m (m["membership-id"] ?? m["bank-id"])}
+    {#each members as m (m["member-id"] ?? m["bank-id"])}
       <li class="bank" class:current={isCurrent(m)}>
         <div class="bank-main">
           <span class="bank-name">{m["bank-name"] ?? m["bank-id"]}</span>

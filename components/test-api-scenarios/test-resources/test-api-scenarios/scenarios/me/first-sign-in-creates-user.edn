@@ -19,11 +19,11 @@
                    :sub [:m/non-empty]
                    :email "dev@queenswood.local"}}}
   {:command :api/request
-   :request {:method :get :path "/v1/me/memberships" :auth :dev-token}
+   :request {:method :get :path "/v1/me/members" :auth :dev-token}
    :assert {:status 200 :body {:items []}}}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :dev-token}
    :assert {:status 200 :body {:user-id [:ref :me-1 :user-id]}}}
   {:command :api/request
-   :request {:method :get :path "/v1/me/memberships" :auth :dev-token}
+   :request {:method :get :path "/v1/me/members" :auth :dev-token}
    :assert {:status 200 :body {:items []}}}]}

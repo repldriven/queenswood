@@ -32,7 +32,7 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation
                                            :invitation-id]}
              :auth :owner-token}
-   :as :owner-membership
+   :as :owner-member
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
@@ -48,12 +48,12 @@
              :path "/v1/me/invitations/{invitation-id}/accept"
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :developer-token}
-   :as :developer-membership
+   :as :developer-member
    :assert {:status 201}}]
  :when
  [{:command :api/request
    :request {:method :get
-             :path "/v1/memberships"
+             :path "/v1/members"
              :auth :developer-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200}}
@@ -74,18 +74,18 @@
                       :detail "Insufficient privileges"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/memberships/{membership-id}/change-role"
-             :path-params {:membership-id [:ref :owner-membership
-                                           :membership-id]}
+             :path "/v1/members/{member-id}/change-role"
+             :path-params {:member-id [:ref :owner-member
+                                           :member-id]}
              :auth :developer-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :body {:role "viewer"}}
    :assert {:status 403 :problem {:type "auth/forbidden"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/memberships/{membership-id}/remove"
-             :path-params {:membership-id [:ref :owner-membership
-                                           :membership-id]}
+             :path "/v1/members/{member-id}/remove"
+             :path-params {:member-id [:ref :owner-member
+                                           :member-id]}
              :auth :developer-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :body {:reason "Not permitted"}}
@@ -100,16 +100,16 @@
  :then
  [{:command :api/request
    :request {:method :get
-             :path "/v1/memberships"
+             :path "/v1/members"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert
    {:status 200
     :body
     {:items [:m/in-any-order
-             [{:membership-id [:ref :owner-membership
-                               :membership-id]
+             [{:member-id [:ref :owner-member
+                               :member-id]
                :role "owner"}
-              {:membership-id [:ref :developer-membership
-                               :membership-id]
+              {:member-id [:ref :developer-member
+                               :member-id]
                :role "developer"}]]}}}]}

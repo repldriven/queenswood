@@ -85,12 +85,12 @@
   (let [{:keys [command payload]} message
         handler (get command-handlers command)]
     (if (nil? handler)
-      (error/reject :membership/unknown-command
+      (error/reject :member/unknown-command
                     (str "Unknown command: " command))
       (let [{:keys [schemas]} config
             schema (get schemas command)]
         (if-not schema
-          (error/fail :membership/process-command
+          (error/fail :member/process-command
                       {:message "No schema found for command"
                        :command command})
           (let-nom> [data (avro/deserialize-same schema payload)]

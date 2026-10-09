@@ -93,7 +93,7 @@
    :assert {:status 403 :problem {:type "auth/forbidden"}}}]
  :then
  [{:command :api/request
-   :request {:method :get :path "/v1/me/memberships" :auth :consultant-token}
+   :request {:method :get :path "/v1/me/members" :auth :consultant-token}
    :assert
    {:status 200
     :body
@@ -118,7 +118,7 @@
    :assert {:status 200 :body {:name "Client Bank"}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/memberships"
+             :path "/v1/members"
              :auth :consultant-token
              :headers {:bank-id [:ref :client-bank :bank-id]}}
    :assert {:status 200

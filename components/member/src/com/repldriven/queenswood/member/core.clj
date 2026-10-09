@@ -68,7 +68,7 @@
                    (utility/now))]
        (let-nom> [_ (store/save-member txn member)]
          member)))
-   :membership/new
+   :member/new
    "Failed to create member"))
 
 (defn invite
@@ -209,7 +209,7 @@
                txn
                (domain/new-role-change member role opts now)))]
          changed)))
-   :membership/change-role
+   :member/change-role
    "Failed to change role"))
 
 (defn remove-member
@@ -229,7 +229,7 @@
                                    now)
           _ (store/save-member txn ended)]
          ended)))
-   :membership/remove
+   :member/remove
    "Failed to remove member"))
 
 (defn leave
@@ -249,5 +249,5 @@
                                    now)
           _ (store/save-member txn ended)]
          ended)))
-   :membership/leave
+   :member/leave
    "Failed to leave"))

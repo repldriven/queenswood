@@ -80,15 +80,15 @@
    [:post "/v1/me/invitations/{invitation-id}/decline"]
    "Source-state guard. Only a pending invitation may be declined; a
     retry finds it declined and is refused 409 `invitation/invalid-status`."
-   [:post "/v1/me/memberships/{membership-id}/leave"]
-   "Source-state guard. Only an active membership may be ended; a retry
-    finds it ended and is refused 409 `membership/invalid-status`."
-   [:post "/v1/memberships/{membership-id}/change-role"]
+   [:post "/v1/me/members/{member-id}/leave"]
+   "Source-state guard. Only an active member may be ended; a retry
+    finds it ended and is refused 409 `member/invalid-status`."
+   [:post "/v1/members/{member-id}/change-role"]
    "Absolute set. The body names the role, so a retry converges and
     records nothing."
-   [:post "/v1/memberships/{membership-id}/remove"]
-   "Source-state guard. Only an active membership may be ended; a retry
-    finds it ended and is refused 409 `membership/invalid-status`."
+   [:post "/v1/members/{member-id}/remove"]
+   "Source-state guard. Only an active member may be ended; a retry
+    finds it ended and is refused 409 `member/invalid-status`."
    [:post "/v1/invitations/{invitation-id}/withdraw"]
    "Source-state guard. Only a pending invitation may be withdrawn; a
     retry finds it withdrawn and is refused 409 `invitation/invalid-status`."})

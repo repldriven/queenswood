@@ -28,7 +28,7 @@
 (defn send-create-bank
   "Dispatch a create-bank command. `data` is the command payload
   (name/status/tier/currencies plus optional audience,
-  company-binding, membership). Returns the `commands/send` ring
+  company-binding, member). Returns the `commands/send` ring
   response (200 + flat bank body on success)."
   [request data]
   (commands/send (dispatcher request) request "create-bank" "bank" data))
@@ -152,16 +152,16 @@
 
 (defn- created-bank
   "The created bank with its fresh client secret, and whichever of the
-  owner invitation and the creator's owner membership the create wrote."
+  owner invitation and the creator's owner member the create wrote."
   [request {:keys [bank-id owner-invitation-id member]}]
   (let-nom> [bank (bank-with-secret request bank-id)
              invitation (owner-invitation request bank-id owner-invitation-id)]
     (utility/assoc-some bank
                         :owner-invitation
                         invitation
-                        :membership
+                        :member
                         (when member
-                          (access-handlers/founding-membership
+                          (access-handlers/founding-member
                            member
                            (get-in request [:auth :user])
                            bank)))))

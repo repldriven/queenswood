@@ -183,7 +183,7 @@
          {:name "Me"
           :description
           "The signed-in person: who they are, the banks they belong to, and the invitations waiting for them."}
-         {:name "Memberships"
+         {:name "Members"
           :description
           "The bank's members, and the role each holds."}
          {:name "Invitations"

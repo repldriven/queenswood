@@ -40,7 +40,7 @@
       "This invitation is no longer open",
       "It has expired, or has already been accepted or declined. Ask whoever invited you to send it again.",
     ],
-    ":membership/already-exists": [
+    ":member/already-exists": [
       "You’re already a member",
       "You already belong to this organisation, so there’s nothing to accept.",
     ],

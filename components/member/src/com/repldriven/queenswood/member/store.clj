@@ -21,7 +21,7 @@
                 (fn [txn]
                   (fdb/save-record (fdb/open txn members-store-name)
                                    (schema/Member->java member)))
-                :membership/save
+                :member/save
                 "Failed to save member"))
 
 (defn save-invitation
@@ -54,5 +54,5 @@
                   (fdb/save-record (fdb/open txn role-changes-store-name)
                                    (schema/MemberRoleChange->java
                                     role-change)))
-                :membership/save-role-change
+                :member/save-role-change
                 "Failed to save role change"))

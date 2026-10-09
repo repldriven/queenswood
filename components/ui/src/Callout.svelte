@@ -7,7 +7,7 @@
        info    plain — context
 
          <Callout tone="danger" title="Make someone else an owner first"
-                  type="409 · :membership/last-owner">
+                  type="409 · :member/last-owner">
            Ada is this organisation's only owner.
          </Callout>
 

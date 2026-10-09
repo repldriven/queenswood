@@ -132,7 +132,7 @@ Some brick tests cross the line on purpose, each carrying its reason:
 - **The bank's rollback.** `bank`'s test of a failure after the last
   write rolling every earlier write back calls other bricks only to read
   what was written.
-- **Membership concurrency.** `membership`'s conflicting writes and its
+- **Member concurrency.** `member`'s conflicting writes and its
   latch tests prove what one transaction reads, against its own store.
 
 ### The domain runner
@@ -276,7 +276,7 @@ scenario proves a replay, and every literal is unique across files.
 
 **Layout and names.** One directory per OpenAPI tag, named for it in
 kebab case, holds the scenarios whose subject is a route under that tag:
-`me/`, `memberships/`, `invitations/` and `audit/` where a person's
+`me/`, `members/`, `invitations/` and `audit/` where a person's
 access to a bank is concerned, `banks/`, `companies/`, `oauth/`,
 `parties/`, `payee-checks/`, `cash-account-products/`, `rewards/`,
 `cash-accounts/`, `cash-account-migrations/`, `payments/`,

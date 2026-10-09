@@ -1,4 +1,4 @@
-# Memberships
+# Members
 
 > **Status: proposal.** The three slices are implemented: the records,
 > the `member` processor and its `member-query` sibling, the
@@ -25,7 +25,7 @@ processor's commands, the `member-query` reads and the domain rules
 — who may do what to whom, and never ownerless; the invitation
 changelog; the request header that names the organisation; the role
 levels on the `api` base's gates and the sweep that puts one on every
-route; the routes under `/v1/me`, `/v1/memberships`, `/v1/invitations`
+route; the routes under `/v1/me`, `/v1/members`, `/v1/invitations`
 and the bank's audit log; the owner email on the operator's create call;
 the console's screens; and the tests.
 
@@ -62,8 +62,8 @@ and the console as first built:
   the bank list's under `scenarios/banks/`.
 - **One door on the console.** The sign-in screen has one button,
   which sends every person through the same Google flow, and the
-  console decides what to show from `/v1/me` and `/v1/me/memberships`,
-  read together: no membership means the create screen.
+  console decides what to show from `/v1/me` and `/v1/me/members`,
+  read together: no member means the create screen.
 - **The People page.** `People.svelte` and `PeopleDrawer.svelte` under
   `bases/console/src/lib/`: members, invitations and the history as
   three tabs, and a drawer that changes roles, removes, leaves, invites,
@@ -72,28 +72,28 @@ and the console as first built:
 - **Every access write is synchronous.** The `api` base calls the
   `member` interface directly for reads and writes alike, one FDB
   transaction each, and the `bank` processor calls it inside `new-bank`.
-  No membership store writes a changelog entry.
+  No member store writes a changelog entry.
 
 Slice 1 replaced the one-owner, one-organisation flow the deleted users
-and memberships PRDs described:
+and members PRDs described:
 
-- **The principal's bank was the first membership's.** `user-auth`
-  listed the person's memberships and took `:bank-id` off the first.
+- **The principal's bank was the first member's.** `user-auth`
+  listed the person's members and took `:bank-id` off the first.
 - **Every gate was one of three words.** A route declared `user`, `org`
-  or `admin`, and `org` was granted by holding any membership, whatever
+  or `admin`, and `org` was granted by holding any member, whatever
   its role, so a member read and wrote everything the organisation
   could.
 - **One organisation per person.** The onboarding route answered 409
-  when the person already held a membership, and `new-bank` re-checked
+  when the person already held a member, and `new-bank` re-checked
   it inside its transaction.
 - **One role, and no end.** The `Role` enum held owner, with admin,
   developer and viewer commented out at their reserved numbers. A
-  membership had no status, and a unique index on user and bank refused
-  a second membership for the pair.
+  member had no status, and a unique index on user and bank refused
+  a second member for the pair.
 - **The operator's create call named no person.** `CreateBankRequest`
   carried name, status, tier and currencies.
 
-The membership and principal as first built are in
+The member and principal as first built are in
 [onboarding.md](onboarding.md).
 
 ## Proposed Solution
@@ -104,12 +104,12 @@ A `Bank-Id` request header names the organisation a call is for. The
 auth interceptor's user path reads it after verification:
 
 - **A member's call** must name a bank the person holds an active
-  membership in. The principal's `:bank-id` is that bank and its roles
+  member in. The principal's `:bank-id` is that bank and its roles
   are the level held there. A header naming any other bank is refused
   403 `auth/forbidden`, and the detail says the caller is not a member,
   which reveals nothing about whether the bank exists.
 - **A member's call with no header** takes the person's one active
-  membership when there is exactly one, and none when there are
+  member when there is exactly one, and none when there are
   several: `authorize` then refuses an org route with a detail saying
   to name the bank. A person with one organisation is never scoped to
   "the first one found", because there is no other.
@@ -126,9 +126,9 @@ The header is declared once, as a `components.parameters` entry beside
 it. The console's request wrapper sends it on every call once an
 organisation is chosen.
 
-The principal also carries `:member`, the active membership the
+The principal also carries `:member`, the active member the
 header resolved to, so a handler that records an actor reads the
-membership id off the request rather than finding it again.
+member id off the request rather than finding it again.
 
 ### Roles on the gate
 
@@ -200,7 +200,7 @@ on the record it changes, as an `_at` and `_by` pair, as
 [ADR-0046](../adr/0046-who-did-what-is-recorded-on-the-record.md) has
 it.
 
-- **`Member`** — bank id, membership id (prefix `mem`), status
+- **`Member`** — bank id, member id (prefix `mem`), status
   (active, removed or left), role, user id, the invitation accepted to
   create it, a removal as `removed_at`, `removed_by` and
   `removed_reason`, a leave as `left_at` and `left_by`, and
@@ -227,10 +227,10 @@ it.
   bank's invitations. Until an email is sent the token hash holds the
   invitation id: the unique index needs a distinct value per
   invitation, and no SHA-256 hex digest equals an id.
-- **`MemberRoleChange`** — bank id, membership id, role change id
+- **`MemberRoleChange`** — bank id, member id, role change id
   (prefix `rch`), the role before and after, a reason, `created_at` and
   `created_by`, keyed `[bank_id, member_id, role_change_id]`. A
-  membership's role changes any number of times and the membership
+  member's role changes any number of times and the member
   keeps only the latest, so each change is a record of its own.
 - **`Actor`** — a message the three share: kind (member, bank or
   operator) and the principal id, a user id for a member or an
@@ -242,7 +242,7 @@ The access history the PRD's "What is recorded" reads is built on read
 from these records and the `Bank`'s own `created_at` and `created_by`,
 by `member-query`'s `list-access-events`: the bank's creation, each
 invitation's creation, latest resend, acceptance, refusal and
-withdrawal, each role change, and each membership's removal or
+withdrawal, each role change, and each member's removal or
 departure, newest first. Each event's id is `aev.` and an encoding of
 when it happened, its kind's place among acts at the same instant, and
 the record it was read from, so the ids sort as the events happened and
@@ -255,7 +255,7 @@ Member and invitation writes are commands, because an invitation
 now has a reader: the email adapter reacts to its creation, which is the
 reaction property [ADR-0018](../adr/0018-command-writes-are-earned.md) says
 earns a command, and invitation flows are the trigger that ADR names
-for membership. On the system diagram the API writes only
+for member. On the system diagram the API writes only
 `State (Config)`, and a write something reacts to is a processor's
 `State + Changelog`. The domain splits as
 [ADR-0017](../adr/0017-query-write-brick-split.md) and
@@ -298,7 +298,7 @@ establishes and the command carries:
   beside the base's idempotency pair on invite and resend.
 
 The atomicity is unchanged. An accept writes the invitation, the
-membership and the event in one FDB transaction, and a role change or
+member and the event in one FDB transaction, and a role change or
 removal reads the bank's owners and writes in one. Two owners demoting
 each other at once conflict on the owner reads, and one retries, sees
 the other's write and is refused.
@@ -328,7 +328,7 @@ graph LR
     EM["email adapter"]
     FDB[("FDB")]
 
-    SPA -->|"/v1/me/*, /v1/memberships, /v1/invitations"| API
+    SPA -->|"/v1/me/*, /v1/members, /v1/invitations"| API
     API -->|"reads"| BQ
     API -->|"access commands, over the bus"| BM
     API -->|"upsert on every user request"| BU
@@ -391,7 +391,7 @@ Guards in `domain.clj`, each the first binding of its `let-nom>`:
   pending invitation in this bank (`:invitation/already-exists`, 409).
 - **Accept** requires pending and unexpired, refuses an active member
   of the same bank (`:member/already-exists`, 409), and writes the
-  membership with the invitation's role, the invitation as accepted
+  member with the invitation's role, the invitation as accepted
   with the accepting user, and the event, in one transaction.
 - **Decline** requires pending.
 - **Withdraw** requires pending, and **resend** pending or expired. Both
@@ -416,15 +416,15 @@ A refused source state is `:invitation/invalid-status`, carrying
 
 ### Managing people
 
-Three transitions on a membership, all through the `member`
-interface and each writing the membership and its event together:
+Three transitions on a member, all through the `member`
+interface and each writing the member and its event together:
 
 - **Change role** — by an owner, to any role; by an admin, from and to
   admin, developer or viewer. Refused `:member/role-not-granted`
   otherwise. A change to the role already held runs the same guards,
   answers the member, and saves nothing and records no event.
 - **Remove** — by an owner, anyone; by an admin, an admin, developer or
-  viewer. The membership is ended with the actor and the time, never
+  viewer. The member is ended with the actor and the time, never
   deleted.
 - **Leave** — by the member, on the same terms as a removal, with the
   member as actor.
@@ -434,7 +434,7 @@ interface and each writing the membership and its event together:
 transaction and refuses when there are none:
 `:member/last-owner`, mapped to 409, whose message says to make
 someone else an owner first. The rule takes the bank's active
-memberships as an argument, so the count is read inside the
+members as an argument, so the count is read inside the
 transaction that writes and a concurrent demotion of the other owner
 conflicts rather than slipping past. An operator calls the same
 function through the same routes, which is why the PRD's "never needs
@@ -449,9 +449,9 @@ non-member's would be.
 
 **From the console.** A person creates the organisation through
 `POST /v1/banks`, naming its company, as [banks.md](banks.md)
-describes. There is no sole-membership check — a person may create
+describes. There is no sole-member check — a person may create
 another organisation — and `new-bank` writes the creation event with
-the person as actor beside the owner membership.
+the person as actor beside the owner member.
 
 **By the operator.** `CreateBankRequest` gains an optional
 `owner-email`, and the command carries it with the actor. `new-bank`
@@ -487,7 +487,7 @@ as a member is, and the `queenswood-admin` client as `Queenswood`.
 
 The operator's overview is the admin bank list: `GET /v1/banks`
 carries each bank's active owners, enriched on read as a bank's party
-and accounts are. Each `Owner` is the membership id and user id, with
+and accounts are. Each `Owner` is the member id and user id, with
 the name and email the user record holds, and an organisation with none
 lists `owners: []`. The operator's create call and grant are above.
 
@@ -495,39 +495,39 @@ lists `owners: []`. The operator's create call and grant are above.
 
 A path names a record, and its prefix says whose: `/v1/me/<records>`
 the signed-in person's, `/v1/<records>` the bank the header names. A
-membership and an invitation are each one record under both, by the
-same noun and id; a membership is shown the same way to both, and an
+member and an invitation are each one record under both, by the
+same noun and id; a member is shown the same way to both, and an
 invitation to its recipient as `RecipientInvitation`, which carries no
 inviter's email. The tags follow who may call: every route under
 `/v1/me` is tagged Me, since no service token reaches one, and the
-bank's routes are tagged Memberships, Invitations and Audit.
+bank's routes are tagged Members, Invitations and Audit.
 
 Under `/v1/me`, gated `user`, no header:
 
 - `GET /v1/me` — the user record and an `operator` flag, so the console
-  knows what it may offer. The memberships are the next route's alone.
-- `GET /v1/me/memberships`, `GET /v1/me/memberships/{membership-id}` —
-  the person's active memberships in every bank; another person's, or
+  knows what it may offer. The members are the next route's alone.
+- `GET /v1/me/members`, `GET /v1/me/members/{member-id}` —
+  the person's active members in every bank; another person's, or
   an ended one, returns 404.
-- `POST /v1/me/memberships/{membership-id}/leave` — the person's own.
+- `POST /v1/me/members/{member-id}/leave` — the person's own.
 - `GET /v1/me/invitations` — pending, unexpired invitations to the
   signed-in email: organisation name, role, who invited, expiry.
 - `GET /v1/me/invitations/{invitation-id}` — one, as its recipient
   sees it, by token header or email match.
 - `POST .../accept`, `POST .../decline` — the same proof. Accepting
-  returns the membership, with its `Location` under `/v1/me/memberships`.
+  returns the member, with its `Location` under `/v1/me/members`.
 
 Under the bank the header names:
 
-- `GET /v1/memberships` — `org:viewer`. Active memberships, each with
+- `GET /v1/members` — `org:viewer`. Active members, each with
   the user's name and email, role, when they joined, and who invited
   them, read off the invitation; the founding owner's shows as having
   created the organisation.
-- `GET /v1/memberships/{membership-id}` — `org:viewer`. One active
-  membership, as the list shows it; an ended membership, or another
+- `GET /v1/members/{member-id}` — `org:viewer`. One active
+  member, as the list shows it; an ended member, or another
   bank's, returns 404.
-- `POST /v1/memberships/{membership-id}/change-role`,
-  `POST /v1/memberships/{membership-id}/remove` — `org:admin`.
+- `POST /v1/members/{member-id}/change-role`,
+  `POST /v1/members/{member-id}/remove` — `org:admin`.
 - `GET /v1/invitations` — `org:viewer`. Pending, expired and accepted,
   with the invited and, once accepted, the accepting address. Declined
   and withdrawn invitations appear only in the history.
@@ -592,7 +592,7 @@ invitations first, then the organisations the person belongs to — and, when
 nothing is, on an empty state that names both ways in: ask a colleague for an
 invitation, or create an organisation. It never drops a person into the create
 screen. Sign up lands on the create screen, and when the person turns out to
-hold a membership or a pending invitation the console says so and offers those
+hold a member or a pending invitation the console says so and offers those
 first, so a colleague who chose sign up by mistake is not steered into an
 organisation of their own. The platform records the person on either action, by
 the same upsert, and the API does not distinguish them.
@@ -604,7 +604,7 @@ another device the person chooses again.
 
 `App.svelte`'s state machine grows two stages before `app`:
 `invitations`, when `GET /v1/me/invitations` answers any, and `choose`,
-when the person holds more than one membership and local storage names
+when the person holds more than one member and local storage names
 none. The `onboarding` stage becomes the create screen, reached from
 sign up, from the empty state and from the switcher's foot.
 
@@ -614,7 +614,7 @@ waiting;
 choose an organisation, and the switcher in the shell's header; create
 an organisation, as today with the credential shown once; people, with
 members, pending invitations, the history and the actions the person's
-own level allows, read off `/v1/me/memberships`; invite, a drawer that
+own level allows, read off `/v1/me/members`; invite, a drawer that
 says the invitation has been emailed, with no link and no `TokenBox`;
 and accept
 an invitation, the route the link lands on,
@@ -634,7 +634,7 @@ Slice 1, the API:
 2. The `member` brick: domain rules and their tests, the store's
    new indexes, the transactions for invite, accept, decline, withdraw,
    resend, change-role, remove and leave, and the history read.
-3. The `bank` brick: the sole-membership check removed, the owner
+3. The `bank` brick: the sole-member check removed, the owner
    invitation and the creation event inside `new-bank`, and the
    command schema's two fields.
 4. The `api` base: the header, the levels, the router checks that
@@ -682,7 +682,7 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   every actor level, target role and new role; the ownerless guard
   with one owner, two owners and an operator actor; expiry against a
   passed clock; the one-pending and already-member rules; the token
-  hash lookup; that an accept run twice writes one membership; that a
+  hash lookup; that an accept run twice writes one member; that a
   role change repeated writes one event and leaves `updated-at`; the
   resend of an expired invitation, held here because no scenario verb
   moves the clock; `record-invitation-token` and an accept by the hash
@@ -732,7 +732,7 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   carry it twice.
 - **The organisation in the token.** A claim naming the active bank,
   re-minted on switch. Rejected: switching becomes a round trip to
-  Keycloak, and a token then says something the membership store may
+  Keycloak, and a token then says something the member store may
   have since revoked.
 - **Roles as separate scopes rather than a ladder** — a route naming
   every level that may pass. Rejected: every read route would list four
@@ -745,7 +745,7 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   the id lets the console show an invitation by email match with no
   token at all.
 - **A dedicated `invitation` brick.** Rejected: an accept writes an
-  invitation and a membership in one transaction, and a brick acts only
+  invitation and a member of one transaction, and a brick acts only
   on its own records.
 - **The history as the changelog.** Above, under Records.
 - **Synchronous writes that also write a changelog.** Rejected: only a
@@ -784,19 +784,19 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 - **The last-used organisation is per browser.** Local storage, not
   the platform.
 - **The deployed console serves one organisation.** Until slice 2 ships
-  it reads the first membership and sends no `Bank-Id`, so a person
+  it reads the first member and sends no `Bank-Id`, so a person
   with two organisations is refused every organisation call with 403.
 - **An operator has no screen.** The console signs in against the
   organisations realm and the operator realm's SPA client has no
   front-end since the operator app was removed. The operator's flows
   are API-only until the console can sign in against both realms or
   the operator app returns.
-- **A single-membership call needs no header.** A client written
+- **A single-member call needs no header.** A client written
   against one organisation keeps working, and gains the header when
   its person gains a second organisation. The PRD's "never the first
   found" holds because there is no other to find.
 - **An open session outlives a removal by one request.** The token is
-  valid until it expires, and the membership check on the next request
+  valid until it expires, and the member check on the next request
   is what refuses.
 - **No notification to owners** when a colleague accepts, declines or
   is removed, or when an operator acts, which the PRD lists as open.
@@ -807,7 +807,7 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 
 ## References
 
-- [memberships](../prd/memberships.md) — Memberships, the product requirements this
+- [members](../prd/members.md) — Members, the product requirements this
   design serves.
 - [onboarding](../prd/onboarding.md) — Onboarding, the owner email on
   the operator's create call.
@@ -815,7 +815,7 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   principal shapes and the gate rule this design extends.
 - [banks.md](banks.md) — the create transaction the owner invitation
   joins.
-- [onboarding.md](onboarding.md) — the user and membership bricks as
+- [onboarding.md](onboarding.md) — the user and member bricks as
   first built, and the console flow this design grows.
 - [idempotency.md](idempotency.md) — the pair, the exemptions and the
   router coverage test.

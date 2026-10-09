@@ -32,7 +32,7 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation
                                            :invitation-id]}
              :auth :owner-token}
-   :as :owner-membership
+   :as :owner-member
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
@@ -55,7 +55,7 @@
               :status "pending"
               :expires-at [:m/any]
               :invited-by {:kind "member"
-                           :principal-id [:ref :owner-membership :user-id]}}]}}}
+                           :principal-id [:ref :owner-member :user-id]}}]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/me/invitations/{invitation-id}/accept"
@@ -63,7 +63,7 @@
              :auth :invitee-token}
    :as :accepted
    :assert {:status 201
-            :headers {:location [:m/regex "^/v1/me/memberships/mem\\."]}
+            :headers {:location [:m/regex "^/v1/me/members/mem\\."]}
             :body {:bank-id [:ref :bank :bank-id] :role "developer"}}}]
  :then
  [{:command :api/request
@@ -84,24 +84,24 @@
                    :token [:m/absent]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/me/memberships/{membership-id}"
-             :path-params {:membership-id [:ref :accepted :membership-id]}
+             :path "/v1/me/members/{member-id}"
+             :path-params {:member-id [:ref :accepted :member-id]}
              :auth :invitee-token}
    :as :own-read
    :assert {:status 200
-            :body {:membership-id [:ref :accepted :membership-id]
+            :body {:member-id [:ref :accepted :member-id]
                    :bank-name "Match Bank"
                    :email "match-invitee@queenswood.local"
                    :role "developer"
                    :invitation-id [:ref :invitation :invitation-id]}}}
   {:command :api/request
-   :request {:method :get :path "/v1/me/memberships" :auth :invitee-token}
+   :request {:method :get :path "/v1/me/members" :auth :invitee-token}
    :assert {:status 200 :body {:items [:m/equals [[:ref :own-read]]]}}}
   ;; The bank reads the same record the member does.
   {:command :api/request
    :request {:method :get
-             :path "/v1/memberships/{membership-id}"
-             :path-params {:membership-id [:ref :accepted :membership-id]}
+             :path "/v1/members/{member-id}"
+             :path-params {:member-id [:ref :accepted :member-id]}
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert {:status 200 :body [:m/equals [:ref :own-read]]}}
@@ -109,14 +109,14 @@
    :request {:method :get :path "/v1/me" :auth :invitee-token}
    :assert {:status 200 :body {:operator false}}}
   {:command :api/request
-   :request {:method :get :path "/v1/me/memberships" :auth :invitee-token}
+   :request {:method :get :path "/v1/me/members" :auth :invitee-token}
    :assert
    {:status 200
-    :body {:items [{:membership-id [:ref :accepted :membership-id]
+    :body {:items [{:member-id [:ref :accepted :member-id]
                     :bank-id [:ref :bank :bank-id]
                     :bank-name "Match Bank"
                     :role "developer"}]}}}
-  ;; One membership, so no `Bank-Id` is needed to name the bank.
+  ;; One member, so no `Bank-Id` is needed to name the bank.
   {:command :api/request
    :request {:method :get :path "/v1/cash-accounts" :auth :invitee-token}
    :assert {:status 200}}]}

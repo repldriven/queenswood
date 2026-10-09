@@ -49,7 +49,7 @@
              :path "/v1/me/invitations/{invitation-id}/accept"
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :developer-token}
-   :as :developer-membership
+   :as :developer-member
    :assert {:status 201}}]
  :when
  [{:command :api/request
@@ -63,9 +63,9 @@
    :assert {:status 403 :problem {:type ":policy/denied"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/memberships/{membership-id}/change-role"
-             :path-params {:membership-id [:ref :developer-membership
-                                           :membership-id]}
+             :path "/v1/members/{member-id}/change-role"
+             :path-params {:member-id [:ref :developer-member
+                                           :member-id]}
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :body {:role "viewer"}}

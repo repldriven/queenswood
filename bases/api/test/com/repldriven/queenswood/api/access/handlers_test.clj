@@ -1,7 +1,7 @@
 (ns ^:eftest/synchronized com.repldriven.queenswood.api.access.handlers-test
   "The actor a people write records is derived from the principal
   (REQ-028): an operator — a principal carrying `admin` — by its id, and
-  anyone else as a member with the role of the membership the call
+  anyone else as a member with the role of the member the call
   resolved to. A recipient's proof is the `Invitation-Token` header's
   hash, never the token, and the token's email with its `email_verified`
   claim, and `GET /v1/me/invitations` lists nothing for an email that
@@ -16,7 +16,7 @@
     [com.repldriven.queenswood.api.auth :as auth]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
-    [com.repldriven.queenswood.member-query.interface :as memberships]
+    [com.repldriven.queenswood.member-query.interface :as members]
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.avro.interface :as avro]
@@ -31,13 +31,13 @@
 
 (def ^:private invitation-id "inv.01kprbmgcj35ptc8npmybhh4sm")
 
-(def ^:private membership-id "mem.01kprbpdwa9q5n2t7vwsx84a3m")
+(def ^:private member-id "mem.01kprbpdwa9q5n2t7vwsx84a3m")
 
 (def ^:private member-auth
   {:principal-type :user
    :principal-id user-id
    :bank-id bank-id
-   :membership {:member-id membership-id :bank-id bank-id :role :role-admin}
+   :member {:member-id member-id :bank-id bank-id :role :role-admin}
    :roles #{:user auth/org-viewer auth/org-developer auth/org-admin}})
 
 (def ^:private operator-auth
@@ -74,7 +74,7 @@
     (fn [] (binding [*stand-ins* stand-ins] (f)))))
 
 (def ^:private change
-  {:bank-id bank-id :member-id membership-id :invitation-id invitation-id})
+  {:bank-id bank-id :member-id member-id :invitation-id invitation-id})
 
 (defn- commanding
   "Stand-ins answering every command with `reply`, called with the command
@@ -122,7 +122,7 @@
                 {:kind :actor-kind-member :principal-id user-id})]
     (standing-in (merge (commanding sent accepted)
                         {#'users/find-by-id find-person
-                         #'memberships/find-invitation
+                         #'members/find-invitation
                          (fn [& _] (invitation actor))})
                  (fn []
                    (let [response (SUT/invite
@@ -163,15 +163,15 @@
 (deftest a-recipient-proves-by-token-hash-or-verified-email-test
   (let [seen (atom nil)
         sent (atom [])
-        {:keys [token token-hash]} (memberships/new-invitation-token)
+        {:keys [token token-hash]} (members/new-invitation-token)
         claims {:email "Charles@Example.com" :email_verified true}]
     (standing-in
      (merge (commanding sent accepted)
             {#'banks/get-bank (fn [_ _] {:name "Ada's Bank"})
              #'users/find-by-id find-person
-             #'memberships/find-by-id
-             (fn [& _] {:member-id membership-id :bank-id bank-id})
-             #'memberships/find-invitation-for-recipient
+             #'members/find-by-id (fn [& _]
+                                    {:member-id member-id :bank-id bank-id})
+             #'members/find-invitation-for-recipient
              (fn [_ _ proof]
                (reset! seen proof)
                (invitation {:kind :actor-kind-member :principal-id user-id}))})
@@ -207,7 +207,7 @@
 
 (deftest my-invitations-need-a-verified-email-test
   (let [called (atom false)]
-    (standing-in {#'memberships/list-pending-invitations-by-email
+    (standing-in {#'members/list-pending-invitations-by-email
                   (fn [& _] (reset! called true) [])}
                  (fn []
                    (is (= {:status 200 :body {:items []}}

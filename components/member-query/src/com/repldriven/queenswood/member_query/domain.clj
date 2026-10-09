@@ -16,7 +16,7 @@
 
 (defn- member-not-found
   [member-id]
-  (error/reject :membership/not-found
+  (error/reject :member/not-found
                 {:message "Member not found"
                  :member-id member-id}))
 

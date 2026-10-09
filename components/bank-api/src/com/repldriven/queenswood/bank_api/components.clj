@@ -39,9 +39,9 @@
   [:map
    {:json-schema/example examples/Owner
     :description
-    "An owner of the bank: an active membership with the owner role, with
+    "An owner of the bank: an active member with the owner role, with
     the name and email its user record holds."}
-   [:membership-id [:ref "MembershipId"]]
+   [:member-id [:ref "MemberId"]]
    [:user-id [:ref "UserId"]]
    [:name {:optional true} string?]
    [:email {:optional true} string?]])
@@ -100,7 +100,7 @@
    [:client-id [:ref "BankId"]]
    [:client-secret string?]
    [:owner-invitation {:optional true} [:ref "Invitation"]]
-   [:membership {:optional true} [:ref "Membership"]]
+   [:member {:optional true} [:ref "Member"]]
    [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])

@@ -69,7 +69,7 @@ creation, migration creation, transaction recording and bank
 creation. The check is atomic with the write — same FDB transaction —
 and a uniqueness violation is resolved by reading the existing record
 back and returning it. Bank creation reads first instead, and returns
-the bank it finds with the owner membership and invitation that
+the bank it finds with the owner member and invitation that
 create wrote.
 
 Behind the pair with no index of their own is payee-check creation,
@@ -457,7 +457,7 @@ from.
   `PUT /v1/cash-account-products/{product-id}/versions/{version-id}`,
   whose body names the whole draft and which is refused
   `product/version-immutable` once the version has published.
-  `POST /v1/memberships/{membership-id}/change-role` is one too: the body
+  `POST /v1/members/{member-id}/change-role` is one too: the body
   names the role, so a second application converges and records
   nothing.
 - Source-state guards:

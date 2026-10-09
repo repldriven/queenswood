@@ -1,4 +1,4 @@
-# Memberships
+# Members
 
 ## Objective
 
@@ -9,7 +9,7 @@ platform operator who creates an organisation for a customer gets a
 credential and nobody who can sign in. Neither can gain a second person,
 and nothing turns one into the other.
 
-Memberships are what join them: how a person signs in, how an
+It covers how they get there: how a person signs in, how an
 organisation comes to have its first owner, how that owner brings
 colleagues in with a role that decides what each may do, how people
 change role and leave, how one person works across several
@@ -69,7 +69,7 @@ customers are parties and never sign in either — [parties](parties.md).
   describes.
 - **Invitations.** An owner or admin invites a colleague by email with a
   role. The colleague signs in with their own identity and accepts, and
-  the accepted invitation becomes their membership. An invitation
+  accepting makes them a member. An invitation
   expires, can be sent again, and can be withdrawn.
 - **Roles that decide.** Owner, admin, developer and viewer each grant a
   fixed set of things a person may do. The console and the banking API
@@ -122,7 +122,7 @@ customers are parties and never sign in either — [parties](parties.md).
 - **Scoping the credential by role.** An organisation's own systems act
   with the credential and its full authority. See Open questions.
 - **Suspending or deleting a person.** A person's identity outlives
-  every membership. Stopping them signing in anywhere is the identity
+  every member. Stopping them signing in anywhere is the identity
   provider's disable flow; stopping them acting in one organisation is
   removal, below.
 - **Closing an organisation.** Off-boarding a customer is
@@ -188,7 +188,7 @@ organisation in that state.
 
 ### Roles
 
-A membership carries one of four roles. Each includes everything below
+A member carries one of four roles. Each includes everything below
 it.
 
 - **Viewer** sees everything the organisation can see — its accounts,
@@ -234,7 +234,7 @@ An invitation is pending until one of four things happens:
 
 - **Accepted.** The invitee follows the link, signs in — or is already
   signed in — and sees the organisation, the role and who invited them.
-  Accepting creates their membership with that role. The platform
+  Accepting makes them a member with that role. The platform
   records the identity that accepted, the address that was invited, who
   invited and when. The people list shows both addresses, so an
   invitation accepted by someone other than the person it was sent to
@@ -263,9 +263,9 @@ they joined and who invited them — and its pending invitations.
 - **Removing a member.** An owner removes anyone. An admin removes an
   admin, developer or viewer. The removed person's next action in this
   organisation is refused; their identity and their other organisations
-  are untouched. The membership is kept, ended, with who removed it and
-  when — a person removed and later invited again holds a new
-  membership, not the old one revived.
+  are untouched. The member is kept, ended, with who removed them and
+  when — a person removed and later invited again becomes a new
+  member, not the old one revived.
 - **Leaving.** A member leaves an organisation themselves, on the same
   terms as a removal.
 
@@ -391,13 +391,13 @@ sequenceDiagram
 
     F->>C: sign in, find company, choose providers,<br/>name organisation
     C->>Q: create organisation
-    Q-->>C: organisation, owner membership,<br/>credential (shown once)
+    Q-->>C: organisation, owner member,<br/>credential (shown once)
     F->>C: invite colleague (email, developer)
     C->>Q: create invitation
     Q-->>D: invitation email with link
     D->>C: follow link, sign in with own identity
     C->>Q: accept invitation
-    Q-->>C: developer membership
+    Q-->>C: developer member
     C-->>D: the organisation, as a developer
 ```
 
@@ -420,7 +420,7 @@ sequenceDiagram
     O->>P: hand over the credential via secure channel
     P->>C: follow link, sign in
     C->>Q: accept invitation
-    Q-->>C: owner membership
+    Q-->>C: owner member
     C-->>P: the organisation, as its owner
 ```
 
@@ -439,14 +439,14 @@ sequenceDiagram
     participant Q as Queenswood
 
     W->>C: remove a developer who has left the company
-    C->>Q: end membership
+    C->>Q: remove member
     Q-->>C: ended, recorded with who and when
     Note over W,Q: Later, the owner is leaving too
     W->>C: leave the organisation
-    C->>Q: end own membership
+    C->>Q: leave
     Q-->>C: refused, no owner would remain
     W->>C: make an admin an owner, then leave
-    C->>Q: change role, then end own membership
+    C->>Q: change role, then leave
     Q-->>C: both done
 ```
 
@@ -470,9 +470,9 @@ sequenceDiagram
     Q-->>N: owner invitation email, from the operator
     N->>C: follow link, sign in
     C->>Q: accept invitation
-    Q-->>C: owner membership
+    Q-->>C: owner member
     N->>C: remove the departed owner
-    C->>Q: end membership
+    C->>Q: remove member
     Q-->>C: ended, an owner remains
 ```
 
@@ -491,7 +491,7 @@ sequenceDiagram
 
     P->>C: sign in
     C->>Q: read the signed-in person
-    Q-->>C: two memberships, owner of one, viewer of the other
+    Q-->>C: two members, owner of one, viewer of the other
     C-->>P: the organisation last used
     P->>C: switch organisation
     C->>Q: banking-API call naming the other organisation
@@ -539,7 +539,7 @@ role held there.
   alone sees it. Three things follow and none is designed: a credential
   an owner can mint or rotate from the console, which is
   [onboarding](onboarding.md)'s open question; a credential scoped like
-  a role; and whether the credential is one day a kind of membership,
+  a role; and whether the credential is one day a kind of member,
   so that a person and a system are told apart by the same record.
 - **End customers who sign in.** The people who sign in today are the
   customer's team, not the customer's end customers. Whether an end
@@ -558,7 +558,7 @@ role held there.
   in.
 - **Platform context**: [platform](platform.md) — the persona set this
   PRD's readers come from.
-- **Engineering view**: [tdd/memberships](../tdd/memberships.md) for the design
+- **Engineering view**: [tdd/members](../tdd/members.md) for the design
   that serves this PRD;
   [tdd/outbound-email](../tdd/outbound-email.md) for how an invitation
   is emailed; [tdd/onboarding](../tdd/onboarding.md) for the

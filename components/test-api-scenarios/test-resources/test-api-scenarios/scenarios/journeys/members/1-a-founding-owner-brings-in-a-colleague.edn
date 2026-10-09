@@ -14,7 +14,7 @@
           :as :colleague-token}]
  :when
  [{:command :api/request
-   :request {:method :get :path "/v1/me/memberships" :auth :founder-token}
+   :request {:method :get :path "/v1/me/members" :auth :founder-token}
    :assert {:status 200 :body {:items []}}}
   {:command :api/request
    :request {:method :post
@@ -27,7 +27,7 @@
             :body {:name "Cyberdyne Systems"
                    :client-id [:m/regex "^bnk\\."]
                    :client-secret [:m/non-empty]
-                   :membership {:role "owner"}}}}
+                   :member {:role "owner"}}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"
@@ -47,7 +47,7 @@
              :path-params {:invitation-id [:ref :email :invitation-id]}
              :auth :colleague-token
              :headers {:invitation-token [:ref :email :token]}}
-   :as :colleague-membership
+   :as :colleague-member
    :assert {:status 201
             :body {:bank-id [:ref :bank :bank-id]
                    :bank-name "Cyberdyne Systems"
@@ -64,7 +64,7 @@
                       :detail "Insufficient privileges"}}}]
  :then
  [{:command :api/request
-   :request {:method :get :path "/v1/me/memberships" :auth :colleague-token}
+   :request {:method :get :path "/v1/me/members" :auth :colleague-token}
    :assert {:status 200
             :body {:items
                    [{:bank-id [:ref :bank :bank-id] :role "developer"}]}}}
@@ -76,7 +76,7 @@
    :assert {:status 200}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/memberships"
+             :path "/v1/members"
              :auth :founder-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert
@@ -86,7 +86,7 @@
              [{:email "member@queenswood.local"
                :role "owner"
                :created-organisation true}
-              {:membership-id [:ref :colleague-membership
-                               :membership-id]
+              {:member-id [:ref :colleague-member
+                               :member-id]
                :email "founder-colleague@queenswood.local"
                :role "developer"}]]}}}]}

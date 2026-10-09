@@ -20,7 +20,7 @@
 
     [com.repldriven.queenswood.api.shared.claims :as claims]
 
-    [com.repldriven.queenswood.member-query.interface :as memberships]
+    [com.repldriven.queenswood.member-query.interface :as members]
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -43,7 +43,7 @@
 (def org-levels "Lowest first." [org-viewer org-developer org-admin org-owner])
 
 (def role->levels
-  "The levels a membership role carries: its own and every one below it."
+  "The levels a member role carries: its own and every one below it."
   {:role-viewer #{org-viewer}
    :role-developer #{org-viewer org-developer}
    :role-admin #{org-viewer org-developer org-admin}
@@ -111,49 +111,49 @@
   [claims]
   (into #{} (map keyword) (get-in claims [:realm_access :roles])))
 
-(defn- resolve-membership
-  "The active membership a call acts through: the one in the bank
+(defn- resolve-member
+  "The active member a call acts through: the one in the bank
   `requested` names, or with no header the person's only one. Nil when
-  the header names a bank the person holds no active membership in, and
+  the header names a bank the person holds no active member in, and
   when there is no header and the person holds several or none."
-  [memberships requested]
+  [members requested]
   (if requested
-    (some (fn [membership]
-            (when (= requested (:bank-id membership)) membership))
-          memberships)
-    (when (= 1 (count memberships)) (first memberships))))
+    (some (fn [member]
+            (when (= requested (:bank-id member)) member))
+          members)
+    (when (= 1 (count members)) (first members))))
 
 (defn- user-auth
   "Resolve a verified user-JWT into the principal sum-type. Upserts
   the User on every authenticated request — idempotent on the (iss,
   sub) pair, so first sign-in creates the row and subsequent sign-ins
   refresh mutable claims (email / name / avatar) only when they've
-  changed. `:memberships` is the person's active memberships and
-  `:membership` the one the call resolves to, whose bank is the
+  changed. `:members` is the person's active members and
+  `:member` the one the call resolves to, whose bank is the
   principal's `:bank-id` and whose role's levels join `:user` in
   `:roles`. A `Bank-Id` header naming a bank the person holds no active
-  membership in resolves none and marks the principal `:bank-refused`.
+  member of resolves none and marks the principal `:bank-refused`.
   An operator — the realm carries `admin` via `realm_access.roles` —
   holds `:admin` and every level, and acts on the bank the header
   names, or none.
 
   Returns the principal, or the first anomaly the store gave back. A
   store that cannot be reached is reported, not read as a user with no
-  identity and no memberships."
+  identity and no members."
   [request claims]
   (let [{:keys [record-db record-store]} request
         txn {:record-db record-db :record-store record-store}]
     (let-nom>
       [user (users/upsert-by-sub txn (claims/claims->user-claims claims))
-       memberships (memberships/list-active-by-user txn (:user-id user))]
+       members (members/list-active-by-user txn (:user-id user))]
       (let [realm-roles (realm-access-roles claims)
             is-admin? (contains? realm-roles :admin)
-            memberships (or memberships [])
+            members (or members [])
             requested (requested-bank-id request)
-            membership (resolve-membership memberships requested)
+            member (resolve-member members requested)
             levels (if is-admin?
                      (set org-levels)
-                     (role->levels (:role membership)))]
+                     (role->levels (:role member)))]
         (util/assoc-some
          {:principal-type :user
           :principal-id (:user-id user)
@@ -161,17 +161,17 @@
           :sub (:sub claims)
           :user user
           :claims claims
-          :memberships memberships
+          :members members
           :roles (cond-> (into #{:user} levels)
                          is-admin?
                          (conj :admin))
           :token-jti (:jti claims)}
          :bank-id
-         (if is-admin? requested (:bank-id membership))
-         :membership
-         membership
+         (if is-admin? requested (:bank-id member))
+         :member
+         member
          :bank-refused
-         (when (and requested (not is-admin?) (nil? membership)) true))))))
+         (when (and requested (not is-admin?) (nil? member)) true))))))
 
 (def claims->principal
   {:name ::claims->principal
@@ -217,12 +217,12 @@
 
 (defn- bank-unnamed?
   "True when only organisation scopes gate the operation, the principal
-  carries no bank, and it holds more than one active membership, so the
+  carries no bank, and it holds more than one active member, so the
   header is what would name the bank."
   [request required]
   (and (every? org-scopes required)
        (nil? (get-in request [:auth :bank-id]))
-       (< 1 (count (get-in request [:auth :memberships])))))
+       (< 1 (count (get-in request [:auth :members])))))
 
 (defn- bank-absent?
   "True when the principal reaches the operation through organisation

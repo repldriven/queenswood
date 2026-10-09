@@ -7,7 +7,7 @@
     [com.repldriven.queenswood.bank-query.interface :as banks]
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]
-    [com.repldriven.queenswood.member-query.interface :as memberships]
+    [com.repldriven.queenswood.member-query.interface :as members]
     [com.repldriven.queenswood.party-api.interface :as party-api]
     [com.repldriven.queenswood.user.interface :as users]
 
@@ -75,12 +75,12 @@
 
 (defn- owner-lookups
   "The two lookups `names/owners` takes, backed by one read of every
-  listed bank's active memberships and one of their owners' users,
+  listed bank's active members and one of their owners' users,
   rather than a read per bank and per owner. Returns
   `{:list-active f :lookup f}` or an anomaly."
   [config found]
-  (let-nom> [active (memberships/list-active-by-banks config
-                                                      (map :bank-id found))
+  (let-nom> [active (members/list-active-by-banks config
+                                                  (map :bank-id found))
              users (users/find-by-ids config
                                       (into #{}
                                             (comp cat

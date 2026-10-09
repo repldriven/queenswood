@@ -56,7 +56,7 @@
     update_job_schedule,
   } from "./api.mjs";
 
-  let { user, memberships } = $props();
+  let { user, members } = $props();
 
   let loading = $state(true);
   let error = $state(null);
@@ -81,7 +81,7 @@
   let saving = $state(false);
   let saveError = $state(null);
 
-  const kicker = $derived(memberships?.[0]?.["bank-name"]);
+  const kicker = $derived(members?.[0]?.["bank-name"]);
   const menuJob = $derived(jobs.find((j) => j.id === menuFor) ?? null);
 
   const draftJob = $derived({

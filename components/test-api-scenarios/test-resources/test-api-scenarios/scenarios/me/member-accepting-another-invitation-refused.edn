@@ -1,7 +1,7 @@
 {:name "A member accepting another invitation to the same bank is refused"
  ;; The emailed token is the proof an accept needs, whoever signs in with
  ;; it. The owner, already an active member, opens a link meant for
- ;; someone else and is refused: one membership per person in a bank.
+ ;; someone else and is refused: one member per person in a bank.
  :given
  [{:command :auth/mint-user-token
    :realm :queenswood
@@ -51,7 +51,7 @@
                    {:invitation-id [:ref :invitation :invitation-id]}
                    :auth :owner-token
                    :headers {:invitation-token [:ref :email :token]}}
-         :assert {:status 409 :problem {:type ":membership/already-exists"}}}]
+         :assert {:status 409 :problem {:type ":member/already-exists"}}}]
  :then
  ;; The invitation is still pending for the person it was meant for.
  [{:command :api/request

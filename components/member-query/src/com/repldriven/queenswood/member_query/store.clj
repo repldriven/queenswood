@@ -19,7 +19,7 @@
                                            bank-id
                                            member-id)
                           schema/pb->Member))
-                :membership/get
+                :member/get
                 "Failed to load member"))
 
 (defn list-by-user
@@ -33,7 +33,7 @@
                          "user_id"
                          user-id
                          {:index "Member_by_user"})))
-                :membership/list-by-user
+                :member/list-by-user
                 "Failed to list members by user"))
 
 (defn find-user-member
@@ -47,7 +47,7 @@
                             ["member_id" member-id]]
                            {:index "Member_by_user"})
                           schema/pb->Member))
-                :membership/find-user-member
+                :member/find-user-member
                 "Failed to load member"))
 
 (defn list-by-bank
@@ -60,7 +60,7 @@
                          "Member"
                          "bank_id"
                          bank-id)))
-                :membership/list-by-bank
+                :member/list-by-bank
                 "Failed to list members by bank"))
 
 (defn- active
@@ -88,7 +88,7 @@
                                 (assoc acc bank-id members))))
                           {}
                           bank-ids))
-                :membership/list-by-banks
+                :member/list-by-banks
                 "Failed to list members by bank"))
 
 (defn find-invitation
@@ -162,7 +162,7 @@
                          "MemberRoleChange"
                          "bank_id"
                          bank-id)))
-                :membership/list-role-changes
+                :member/list-role-changes
                 "Failed to list role changes"))
 
 (defn- open-invitations

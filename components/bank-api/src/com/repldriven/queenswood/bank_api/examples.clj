@@ -75,8 +75,7 @@
 
 (def ClientSecret "k7DqGZ-Wt0aIqcPyQs8FdVx3y9rNJ4hLp1m6BvE-AtQ")
 
-(def Owner
-  (select-keys me-api/Membership [:membership-id :user-id :name :email]))
+(def Owner (select-keys me-api/Member [:member-id :user-id :name :email]))
 
 ;; nosemgrep: provider-name-in-domain — an example of the keys a bank records
 (def BankProviders {:payment "modulr" :idv "zyphe"})

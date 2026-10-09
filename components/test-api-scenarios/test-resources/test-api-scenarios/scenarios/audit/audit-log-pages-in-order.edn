@@ -33,7 +33,7 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation
                                            :invitation-id]}
              :auth :owner-token}
-   :as :owner-membership
+   :as :owner-member
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
@@ -50,22 +50,22 @@
              :path "/v1/me/invitations/{invitation-id}/accept"
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :member-token}
-   :as :member-membership
+   :as :member-member
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/memberships/{membership-id}/change-role"
-             :path-params {:membership-id [:ref :member-membership
-                                           :membership-id]}
+             :path "/v1/members/{member-id}/change-role"
+             :path-params {:member-id [:ref :member-member
+                                           :member-id]}
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :body {:role "admin" :reason "Leads the platform team"}}
    :assert {:status 200}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/memberships/{membership-id}/remove"
-             :path-params {:membership-id [:ref :member-membership
-                                           :membership-id]}
+             :path "/v1/members/{member-id}/remove"
+             :path-params {:member-id [:ref :member-member
+                                           :member-id]}
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :body {:reason "Left the company"}}
@@ -82,29 +82,29 @@
     :body
     {:items
      [{:kind "member-removed"
-       :actor {:kind "member" :principal-id [:ref :owner-membership :user-id]}
-       :subject-user-id [:ref :member-membership :user-id]
-       :membership-id [:ref :member-membership :membership-id]
+       :actor {:kind "member" :principal-id [:ref :owner-member :user-id]}
+       :subject-user-id [:ref :member-member :user-id]
+       :member-id [:ref :member-member :member-id]
        :role-before "admin"
        :reason "Left the company"}
       {:kind "role-changed"
-       :actor {:kind "member" :principal-id [:ref :owner-membership :user-id]}
-       :subject-user-id [:ref :member-membership :user-id]
+       :actor {:kind "member" :principal-id [:ref :owner-member :user-id]}
+       :subject-user-id [:ref :member-member :user-id]
        :role-before "developer"
        :role-after "admin"
        :reason "Leads the platform team"}
       {:kind "invitation-accepted"
-       :actor {:kind "member" :principal-id [:ref :member-membership :user-id]}
-       :subject-user-id [:ref :member-membership :user-id]
+       :actor {:kind "member" :principal-id [:ref :member-member :user-id]}
+       :subject-user-id [:ref :member-member :user-id]
        :invitation-id [:ref :invitation :invitation-id]}
       {:kind "invitation-created"
-       :actor {:kind "member" :principal-id [:ref :owner-membership :user-id]}
+       :actor {:kind "member" :principal-id [:ref :owner-member :user-id]}
        :invitation-id [:ref :invitation :invitation-id]
        :email "history-member@queenswood.local"
        :role-after "developer"
        :reason "Joining the platform team"}
       {:kind "invitation-accepted"
-       :subject-user-id [:ref :owner-membership :user-id]}
+       :subject-user-id [:ref :owner-member :user-id]}
       {:kind "invitation-created"
        :actor {:kind "operator" :principal-id "queenswood-admin"}}
       {:kind "bank-created"
