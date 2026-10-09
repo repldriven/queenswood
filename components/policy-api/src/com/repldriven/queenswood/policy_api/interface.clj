@@ -13,17 +13,15 @@
   ^{:doc
     "Malli registry of the policy schemas, keyed by the name each
   appears under in the document's `components/schemas`: `PolicyId`,
-  `PolicyCategory`, `Capability`, `Limit`, `Policy`, `PolicyList`,
-  `Origin`, `EffectiveCapability`, `EffectiveLimit`,
+  `PolicyCategory`, `PolicyStatus`, `Capability`, `Limit`, `Policy`,
+  `PolicyList`, `Origin`, `EffectiveCapability`, `EffectiveLimit`,
   `EffectivePolicy`. Merged into the coercion registry in `api.clj`,
   so `[:ref \"X\"]` resolves them on any route."}
   registry
   components/registry)
 
 (defn ->body
-  "Project a stored policy onto the keys `Policy` publishes: `enabled`
-  where it is active, and its creation time as `updated-at` where it
-  has never changed.
+  "Project a stored policy onto the keys `Policy` publishes.
 
   Args:
   - policy: a policy as `policy` hands it back."

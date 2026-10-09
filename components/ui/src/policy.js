@@ -3,7 +3,7 @@
 // A Policy (proto: Policy) is first-class data:
 //
 //   {
-//     policyId, name, description, enabled,
+//     policyId, name, description, enabled (status active),
 //     category: "standard" | "restricted" | "emergency",
 //     capabilities: Capability[],
 //     limits: Limit[],
