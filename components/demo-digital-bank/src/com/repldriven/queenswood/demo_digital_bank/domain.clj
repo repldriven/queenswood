@@ -146,15 +146,15 @@
   (assoc submission :response answer))
 
 (defn party-registration
-  "The platform's registration of a person: their names, and the sign-up
-  as the bank's own reference for them. What proves who they are the
-  person gives the identity provider (ADR-0045)."
+  "The platform's registration of a person: their legal name, and the
+  sign-up as the bank's own reference for them. What proves who they are
+  the person gives the identity provider (ADR-0045)."
   [sign-up-id details]
-  (let [{:keys [given-name family-name]} details]
-    {:type "person"
-     :display-name (str given-name " " family-name)
-     :given-name given-name
-     :family-name family-name
+  (let [{:keys [given-name family-name]} details
+        name (str given-name " " family-name)]
+    {:party-type "person"
+     :legal-name name
+     :display-name name
      :external-reference sign-up-id}))
 
 (defn verification-session-request

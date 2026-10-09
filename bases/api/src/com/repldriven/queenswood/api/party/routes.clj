@@ -75,7 +75,7 @@
        :get {:summary "Retrieve a party"
              :openapi {:operationId "RetrieveParty"
                        :description
-                       (str "Set `embed[person-identification]` to include "
+                       (str "Set `embed[legal-name]` to include "
                             "the party's legal name with it. A merged "
                             "party names the party it was merged into.")
                        :parameters ^:replace

@@ -37,7 +37,7 @@
                                          party-id
                                          (select-keys
                                           embed
-                                          [:person-identification]))]
+                                          [:legal-name]))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body (party-api/->detail-body result)})))

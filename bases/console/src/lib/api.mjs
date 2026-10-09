@@ -337,14 +337,14 @@ export function update_job_schedule(job_id, body) {
 // bank-api `Party` shape carries summary fields only (party-id, type,
 // display-name, status, external-reference, created-at, updated-at).
 // The party's legal name comes from the detail read with
-// `embed[person-identification]`; nothing else about the person is held
+// `embed[legal-name]`; nothing else about the person is held
 // by the platform.
 
 export function list_parties() {
   return all_pages("/v1/parties");
 }
 
-// Fetch a party. Pass `embed` (["person-identification"]) to opt the
+// Fetch a party. Pass `embed` (["legal-name"]) to opt the
 // party's legal name into the detail response; without it the GET returns
 // just the summary.
 export function get_party(party_id, { embed } = {}) {

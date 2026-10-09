@@ -18,8 +18,7 @@
    :as :slartibartfast
    :with {:token [:ref :bank-0 :token]
           :display-name "Slartibartfast Magrathea"
-          :given-name "Slartibartfast"
-          :family-name "Magrathea"}}
+          :legal-name "Slartibartfast Magrathea"}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts"

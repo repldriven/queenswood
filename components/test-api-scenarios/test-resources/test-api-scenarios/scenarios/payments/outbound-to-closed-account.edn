@@ -12,8 +12,7 @@
    :as :party-0
    :with {:token [:ref :org-0 :token]
           :display-name "Closed Address Holder"
-          :given-name "Closed"
-          :family-name "Holder"}}
+          :legal-name "Closed Holder"}}
   {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
   {:command :api/request
    :request

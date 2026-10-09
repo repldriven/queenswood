@@ -127,7 +127,7 @@
         <Tr onclick={() => openRead(p)} class="row-clickable">
           <Td mono muted>{p["party-id"]}</Td>
           <Td emphasized>{p["display-name"]}</Td>
-          <Td>{p.type === "person" ? "customer" : (p.type ?? "")}</Td>
+          <Td>{p["party-type"] === "person" ? "customer" : (p["party-type"] ?? "")}</Td>
           <Td><Badge tone={toneFor(p.status)}>{p.status}</Badge></Td>
           <Td muted>{formatRelative(p["created-at"])}</Td>
           <Td muted>{formatRelative(p["updated-at"] ?? p["created-at"])}</Td>

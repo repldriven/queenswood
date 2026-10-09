@@ -25,8 +25,7 @@
    :as :party
    :with {:token [:ref :bank-a-token]
           :display-name "Slartibartfast Magrathea"
-          :given-name "Slartibartfast"
-          :family-name "Magrathea"}}
+          :legal-name "Slartibartfast Magrathea"}}
   ;; The bank's own account opens first, so the refusal is not its.
   {:command :api/poll
    :request {:method :get :path "/v1/cash-accounts" :auth :bank-a-token}

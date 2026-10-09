@@ -69,20 +69,18 @@
              :path "/v1/parties"
              :auth :consultant-token
              :headers {:bank-id [:ref :own-bank :bank-id]}
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Sarah Connor"
-                    :given-name "Sarah"
-                    :family-name "Connor"}}
+                    :legal-name "Sarah Connor"}}
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
              :path "/v1/parties"
              :auth :consultant-token
              :headers {:bank-id [:ref :client-bank :bank-id]}
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Sarah Connor"
-                    :given-name "Sarah"
-                    :family-name "Connor"}}
+                    :legal-name "Sarah Connor"}}
    :assert {:status 403
             :problem {:type "auth/forbidden"
                       :detail "Insufficient privileges"}}}
@@ -136,13 +134,13 @@
    :assert {:status 200
             :body {:items
                    [:m/in-any-order
-                    [{:type "organization" :display-name "Consultancy Bank"}
-                     {:type "person" :display-name "Sarah Connor"}]]}}}
+                    [{:party-type "organization" :display-name "Consultancy Bank"}
+                     {:party-type "person" :display-name "Sarah Connor"}]]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/parties"
              :auth :consultant-token
              :headers {:bank-id [:ref :client-bank :bank-id]}}
    :assert {:status 200
-            :body {:items [{:type "organization"
+            :body {:items [{:party-type "organization"
                             :display-name "Client Bank"}]}}}]}

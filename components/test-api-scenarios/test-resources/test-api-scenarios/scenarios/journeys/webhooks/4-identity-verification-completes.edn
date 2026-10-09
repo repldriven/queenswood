@@ -16,10 +16,9 @@
    :request {:method :post
              :path "/v1/parties"
              :auth [:ref :bank-0 :token]
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Marvin"
-                    :given-name "Marvin"
-                    :family-name "Android"}}
+                    :legal-name "Marvin Android"}}
    :as :party
    :assert {:status 201 :body {:status "pending"}}}
   {:command :idv/verify

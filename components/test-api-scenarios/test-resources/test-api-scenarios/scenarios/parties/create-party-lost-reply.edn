@@ -21,10 +21,9 @@
              :path "/v1/parties"
              :auth [:ref :bank-0 :token]
              :headers {:idempotency-key "ik-lost-reply-party-first"}
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Ford Prefect"
-                    :given-name "Ford"
-                    :family-name "Prefect"}}
+                    :legal-name "Ford Prefect"}}
    :assert {:status 500}}
   ;; The party the lost attempt wrote is committed, so it appears in the
   ;; listing before the retry is sent -- otherwise the retry would race
@@ -38,10 +37,9 @@
              :path "/v1/parties"
              :auth [:ref :bank-0 :token]
              :headers {:idempotency-key "ik-lost-reply-party-first"}
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Ford Prefect"
-                    :given-name "Ford"
-                    :family-name "Prefect"}}
+                    :legal-name "Ford Prefect"}}
    :as :retry
    ;; The claim was released, so this ran rather than replayed.
    :assert {:status 201

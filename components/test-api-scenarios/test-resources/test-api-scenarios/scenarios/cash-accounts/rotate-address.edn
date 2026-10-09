@@ -7,8 +7,7 @@
           :as :party-0
           :with {:token [:ref :org-0 :token]
                  :display-name "Rotating Customer"
-                 :given-name "Rotating"
-                 :family-name "Customer"}}
+                 :legal-name "Rotating Customer"}}
          ;; Published product
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
          ;; Open the cash-account and wait for opened

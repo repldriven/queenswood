@@ -17,7 +17,7 @@
      :bank-id [:m/regex "^bnk\\."]
      ;; The organisation party the house accounts are opened on.
      :party {:party-id [:m/regex "^pty\\."]
-             :type "organization"
+             :party-type "organization"
              :display-name "Polyglot Bank"}
      ;; One own-funds house account per requested currency -- the
      ;; chart identifies an account by role and currency, not by

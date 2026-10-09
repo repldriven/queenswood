@@ -6,8 +6,7 @@
           :as :party-0
           :with {:token [:ref :org-0 :token]
                  :display-name "Suspended Holder"
-                 :given-name "Suspended"
-                 :family-name "Holder"}}
+                 :legal-name "Suspended Holder"}}
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
          {:command :api/request
           :request {:method :post

@@ -13,8 +13,7 @@
    :as :party
    :with {:token [:ref :bank-0 :token]
           :display-name "Reuse Customer"
-          :given-name "Reuse"
-          :family-name "Customer"}}
+          :legal-name "Reuse Customer"}}
   {:fixture :account
    :as :first
    :with {:token [:ref :bank-0 :token]

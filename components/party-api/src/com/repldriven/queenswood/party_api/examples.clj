@@ -73,7 +73,7 @@
 (def Party
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
    :party-id (schema/id-examples "PartyId")
-   :type :person
+   :party-type :person
    :display-name "Arthur Phillip Dent"
    :status :pending
    :external-reference "cust-4471"
@@ -85,11 +85,9 @@
 (def PartyList {:items [Party]})
 
 (def CreatePartyRequest
-  {:type :person
+  {:party-type :person
+   :legal-name "Arthur Phillip Dent"
    :display-name "Arthur Phillip Dent"
-   :given-name "Arthur"
-   :middle-names "Phillip"
-   :family-name "Dent"
    :external-reference "cust-4471"})
 
 (def MergePartyRequest {:into-party-id "pty.01kprbmgcj35ptc8npmybhh4sb"})

@@ -9,9 +9,8 @@
          :request {:method :post
                    :path "/v1/parties"
                    :auth [:ref :org-0 :token]
-                   :body {:type "person"
+                   :body {:party-type "person"
                           :display-name "Arthur Dent"
-                          :given-name "Arthur"
-                          :family-name "Dent"
+                          :legal-name "Arthur Dent"
                           :date-of-birth "1952-03-11"}}
          :assert {:status 400}}]}

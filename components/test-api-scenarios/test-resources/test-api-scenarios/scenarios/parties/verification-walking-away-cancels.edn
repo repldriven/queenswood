@@ -1,4 +1,4 @@
-{:name "A person who walks away fails the verification and stays pending"
+{:name "A person who walks away cancels the verification and stays pending"
  :runs-on {:idv :every}
  :given [{:fixture :bank
           :as :org-0
@@ -8,10 +8,9 @@
    :request {:method :post
              :path "/v1/parties"
              :auth [:ref :org-0 :token]
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Arthur Dent"
-                    :given-name "Arthur"
-                    :family-name "Dent"}}
+                    :legal-name "Arthur Dent"}}
    :as :party-0
    :assert {:status 201 :body {:status "pending"}}}
   {:command :idv/verify
@@ -23,7 +22,7 @@
              :path "/v1/parties/{party-id}/verification"
              :path-params {:party-id [:ref :party-0 :party-id]}
              :auth [:ref :org-0 :token]}
-   :until {:status 200 :body {:status "failed"}}}
+   :until {:status 200 :body {:status "cancelled"}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/parties/{party-id}"

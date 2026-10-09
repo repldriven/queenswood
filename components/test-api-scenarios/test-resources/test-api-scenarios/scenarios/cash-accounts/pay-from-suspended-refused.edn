@@ -8,8 +8,7 @@
           :as :party-0
           :with {:token [:ref :org-0 :token]
                  :display-name "Suspended Payer"
-                 :given-name "Suspended"
-                 :family-name "Payer"}}
+                 :legal-name "Suspended Payer"}}
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
          {:fixture :account
           :as :debtor

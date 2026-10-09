@@ -21,7 +21,7 @@
      :client-id [:m/regex "^bnk\\."]
      :client-secret [:m/non-empty]
      :party {:party-id [:m/regex "^pty\\."]
-             :type "organization"
+             :party-type "organization"
              :display-name "Onboarding Journey Bank"}
      ;; One own-funds account per currency, held by the bank's own party.
      :accounts [:m/in-any-order

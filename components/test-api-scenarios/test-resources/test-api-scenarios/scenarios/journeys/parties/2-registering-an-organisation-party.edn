@@ -8,12 +8,12 @@
    :request {:method :post
              :path "/v1/parties"
              :auth [:ref :bank-0 :token]
-             :body {:type "organization"
+             :body {:party-type "organization"
                     :display-name "Megadodo Publications"}}
    :as :party
    :assert {:status 201
             :body {:party-id [:m/regex "^pty\\."]
-                   :type "organization"
+                   :party-type "organization"
                    :status "active"}}}
   ;; Usable straight away: an account opens against it.
   {:fixture :account

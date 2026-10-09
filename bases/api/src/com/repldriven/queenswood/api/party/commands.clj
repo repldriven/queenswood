@@ -3,10 +3,7 @@
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
-    [com.repldriven.queenswood.party-api.interface :as party-api]
-
-    [clojure.set :as set]
-    [clojure.string :as str]))
+    [com.repldriven.queenswood.party-api.interface :as party-api]))
 
 (defn- dispatcher
   [request]
@@ -21,11 +18,6 @@
           (= 200 (:status response))
           (update :body party-api/->body)))
 
-(defn- legal-name
-  [body]
-  (let [{:keys [given-name middle-names family-name]} body]
-    (str/join " " (remove str/blank? [given-name middle-names family-name]))))
-
 (defn create-party
   [request]
   (let [{:keys [auth parameters]} request
@@ -36,15 +28,10 @@
                                       request
                                       "create-party"
                                       "party"
-                                      (-> body
-                                          (set/rename-keys {:type :party-type})
-                                          (dissoc :given-name
-                                                  :middle-names
-                                                  :family-name)
-                                          (assoc :bank-id bank-id
-                                                 :legal-name (legal-name body)
-                                                 :actor (shared.actor/actor
-                                                         auth)))))
+                                      (assoc body
+                                             :bank-id bank-id
+                                             :actor (shared.actor/actor
+                                                     auth))))
                       #(str "/v1/parties/" (:party-id %)))))
 
 (defn- send-lifecycle

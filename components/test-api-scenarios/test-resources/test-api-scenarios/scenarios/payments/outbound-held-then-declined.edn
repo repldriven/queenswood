@@ -22,8 +22,7 @@
    :as :zaphod
    :with {:token [:ref :bank-0 :token]
           :display-name "Zaphod Beeblebrox"
-          :given-name "Zaphod"
-          :family-name "Beeblebrox"}}
+          :legal-name "Zaphod Beeblebrox"}}
   ;; Debtor account → opened.
   {:command :api/request
    :request {:method :post

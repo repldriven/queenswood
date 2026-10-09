@@ -61,9 +61,8 @@
   - txn: FDB handle or open transaction.
   - bank-id: bank id.
   - party-id: party id.
-  - opts: embed flags — `:person-identification`, the party's legal
-    name. Truthy, it keeps `:legal-name` in the result; omit it for
-    just the summary.
+  - opts: embed flags — `:legal-name`, truthy to keep the party's
+    legal name in the result; omit it for just the summary.
 
   Returns the party map, or a `:party/not-found` anomaly."
   [txn bank-id party-id opts]

@@ -6,7 +6,6 @@
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry list-schema]]
 
-    [clojure.set :as set]
     [clojure.string :as str]))
 
 (def PartyType
@@ -19,8 +18,8 @@
   [:map {:json-schema/example examples/Party}
    [:bank-id [:ref "BankId"]]
    [:party-id [:ref "PartyId"]]
-   [:type [:ref "PartyType"]]
-   [:display-name [:ref "Name"]]
+   [:party-type [:ref "PartyType"]]
+   [:display-name {:optional true} [:ref "Name"]]
    [:status [:ref "PartyStatus"]]
    [:merged-into-party-id {:optional true} [:maybe [:ref "PartyId"]]]
    [:external-reference {:optional true} [:maybe [:ref "ExternalReference"]]]
@@ -37,29 +36,27 @@
     "The customer's own id for the person, unique within the bank."}])
 
 (def CreatePartyRequest
-  "A person is registered by name alone: what proves who they are they
-  give to the identity provider (ADR-0045), so the map is closed and a
-  request carrying anything else is refused."
+  "A person is registered by their legal name alone: what proves who they
+  are they give to the identity provider (ADR-0045), so the map is closed
+  and a request carrying anything else is refused."
   [:map {:closed true :json-schema/example examples/CreatePartyRequest}
-   [:type
+   [:party-type
     [:enum
      {:json-schema coercion/party-type-json-schema
       :decode/api coercion/decode-party-type}
      :party-type-person]]
-   [:display-name [:ref "Name"]]
-   [:given-name [:ref "Name"]]
-   [:middle-names {:optional true} [:maybe [:ref "Name"]]]
-   [:family-name [:ref "Name"]]
+   [:legal-name [:ref "Name"]]
+   [:display-name {:optional true} [:ref "Name"]]
    [:external-reference {:optional true} [:ref "ExternalReference"]]])
 
 (def PartyDetail
   "Party-by-id detail: the summary fields, and the party's legal name
-  where `embed[person-identification]` asks for it."
+  where `embed[legal-name]` asks for it."
   [:map {:json-schema/example examples/Party}
    [:bank-id [:ref "BankId"]]
    [:party-id [:ref "PartyId"]]
-   [:type [:ref "PartyType"]]
-   [:display-name [:ref "Name"]]
+   [:party-type [:ref "PartyType"]]
+   [:display-name {:optional true} [:ref "Name"]]
    [:status [:ref "PartyStatus"]]
    [:merged-into-party-id {:optional true} [:maybe [:ref "PartyId"]]]
    [:external-reference {:optional true} [:maybe [:ref "ExternalReference"]]]
@@ -69,12 +66,12 @@
 
 (def PartyEmbedQuery
   "Nested `embed` deepObject query parameter for the party detail
-  endpoint. Wire form is `embed[person-identification]=true`, nested
-  into `{:person-identification …}` by the `nest-bracket-query-params`
+  endpoint. Wire form is `embed[legal-name]=true`, nested into
+  `{:legal-name …}` by the `nest-bracket-query-params`
   interceptor before validation. Set, it opts the party's legal name
   into the response; omitted, the GET returns just the summary party."
   [:map {:closed true}
-   [:person-identification
+   [:legal-name
     {:optional true :json-schema/description "Embed the party's legal name"}
     boolean?]])
 
@@ -182,20 +179,16 @@
 
 (def ^:private party-keys (into [] (comp (filter vector?) (map first)) Party))
 
-(defn- shown
-  [party]
-  (set/rename-keys party {:party-type :type}))
-
 (defn ->body
   [party]
-  (select-keys (shown party) party-keys))
+  (select-keys party party-keys))
 
 (def ^:private party-detail-keys
   (into [] (comp (filter vector?) (map first)) PartyDetail))
 
 (defn ->detail-body
   [party]
-  (select-keys (shown party) party-detail-keys))
+  (select-keys party party-detail-keys))
 
 (def ^:private encode-party
   (schema/api-encoder Party (merge schema/registry registry)))

@@ -6,8 +6,7 @@
           :as :party-0
           :with {:token [:ref :org-0 :token]
                  :display-name "Replaying Holder"
-                 :given-name "Replaying"
-                 :family-name "Holder"}}
+                 :legal-name "Replaying Holder"}}
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}]
  :when
  [{:command :api/request

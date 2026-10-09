@@ -118,8 +118,8 @@
               now (util/now-rfc3339)
               party-id (util/generate-id "pty")
               party (assoc (select-keys body-params
-                                        [:type :display-name :given-name
-                                         :family-name :external-reference])
+                                        [:party-type :legal-name
+                                         :display-name :external-reference])
                            :bank-id "bnk.00000000000000000000000001"
                            :party-id party-id
                            :status "pending"
@@ -132,7 +132,7 @@
   [party]
   (assoc party
          :status
-         (if (str/includes? (str/lower-case (:given-name party "")) "reject")
+         (if (str/includes? (str/lower-case (:legal-name party "")) "reject")
            "rejected"
            "active")))
 

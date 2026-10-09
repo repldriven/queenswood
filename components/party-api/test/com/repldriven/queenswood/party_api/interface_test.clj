@@ -7,7 +7,6 @@
   (:require
     [com.repldriven.queenswood.party-api.interface :as SUT]
 
-    [clojure.set :as set]
     [clojure.test :refer [deftest is testing]]))
 
 (def ^:private declared-keys
@@ -29,10 +28,7 @@
    :updated-at 1700000000001
    :idempotency-key "5b2f0f6e-create"})
 
-(def ^:private shown
-  "The stored party under the keys a body uses, its `party-type` as
-  `type`."
-  (set/rename-keys stored {:party-type :type}))
+(def ^:private shown stored)
 
 (deftest declared-keys-cover-the-fixture-test
   (testing "the fixture carries every key Party declares"
@@ -54,7 +50,7 @@
 (deftest ->wire-body-test
   (let [body (SUT/->wire-body stored)]
     (testing "the enums reach the wire as the strings Party admits"
-      (is (= "person" (name (:type body))))
+      (is (= "person" (name (:party-type body))))
       (is (= "merged" (name (:status body)))))
     (testing "and the timestamps as ISO-8601"
       (is (= "2023-11-14T22:13:20Z" (:created-at body)))

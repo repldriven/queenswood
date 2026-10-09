@@ -27,8 +27,7 @@
    :as :per-account-party
    :with {:token [:ref :per-account-token]
           :display-name "Per Account Bank Customer"
-          :given-name "Per"
-          :family-name "Customer"}}
+          :legal-name "Per Customer"}}
   {:fixture :product
    :as :per-account-product
    :with {:token [:ref :per-account-token]}}
@@ -70,8 +69,7 @@
    :as :rails-party
    :with {:token [:ref :rails-token]
           :display-name "Rails Bank Customer"
-          :given-name "Rails"
-          :family-name "Customer"}}
+          :legal-name "Rails Customer"}}
   {:fixture :product :as :rails-product :with {:token [:ref :rails-token]}}
   {:command :api/request
    :request {:method :post

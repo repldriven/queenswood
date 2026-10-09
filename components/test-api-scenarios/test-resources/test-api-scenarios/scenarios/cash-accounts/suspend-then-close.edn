@@ -6,8 +6,7 @@
           :as :party-0
           :with {:token [:ref :org-0 :token]
                  :display-name "Suspended Closer"
-                 :given-name "Suspended"
-                 :family-name "Closer"}}
+                 :legal-name "Suspended Closer"}}
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
          {:fixture :account
           :as :account-0

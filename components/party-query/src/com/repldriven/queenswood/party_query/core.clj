@@ -14,8 +14,8 @@
                        :party-id party-id}))))
 
 (defn get-party-detail
-  [txn bank-id party-id {:keys [person-identification]}]
+  [txn bank-id party-id {:keys [legal-name]}]
   (let-nom> [party (get-party txn bank-id party-id)]
     (cond-> party
-            (not person-identification)
+            (not legal-name)
             (dissoc :legal-name))))

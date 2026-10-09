@@ -7,8 +7,7 @@
           :as :party-0
           :with {:token [:ref :org-0 :token]
                  :display-name "Open Accounts Party"
-                 :given-name "Open"
-                 :family-name "Accounts"}}
+                 :legal-name "Open Accounts"}}
          ;; Published product
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
          ;; An account that stays open

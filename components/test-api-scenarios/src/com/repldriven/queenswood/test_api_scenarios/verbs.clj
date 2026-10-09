@@ -296,7 +296,7 @@
   (let [{:keys [body]} (send-once ctx
                                   {:method :get
                                    :path (str "/v1/parties/" party-id)
-                                   :query-params {"embed[person-identification]"
+                                   :query-params {"embed[legal-name]"
                                                   "true"}
                                    :auth auth})
         words (str/split (:legal-name body) #" ")]

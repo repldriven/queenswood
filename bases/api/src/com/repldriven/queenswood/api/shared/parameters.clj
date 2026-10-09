@@ -162,7 +162,7 @@
 (def PartyEmbedQuery
   "`embed` query parameter for optional sub-resource embedding on the
   party detail endpoint, deepObject-styled so clients send
-  `embed[person-identification]=true`."
+  `embed[legal-name]=true`."
   {:name "embed"
    :in "query"
    :required false

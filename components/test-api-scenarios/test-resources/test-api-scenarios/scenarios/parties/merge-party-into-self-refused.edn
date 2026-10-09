@@ -6,8 +6,7 @@
           :as :party-0
           :with {:token [:ref :org-0 :token]
                  :display-name "Self Merging Customer"
-                 :given-name "Self"
-                 :family-name "Merging"}}]
+                 :legal-name "Self Merging"}}]
  :when [{:command :api/request
          :request {:method :post
                    :path "/v1/parties/{party-id}/merge"

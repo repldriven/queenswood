@@ -73,8 +73,7 @@ provider account per bank, which ADR-0045 requires and
   `pending`, `in-review`, `accepted`, `rejected` or `cancelled`, each
   transition guarded on source status in `idv`'s `domain.clj` and
   stamped as `accepted_at`, `rejected_at` or `cancelled_at`. An IDV is
-  cancelled when the person walks away from the check; the API still
-  shows it as `failed`.
+  cancelled when the person walks away from the check.
 - **The activation chain.** A pending person party relays
   `party-status-changed` off the parties changelog. `idv`'s
   `party-event-processor` creates the IDV, which waits pending for a
@@ -440,10 +439,10 @@ A person's names, and the outcome of each check, are all the platform
 keeps, per ADR-0045. Everything else the person gives to the provider,
 on the provider's page.
 
-- **Registering.** `POST /v1/parties` for a person takes
-  `display-name`, `given-name`, `middle-names`, `family-name` and an
-  optional `external-reference`, the tenant's own opaque id for the
-  person, at most 128 characters. `CreatePartyRequest` drops
+- **Registering.** `POST /v1/parties` for a person takes its
+  `party-type`, the `legal-name` the record keeps, an optional
+  `display-name` and an optional `external-reference`, the tenant's own
+  opaque id for the person, at most 128 characters. `CreatePartyRequest` drops
   `date-of-birth`, `nationality`, `address` and `national-identifier`
   and becomes a closed map, so a request still carrying one is refused
   400 rather than read and ignored. `create-party` drops them too, and
@@ -517,7 +516,7 @@ on the provider's page.
    a browser run of the page through every step, by hand and by
    `simulate`. Built.
 7. **Names only.** `CreatePartyRequest` closed and narrowed,
-   `external-reference`, `person-identification` narrowed,
+   `external-reference`, the legal-name embed narrowed,
    `PartyNationalIdentifier` retired, the `embed` flags retired, the
    console's party drawer and scenarios and the demo bank's sign-up
    sending names alone. Proved by a create carrying a date of birth

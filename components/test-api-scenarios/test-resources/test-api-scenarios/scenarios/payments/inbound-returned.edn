@@ -16,8 +16,7 @@
    :as :trillian
    :with {:token [:ref :bank-0 :token]
           :display-name "Trillian Astra"
-          :given-name "Trillian"
-          :family-name "Astra"}}
+          :legal-name "Trillian Astra"}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts"

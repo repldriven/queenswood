@@ -75,18 +75,18 @@
   // sanctions list.
   const PARTY = {
     arthur: {
-      type: "person", "display-name": "Arthur Dent",
-      "given-name": "Arthur", "family-name": "Dent",
+      "party-type": "person", "legal-name": "Arthur Dent",
+      "display-name": "Arthur Dent",
       "external-reference": "cust-arthur",
     },
     ford: {
-      type: "person", "display-name": "Ford Prefect",
-      "given-name": "Ford", "family-name": "Prefect",
+      "party-type": "person", "legal-name": "Ford Prefect",
+      "display-name": "Ford Prefect",
       "external-reference": "cust-ford",
     },
     zaphod: {
-      type: "person", "display-name": "Zaphod Beeblebrox",
-      "given-name": "Zaphod", "family-name": "Beeblebrox",
+      "party-type": "person", "legal-name": "Zaphod Beeblebrox",
+      "display-name": "Zaphod Beeblebrox",
       "external-reference": "cust-zaphod",
     },
   };
@@ -469,10 +469,11 @@
   async function verifyPerson(partyId, body, outcome) {
     const verification = await api.get_verification(partyId);
     if (verification.status === 200 && verification.body?.status !== "pending") return;
+    const [given, ...family] = body["legal-name"].split(" ");
     const opened = await api.open_verification_session(partyId, {
       channel: "web",
       "return-url": location.origin + "/#/parties",
-      email: `${body["given-name"].toLowerCase()}@example.test`,
+      email: `${given.toLowerCase()}@example.test`,
     });
     if (!ok2xx(opened)) throw new Error(`open a verification session: ${opened.status}`);
     const sessionId = opened.body["session-id"];
@@ -483,14 +484,14 @@
     );
     const url = new URL(ready.body["hand-off"].url);
     url.searchParams.set("simulate", outcome);
-    url.searchParams.set("givenNames", body["given-name"]);
-    url.searchParams.set("familyName", body["family-name"]);
-    url.searchParams.set("dateOfBirth", BORN[body["given-name"]]);
-    for (const [k, v] of Object.entries(HOME[body["given-name"]])) url.searchParams.set(k, v);
+    url.searchParams.set("givenNames", given);
+    url.searchParams.set("familyName", family.join(" "));
+    url.searchParams.set("dateOfBirth", BORN[given]);
+    for (const [k, v] of Object.entries(HOME[given])) url.searchParams.set(k, v);
     url.searchParams.set("pace", "900");
     idv = {
       name: body["display-name"],
-      given: body["given-name"],
+      given,
       outcome: OUTCOMES[outcome] ?? outcome,
       url: url.toString(),
       heard: null,

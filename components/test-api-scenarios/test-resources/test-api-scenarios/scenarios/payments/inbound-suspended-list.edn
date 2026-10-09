@@ -18,8 +18,7 @@
    :as :party-a
    :with {:token [:ref :bank-a :token]
           :display-name "Fenchurch Wells"
-          :given-name "Fenchurch"
-          :family-name "Wells"}}
+          :legal-name "Fenchurch Wells"}}
   {:fixture :account
    :as :debtor-a
    :with {:token [:ref :bank-a :token]

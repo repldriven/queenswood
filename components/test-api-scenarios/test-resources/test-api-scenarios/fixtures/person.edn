@@ -1,17 +1,15 @@
 {:doc "A person party, verified and active."
  :required #{:token}
  :params {:display-name "Arthur Dent"
-          :given-name "Arthur"
-          :family-name "Dent"}
+          :legal-name "Arthur Dent"}
  :steps
  [{:command :api/request
    :request {:method :post
              :path "/v1/parties"
              :auth [:param :token]
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name [:param :display-name]
-                    :given-name [:param :given-name]
-                    :family-name [:param :family-name]}}
+                    :legal-name [:param :legal-name]}}
    :as :party
    :assert {:status 201 :body {:status "pending"}}}
   {:command :idv/verify :party [:ref :party :party-id] :auth [:param :token]}

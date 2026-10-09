@@ -16,8 +16,7 @@
    :as :party
    :with {:token [:ref :bank-0 :token]
           :display-name "Tricia McMillan"
-          :given-name "Tricia"
-          :family-name "McMillan"}}
+          :legal-name "Tricia McMillan"}}
   {:fixture :account
    :as :debtor
    :with {:token [:ref :bank-0 :token]
