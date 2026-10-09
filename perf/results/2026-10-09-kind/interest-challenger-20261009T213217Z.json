@@ -1,0 +1,101 @@
+{
+  "run": {
+    "scenario": "interest",
+    "profile": "challenger",
+    "books": false,
+    "accounts": 1000,
+    "rateBps": 500,
+    "tasks": [
+      "accrue",
+      "capitalize"
+    ],
+    "steps": [
+      {
+        "rate": 50,
+        "seconds": 60
+      },
+      {
+        "rate": 50,
+        "seconds": 60
+      },
+      {
+        "rate": 50,
+        "seconds": 60
+      },
+      {
+        "rate": 50,
+        "seconds": 60
+      }
+    ]
+  },
+  "headline": {
+    "payments": 11999,
+    "rejected": {},
+    "dropped": 0,
+    "vus": 101,
+    "interest": {
+      "succeeded": true,
+      "scheduledS": 0.02,
+      "startedS": 81.76,
+      "finishedS": 83.51,
+      "tasks": {
+        "accrue": {
+          "ms": 618,
+          "processed": 1001,
+          "failed": 0
+        },
+        "capitalize": {
+          "ms": 1128,
+          "processed": 1001,
+          "failed": 0
+        }
+      }
+    },
+    "steps": [
+      {
+        "asked": 50,
+        "achieved": 49.98,
+        "payments": 2999,
+        "failed": 0,
+        "avg": 14.54,
+        "p50": 13.95,
+        "p95": 20.31,
+        "p99": 24.31,
+        "max": 31.61
+      },
+      {
+        "asked": 50,
+        "achieved": 50,
+        "payments": 3000,
+        "failed": 0,
+        "avg": 15.46,
+        "p50": 14.61,
+        "p95": 23.38,
+        "p99": 29.98,
+        "max": 65.66
+      },
+      {
+        "asked": 50,
+        "achieved": 50,
+        "payments": 3000,
+        "failed": 0,
+        "avg": 14.68,
+        "p50": 13.95,
+        "p95": 20.39,
+        "p99": 24.81,
+        "max": 62.07
+      },
+      {
+        "asked": 50,
+        "achieved": 50,
+        "payments": 3000,
+        "failed": 0,
+        "avg": 14.62,
+        "p50": 14.03,
+        "p95": 20.33,
+        "p99": 24.26,
+        "max": 46.67
+      }
+    ]
+  }
+}

@@ -795,7 +795,9 @@ holds it, and the run repeated.
 
 - **Kind figures are not published.** k6 shares Colima's 8 CPUs and
   32 GiB, about a test instance's two `n2-standard-4` nodes, with what it
-  measures, against one Kafka broker.
+  measures, against one Kafka broker. They are recorded with the machine
+  they ran on under `perf/results/`, each run's summary beside its write-up,
+  as [2026-10-09-kind](../../perf/results/2026-10-09-kind.md) is.
   [values-local.yaml](/infra/helm/queenswood/values-local.yaml) runs
   FDB as a process per role — three storage, two logs, and six
   stateless for two commit proxies, a GRV proxy, a resolver, the master
