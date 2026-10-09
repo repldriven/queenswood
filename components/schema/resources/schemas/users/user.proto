@@ -6,14 +6,6 @@ import "record_metadata_options.proto";
 
 option java_outer_classname = "UserProto";
 
-// User -- a human operator of the Queenswood platform. Kept strictly
-// separate from Party (a customer/identity in the banking domain).
-// A User is 1:1 with an OIDC (issuer, sub) pair from whichever IdP
-// is federated -- `sub` is only unique within an `issuer`, so both
-// are required for lookups. user_id is the storage primary key;
-// (issuer, sub) is the natural composite lookup (stable across
-// re-signins); email is a secondary index used by future Invitation
-// flows.
 enum IdentityProvider {
   IDENTITY_PROVIDER_UNKNOWN = 0;
   IDENTITY_PROVIDER_GOOGLE = 1;
@@ -21,23 +13,18 @@ enum IdentityProvider {
   IDENTITY_PROVIDER_PASSWORD = 3;
 }
 
-enum UserStatus {
-  USER_STATUS_UNKNOWN = 0;
-  USER_STATUS_ACTIVE = 1;
-  USER_STATUS_SUSPENDED = 2;
-}
-
+// A person who signs in to operate the platform.
 message User {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
-  required string user_id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  required string user_id = 1 [(com.apple.foundationdb.record.field).primary_key = true]; // usr.<uuidv7>
   required string issuer = 2;
   required string sub = 3;
-  required string email = 4;
-  required string name = 5;
-  optional string avatar_url = 6;
-  required IdentityProvider identity_provider = 7;
-  required UserStatus status = 8;
-  required int64 created_at = 9;
-  required int64 updated_at = 10;
+  required string name = 4;
+  required IdentityProvider identity_provider = 5;
+  required string email = 6;
+  optional string avatar_url = 7;
+
+  required int64 created_at = 101;
+  optional int64 updated_at = 103;
 }

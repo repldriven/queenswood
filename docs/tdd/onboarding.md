@@ -99,36 +99,34 @@ project's processor / store conventions.
 #### `User`
 
 Lives in `components/schema/resources/schemas/users/`.
-Keyed by `user-id` (ULID, prefix `usr`). The federated
+Keyed by `user-id` (UUIDv7, prefix `usr`). The federated
 subject is the OIDC `(issuer, sub)` pair — `sub` is only
 unique within an `issuer`, so both are required for a safe
-lookup, and the FDB index is composite over both. Email is a
-non-unique secondary index for the future invitation flow.
+lookup, and the FDB index is composite over both.
 
 ```protobuf
 message User {
-  string user_id = 1;
-  string issuer = 2;
-  string sub = 3;
-  string email = 4;
-  string name = 5;
-  string avatar_url = 6;
-  IdentityProvider identity_provider = 7;
-  UserStatus status = 8;
-  int64 created_at = 9;
-  int64 updated_at = 10;
+  required string user_id = 1;
+  required string issuer = 2;
+  required string sub = 3;
+  required string name = 4;
+  required IdentityProvider identity_provider = 5;
+  required string email = 6;
+  optional string avatar_url = 7;
+
+  required int64 created_at = 101;
+  optional int64 updated_at = 103;
 }
 ```
 
-`IdentityProvider` and `UserStatus` are forward-compatible
-enums: `IDENTITY_PROVIDER_GOOGLE`, plus reserved
-`GITHUB` / `PASSWORD` slots; `USER_STATUS_ACTIVE` plus a
-reserved `SUSPENDED` slot.
+`IdentityProvider` names the IdP the user signed in
+through: `GOOGLE`, `GITHUB`, or `PASSWORD` for a direct
+sign-in. `updated_at` is set when a sign-in brings changed
+claims. A user has no status: nothing suspends one.
 
 FDB record-type registrations:
 
 - `User_by_issuer_and_sub` — unique. Sign-in lookup.
-- `User_by_email` — non-unique. Future invitation matching.
 
 #### `Membership`
 

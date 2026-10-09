@@ -11,8 +11,8 @@
   "Idempotent upsert keyed by the OIDC (issuer, sub) pair. First
   call (unknown pair) creates a User from the claims; subsequent
   calls apply fresh claims (email/name/avatar may have changed) and
-  refresh `updated-at`. user-id + issuer + sub + status stay put
-  across re-signins.
+  set `updated-at`. user-id, issuer and sub stay put across
+  re-signins.
 
   Args:
   - txn: FDB transaction or db handle.

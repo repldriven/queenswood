@@ -369,10 +369,6 @@ stores:
         modified: 1
         fields: [issuer, sub]
         unique: true
-      - name: User_by_email
-        added: 1
-        modified: 1
-        field: email
   scheduler-jobs:
     record-type: SchedulerJob
     primary-key: [bank_id, job_id]

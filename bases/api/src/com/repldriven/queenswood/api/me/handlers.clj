@@ -5,8 +5,8 @@
     [com.repldriven.mono.error.interface :as error]))
 
 (def ^:private user-keys
-  [:user-id :issuer :sub :email :name :avatar-url :identity-provider :status
-   :created-at :updated-at])
+  [:user-id :issuer :sub :email :name :avatar-url :identity-provider
+   :created-at])
 
 (defn get-me
   "Return the authenticated user and whether they are an operator. The
@@ -22,5 +22,6 @@
                            {:message "Only user JWTs may call /v1/me"}))
       {:status 200
        :body (assoc (select-keys user user-keys)
-                    :operator
-                    (contains? roles :admin))})))
+                    :status :user-status-active
+                    :updated-at (or (:updated-at user) (:created-at user))
+                    :operator (contains? roles :admin))})))

@@ -96,8 +96,7 @@
      TransactionProto$TransactionType)
     (com.repldriven.queenswood.schemas.users
      UserProto$User
-     UserProto$IdentityProvider
-     UserProto$UserStatus)
+     UserProto$IdentityProvider)
     (com.repldriven.queenswood.schemas.members
      InvitationProto$Invitation
      InvitationProto$InvitationStatus
@@ -1287,8 +1286,11 @@
   [m]
   (PolicyBindingProto$PolicyBinding/parseFrom (PolicyBinding->pb m)))
 
-(def ^{:doc "Parse User protobuf bytes into a Clojure map."} pb->User
-  users/pb->User)
+(defn pb->User
+  "Parse User protobuf bytes into a Clojure map, without an unset
+  `avatar-url` or `updated-at`."
+  [input]
+  (without-unset (users/pb->User input) {:avatar-url "" :updated-at 0}))
 
 (defn User->pb
   "Serialise a User map to protobuf bytes.
@@ -1319,19 +1321,6 @@
   [identity-provider]
   (UserProto$IdentityProvider/forNumber
    (identity-provider->int identity-provider)))
-
-(def ^{:doc "Map of UserStatus label to protobuf int value."} user-status->int
-  users/UserStatus-label2val)
-
-(defn user-status->pb-enum
-  "Convert a user-status keyword to the protobuf enum value, for
-  use in FDB index queries.
-
-  Args:
-  - user-status: `:user-status-*` keyword."
-  [user-status]
-  (UserProto$UserStatus/forNumber
-   (user-status->int user-status)))
 
 (def ^:private member-unset
   {:ended-at 0 :ended-by nil :ended-reason "" :invitation-id ""})
