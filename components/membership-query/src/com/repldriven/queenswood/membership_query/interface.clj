@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.membership-query.interface
-  "Reads of who may act for a bank: Memberships, Invitations and the
-  AccessEvent history the `membership` processor writes, and the
+  "Reads of who may act for a bank: Memberships, Invitations, the role
+  changes the `membership` processor writes, the access history read
+  from all three, and the
   invitation token's minting and hash. Every fn takes `txn`, a live
   transaction or a config map. The invitation reads take an optional
   `:now` in epoch milliseconds, defaulting to the current time; a
@@ -228,20 +229,19 @@
 ;; ---
 
 (defn list-access-events
-  "Page a bank's access events, newest first by default. An invitation's
-  events carry its id, address and role as `role-after`; a membership's
-  carry the user, membership id and `role-before`, and a role change
-  `role-after`.
+  "A bank's access history, newest first, read from the records each act
+  was recorded on: its creation from `bank`, each invitation's creation,
+  latest resend, acceptance, refusal or withdrawal, each role change, and
+  each membership's removal or departure. Each event carries
+  `:access-event-id`, an id that sorts as the events happened, `:kind`,
+  `:actor` and `:occurred-at`; an invitation's carry its id, address and
+  role as `role-after`; a membership's carry the user, membership id and
+  `role-before`, and a role change `role-after`.
 
   Args:
   - txn: FDB transaction or config.
-  - bank-id: bank id (string).
-  - opts: `{:after :before :limit :order}`; `:limit` defaults to 100 and
-    `:order` to `:desc`. A cursor is an event's `access-event-id`.
+  - bank: the Bank map, its `:bank-id`, `:created-at` and `:created-by`.
 
-  Returns `{:access-events :before :after}`, `:after` set only when more
-  events remain, or an anomaly."
-  ([txn bank-id]
-   (core/list-access-events txn bank-id {}))
-  ([txn bank-id opts]
-   (core/list-access-events txn bank-id opts)))
+  Returns a vector of event maps or an anomaly."
+  [txn bank]
+  (core/list-access-events txn bank))

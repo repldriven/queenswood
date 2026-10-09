@@ -136,5 +136,15 @@
               invitations)))))
 
 (defn list-access-events
-  [txn bank-id opts]
-  (store/scan-access-events txn bank-id opts))
+  [txn bank]
+  (let [{:keys [bank-id]} bank]
+    (store/transact
+     txn
+     (fn [txn]
+       (let-nom>
+         [memberships (store/list-by-bank txn bank-id)
+          invitations (store/list-all-invitations-by-bank txn bank-id)
+          role-changes (store/list-role-changes-by-bank txn bank-id)]
+         (domain/access-events bank memberships invitations role-changes)))
+     :access-event/list
+     "Failed to list access events")))

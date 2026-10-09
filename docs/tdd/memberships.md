@@ -19,15 +19,15 @@ the organisation it is for, how a role reaches the gate every route
 already has, where each write lives, and the order the design is proved
 in.
 
-In scope: the `Membership` record's evolution and the `Invitation` and
-`AccessEvent` records; the `membership` processor's commands, the
-`membership-query` reads and the domain rules — who may do what to
-whom, and never ownerless; the invitation changelog; the request
-header that names the organisation; the role levels on the `api` base's
-gates and the sweep that puts one on every route; the routes under
-`/v1/me`, `/v1/memberships`, `/v1/invitations` and the bank's audit
-log; the owner email on the operator's create call; the console's
-screens; and the tests.
+In scope: the `Membership`, `Invitation` and `MembershipRoleChange`
+records and the access history read from them; the `membership`
+processor's commands, the `membership-query` reads and the domain rules
+— who may do what to whom, and never ownerless; the invitation
+changelog; the request header that names the organisation; the role
+levels on the `api` base's gates and the sweep that puts one on every
+route; the routes under `/v1/me`, `/v1/memberships`, `/v1/invitations`
+and the bank's audit log; the owner email on the operator's create call;
+the console's screens; and the tests.
 
 Out of scope: sending the invitation email and minting the link's token, which
 [outbound-email.md](outbound-email.md) covers from the changelog entry this
@@ -42,9 +42,8 @@ and the organisation's starting state, which [banks.md](banks.md) covers.
 What exists is slice 1, the API, as the sections below describe it,
 and the console as first built:
 
-- **The records.** `Membership`, `Invitation`, `AccessEvent` and the
-  `Actor` they share, under `schemas/memberships/`, declared at meta-data
-  version 52 in
+- **The records.** `Membership`, `Invitation`, `MembershipRoleChange`
+  and the `Actor` they share, under `schemas/memberships/`, declared in
   [fdb-record-types.yml](/components/resources/resources/system/fdb-record-types.yml).
 - **The `membership` brick.** The rules in `domain.clj` and one FDB
   transaction per write in `core.clj`. `user` still upserts a `User` on
@@ -193,59 +192,60 @@ anomaly kind has, as [service-apis.md](service-apis.md) records.
 
 ### Records
 
-Three record types under `schemas/memberships/`, one evolved and two
-new, registered where every record type is: the record-type union, the
-FDB record-type declaration, and the `pb->`, `->pb` and `->java` trio
-in the `schema` brick's `interface.clj`.
+Three record types under `schemas/memberships/`, registered where every
+record type is: the record-type union, the FDB record-type declaration,
+and the `pb->`, `->pb` and `->java` trio in the `schema` brick's
+`interface.clj`. Each act a person or an operator performs is recorded
+on the record it changes, as an `_at` and `_by` pair, as
+[ADR-0046](../adr/0046-who-did-what-is-recorded-on-the-record.md) has
+it.
 
 - **`Membership`** — bank id, membership id (prefix `mem`), status
-  (active or ended), role, user id, the invitation accepted to create
-  it, `ended_at` and `ended_by`, and `created_by` beside the
-  timestamps. The primary key is `[bank_id, membership_id]`, so a
-  bank's members scan contiguously and a bank-scoped read finds no
-  other bank's membership. `Membership_by_user`, unique on
-  `[user_id, membership_id]`, lists a person's memberships and finds
-  one of their own by id for the routes under `/v1/me`, which hold no
-  bank. A person removed and invited again holds a new membership and
-  the ended one stays, so one active membership per person per bank is
-  a rule in `domain.clj`, checked inside the transaction that writes.
-- **`Invitation`** — invitation id (prefix `inv`), bank id, email as
-  the inviter typed it and lower-cased for matching, role, status
-  (pending, accepted, declined, withdrawn, expired), the SHA-256 of
-  the link's token, `expires_at`, the actor who invited, a reason, the
-  user id that accepted, and timestamps. Indexed by bank, by the
-  lower-cased email, and by token hash under a unique index. One
-  pending invitation per address per bank is a domain rule inside the
-  transaction, off the bank index. Until an email is sent the token
-  hash holds the invitation id: the field is `required`, which the
-  evolution validator refuses to relax, the unique index needs a
-  distinct value per invitation, and no SHA-256 hex digest equals an
-  id.
-- **`AccessEvent`** — the history the PRD's "What is recorded" reads:
-  event id (prefix `aev`), bank id, kind, the actor, the subject's user
-  id, membership id, invitation id and email where each applies, the
-  role before and after, a reason, and when. The primary key is
-  `[bank_id, access_event_id]` so a bank's history scans contiguously
-  and, the id being time-ordered, in the order it happened. Kinds:
-  bank created, invitation created, resent, accepted, declined and
-  withdrawn, role changed, member removed, member left.
+  (active, removed or left), role, user id, the invitation accepted to
+  create it, the reason given for a removal as `ended_reason`,
+  `ended_at` and `ended_by`, and `created_by` beside the timestamps.
+  The primary key is `[bank_id, membership_id]`, so a bank's members
+  scan contiguously and a bank-scoped read finds no other bank's
+  membership. `Membership_by_user`, unique on
+  `[user_id, membership_id]`, lists a person's memberships and finds one
+  of their own by id for the routes under `/v1/me`, which hold no bank.
+  A person removed and invited again holds a new membership and the
+  ended one stays, so one active membership per person per bank is a
+  rule in `domain.clj`, checked inside the transaction that writes.
+- **`Invitation`** — bank id, invitation id (prefix `inv`), status
+  (pending, accepted, declined, withdrawn, expired), role, email as the
+  inviter typed it and lower-cased for matching, the SHA-256 of the
+  link's token, `expires_at`, the inviter's reason and a withdrawal's
+  as `withdrawn_reason`; the pairs `accepted_at` and `accepted_by`,
+  `declined_at` and `declined_by`, `withdrawn_at` and `withdrawn_by`,
+  and `resent_at` and `resent_by` for the latest resend; and
+  `created_by` beside the timestamps. The primary key is
+  `[bank_id, invitation_id]`; indexed by the lower-cased email, and by
+  token hash under a unique index. One pending invitation per address
+  per bank is a domain rule inside the transaction, off a scan of the
+  bank's invitations. Until an email is sent the token hash holds the
+  invitation id: the unique index needs a distinct value per
+  invitation, and no SHA-256 hex digest equals an id.
+- **`MembershipRoleChange`** — bank id, membership id, role change id
+  (prefix `rch`), the role before and after, a reason, `created_at` and
+  `created_by`, keyed `[bank_id, membership_id, role_change_id]`. A
+  membership's role changes any number of times and the membership
+  keeps only the latest, so each change is a record of its own.
 - **`Actor`** — a message the three share: kind (member or operator)
   and the principal id, a user id for a member or an operator-realm
-  user, the client id for the admin client. Kind is what the history
-  shows; the id is who.
+  user, the client id for the admin client. Kind is the capacity the
+  person acted in; the id is who.
 
-The declaration follows
-[schema-evolution](../recipes/code/schema-evolution.md): `version`
-bumps once, the two new stores carry it as `since`, their indexes carry
-it as `added` and `modified`, and the retired index is a former entry
-under `memberships` with its `added` and the new version as `removed`.
-`just test-all` runs the migrator's guard against the last `stable-*`
-tag.
-
-Why a history record beside the changelog rather than the changelog
-alone: the changelog is written for the relay — an Avro payload keyed
-for a cursor a runner tails — and carries only what a reacting brick
-needs. A row per event, keyed by bank, is what a list route pages.
+The access history the PRD's "What is recorded" reads is built on read
+from these records and the `Bank`'s own `created_at` and `created_by`,
+by `membership-query`'s `list-access-events`: the bank's creation, each
+invitation's creation, latest resend, acceptance, refusal and
+withdrawal, each role change, and each membership's removal or
+departure, newest first. Each event's id is `aev.` and an encoding of
+when it happened, its kind's place among acts at the same instant, and
+the record it was read from, so the ids sort as the events happened and
+a cursor pages them. A record of its own per event would be a union of
+every kind's fields, growing with each new kind.
 
 ### A processor and a query brick
 
@@ -263,7 +263,7 @@ for membership. On the system diagram the API writes only
   `list-active-by-user`, `list-active-by-bank`, `find-by-id`,
   `find-user-membership`, `find-invitation`, `find-invitation-for-recipient`,
   `list-invitations-by-bank`, `list-pending-invitations-by-email` and
-  `list-access-events`, over the three stores by the same names, and
+  `list-access-events`, over the three stores, and
   the pure `new-invitation-token` and `token-hash`, so the email adapter
   and the processor hash alike. The `api` base, `auth.clj` included,
   requires only this brick, which `enforce-idioms.sh`'s query-only check
@@ -319,7 +319,7 @@ graph LR
     SPA["console SPA<br/>Bank-Id on every call"]
     API["api<br/>authenticate resolves bank and level<br/>authorize intersects"]
     BQ["membership-query<br/>reads"]
-    BM["membership processor<br/>Membership, Invitation, AccessEvent"]
+    BM["membership processor<br/>Membership, Invitation, MembershipRoleChange"]
     BU["user"]
     BB["bank processor<br/>new-bank writes the owner invitation"]
     RL["changelog relay"]
@@ -401,8 +401,8 @@ Guards in `domain.clj`, each the first binding of its `let-nom>`:
   `expires_at` the changelog entry carried: a resend moves it, so an
   email for the create that lost a race with a resend is refused
   `:invitation/superseded` and never sent. It writes the hash, replacing
-  any earlier one, and records no access event, since sending is not an
-  access change.
+  any earlier one, and records no act, since sending is not an access
+  change.
 - **Expiry** is read, not written: a pending invitation whose
   `expires_at` has passed is expired to every read and every guard. No
   scheduler touches it. Every guard takes `now` as an argument so a
@@ -474,10 +474,11 @@ existed records the creation as an operator's with principal id `unknown`.
 
 An operator acts on an organisation by naming it in the header, and
 carries the owner level there. The people routes need nothing further:
-the actor on every write is the principal, so `AccessEvent` records the
-operator's kind and id, and the organisation's owners read it in their
-history beside their own changes. A reason is accepted on every people
-write.
+the actor on every write is the principal, so each record's `_by`
+holds the operator's kind and id, and the organisation's owners read it
+in their history beside their own changes. A reason is recorded with an
+invitation, a withdrawal, a role change and a removal; the resend route
+accepts one and keeps none, since a resend reissues the same offer.
 
 To a customer, an operator-realm user is named by their user record,
 as a member is, and the `queenswood-admin` client as `Queenswood`.
@@ -539,10 +540,10 @@ Under the bank the header names:
 Under `/v1/bank`, the bank the header names:
 
 - `GET /v1/bank/audit-events` — `org:viewer` or `admin`, cursor-paged,
-  newest first. The bank's audit log: each `AccessEvent` as an
-  `AuditEvent`, its id as `audit-event-id`. It describes the bank rather
-  than a record it holds, so it sits beside the bank's policies. The
-  name is the API's, not the store's: the record stays `AccessEvent`.
+  newest first. The bank's audit log: each event of its access history
+  as an `AuditEvent`, its id as `audit-event-id`. It describes the bank
+  rather than a record it holds, so it sits beside the bank's
+  policies.
 
 Every `Actor` a route answers carries `name`, and every `AuditEvent`
 with a subject carries `subject-name`, resolved on read in
@@ -830,7 +831,9 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   are earned, reaction being the property access writes earn.
 - [ADR-0021](../adr/0021-changelog-relay.md) — Changelog relay, which
   carries the invitation entries to the email adapter.
+- [ADR-0046](../adr/0046-who-did-what-is-recorded-on-the-record.md) —
+  who did what is recorded on the record, which the access history reads.
 - [schema-evolution](../recipes/code/schema-evolution.md) — the
-  declaration steps for the evolved and new stores.
+  declaration steps for the stores.
 - [lifecycle-transitions](../recipes/code/lifecycle-transitions.md) —
   the guard shape and the checklist each transition follows.

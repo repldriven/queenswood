@@ -21,20 +21,33 @@ enum InvitationStatus {
 message Invitation {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
-  required string invitation_id = 1;
-  required string bank_id = 2;
+  required string bank_id = 1;
+  required string invitation_id = 2;
+  required InvitationStatus status = 3;
+  required Role role = 4;
   // As typed, for display.
-  required string email = 3;
+  required string email = 5;
   // Lower-cased, for lookup.
-  required string email_lower = 4;
-  required Role role = 5;
-  required InvitationStatus status = 6;
+  required string email_lower = 6;
   // SHA-256 of the token, hex. The token itself is never stored.
   required string token_hash = 7;
   required int64 expires_at = 8;
-  required Actor invited_by = 9;
-  optional string reason = 10;
-  optional string accepted_by_user_id = 11;
-  required int64 created_at = 12;
-  required int64 updated_at = 13;
+  // Why it was sent, as the inviter gave it.
+  optional string reason = 9;
+  // Why it was withdrawn, as the person withdrawing it gave it.
+  optional string withdrawn_reason = 10;
+
+  optional int64 accepted_at = 51;
+  optional Actor accepted_by = 52;
+  optional int64 declined_at = 53;
+  optional Actor declined_by = 54;
+  optional int64 withdrawn_at = 55;
+  optional Actor withdrawn_by = 56;
+  // The latest time it was sent again.
+  optional int64 resent_at = 57;
+  optional Actor resent_by = 58;
+
+  required int64 created_at = 101;
+  required Actor created_by = 102;
+  required int64 updated_at = 103;
 }

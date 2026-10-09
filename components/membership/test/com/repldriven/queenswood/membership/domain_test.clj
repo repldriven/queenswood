@@ -58,9 +58,13 @@
    :status status
    :token-hash "hash-1"
    :expires-at expires-at
-   :invited-by {:kind :actor-kind-member :principal-id "usr.owner"}
    :created-at 1
+   :created-by {:kind :actor-kind-member :principal-id "usr.owner"}
    :updated-at 1})
+
+(defn- recipient
+  [user-id]
+  {:kind :actor-kind-member :principal-id user-id})
 
 (defn- not-granted?
   [result]
@@ -195,7 +199,7 @@
                                           {:actor actor
                                            :active-memberships [a b]}
                                           now)]
-          (is (= :membership-status-ended (:status removed)))
+          (is (= :membership-status-removed (:status removed)))
           (is (rejected? :membership/last-owner
                          (SUT/end-membership b
                                              :remove
@@ -208,7 +212,7 @@
                                      {:actor (member-actor :role-owner)
                                       :active-memberships [a b]}
                                      now)]
-        (is (= :membership-status-ended (:status left)))
+        (is (= :membership-status-left (:status left)))
         (is (rejected? :membership/last-owner
                        (SUT/end-membership b
                                            :leave
@@ -217,7 +221,8 @@
                                            now)))))))
 
 (deftest membership-guard-test
-  (let [ended (membership "mem.1" "usr.1" :role-viewer :membership-status-ended)
+  (let [ended (membership "mem.1" "usr.1"
+                          :role-viewer :membership-status-removed)
         ctx {:actor (:owner actors) :active-memberships []}]
     (doseq [[label result] [["change-role"
                              (SUT/change-role ended :role-admin ctx now)]
@@ -228,7 +233,7 @@
       (testing (str label " refuses an ended membership with its payload")
         (is (rejected? :membership/invalid-status result))
         (is (= {:membership-id "mem.1"
-                :status :membership-status-ended
+                :status :membership-status-removed
                 :allowed #{:membership-status-active}}
                (dissoc (error/payload result) :message)))
         (is (string? (:message (error/payload result))))))
@@ -261,7 +266,7 @@
     (testing "an ended membership is still refused on its status"
       (is (rejected? :membership/invalid-status
                      (SUT/change-role
-                      (assoc admin-m :status :membership-status-ended)
+                      (assoc admin-m :status :membership-status-removed)
                       :role-admin
                       {:actor (:owner actors) :active-memberships active}
                       now))))))
@@ -276,10 +281,12 @@
         wrong-for-pending (conj (vec terminal)
                                 [:invitation-status-expired lapsed])
         transitions
-        {"accept"
-         #(SUT/accept-invitation % "usr.new" {:active-memberships []} now)
-         "decline" #(SUT/decline-invitation % now)
-         "withdraw" #(SUT/withdraw-invitation % now)}]
+        {"accept" #(SUT/accept-invitation %
+                                          (recipient "usr.new")
+                                          {:active-memberships []}
+                                          now)
+         "decline" #(SUT/decline-invitation % (recipient "usr.new") now)
+         "withdraw" #(SUT/withdraw-invitation % {:actor (:owner actors)} now)}]
     (doseq [[label transition] transitions
             [status inv] wrong-for-pending]
       (testing (str label " refuses " (name status) " with its payload")
@@ -293,7 +300,7 @@
           (is (not (mentions? result "hash-1"))))))
     (doseq [[status inv] terminal]
       (testing (str "resend refuses " (name status) " with its payload")
-        (let [result (SUT/resend-invitation inv now)]
+        (let [result (SUT/resend-invitation inv (:owner actors) now)]
           (is (rejected? :invitation/invalid-status result))
           (is (= {:invitation-id "inv.1"
                   :status status
@@ -303,32 +310,55 @@
           (is (not (mentions? result "hash-1"))))))
     (testing "accept, decline and withdraw move a pending invitation"
       (is (= {:status :invitation-status-accepted
-              :accepted-by-user-id "usr.new"
+              :accepted-at now
+              :accepted-by (recipient "usr.new")
               :updated-at now}
              (select-keys (SUT/accept-invitation pending
-                                                 "usr.new"
+                                                 (recipient "usr.new")
                                                  {:active-memberships []}
                                                  now)
-                          [:status :accepted-by-user-id :updated-at])))
-      (is (= :invitation-status-declined
-             (:status (SUT/decline-invitation pending now))))
-      (is (= :invitation-status-withdrawn
-             (:status (SUT/withdraw-invitation pending now)))))
-    (testing "resend renews a pending invitation"
-      (let [resent (SUT/resend-invitation pending now)]
+                          [:status :accepted-at :accepted-by :updated-at])))
+      (is (= {:status :invitation-status-declined
+              :declined-at now
+              :declined-by (recipient "usr.new")}
+             (select-keys
+              (SUT/decline-invitation pending (recipient "usr.new") now)
+              [:status :declined-at :declined-by])))
+      (is (= {:status :invitation-status-withdrawn
+              :withdrawn-at now
+              :withdrawn-by operator-actor
+              :withdrawn-reason "Sent to the wrong address"}
+             (select-keys (SUT/withdraw-invitation pending
+                                                   {:actor operator-actor
+                                                    :reason
+                                                    "Sent to the wrong address"}
+                                                   now)
+                          [:status :withdrawn-at :withdrawn-by
+                           :withdrawn-reason]))))
+    (testing "withdraw omits a blank reason"
+      (is (not (contains? (SUT/withdraw-invitation pending
+                                                   {:actor operator-actor
+                                                    :reason " "}
+                                                   now)
+                          :withdrawn-reason))))
+    (testing "resend renews a pending invitation, recording the latest resend"
+      (let [resent (SUT/resend-invitation pending operator-actor now)]
         (is (= "inv.1" (:token-hash resent)))
-        (is (= (+ now SUT/invitation-lifetime-ms) (:expires-at resent)))))))
+        (is (= (+ now SUT/invitation-lifetime-ms) (:expires-at resent)))
+        (is (= now (:resent-at resent)))
+        (is (= operator-actor (:resent-by resent)))))))
 
 (deftest one-active-membership-test
   (let [existing (membership "mem.1" "usr.1" :role-viewer)
-        ended (membership "mem.2" "usr.2" :role-viewer :membership-status-ended)
+        ended (membership "mem.2" "usr.2"
+                          :role-viewer :membership-status-removed)
         pending (invitation :invitation-status-pending (+ now day-ms))]
     (testing "an active member of the bank is refused"
       (is (rejected? :membership/already-exists
                      (SUT/check-not-member [existing] "usr.1")))
       (is (rejected? :membership/already-exists
                      (SUT/accept-invitation pending
-                                            "usr.1"
+                                            (recipient "usr.1")
                                             {:active-memberships [existing]}
                                             now))))
     (testing "an ended membership does not count"
@@ -372,14 +402,14 @@
       (is (= (* 7 day-ms) SUT/invitation-lifetime-ms)))
     (testing "accept past expiry is refused as expired"
       (let [result (SUT/accept-invitation pending
-                                          "usr.new"
+                                          (recipient "usr.new")
                                           {:active-memberships []}
                                           (+ expires-at day-ms))]
         (is (rejected? :invitation/invalid-status result))
         (is (= :invitation-status-expired (:status (error/payload result))))))
     (testing "resend of an expired invitation is allowed and renews it"
       (let [later (+ expires-at (* 2 day-ms))
-            resent (SUT/resend-invitation pending later)]
+            resent (SUT/resend-invitation pending (:owner actors) later)]
         (is (not (error/anomaly? resent)))
         (is (= :invitation-status-pending (:status resent)))
         (is (= (+ later SUT/invitation-lifetime-ms) (:expires-at resent)))
@@ -449,9 +479,9 @@
               :status :invitation-status-pending
               :token-hash (:invitation-id inv)
               :expires-at (+ now SUT/invitation-lifetime-ms)
-              :invited-by {:kind :actor-kind-operator :principal-id "ops.1"}
               :reason "Founder handover"
               :created-at now
+              :created-by {:kind :actor-kind-operator :principal-id "ops.1"}
               :updated-at now}
              (dissoc inv :invitation-id)))))
   (testing "new-invitation omits a blank reason and the actor's role"
@@ -463,7 +493,7 @@
                                   now)]
       (is (not (contains? inv :reason)))
       (is (= {:kind :actor-kind-member :principal-id "usr.role-admin"}
-             (:invited-by inv)))))
+             (:created-by inv)))))
   (testing "change-role sets the role at now"
     (let [m (membership "mem.1" "usr.1" :role-viewer)]
       (is (= (assoc m :role :role-developer :updated-at now)
@@ -471,35 +501,40 @@
                               :role-developer
                               {:actor (:admin actors) :active-memberships [m]}
                               now)))))
-  (testing "end-membership records when and by whom"
+  (testing "end-membership records how, when, by whom and why"
     (let [m (membership "mem.1" "usr.1" :role-viewer)]
       (is (= (assoc m
-                    :status :membership-status-ended
+                    :status :membership-status-removed
                     :ended-at now
                     :ended-by {:kind :actor-kind-operator :principal-id "ops.1"}
+                    :ended-reason "Left the company"
                     :updated-at now)
              (SUT/end-membership m
                                  :remove
-                                 {:actor operator-actor :active-memberships [m]}
-                                 now)))))
-  (testing "new-access-event keeps the fields that are set"
-    (let [event (SUT/new-access-event "bnk.1"
-                                      :access-event-kind-role-changed
-                                      (:owner actors)
-                                      {:subject-user-id "usr.1"
-                                       :membership-id "mem.1"
-                                       :role-before :role-viewer
-                                       :role-after :role-admin
-                                       :reason nil
-                                       :token "never-stored"}
+                                 {:actor operator-actor
+                                  :active-memberships [m]
+                                  :reason "Left the company"}
+                                 now)))
+      (is (= :membership-status-left
+             (:status (SUT/end-membership m
+                                          :leave
+                                          {:actor (recipient "usr.1")
+                                           :active-memberships [m]}
+                                          now))))))
+  (testing "new-role-change records the move, by whom and why"
+    (let [m (membership "mem.1" "usr.1" :role-viewer)
+          change (SUT/new-role-change m
+                                      :role-admin
+                                      {:actor (:owner actors)
+                                       :reason "Leads the team"}
                                       now)]
-      (is (re-find #"^aev\." (:access-event-id event)))
+      (is (re-find #"^rch\." (:role-change-id change)))
       (is (= {:bank-id "bnk.1"
-              :kind :access-event-kind-role-changed
-              :actor {:kind :actor-kind-member :principal-id "usr.role-owner"}
-              :subject-user-id "usr.1"
               :membership-id "mem.1"
               :role-before :role-viewer
               :role-after :role-admin
-              :occurred-at now}
-             (dissoc event :access-event-id))))))
+              :reason "Leads the team"
+              :created-at now
+              :created-by {:kind :actor-kind-member
+                           :principal-id "usr.role-owner"}}
+             (dissoc change :role-change-id))))))

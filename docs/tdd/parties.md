@@ -516,9 +516,9 @@ on the provider's page.
    `PartyNationalIdentifier` retired, the `embed` flags retired, the
    console's party drawer and scenarios and the demo bank's sign-up
    sending names alone. Proved by a create carrying a date of birth
-   refused and a second person under one external reference refused. Follows slices 5 and 6, since the
-   comparison moves off the date of birth, and the page takes it,
-   before the API stops taking it. Built.
+   refused and a second person under one external reference refused.
+   Follows slices 5 and 6, since the comparison moves off the date of
+   birth, and the page takes it, before the API stops taking it. Built.
 
 Resolving a review and re-verification follow under this TDD.
 The demo bank's onboarding screens follow under

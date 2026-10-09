@@ -20,8 +20,8 @@
    :status status
    :token-hash "hash-1"
    :expires-at expires-at
-   :invited-by {:kind :actor-kind-member :principal-id "usr.owner"}
    :created-at 1
+   :created-by {:kind :actor-kind-member :principal-id "usr.owner"}
    :updated-at 1})
 
 (defn- rejected?
@@ -83,3 +83,104 @@
       (is (rejected? :invitation/not-found
                      (SUT/check-recipient (assoc inv :token-hash "inv.1")
                                           {:token-hash "hash-1"}))))))
+
+(def ^:private operator {:kind :actor-kind-operator :principal-id "ops.1"})
+
+(def ^:private founder {:kind :actor-kind-member :principal-id "usr.founder"})
+
+(def ^:private joiner {:kind :actor-kind-member :principal-id "usr.joiner"})
+
+(def ^:private bank
+  {:bank-id "bnk.01j00000000000000000000000"
+   :created-at 1000
+   :created-by operator})
+
+(def ^:private founding
+  {:bank-id "bnk.01j00000000000000000000000"
+   :membership-id "mem.01j00000000000000000000001"
+   :status :membership-status-active
+   :role :role-admin
+   :user-id "usr.founder"
+   :created-at 1000})
+
+(def ^:private joining
+  {:bank-id "bnk.01j00000000000000000000000"
+   :membership-id "mem.01j00000000000000000000002"
+   :status :membership-status-removed
+   :role :role-developer
+   :user-id "usr.joiner"
+   :invitation-id "inv.01j00000000000000000000003"
+   :ended-at 5000
+   :ended-by founder
+   :ended-reason "Left the company"
+   :created-at 3000})
+
+(def ^:private accepted
+  {:bank-id "bnk.01j00000000000000000000000"
+   :invitation-id "inv.01j00000000000000000000003"
+   :status :invitation-status-accepted
+   :role :role-developer
+   :email "joiner@example.test"
+   :reason "Joining the team"
+   :created-at 2000
+   :created-by founder
+   :accepted-at 3000
+   :accepted-by joiner})
+
+(def ^:private demotion
+  {:bank-id "bnk.01j00000000000000000000000"
+   :membership-id "mem.01j00000000000000000000001"
+   :role-change-id "rch.01j00000000000000000000004"
+   :role-before :role-owner
+   :role-after :role-admin
+   :created-at 4000
+   :created-by operator})
+
+(deftest access-events-test
+  (let [events
+        (SUT/access-events bank [founding joining] [accepted] [demotion])]
+    (testing "every act reads back from its record, newest first"
+      (is (= [:access-event-kind-member-removed
+              :access-event-kind-role-changed
+              :access-event-kind-invitation-accepted
+              :access-event-kind-invitation-created
+              :access-event-kind-bank-created]
+             (mapv :kind events))))
+    (testing "each id is an audit event id, sorting as the events happened"
+      (is (every? #(re-matches #"aev\.[0-9a-hjkmnp-tv-z]{26}" %)
+                  (map :access-event-id events)))
+      (is (= (map :access-event-id events)
+             (sort #(compare %2 %1) (map :access-event-id events)))))
+    (testing "the bank's creation names its first owner at the role it began"
+      (is (= {:actor operator
+              :subject-user-id "usr.founder"
+              :membership-id "mem.01j00000000000000000000001"
+              :role-after :role-owner}
+             (select-keys (peek events)
+                          [:actor :subject-user-id :membership-id
+                           :role-after]))))
+    (testing "an acceptance names the person and the membership it made"
+      (is (= {:actor joiner
+              :subject-user-id "usr.joiner"
+              :membership-id "mem.01j00000000000000000000002"
+              :email "joiner@example.test"
+              :role-after :role-developer}
+             (select-keys (nth events 2)
+                          [:actor :subject-user-id :membership-id :email
+                           :role-after]))))
+    (testing "a removal names the member, their role and the reason"
+      (is (= {:actor founder
+              :subject-user-id "usr.joiner"
+              :role-before :role-developer
+              :reason "Left the company"
+              :occurred-at 5000}
+             (select-keys (first events)
+                          [:actor :subject-user-id :role-before :reason
+                           :occurred-at])))))
+  (testing "acts at the same instant read in the order they happen"
+    (let [events
+          (SUT/access-events (assoc bank :created-at 2000) [] [accepted] [])]
+      (is (= [:access-event-kind-invitation-accepted
+              :access-event-kind-invitation-created
+              :access-event-kind-bank-created]
+             (mapv :kind events))))))

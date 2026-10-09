@@ -244,11 +244,6 @@
                                             :bank-id bank-id
                                             :role role
                                             :actor actor}))
-       ;; The bank-created event before the invitation, so its id is
-       ;; the older and the history reads the two in order.
-       _ (memberships/record-bank-created txn
-                                          bank-id
-                                          {:actor actor :membership owner})
        invitation (new-owner-invitation txn bank-id actor owner-invitation)]
       {:bank bank
        :membership owner

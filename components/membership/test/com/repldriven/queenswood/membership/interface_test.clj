@@ -76,9 +76,15 @@
   [invitation]
   {:token-hash (q/token-hash (:token invitation))})
 
+(defn- access-history
+  "The access history of a bank created at time zero by the operator."
+  [config bank-id]
+  (q/list-access-events config
+                        {:bank-id bank-id :created-at 0 :created-by operator}))
+
 (defn- kinds
-  [page]
-  (mapv :kind (:access-events page)))
+  [events]
+  (mapv :kind events))
 
 (deftest token-test
   (testing "a token is 43 characters of base64url and its hash hex SHA-256"
@@ -100,7 +106,6 @@
                                        {:actor operator
                                         :user-id "usr.accept.owner"
                                         :bank-id bank-id})
-                 _ (SUT/record-bank-created config bank-id {:actor operator})
                  invitation (invite config
                                     bank-id
                                     owner
@@ -142,7 +147,7 @@
                      "the invitation reads accepted by the person who accepted"
                      (is (= :invitation-status-accepted (:status accepted)))
                      (is (= "usr.accept.invitee"
-                            (:accepted-by-user-id accepted)))
+                            (get-in accepted [:accepted-by :principal-id])))
                      (is (not (contains? accepted :token-hash))))
                  by-email
                  (invite config bank-id owner "second@example.com" :role-viewer)
@@ -165,8 +170,8 @@
                                {:email "second@example.com"
                                 :email-verified? true}
                                {:user-id "usr.accept.second"})
-                 history (q/list-access-events config bank-id)
-                 _ (testing "every write recorded its event, newest first"
+                 history (access-history config bank-id)
+                 _ (testing "every act reads back from its record, newest first"
                      (is (= [:access-event-kind-invitation-accepted
                              :access-event-kind-invitation-created
                              :access-event-kind-invitation-accepted
@@ -175,10 +180,11 @@
                             (kinds history)))
                      (is (= {:kind :actor-kind-member
                              :principal-id "usr.accept.invitee"}
-                            (:actor (nth (:access-events history) 2))))
+                            (:actor (nth history 2))))
                      (is (= "usr.accept.invitee"
-                            (:subject-user-id (nth (:access-events history)
-                                                   2)))))]))))
+                            (:subject-user-id (nth history 2))))
+                     (is (= "usr.accept.owner"
+                            (:subject-user-id (peek history)))))]))))
 
 (deftest an-unchanged-role-records-nothing-test
   (with-test-system
@@ -211,11 +217,12 @@
                      "repeating a role change returns the membership as is"
                      (is (= changed repeated)))
                  loaded (q/find-by-id config bank-id (:membership-id target))
-                 history (q/list-access-events config bank-id)
-                 _ (testing "and writes neither the membership nor an event"
+                 history (access-history config bank-id)
+                 _ (testing "and writes neither the membership nor a change"
                      (is (= first-at (:updated-at loaded)))
                      (is (= :role-developer (:role loaded)))
-                     (is (= [:access-event-kind-role-changed]
+                     (is (= [:access-event-kind-role-changed
+                             :access-event-kind-bank-created]
                             (kinds history))))]))))
 
 (deftest expiry-is-read-and-never-written-test
@@ -339,12 +346,14 @@
                                                                   owner-a}))))
                  loaded
                  (q/find-by-id config "bnk.reach.b" (:membership-id target))
-                 history-a (q/list-access-events config "bnk.reach.a")
-                 history-b (q/list-access-events config "bnk.reach.b")
+                 history-a (access-history config "bnk.reach.a")
+                 history-b (access-history config "bnk.reach.b")
                  _ (testing "and nothing is written"
                      (is (= target loaded))
-                     (is (= [] (:access-events history-a)))
-                     (is (= [] (:access-events history-b))))]))))
+                     (is (= [:access-event-kind-bank-created]
+                            (kinds history-a)))
+                     (is (= [:access-event-kind-bank-created]
+                            (kinds history-b))))]))))
 
 (defn- latched
   "Runs `f` inside a transaction of its own on another thread, holding
@@ -392,11 +401,13 @@
                      (is (= [:membership/last-owner]
                             (map error/kind (filter error/anomaly? results)))))
                  members (q/list-active-by-bank config bank-id)
-                 history (q/list-access-events config bank-id)
-                 _
-                 (testing "and the bank keeps one owner and one event"
-                   (is (= [:role-admin :role-owner] (sort (map :role members))))
-                   (is (= [:access-event-kind-role-changed] (kinds history))))]))))
+                 history (access-history config bank-id)
+                 _ (testing "and the bank keeps one owner and one role change"
+                     (is (= [:role-admin :role-owner]
+                            (sort (map :role members))))
+                     (is (= [:access-event-kind-role-changed
+                             :access-event-kind-bank-created]
+                            (kinds history))))]))))
 
 (deftest concurrent-accepts-by-one-person-write-one-membership-test
   (with-test-system

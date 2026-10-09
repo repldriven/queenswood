@@ -18,7 +18,8 @@ enum Role {
 enum MembershipStatus {
   MEMBERSHIP_STATUS_UNKNOWN = 0;
   MEMBERSHIP_STATUS_ACTIVE = 1;
-  MEMBERSHIP_STATUS_ENDED = 2;
+  MEMBERSHIP_STATUS_REMOVED = 2;
+  MEMBERSHIP_STATUS_LEFT = 3;
 }
 
 // Joins a user to a bank with a role. A user may hold memberships of
@@ -33,8 +34,12 @@ message Membership {
   required string user_id = 5;
   // The invitation accepted to create it, none for the bank's first owner.
   optional string invitation_id = 6;
+  // Why it was removed, as the person removing it gave it.
+  optional string ended_reason = 7;
+
   optional int64 ended_at = 51;
   optional Actor ended_by = 52;
+
   required int64 created_at = 101;
   required Actor created_by = 102;
   required int64 updated_at = 103;

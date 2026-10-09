@@ -9,7 +9,7 @@
 
 (def ^:private memberships-store-name "memberships")
 (def ^:private invitations-store-name "invitations")
-(def ^:private access-events-store-name "access-events")
+(def ^:private role-changes-store-name "membership-role-changes")
 
 (def transact fdb/transact)
 
@@ -47,11 +47,12 @@
     :invitation/save
     "Failed to save invitation")))
 
-(defn save-access-event
-  [txn access-event]
+(defn save-role-change
+  [txn role-change]
   (fdb/transact txn
                 (fn [txn]
-                  (fdb/save-record (fdb/open txn access-events-store-name)
-                                   (schema/AccessEvent->java access-event)))
-                :access-event/save
-                "Failed to save access event"))
+                  (fdb/save-record (fdb/open txn role-changes-store-name)
+                                   (schema/MembershipRoleChange->java
+                                    role-change)))
+                :membership/save-role-change
+                "Failed to save role change"))

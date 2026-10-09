@@ -77,7 +77,13 @@
                   {:message "An operator's invitation needs a reason"})))
 
 (def ^:private active :membership-status-active)
-(def ^:private ended :membership-status-ended)
+
+(def ^:private ended-status
+  {:remove :membership-status-removed :leave :membership-status-left})
+
+(defn- some-reason
+  [reason]
+  (when-not (str/blank? reason) reason))
 
 (defn- active-owner?
   [membership]
@@ -179,17 +185,32 @@
       membership
       (assoc membership :role new-role :updated-at now))))
 
+(defn new-role-change
+  [membership new-role {:keys [actor reason]} now]
+  (let [{:keys [bank-id membership-id role]} membership]
+    (utility/assoc-some {:bank-id bank-id
+                         :membership-id membership-id
+                         :role-change-id (utility/generate-id "rch")
+                         :role-before role
+                         :role-after new-role
+                         :created-at now
+                         :created-by (actor-record actor)}
+                        :reason
+                        (some-reason reason))))
+
 (defn end-membership
-  [membership action {:keys [actor active-memberships]} now]
+  [membership action {:keys [actor active-memberships reason]} now]
   (let-nom>
     [_ (ensure-membership-status membership #{active})
      _ (check-grant action actor {:target-role (:role membership)})
      _ (check-not-last-owner active-memberships membership nil)]
-    (assoc membership
-           :status ended
-           :ended-at now
-           :ended-by (actor-record actor)
-           :updated-at now)))
+    (utility/assoc-some (assoc membership
+                               :status (ended-status action)
+                               :ended-at now
+                               :ended-by (actor-record actor)
+                               :updated-at now)
+                        :ended-reason
+                        (some-reason reason))))
 
 (defn new-invitation
   [{:keys [bank-id email role reason]}
@@ -211,42 +232,55 @@
                            :status pending
                            :token-hash invitation-id
                            :expires-at (+ now invitation-lifetime-ms)
-                           :invited-by (actor-record actor)
                            :created-at now
+                           :created-by (actor-record actor)
                            :updated-at now}
                           :reason
-                          (when-not (str/blank? reason) reason)))))
+                          (some-reason reason)))))
 
 (defn accept-invitation
-  [invitation user-id {:keys [active-memberships]} now]
+  [invitation actor {:keys [active-memberships]} now]
   (let-nom>
     [_ (ensure-invitation-status invitation #{pending} now)
-     _ (check-not-member active-memberships user-id)]
+     _ (check-not-member active-memberships (:principal-id actor))]
     (assoc invitation
            :status accepted
-           :accepted-by-user-id user-id
+           :accepted-at now
+           :accepted-by (actor-record actor)
            :updated-at now)))
 
 (defn decline-invitation
-  [invitation now]
+  [invitation actor now]
   (let-nom>
     [_ (ensure-invitation-status invitation #{pending} now)]
-    (assoc invitation :status declined :updated-at now)))
+    (assoc invitation
+           :status declined
+           :declined-at now
+           :declined-by (actor-record actor)
+           :updated-at now)))
 
 (defn withdraw-invitation
-  [invitation now]
+  [invitation {:keys [actor reason]} now]
   (let-nom>
     [_ (ensure-invitation-status invitation #{pending} now)]
-    (assoc invitation :status withdrawn :updated-at now)))
+    (utility/assoc-some (assoc invitation
+                               :status withdrawn
+                               :withdrawn-at now
+                               :withdrawn-by (actor-record actor)
+                               :updated-at now)
+                        :withdrawn-reason
+                        (some-reason reason))))
 
 (defn resend-invitation
-  [invitation now]
+  [invitation actor now]
   (let-nom>
     [_ (ensure-invitation-status invitation #{pending expired} now)]
     (assoc invitation
            :status pending
            :token-hash (:invitation-id invitation)
            :expires-at (+ now invitation-lifetime-ms)
+           :resent-at now
+           :resent-by (actor-record actor)
            :updated-at now)))
 
 (defn record-invitation-token
@@ -260,15 +294,3 @@
     (assoc invitation
            :token-hash token-hash
            :updated-at now)))
-
-(defn new-access-event
-  [bank-id kind actor details now]
-  (into {:access-event-id (utility/generate-id "aev")
-         :bank-id bank-id
-         :kind kind
-         :actor (actor-record actor)
-         :occurred-at now}
-        (remove (comp nil? val))
-        (select-keys details
-                     [:subject-user-id :membership-id :invitation-id :email
-                      :role-before :role-after :reason])))

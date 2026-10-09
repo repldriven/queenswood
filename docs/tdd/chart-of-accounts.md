@@ -226,8 +226,9 @@ Notes:
 
 - **GL accounts and cash accounts are separate record types.**
   A `LedgerAccount` carries its chart role (`code`) directly on
-  the record; there is no product behind it. A `CashAccount` carries no GL fields — its
-  control is derived from `product_type`.
+  the record; there is no product behind it. A `CashAccount`
+  carries no GL fields — its control is derived from
+  `product_type`.
 - **The control link is *not* stored on the cash account.**
   There is no `gl_control_account_id`. A control's balance is
   summed from the balance buckets tagged with a product type
@@ -771,7 +772,8 @@ at any layer holds more than one currency.
   ledger (`led.`) account-ids; `validate-legs` checks every
   posting, and `new-zero-balance` opens a bucket on first use.
 - **`schema`** defines the `LedgerAccount` message and the
-  `LedgerAccountCode` / `LedgerAccountStatus` enums, the `LedgerAccount` entry in `RecordTypeUnion`, and the
+  `LedgerAccountCode` / `LedgerAccountStatus` enums, the
+  `LedgerAccount` entry in `RecordTypeUnion`, and the
   `LedgerAccount_by_bank_code` index. `ProductType`
   carries the sub-ledger values `-current` / `-savings` /
   `-term-deposit` / `-own-funds` plus `-general-ledger`.

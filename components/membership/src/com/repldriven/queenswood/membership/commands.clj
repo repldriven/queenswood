@@ -42,7 +42,7 @@
 
 (defn- recipient-opts
   [data]
-  (utility/assoc-some {:user-id (:user-id data)} :reason (:reason data)))
+  {:user-id (:user-id data)})
 
 (def ^:private command-handlers
   {"invite"

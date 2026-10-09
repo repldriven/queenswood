@@ -41,14 +41,6 @@
           }
         ]
       }
-    },
-    {
-      "name": "reason",
-      "type": [
-        "null",
-        "string"
-      ],
-      "default": null
     }
   ]
 }

@@ -1,0 +1,25 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schemas.memberships;
+
+import "record_metadata_options.proto";
+import "schemas/memberships/actor.proto";
+import "schemas/memberships/membership.proto";
+
+option java_outer_classname = "MembershipRoleChangeProto";
+
+// One change of a membership's role.
+message MembershipRoleChange {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string membership_id = 2;
+  required string role_change_id = 3;
+  required Role role_before = 4;
+  required Role role_after = 5;
+  // Why, as the person changing it gave it.
+  optional string reason = 6;
+
+  required int64 created_at = 101;
+  required Actor created_by = 102;
+}

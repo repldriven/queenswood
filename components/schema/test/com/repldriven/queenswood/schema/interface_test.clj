@@ -180,64 +180,76 @@
 (deftest membership-record-round-trip-test
   (testing "an active membership keeps who created it"
     (is (= owner (SUT/pb->Membership (SUT/Membership->pb owner)))))
-  (testing "an ended membership keeps who ended it and when"
+  (testing "a removed membership keeps who removed it, when and why"
     (let [ended (assoc owner
                        :role :role-viewer
-                       :status :membership-status-ended
+                       :status :membership-status-removed
                        :ended-at 1700000000500
                        :ended-by member-actor
+                       :ended-reason "Left the company"
                        :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2")]
       (is (= ended (SUT/pb->Membership (SUT/Membership->pb ended))))
-      (is (= (SUT/membership-status->pb-enum :membership-status-ended)
+      (is (= (SUT/membership-status->pb-enum :membership-status-removed)
              (.getStatus (SUT/Membership->java ended)))))))
 
 (def ^:private pending-invitation
-  {:invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2"
-   :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+  {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2"
+   :status :invitation-status-pending
+   :role :role-developer
    :email "Ford.Prefect@example.com"
    :email-lower "ford.prefect@example.com"
-   :role :role-developer
-   :status :invitation-status-pending
    :token-hash (apply str (repeat 64 "a"))
    :expires-at 1700604800000
-   :invited-by member-actor
    :created-at 1700000000000
+   :created-by member-actor
    :updated-at 1700000000000})
 
+(def ^:private operator-actor {:kind :actor-kind-operator :principal-id "ops"})
+
 (deftest invitation-record-round-trip-test
-  (testing "a pending invitation carries no reason and no accepting user"
+  (testing "a pending invitation carries no reason and no transition"
     (is (= pending-invitation
            (SUT/pb->Invitation (SUT/Invitation->pb pending-invitation))))
     (is (some? (SUT/Invitation->java pending-invitation))))
-  (testing "an operator's accepted invitation keeps both"
-    (let [accepted
-          (assoc pending-invitation
-                 :status :invitation-status-accepted
-                 :invited-by {:kind :actor-kind-operator :principal-id "ops"}
-                 :reason "Support ticket 42"
-                 :accepted-by-user-id "usr.01kprbmgcj35ptc8npmybhh4t3")]
-      (is (= accepted (SUT/pb->Invitation (SUT/Invitation->pb accepted)))))))
+  (testing "an operator's resent, then accepted, invitation keeps each act"
+    (let [accepted (assoc pending-invitation
+                          :status :invitation-status-accepted
+                          :created-by operator-actor
+                          :reason "Support ticket 42"
+                          :resent-at 1700000000100
+                          :resent-by operator-actor
+                          :accepted-at 1700000000200
+                          :accepted-by {:kind :actor-kind-member
+                                        :principal-id
+                                        "usr.01kprbmgcj35ptc8npmybhh4t3"})]
+      (is (= accepted (SUT/pb->Invitation (SUT/Invitation->pb accepted))))))
+  (testing "a withdrawn invitation keeps who withdrew it and why"
+    (let [withdrawn (assoc pending-invitation
+                           :status :invitation-status-withdrawn
+                           :withdrawn-at 1700000000300
+                           :withdrawn-by operator-actor
+                           :withdrawn-reason "Sent to the wrong address")]
+      (is (= withdrawn (SUT/pb->Invitation (SUT/Invitation->pb withdrawn)))))))
 
-(deftest access-event-record-round-trip-test
-  (testing "a role change carries the roles either side"
-    (let [event {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-                 :access-event-id "aev.01kprbmgcj35ptc8npmybhh4t4"
-                 :kind :access-event-kind-role-changed
-                 :actor member-actor
-                 :subject-user-id "usr.01kprbmgcj35ptc8npmybhh4t3"
-                 :membership-id "mem.01kprbmgcj35ptc8npmybhh4t5"
-                 :role-before :role-viewer
-                 :role-after :role-admin
-                 :occurred-at 1700000000000}]
-      (is (= event (SUT/pb->AccessEvent (SUT/AccessEvent->pb event))))
-      (is (some? (SUT/AccessEvent->java event)))))
-  (testing "a bank's creation carries only what it has"
-    (let [event {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-                 :access-event-id "aev.01kprbmgcj35ptc8npmybhh4t6"
-                 :kind :access-event-kind-bank-created
-                 :actor {:kind :actor-kind-operator :principal-id "ops"}
-                 :occurred-at 1700000000000}]
-      (is (= event (SUT/pb->AccessEvent (SUT/AccessEvent->pb event)))))))
+(deftest membership-role-change-record-round-trip-test
+  (let [change {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+                :membership-id "mem.01kprbmgcj35ptc8npmybhh4t5"
+                :role-change-id "rch.01kprbmgcj35ptc8npmybhh4t4"
+                :role-before :role-viewer
+                :role-after :role-admin
+                :created-at 1700000000000
+                :created-by member-actor}]
+    (testing "a role change carries the roles either side and who moved it"
+      (is (= change
+             (SUT/pb->MembershipRoleChange (SUT/MembershipRoleChange->pb
+                                            change))))
+      (is (some? (SUT/MembershipRoleChange->java change))))
+    (testing "and the reason when one was given"
+      (let [with-reason (assoc change :reason "Leads the team")]
+        (is (= with-reason
+               (SUT/pb->MembershipRoleChange (SUT/MembershipRoleChange->pb
+                                              with-reason))))))))
 
 (deftest email-delivery-record-round-trip-test
   (testing "a pending delivery carries no message id, send or failure"

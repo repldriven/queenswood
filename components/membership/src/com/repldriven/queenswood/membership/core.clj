@@ -55,18 +55,6 @@
           []
           memberships))
 
-(defn- invitation-event
-  [invitation kind actor details now]
-  (let [{:keys [bank-id invitation-id email role]} invitation]
-    (domain/new-access-event bank-id
-                             kind
-                             actor
-                             (merge {:invitation-id invitation-id
-                                     :email email
-                                     :role-after role}
-                                    details)
-                             now)))
-
 (defn new-membership
   [txn {:keys [user-id bank-id role actor]}]
   (store/transact
@@ -82,26 +70,6 @@
          membership)))
    :membership/new
    "Failed to create membership"))
-
-(defn record-bank-created
-  [txn bank-id {:keys [actor membership reason] :as opts}]
-  (store/transact
-   txn
-   (fn [txn]
-     (let [now (clock opts)
-           event (domain/new-access-event
-                  bank-id
-                  :access-event-kind-bank-created
-                  actor
-                  {:subject-user-id (:user-id membership)
-                   :membership-id (:membership-id membership)
-                   :role-after (:role membership)
-                   :reason reason}
-                  now)]
-       (let-nom> [_ (store/save-access-event txn event)]
-         event)))
-   :access-event/bank-created
-   "Failed to record bank creation"))
 
 (defn invite
   [txn bank-id {:keys [email role]} {:keys [actor reason] :as opts}]
@@ -121,56 +89,41 @@
                                              :member-emails emails
                                              :invitations invitations}
                                             now)
-          _ (store/save-invitation txn invitation invitation-created)
-          _ (store/save-access-event
-             txn
-             (invitation-event invitation
-                               :access-event-kind-invitation-created
-                               actor
-                               {:reason reason}
-                               now))]
+          _ (store/save-invitation txn invitation invitation-created)]
          (as-read invitation now))))
    :invitation/invite
    "Failed to create invitation"))
 
 (defn accept
-  [txn invitation-id proof {:keys [user-id reason] :as opts}]
+  [txn invitation-id proof {:keys [user-id] :as opts}]
   (store/transact
    txn
    (fn [txn]
-     (let [now (clock opts)]
+     (let [now (clock opts)
+           actor (member-actor user-id)]
        (let-nom>
          [invitation (q/get-invitation-record-for-recipient txn
                                                             invitation-id
                                                             proof)
           members (q/list-active-by-bank txn (:bank-id invitation))
           accepted (domain/accept-invitation invitation
-                                             user-id
+                                             actor
                                              {:active-memberships members}
                                              now)
           membership (domain/new-membership {:user-id user-id
                                              :bank-id (:bank-id accepted)
                                              :role (:role accepted)
                                              :invitation-id invitation-id
-                                             :actor (member-actor user-id)}
+                                             :actor actor}
                                             now)
           _ (store/save-invitation txn accepted)
-          _ (store/save-membership txn membership)
-          _ (store/save-access-event
-             txn
-             (invitation-event accepted
-                               :access-event-kind-invitation-accepted
-                               (member-actor user-id)
-                               {:subject-user-id user-id
-                                :membership-id (:membership-id membership)
-                                :reason reason}
-                               now))]
+          _ (store/save-membership txn membership)]
          membership)))
    :invitation/accept
    "Failed to accept invitation"))
 
 (defn decline
-  [txn invitation-id proof {:keys [user-id reason] :as opts}]
+  [txn invitation-id proof {:keys [user-id] :as opts}]
   (store/transact
    txn
    (fn [txn]
@@ -179,59 +132,40 @@
          [invitation (q/get-invitation-record-for-recipient txn
                                                             invitation-id
                                                             proof)
-          declined (domain/decline-invitation invitation now)
-          _ (store/save-invitation txn declined)
-          _ (store/save-access-event
-             txn
-             (invitation-event declined
-                               :access-event-kind-invitation-declined
-                               (member-actor user-id)
-                               {:subject-user-id user-id :reason reason}
-                               now))]
+          declined (domain/decline-invitation invitation
+                                              (member-actor user-id)
+                                              now)
+          _ (store/save-invitation txn declined)]
          (as-read declined now))))
    :invitation/decline
    "Failed to decline invitation"))
 
 (defn withdraw
-  [txn bank-id invitation-id {:keys [actor reason] :as opts}]
+  [txn bank-id invitation-id {:keys [actor] :as opts}]
   (store/transact
    txn
    (fn [txn]
      (let [now (clock opts)]
        (let-nom>
          [invitation (q/get-invitation-record txn bank-id invitation-id)
-          withdrawn (domain/withdraw-invitation invitation now)
+          withdrawn (domain/withdraw-invitation invitation opts now)
           _ (domain/check-grant :invite actor {:role (:role invitation)})
-          _ (store/save-invitation txn withdrawn)
-          _ (store/save-access-event
-             txn
-             (invitation-event withdrawn
-                               :access-event-kind-invitation-withdrawn
-                               actor
-                               {:reason reason}
-                               now))]
+          _ (store/save-invitation txn withdrawn)]
          (as-read withdrawn now))))
    :invitation/withdraw
    "Failed to withdraw invitation"))
 
 (defn resend
-  [txn bank-id invitation-id {:keys [actor reason] :as opts}]
+  [txn bank-id invitation-id {:keys [actor] :as opts}]
   (store/transact
    txn
    (fn [txn]
      (let [now (clock opts)]
        (let-nom>
          [invitation (q/get-invitation-record txn bank-id invitation-id)
-          resent (domain/resend-invitation invitation now)
+          resent (domain/resend-invitation invitation actor now)
           _ (domain/check-grant :invite actor {:role (:role invitation)})
-          _ (store/save-invitation txn resent invitation-resent)
-          _ (store/save-access-event
-             txn
-             (invitation-event resent
-                               :access-event-kind-invitation-resent
-                               actor
-                               {:reason reason}
-                               now))]
+          _ (store/save-invitation txn resent invitation-resent)]
          (as-read resent now))))
    :invitation/resend
    "Failed to resend invitation"))
@@ -253,20 +187,8 @@
    :invitation/record-token
    "Failed to record invitation token"))
 
-(defn- membership-event
-  [membership kind actor details now]
-  (let [{:keys [bank-id membership-id user-id role]} membership]
-    (domain/new-access-event bank-id
-                             kind
-                             actor
-                             (merge {:subject-user-id user-id
-                                     :membership-id membership-id
-                                     :role-before role}
-                                    details)
-                             now)))
-
 (defn change-role
-  [txn bank-id membership-id role {:keys [actor reason] :as opts}]
+  [txn bank-id membership-id role {:keys [actor] :as opts}]
   (store/transact
    txn
    (fn [txn]
@@ -283,13 +205,9 @@
           _ (when-not unchanged?
               (store/save-membership txn changed))
           _ (when-not unchanged?
-              (store/save-access-event
+              (store/save-role-change
                txn
-               (membership-event membership
-                                 :access-event-kind-role-changed
-                                 actor
-                                 {:role-after role :reason reason}
-                                 now)))]
+               (domain/new-role-change membership role opts now)))]
          changed)))
    :membership/change-role
    "Failed to change role"))
@@ -306,22 +224,16 @@
           ended (domain/end-membership membership
                                        :remove
                                        {:actor actor
-                                        :active-memberships members}
+                                        :active-memberships members
+                                        :reason reason}
                                        now)
-          _ (store/save-membership txn ended)
-          _ (store/save-access-event
-             txn
-             (membership-event membership
-                               :access-event-kind-member-removed
-                               actor
-                               {:reason reason}
-                               now))]
+          _ (store/save-membership txn ended)]
          ended)))
    :membership/remove
    "Failed to remove member"))
 
 (defn leave
-  [txn membership-id {:keys [user-id reason] :as opts}]
+  [txn membership-id {:keys [user-id] :as opts}]
   (store/transact
    txn
    (fn [txn]
@@ -335,14 +247,7 @@
                                        {:actor actor
                                         :active-memberships members}
                                        now)
-          _ (store/save-membership txn ended)
-          _ (store/save-access-event
-             txn
-             (membership-event membership
-                               :access-event-kind-member-left
-                               actor
-                               {:reason reason}
-                               now))]
+          _ (store/save-membership txn ended)]
          ended)))
    :membership/leave
    "Failed to leave"))

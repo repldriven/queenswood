@@ -473,10 +473,6 @@ stores:
     record-type: Invitation
     primary-key: [bank_id, invitation_id]
     indexes:
-      - name: Invitation_by_bank
-        added: 1
-        modified: 1
-        field: bank_id
       - name: Invitation_by_email
         added: 1
         modified: 1
@@ -486,9 +482,9 @@ stores:
         modified: 1
         field: token_hash
         unique: true
-  access-events:
-    record-type: AccessEvent
-    primary-key: [bank_id, access_event_id]
+  membership-role-changes:
+    record-type: MembershipRoleChange
+    primary-key: [bank_id, membership_id, role_change_id]
     indexes: []
   email-deliveries:
     record-type: EmailDelivery

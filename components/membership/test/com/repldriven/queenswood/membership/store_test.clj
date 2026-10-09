@@ -1,9 +1,9 @@
 (ns com.repldriven.queenswood.membership.store-test
   "The three access records against a real record store (AC-02): a
   membership is found through its bank and its user and no other, an
-  invitation and an access event round-trip, every invitation index
+  invitation and a role change round-trip, every invitation index
   answers, a second invitation under a taken token hash is refused, and
-  one bank's history pages newest first without repeats or gaps. An
+  a role change reads back as its own bank's history. An
   invitation saved under an event name co-commits one changelog entry,
   and one saved without writes none. Reads go through
   `membership-query`.
@@ -47,22 +47,11 @@
    :status status
    :token-hash token-hash
    :expires-at 1700604800000
-   :invited-by owner-actor
    :created-at created-at
+   :created-by owner-actor
    :updated-at created-at})
 
-(defn- access-event
-  [bank-id access-event-id]
-  {:bank-id bank-id
-   :access-event-id access-event-id
-   :kind :access-event-kind-role-changed
-   :actor owner-actor
-   :subject-user-id "usr.subject"
-   :membership-id "mem.subject"
-   :role-before :role-viewer
-   :role-after :role-admin
-   :reason "Promoted"
-   :occurred-at 1700000000000})
+(def ^:private accepter {:kind :actor-kind-member :principal-id "usr.accepted"})
 
 (deftest membership-is-scoped-by-its-bank-and-its-user-test
   (with-test-system
@@ -94,11 +83,18 @@
                                          config
                                          "usr.other"
                                          "mem.scoped")))))
-                 _ (SUT/save-membership config
-                                        (assoc membership
-                                               :status :membership-status-ended
-                                               :ended-at 1700000001000
-                                               :ended-by owner-actor))
+                 _ (SUT/save-membership
+                    config
+                    (assoc membership
+                           :status :membership-status-removed
+                           :ended-at 1700000001000
+                           :ended-by owner-actor
+                           :ended-reason "Left the company"))
+                 ended (q/find-by-id config bank-id "mem.scoped")
+                 _ (testing "an ended membership keeps how, by whom and why"
+                     (is (= :membership-status-removed (:status ended)))
+                     (is (= owner-actor (:ended-by ended)))
+                     (is (= "Left the company" (:ended-reason ended))))
                  active (q/list-active-by-bank config bank-id)
                  listed (q/list-by-bank config bank-id)
                  by-user (q/list-active-by-user config "usr.scoped")
@@ -118,13 +114,14 @@
      (nom-test> [_ (SUT/save-invitation config
                                         (assoc pending
                                                :reason "Joining the team"
-                                               :accepted-by-user-id
-                                               "usr.accepted"))
+                                               :accepted-at created-at
+                                               :accepted-by accepter))
                  loaded (q/get-invitation-record config bank-id "inv.store.1")
                  _ (testing "an invitation round-trips through the trio"
                      (is (= (assoc pending
                                    :reason "Joining the team"
-                                   :accepted-by-user-id "usr.accepted")
+                                   :accepted-at created-at
+                                   :accepted-by accepter)
                             loaded)))
                  _ (SUT/save-invitation config pending)
                  loaded (q/get-invitation-record config bank-id "inv.store.1")
@@ -237,45 +234,39 @@
                            "inv.changelog.1:1700700000000"]
                           (mapv :dedup-key @seen))))]))))
 
-(deftest access-events-page-newest-first-test
+(deftest role-change-round-trips-test
   (with-test-system
    [sys config-file]
    (let [config (fdb-config sys)
          bank-id "bnk.store.history"
-         ids (mapv #(format "aev.01J00000000000000000000%03d" %) (range 5))]
-     (nom-test> [_ (SUT/save-access-event config
-                                          (access-event bank-id (first ids)))
-                 loaded (q/list-access-events config bank-id {})
-                 _ (testing "an access event round-trips through the trio"
-                     (is (= [(access-event bank-id (first ids))]
-                            (:access-events loaded))))
-                 _ (doseq [id (rest ids)]
-                     (SUT/save-access-event config (access-event bank-id id)))
-                 _ (SUT/save-access-event config
-                                          (access-event
-                                           "bnk.store.other"
-                                           "aev.01J00000000000000000000999"))
-                 first-page (q/list-access-events config bank-id {:limit 2})
-                 second-page (q/list-access-events config
-                                                   bank-id
-                                                   {:limit 2
-                                                    :after (:after first-page)})
-                 last-page (q/list-access-events config
-                                                 bank-id
-                                                 {:limit 2
-                                                  :after (:after second-page)})
-                 _ (testing
-                     "one bank's events scan newest first, a page at a time"
-                     (is (= (take 2 (rseq ids))
-                            (map :access-event-id (:access-events first-page))))
-                     (is (= (take 2 (drop 2 (rseq ids)))
-                            (map :access-event-id
-                                 (:access-events second-page))))
-                     (is (= [(first ids)]
-                            (map :access-event-id (:access-events last-page))))
-                     (is (nil? (:after last-page))))
-                 _ (testing
-                     "and the pages together are the bank's events, once each"
-                     (is (= (rseq ids)
-                            (mapcat #(map :access-event-id (:access-events %))
-                             [first-page second-page last-page]))))]))))
+         change {:bank-id bank-id
+                 :membership-id "mem.subject"
+                 :role-change-id "rch.01j00000000000000000000001"
+                 :role-before :role-viewer
+                 :role-after :role-admin
+                 :reason "Promoted"
+                 :created-at created-at
+                 :created-by owner-actor}]
+     (nom-test> [_ (SUT/save-role-change config change)
+                 _ (SUT/save-role-change
+                    config
+                    (assoc change :bank-id "bnk.store.other"))
+                 found (q/list-access-events config
+                                             {:bank-id bank-id
+                                              :created-at 0
+                                              :created-by owner-actor})
+                 _ (testing "a role change reads back as its bank's history"
+                     (is (= [:access-event-kind-role-changed
+                             :access-event-kind-bank-created]
+                            (mapv :kind found)))
+                     (is (= {:kind :access-event-kind-role-changed
+                             :actor owner-actor
+                             :membership-id "mem.subject"
+                             :role-before :role-viewer
+                             :role-after :role-admin
+                             :reason "Promoted"
+                             :occurred-at created-at}
+                            (select-keys (first found)
+                                         [:kind :actor :membership-id
+                                          :role-before :role-after :reason
+                                          :occurred-at]))))]))))

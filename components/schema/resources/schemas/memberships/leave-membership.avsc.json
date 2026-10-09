@@ -11,14 +11,6 @@
     {
       "name": "user_id",
       "type": "string"
-    },
-    {
-      "name": "reason",
-      "type": [
-        "null",
-        "string"
-      ],
-      "default": null
     }
   ]
 }

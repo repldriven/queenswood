@@ -7,7 +7,7 @@
 
 (def ^:private memberships-store-name "memberships")
 (def ^:private invitations-store-name "invitations")
-(def ^:private access-events-store-name "access-events")
+(def ^:private role-changes-store-name "membership-role-changes")
 
 (def transact fdb/transact)
 
@@ -133,22 +133,37 @@
 (def ^:private closed-statuses
   #{:invitation-status-declined :invitation-status-withdrawn})
 
-(defn list-invitations-by-bank
+(defn list-all-invitations-by-bank
   [txn bank-id]
   (fdb/transact txn
                 (fn [txn]
-                  (into []
-                        (comp (map schema/pb->Invitation)
-                              (remove #(contains? closed-statuses
-                                                  (:status %))))
-                        (fdb/query-records
-                         (fdb/open txn invitations-store-name)
-                         "Invitation"
-                         "bank_id"
-                         bank-id
-                         {:index "Invitation_by_bank"})))
+                  (mapv schema/pb->Invitation
+                        (fdb/query-records (fdb/open txn invitations-store-name)
+                                           "Invitation"
+                                           "bank_id"
+                                           bank-id)))
                 :invitation/list-by-bank
                 "Failed to list invitations by bank"))
+
+(defn list-invitations-by-bank
+  [txn bank-id]
+  (let-nom> [invitations (list-all-invitations-by-bank txn bank-id)]
+    (into []
+          (remove #(contains? closed-statuses (:status %)))
+          invitations)))
+
+(defn list-role-changes-by-bank
+  [txn bank-id]
+  (fdb/transact txn
+                (fn [txn]
+                  (mapv schema/pb->MembershipRoleChange
+                        (fdb/query-records
+                         (fdb/open txn role-changes-store-name)
+                         "MembershipRoleChange"
+                         "bank_id"
+                         bank-id)))
+                :membership/list-role-changes
+                "Failed to list role changes"))
 
 (defn- open-invitations
   [entries]
@@ -195,25 +210,3 @@
                            (:key (peek page)))}))))))
      :invitation/list-by-bank
      "Failed to list invitations by bank")))
-
-(defn scan-access-events
-  [txn bank-id opts]
-  (let [{:keys [after before limit order]
-         :or {limit 100 order :desc}}
-        opts]
-    (let-nom>
-      [result (fdb/transact txn
-                            (fn [txn]
-                              (fdb/scan-records
-                               (fdb/open txn access-events-store-name)
-                               {:prefix [bank-id]
-                                :after after
-                                :before before
-                                :limit limit
-                                :order order}))
-                            :access-event/list
-                            "Failed to list access events")
-       {:keys [records before after]} result]
-      {:access-events (mapv schema/pb->AccessEvent records)
-       :before before
-       :after after})))

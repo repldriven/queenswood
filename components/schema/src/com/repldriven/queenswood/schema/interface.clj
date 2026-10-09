@@ -99,14 +99,13 @@
      UserProto$IdentityProvider
      UserProto$UserStatus)
     (com.repldriven.queenswood.schemas.memberships
-     AccessEventProto$AccessEvent
-     AccessEventProto$AccessEventKind
      ActorProto$ActorKind
      InvitationProto$Invitation
      InvitationProto$InvitationStatus
      MembershipProto$Membership
      MembershipProto$MembershipStatus
-     MembershipProto$Role)
+     MembershipProto$Role
+     MembershipRoleChangeProto$MembershipRoleChange)
     (com.repldriven.queenswood.schemas.webhooks
      WebhookDeliveryProto$WebhookDelivery
      WebhookDeliveryAttemptProto$WebhookDeliveryAttempt
@@ -1314,12 +1313,13 @@
   (UserProto$UserStatus/forNumber
    (user-status->int user-status)))
 
-(def ^:private membership-unset {:ended-at 0 :ended-by nil :invitation-id ""})
+(def ^:private membership-unset
+  {:ended-at 0 :ended-by nil :ended-reason "" :invitation-id ""})
 
 (defn pb->Membership
   "Parse Membership protobuf bytes into a Clojure map. `ended-at`,
-  `ended-by` and `invitation-id` are present only when set, and
-  `created-by` and `ended-by` are plain maps.
+  `ended-by`, `ended-reason` and `invitation-id` are present only when
+  set, and `created-by` and `ended-by` are plain maps.
 
   Args:
   - input: protobuf bytes."
@@ -1383,19 +1383,32 @@
   [actor-kind]
   (ActorProto$ActorKind/forNumber (actor-kind->int actor-kind)))
 
-(def ^:private invitation-unset {:accepted-by-user-id "" :reason ""})
+(def ^:private invitation-unset
+  {:reason ""
+   :withdrawn-reason ""
+   :accepted-at 0
+   :accepted-by nil
+   :declined-at 0
+   :declined-by nil
+   :withdrawn-at 0
+   :withdrawn-by nil
+   :resent-at 0
+   :resent-by nil})
+
+(def ^:private invitation-actors
+  [:created-by :accepted-by :declined-by :withdrawn-by :resent-by])
 
 (defn pb->Invitation
-  "Parse Invitation protobuf bytes into a Clojure map. `reason` and
-  `accepted-by-user-id` are present only when set, and `invited-by` is a
-  plain map.
+  "Parse Invitation protobuf bytes into a Clojure map. The reasons and
+  each transition's `_at` and `_by` are present only when set, and every
+  `_by` is a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (-> (memberships/pb->Invitation input)
-      (without-unset invitation-unset)
-      (plain-embedded :invited-by)))
+  (reduce plain-embedded
+          (without-unset (memberships/pb->Invitation input) invitation-unset)
+          invitation-actors))
 
 (defn Invitation->pb
   "Serialise an Invitation map to protobuf bytes.
@@ -1427,59 +1440,34 @@
   (InvitationProto$InvitationStatus/forNumber
    (invitation-status->int invitation-status)))
 
-(def ^:private access-event-unset
-  {:email ""
-   :invitation-id ""
-   :membership-id ""
-   :reason ""
-   :role-after :role-unknown
-   :role-before :role-unknown
-   :subject-user-id ""})
-
-(defn pb->AccessEvent
-  "Parse AccessEvent protobuf bytes into a Clojure map. Of the fields a
-  kind sets only where it has one — `subject-user-id`, `membership-id`,
-  `invitation-id`, `email`, `role-before`, `role-after` and `reason` —
-  each is present only when set, and `actor` is a plain map.
+(defn pb->MembershipRoleChange
+  "Parse MembershipRoleChange protobuf bytes into a Clojure map. `reason`
+  is present only when set, and `created-by` is a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (-> (memberships/pb->AccessEvent input)
-      (without-unset access-event-unset)
-      (plain-embedded :actor)))
+  (-> (memberships/pb->MembershipRoleChange input)
+      (without-unset {:reason ""})
+      (plain-embedded :created-by)))
 
-(defn AccessEvent->pb
-  "Serialise an AccessEvent map to protobuf bytes. `:kind` is required:
-  the generated default for an absent one is not
-  `:access-event-kind-unknown`.
+(defn MembershipRoleChange->pb
+  "Serialise a MembershipRoleChange map to protobuf bytes.
 
   Args:
-  - m: AccessEvent map matching the generated schema."
+  - m: MembershipRoleChange map matching the generated schema."
   [m]
-  (proto/->pb (memberships/new-AccessEvent m)))
+  (proto/->pb (memberships/new-MembershipRoleChange m)))
 
-(defn AccessEvent->java
-  "Parse an AccessEvent map into the generated Java protobuf class.
+(defn MembershipRoleChange->java
+  "Parse a MembershipRoleChange map into the generated Java protobuf
+  class.
 
   Args:
-  - m: AccessEvent map matching the generated schema."
+  - m: MembershipRoleChange map matching the generated schema."
   [m]
-  (AccessEventProto$AccessEvent/parseFrom (AccessEvent->pb m)))
-
-(def ^{:doc "Map of AccessEventKind label to protobuf int value."}
-     access-event-kind->int
-  memberships/AccessEventKind-label2val)
-
-(defn access-event-kind->pb-enum
-  "Convert an access-event-kind keyword to the protobuf enum value, for
-  use in FDB index queries.
-
-  Args:
-  - access-event-kind: `:access-event-kind-*` keyword."
-  [access-event-kind]
-  (AccessEventProto$AccessEventKind/forNumber
-   (access-event-kind->int access-event-kind)))
+  (MembershipRoleChangeProto$MembershipRoleChange/parseFrom
+   (MembershipRoleChange->pb m)))
 
 (defn pb->WebhookEndpoint
   "Parse WebhookEndpoint protobuf bytes into a Clojure map. Drops

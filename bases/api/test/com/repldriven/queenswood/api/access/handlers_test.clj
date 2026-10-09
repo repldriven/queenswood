@@ -110,8 +110,8 @@
    :role :role-developer
    :status :invitation-status-pending
    :expires-at 1779955200000
-   :invited-by actor
    :created-at 1779350400000
+   :created-by actor
    :updated-at 1779350400000})
 
 (defn- invite-as

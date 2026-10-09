@@ -1,7 +1,7 @@
 (ns ^:eftest/synchronized com.repldriven.queenswood.bank.interface-test
-  "What the API scenario suite can't see: that the owner membership, the
-  bank-created access event and the owner invitation commit atomically
-  with the bank, that a failure after the last write rolls every earlier
+  "What the API scenario suite can't see: that the owner membership and
+  the owner invitation commit atomically with the bank, the bank's
+  creation leading its access history, that a failure after the last write rolls every earlier
   write back, that the service-account client is created only once the
   bank has committed and a create sent again issues one that failed, and
   that the changelog separates a status change from a tier change. Creating a bank over the bus, its providers, and changing
@@ -80,16 +80,16 @@
 
 (def ^:private ^:dynamic *fail-bank-created?* false)
 
-(def ^:private real-record-bank-created memberships/record-bank-created)
+(def ^:private real-new-membership memberships/new-membership)
 
-(defn- probed-record-bank-created
-  [txn-or-config bank-id opts]
+(defn- probed-new-membership
+  [txn-or-config input]
   (if-let [created *created-bank-id*]
-    (do (reset! created bank-id)
+    (do (reset! created (:bank-id input))
         (if *fail-bank-created?*
           (error/fail :test/injected {:message "Injected after every write"})
-          (real-record-bank-created txn-or-config bank-id opts)))
-    (real-record-bank-created txn-or-config bank-id opts)))
+          (real-new-membership txn-or-config input)))
+    (real-new-membership txn-or-config input)))
 
 (deftest create-bank-schema-test
   (let [create-schema (avro/json->schema
@@ -133,8 +133,8 @@
          membership {:user-id user-id :role :role-owner}
          person {:kind :actor-kind-member :principal-id user-id}]
      (testing
-       "creates the bank, owner membership and bank-created event in one
-        transaction, the person as actor"
+       "creates the bank and owner membership in one transaction, its
+        history opening with the bank's creation, the person as actor"
        (nom-test> [{:keys [bank membership owner-invitation-id]}
                    (create-bank config
                                 idp
@@ -146,7 +146,8 @@
                    _ (is (= bank-id (:bank-id membership)))
                    _ (is (= :role-owner (:role membership)))
                    _ (is (nil? owner-invitation-id))
-                   {:keys [access-events]} (q/list-access-events config bank-id)
+                   stored (bank-query/get-bank config bank-id)
+                   access-events (q/list-access-events config stored)
                    _ (is (= [:access-event-kind-bank-created]
                             (mapv :kind access-events)))
                    _ (is (= {:kind :actor-kind-member :principal-id user-id}
@@ -177,7 +178,7 @@
          idp (identity-provider/local-provider {})
          invitation (owner-invitation "Owner@Example.com")]
      (testing
-       "writes one bank-created event and one pending owner invitation, both
+       "records the bank's creation and one pending owner invitation, both
         in the operator's name"
        (nom-test> [{:keys [bank membership owner-invitation-id]}
                    (create-bank config
@@ -194,8 +195,9 @@
                             (:status (first invitations))))
                    _ (is (= :role-owner (:role (first invitations))))
                    _ (is (= "Owner@Example.com" (:email (first invitations))))
-                   _ (is (= operator (:invited-by (first invitations))))
-                   {:keys [access-events]} (q/list-access-events config bank-id)
+                   _ (is (= operator (:created-by (first invitations))))
+                   stored (bank-query/get-bank config bank-id)
+                   access-events (q/list-access-events config stored)
                    _ (testing "newest first, so the bank-created event is older"
                        (is (= [:access-event-kind-invitation-created
                                :access-event-kind-bank-created]
@@ -222,13 +224,12 @@
          user-id "usr.rollback"
          created (atom nil)]
      (testing "a failure after the last write leaves nothing behind"
-       ;; The bank-created event is `new-bank`'s final write when no owner
+       ;; The owner membership is `new-bank`'s final write when no owner
        ;; invitation is given, so failing there leaves every other write —
-       ;; the seeded jobs and the owner membership included — behind the
-       ;; rollback. `fdb/transact` rolls its transaction back when the body
-       ;; returns an anomaly; this is the evidence.
-       (let [r (with-redefs [memberships/record-bank-created
-                             probed-record-bank-created]
+       ;; the seeded jobs included — behind the rollback. `fdb/transact`
+       ;; rolls its transaction back when the body returns an anomaly; this
+       ;; is the evidence.
+       (let [r (with-redefs [memberships/new-membership probed-new-membership]
                  (binding [*created-bank-id* created
                            *fail-bank-created?* true]
                    (SUT/new-bank
@@ -271,9 +272,8 @@
                      _ (is (empty? jobs))
                      listed (q/list-by-user config user-id)
                      _ (is (empty? listed))
-                     {:keys [access-events]} (q/list-access-events config
-                                                                   bank-id)
-                     _ (is (empty? access-events))]))))))
+                     members (q/list-by-bank config bank-id)
+                     _ (is (empty? members))]))))))
 
 (defn- failing-first-create
   "An identity-provider whose first `create-service-account` fails, as

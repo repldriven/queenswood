@@ -127,7 +127,7 @@
                             :name (:name user)
                             :email (:email user)
                             :invitation-id invitation-id
-                            :invited-by (some-> (:invited-by invitation)
+                            :invited-by (some-> (:created-by invitation)
                                                 (names/->actor names))
                             :invited-email (:email invitation)))))
 
@@ -160,7 +160,7 @@
                                      found)
              names (names/user-names (lookup txn)
                                      (names/actor-ids
-                                      (map (comp :invited-by :invitation)
+                                      (map (comp :created-by :invitation)
                                            records)))]
     (let [bank-names (into {}
                            (map (fn [bank-id] [bank-id
@@ -183,21 +183,24 @@
   [invitation names accepted-email]
   (-> (select-keys invitation
                    [:invitation-id :bank-id :email :role :status :expires-at
-                    :reason :accepted-by-user-id :created-at :updated-at])
-      (assoc :invited-by (names/->actor (:invited-by invitation) names))
-      (utility/assoc-some :accepted-email accepted-email)))
+                    :reason :created-at :updated-at])
+      (assoc :invited-by (names/->actor (:created-by invitation) names))
+      (utility/assoc-some :accepted-by-user-id
+                          (get-in invitation [:accepted-by :principal-id])
+                          :accepted-email accepted-email)))
 
 (defn- inviter-names
   [txn invitations]
   (names/user-names (lookup txn)
-                    (names/actor-ids (map :invited-by invitations))))
+                    (names/actor-ids (map :created-by invitations))))
 
 (defn- invitations
   [txn found]
   (let-nom> [accepted (all-or-anomaly (fn [invitation]
                                         (find-user txn
-                                                   (:accepted-by-user-id
-                                                    invitation)))
+                                                   (get-in invitation
+                                                           [:accepted-by
+                                                            :principal-id])))
                                       found)
              names (inviter-names txn found)]
     (mapv (fn [invitation user] (->invitation invitation names (:email user)))
@@ -210,7 +213,7 @@
                    [:invitation-id :bank-id :email :role :status :expires-at
                     :created-at])
       (assoc :invited-by
-             (names/->actor (:invited-by invitation)
+             (names/->actor (:created-by invitation)
                             names
                             (or bank-name names/platform-name)))
       (utility/assoc-some :bank-name bank-name)))
@@ -218,7 +221,7 @@
 (defn- recipient-invitations
   [txn found]
   (let-nom> [names (names/recipient-names (lookup txn)
-                                          (names/actor-ids (map :invited-by
+                                          (names/actor-ids (map :created-by
                                                                 found)))]
     (mapv (fn [invitation]
             (->recipient-invitation invitation
@@ -517,16 +520,13 @@
                           (get names (:subject-user-id access-event)))))
 
 (defn- audit-events
-  [txn found]
-  (let [{:keys [access-events]} found]
-    (let-nom> [names (names/user-names
-                      (lookup txn)
-                      (concat (names/actor-ids (map :actor access-events))
-                              (keep :subject-user-id access-events)))]
-      (assoc found
-             :access-events
-             (mapv (fn [access-event] (->audit-event access-event names))
-                   access-events)))))
+  [txn access-events]
+  (let-nom> [names (names/user-names
+                    (lookup txn)
+                    (concat (names/actor-ids (map :actor access-events))
+                            (keep :subject-user-id access-events)))]
+    (mapv (fn [access-event] (->audit-event access-event names))
+          access-events)))
 
 (defn list-audit-events
   [request]
@@ -534,13 +534,12 @@
         {:keys [bank-id]} auth
         {:keys [page]} (:query parameters)
         txn (config request)]
-    (respond (let-nom> [found (memberships/list-access-events
-                               txn
-                               bank-id
-                               (cursor/page-opts page))
-                        named (audit-events txn found)]
-               (cursor/page-body audit-events-path
-                                 page
-                                 (:access-events named)
-                                 named))
+    (respond (let-nom> [bank (banks/get-bank txn bank-id)
+                        access-events (memberships/list-access-events txn bank)
+                        windowed (cursor/window access-events
+                                                :access-event-id
+                                                :desc
+                                                page)
+                        named (audit-events txn (:page windowed))]
+               (cursor/page-body audit-events-path page named windowed))
              ok)))
