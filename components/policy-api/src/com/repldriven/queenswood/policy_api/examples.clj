@@ -29,7 +29,7 @@
   {:policy-id PolicyId
    :name "Platform policy"
    :description "Platform policy - all capabilities and safety limits"
-   :enabled true
+   :status :active
    :category "restricted"
    :capabilities [Capability]
    :limits [Limit]

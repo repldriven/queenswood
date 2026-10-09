@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.scheduler.domain-test
-  "Pure-function tests for the scheduler domain: per-task periodicity
-  constraints, the job-allowed intersection, periodicity→cron, the
-  expected-end estimate, and the period a run holds. No FDB, no
+  "Pure-function tests for the scheduler domain: what each task's
+  cadence allows a schedule, what a system job's edits may change, the
+  expected-end estimate, and the fire a run holds. No FDB, no
   scheduler."
   (:require
     [com.repldriven.queenswood.scheduler.domain :as SUT]
@@ -10,77 +10,44 @@
 
     [clojure.test :refer [deftest is testing]]))
 
-(deftest job-allowed-periods-test
-  (testing "accrue is daily-only"
-    (is (= #{:scheduler-periodicity-daily}
-           (SUT/job-allowed-periods [:scheduler-task-kind-accrue]))))
-  (testing "capitalize allows daily/monthly/yearly, and never hourly"
-    (is (= SUT/daily-or-longer
-           (SUT/job-allowed-periods [:scheduler-task-kind-capitalize])))
-    (is (not (contains? (SUT/job-allowed-periods
-                         [:scheduler-task-kind-capitalize])
-                        :scheduler-periodicity-hourly))))
-  (testing "hourly is a periodicity, so a task may allow it"
-    (is (contains? SUT/all-periods :scheduler-periodicity-hourly)))
-  (testing "a sequence is the intersection — accrue narrows the job to daily"
-    (is (= #{:scheduler-periodicity-daily}
-           (SUT/job-allowed-periods [:scheduler-task-kind-accrue
-                                     :scheduler-task-kind-capitalize]))))
-  (testing "no tasks allows nothing" (is (= #{} (SUT/job-allowed-periods [])))))
+(def ^:private noon-on-the-fifth
+  "2026-03-05T12:34:56Z, as epoch-ms."
+  1772714096000)
 
-(deftest validate-periodicity-test
-  (testing "allowed periodicity passes (nil)"
-    (is (nil? (SUT/validate-periodicity [:scheduler-task-kind-capitalize]
-                                        :scheduler-periodicity-monthly))))
-  (testing "disallowed periodicity rejects"
-    (let [result (SUT/validate-periodicity [:scheduler-task-kind-accrue
-                                            :scheduler-task-kind-capitalize]
-                                           :scheduler-periodicity-monthly)]
-      (is (error/rejection? result))
-      (is (= :scheduler/periodicity-not-allowed (error/kind result))))))
+(def ^:private daily "0 0 17 * * ?")
 
-(deftest validate-run-time-test
-  (testing "an hourly run time is the minute past the hour"
-    (is (nil? (SUT/validate-run-time :scheduler-periodicity-hourly 59))))
-  (testing "sixty minutes past the hour names no minute"
-    (let [result (SUT/validate-run-time :scheduler-periodicity-hourly 60)]
-      (is (error/rejection? result))
-      (is (= :scheduler/run-time-not-allowed (error/kind result)))))
-  (testing "a daily run time is minutes past midnight, under a day"
-    (is (nil? (SUT/validate-run-time :scheduler-periodicity-daily 1439)))
-    (is (error/rejection? (SUT/validate-run-time :scheduler-periodicity-daily
-                                                 1440))))
-  (testing "a negative or missing run time is refused"
-    (is (error/rejection? (SUT/validate-run-time :scheduler-periodicity-daily
-                                                 -1)))
-    (is (error/rejection? (SUT/validate-run-time :scheduler-periodicity-daily
-                                                 nil)))))
+(defn- refusal
+  [task-kinds schedule]
+  (error/kind (SUT/validate-schedule task-kinds schedule noon-on-the-fifth)))
 
-(deftest ->cron-test
-  (testing "hourly fires every hour at that minute past it"
-    (is (= "0 15 * * * ?" (SUT/->cron :scheduler-periodicity-hourly 15)))
-    (is (= "0 0 * * * ?" (SUT/->cron :scheduler-periodicity-hourly 0))))
-  (testing "run-time-minutes splits into hour/minute; 120 = 02:00"
-    (is (= "0 0 2 * * ?" (SUT/->cron :scheduler-periodicity-daily 120))))
-  (testing "monthly defaults to the 1st"
-    (is (= "0 30 6 1 * ?" (SUT/->cron :scheduler-periodicity-monthly 390))))
-  (testing "monthly first day is explicit day 1"
-    (is (= "0 30 6 1 * ?"
-           (SUT/->cron :scheduler-periodicity-monthly
-                       390
-                       :scheduler-monthly-day-first))))
-  (testing "monthly last day uses the Quartz L token"
-    (is (= "0 30 6 L * ?"
-           (SUT/->cron :scheduler-periodicity-monthly
-                       390
-                       :scheduler-monthly-day-last))))
-  (testing "an unknown monthly-day falls back to the 1st"
-    (is (= "0 30 6 1 * ?"
-           (SUT/->cron :scheduler-periodicity-monthly
-                       390
-                       :scheduler-monthly-day-unknown))))
-  (testing "yearly fires on Jan 1"
-    (is (= "0 0 0 1 1 ?" (SUT/->cron :scheduler-periodicity-yearly 0)))))
+(deftest validate-schedule-test
+  (testing "accrue runs exactly once a day"
+    (is (nil? (SUT/validate-schedule [:scheduler-task-kind-accrue]
+                                     daily
+                                     noon-on-the-fifth)))
+    (doseq [schedule ["0 0 * * * ?" "0 0 17 L * ?" "0 0 17 ? * MON-FRI"]]
+      (is (= :scheduler/periodicity-not-allowed
+             (refusal [:scheduler-task-kind-accrue] schedule))
+          schedule)))
+  (testing "capitalize runs no more than once a day"
+    (doseq [schedule [daily "0 0 17 L * ?" "0 0 17 L 3,6,9,12 ?" "0 0 0 1 1 ?"
+                      "0 30 2 ? * MON-FRI"]]
+      (is (nil? (SUT/validate-schedule [:scheduler-task-kind-capitalize]
+                                       schedule
+                                       noon-on-the-fifth))
+          schedule))
+    (is (= :scheduler/periodicity-not-allowed
+           (refusal [:scheduler-task-kind-capitalize] "0 0 * * * ?"))))
+  (testing "a job's tasks each have their say: accrue narrows it to daily"
+    (is (= :scheduler/periodicity-not-allowed
+           (refusal [:scheduler-task-kind-accrue
+                     :scheduler-task-kind-capitalize]
+                    "0 0 17 L * ?"))))
+  (testing "a schedule that will not parse, or never fires, is invalid"
+    (is (= :scheduler/invalid-schedule
+           (refusal [:scheduler-task-kind-capitalize] "every day")))
+    (is (= :scheduler/invalid-schedule
+           (refusal [:scheduler-task-kind-capitalize] "0 0 0 1 1 ? 2020")))))
 
 (deftest system?-test
   (testing "system kind is system"
@@ -91,28 +58,32 @@
     (is (not (SUT/system? {})))))
 
 (deftest validate-system-edits-test
-  (let [system {:job-id "account-migration" :kind :scheduler-job-kind-system}
-        user {:job-id "daily-interest" :kind :scheduler-job-kind-user}]
-    (testing "editing only the time of a system job is allowed (nil)"
-      (is (nil? (SUT/validate-system-edits system {:run-time-minutes 300}))))
-    (testing "a system job rejects cadence / enabled edits"
-      (doseq [edit [{:periodicity :scheduler-periodicity-daily}
-                    {:monthly-day :scheduler-monthly-day-first}
-                    {:enabled false}]]
+  (let [system {:job-id "account-migration"
+                :kind :scheduler-job-kind-system
+                :schedule "0 0 0 * * ?"}
+        user {:job-id "daily-interest"
+              :kind :scheduler-job-kind-user
+              :schedule daily}]
+    (testing "moving only the time of a system job is allowed (nil)"
+      (is (nil? (SUT/validate-system-edits system {:schedule "0 0 5 * * ?"}))))
+    (testing "a system job rejects a change of days, or of status"
+      (doseq [edit [{:schedule "0 0 0 1 * ?"}
+                    {:status :scheduler-job-status-paused}]]
         (let [result (SUT/validate-system-edits system edit)]
           (is (error/rejection? result))
           (is (= :scheduler/system-job-locked (error/kind result))))))
     (testing "a user job allows any edit (nil)"
       (is (nil? (SUT/validate-system-edits user
-                                           {:periodicity
-                                            :scheduler-periodicity-monthly
-                                            :enabled false}))))))
+                                           {:schedule "0 0 17 L * ?"
+                                            :status
+                                            :scheduler-job-status-paused}))))))
 
 (deftest expected-end-at-test
-  (testing "started-at plus the prior run's duration"
-    (is (= 1150 (SUT/expected-end-at 1000 {:started-at 100 :finished-at 250}))))
-  (testing "nil when the prior run never finished"
-    (is (nil? (SUT/expected-end-at 1000 {:started-at 100})))
+  (testing "created-at plus the prior run's duration"
+    (is (= 1150
+           (SUT/expected-end-at 1000 {:created-at 100 :completed-at 250}))))
+  (testing "nil when the prior run never completed"
+    (is (nil? (SUT/expected-end-at 1000 {:created-at 100})))
     (is (nil? (SUT/expected-end-at 1000 nil)))))
 
 (deftest task-recording-test
@@ -123,15 +94,12 @@
               :started-at 1000}
              started)))
     (testing "finishing carries the counts the pass reported"
-      ;; The pass counts accounts; the run records them as records,
-      ;; because the scheduler has no business knowing what a pass
-      ;; iterates over.
       (is (= {:label "accrue"
-              :status :scheduler-task-status-succeeded
+              :status :scheduler-task-status-completed
               :started-at 1000
               :finished-at 1600
-              :records-processed 12480
-              :records-failed 3}
+              :processed-count 12480
+              :failed-count 3}
              (SUT/finished-task started
                                 1600
                                 {:accounts-processed 12480
@@ -140,15 +108,15 @@
       (let [task (SUT/finished-task started
                                     1600
                                     {:accounts-processed 0 :accounts-failed 0})]
-        (is (= 0 (:records-processed task)))
-        (is (= 0 (:records-failed task)))))
+        (is (= 0 (:processed-count task)))
+        (is (= 0 (:failed-count task)))))
     (testing "a task with nothing to count carries no counts at all"
       ;; The migration task reports its own shape and no account
       ;; figures — better absent than a zero it never meant.
       (let [task (SUT/finished-task started 1600 {:migrated 0})]
-        (is (= :scheduler-task-status-succeeded (:status task)))
-        (is (not (contains? task :records-processed)))
-        (is (not (contains? task :records-failed)))))
+        (is (= :scheduler-task-status-completed (:status task)))
+        (is (not (contains? task :processed-count)))
+        (is (not (contains? task :failed-count)))))
     (testing "failing keeps the timings and the anomaly that stopped it"
       (let [task (SUT/failed-task started
                                   1600
@@ -156,8 +124,8 @@
                                                 {:message "no such account"}))]
         (is (= :scheduler-task-status-failed (:status task)))
         (is (= 1600 (:finished-at task)))
-        (is (string? (:error task)))
-        (is (not (contains? task :records-failed)))))
+        (is (string? (:failure-reason task)))
+        (is (not (contains? task :failed-count)))))
     (testing "an incomplete pass records the counts it carries"
       (let [task (SUT/failed-task started
                                   1600
@@ -165,8 +133,8 @@
                                               {:message "accounts failed"
                                                :accounts-processed 5
                                                :accounts-failed 4}))]
-        (is (= 5 (:records-processed task)))
-        (is (= 4 (:records-failed task)))))))
+        (is (= 5 (:processed-count task)))
+        (is (= 4 (:failed-count task)))))))
 
 (deftest skipped-tasks-test
   (testing "tasks after a failure are recorded as skipped, in order"
@@ -180,32 +148,16 @@
   (testing "nothing left to skip is an empty vector, not nil"
     (is (= [] (SUT/skipped-tasks [])))))
 
-(def ^:private noon-on-the-fifth
-  "2026-03-05T12:34:56Z, as epoch-ms."
-  1772714096000)
-
-(deftest period-start-test
-  (testing "a period begins at the top of its hour, day, month or year"
-    (is (= 1772712000000
-           (SUT/period-start :scheduler-periodicity-hourly noon-on-the-fifth)))
-    (is (= 1772668800000
-           (SUT/period-start :scheduler-periodicity-daily noon-on-the-fifth)))
-    (is (= 1772323200000
-           (SUT/period-start :scheduler-periodicity-monthly noon-on-the-fifth)))
-    (is (= 1767225600000
-           (SUT/period-start :scheduler-periodicity-yearly
-                             noon-on-the-fifth)))))
-
 (deftest period-refusal-test
-  (let [job {:job-id "daily-interest" :periodicity :scheduler-periodicity-daily}
+  (let [job {:job-id "daily-interest" :schedule "0 0 0 * * ?"}
         hour (* 60 60 1000)
-        run (fn [status started-at]
-              {:run-id "run.1" :status status :started-at started-at})]
-    (testing "a run that succeeded or is running this period refuses another"
+        run (fn [status created-at]
+              {:run-id "run.1" :status status :created-at created-at})]
+    (testing "a run that completed or is running this period refuses another"
       (is (= :scheduler/period-already-run
              (error/kind (SUT/period-refusal job
                                              [(run
-                                               :scheduler-run-status-succeeded
+                                               :scheduler-run-status-completed
                                                (- noon-on-the-fifth hour))]
                                              noon-on-the-fifth))))
       (is (= "The job is already running this period"
@@ -221,6 +173,11 @@
                                     noon-on-the-fifth))))
     (testing "a run in an earlier period refuses nothing"
       (is (nil? (SUT/period-refusal job
-                                    [(run :scheduler-run-status-succeeded
+                                    [(run :scheduler-run-status-completed
                                           (- noon-on-the-fifth (* 24 hour)))]
+                                    noon-on-the-fifth))))
+    (testing "a schedule firing twice a day has two periods a day"
+      (is (nil? (SUT/period-refusal (assoc job :schedule "0 0 0,12 * * ?")
+                                    [(run :scheduler-run-status-completed
+                                          (- noon-on-the-fifth (* 2 hour)))]
                                     noon-on-the-fifth))))))

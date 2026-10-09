@@ -1,7 +1,0 @@
-# Clears what the platform held about a person before ADR-0045, once the
-# meta-data is saved: its record-store is the meta-store, which the
-# migrator saves as it starts. Idempotent, so every deploy runs it.
-clearance: !system/component
-  system/component-kind: personal-data/clearance
-  record-db: !system/ref fdb.record-db
-  record-store: !system/ref fdb.meta-store

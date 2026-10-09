@@ -104,12 +104,7 @@
    txn
    (fn [txn]
      (fdb/save-record (fdb/open txn notifications-store-name)
-                      (schema/WebhookNotification->java
-                       (cond-> notification
-                               (nil? (:traceparent notification))
-                               (utility/assoc-some
-                                :traceparent
-                                (telemetry/inject-traceparent))))))
+                      (schema/WebhookNotification->java notification)))
    :webhook-notification/save
    "Failed to save webhook notification"))
 
@@ -125,20 +120,19 @@
    :webhook-notification/find
    "Failed to load webhook notification"))
 
-(defn find-notification-by-changelog-event-id
-  [txn changelog-event-id]
+(defn find-notification-by-idempotency-key
+  [txn bank-id idempotency-key]
   (fdb/transact
    txn
    (fn [txn]
-     (some-> (fdb/query-record
+     (some-> (fdb/query-record-compound
               (fdb/open txn notifications-store-name)
               "WebhookNotification"
-              "changelog_event_id"
-              changelog-event-id
-              {:index "WebhookNotification_by_changelog_event_id"})
+              [["bank_id" bank-id] ["idempotency_key" idempotency-key]]
+              {:index "WebhookNotification_by_idempotency_key"})
              schema/pb->WebhookNotification))
-   :webhook-notification/find-by-changelog-event-id
-   "Failed to find webhook notification by changelog event id"))
+   :webhook-notification/find-by-idempotency-key
+   "Failed to find webhook notification by idempotency key"))
 
 (defn find-notifications-by-bank
   [txn bank-id]
@@ -163,7 +157,12 @@
    txn
    (fn [txn]
      (fdb/save-record (fdb/open txn deliveries-store-name)
-                      (schema/WebhookDelivery->java delivery)))
+                      (schema/WebhookDelivery->java
+                       (cond-> delivery
+                               (nil? (:traceparent delivery))
+                               (utility/assoc-some
+                                :traceparent
+                                (telemetry/inject-traceparent))))))
    :webhook-delivery/save
    "Failed to save webhook delivery"))
 
@@ -199,16 +198,16 @@
    "Failed to find webhook deliveries by status"))
 
 (defn find-deliveries-by-endpoint
-  [txn endpoint-id]
+  [txn bank-id endpoint-id]
   (fdb/transact
    txn
    (fn [txn]
      (mapv schema/pb->WebhookDelivery
-           (fdb/query-records (fdb/open txn deliveries-store-name)
-                              "WebhookDelivery"
-                              "endpoint_id"
-                              endpoint-id
-                              {:index "WebhookDelivery_by_endpoint_created"})))
+           (fdb/query-records-compound
+            (fdb/open txn deliveries-store-name)
+            "WebhookDelivery"
+            [["bank_id" bank-id] ["endpoint_id" endpoint-id]]
+            {:index "WebhookDelivery_by_endpoint_created"})))
    :webhook-delivery/find-by-endpoint
    "Failed to find webhook deliveries by endpoint"))
 
@@ -225,29 +224,33 @@
    :webhook-delivery-attempt/save
    "Failed to save webhook delivery attempt"))
 
+(def ^:private most-attempts-read
+  "More attempts than a delivery's policy ever makes, so a read of a
+  delivery's attempts reaches its last."
+  1000)
+
 (defn find-attempt
-  [txn bank-id attempt-id]
+  [txn bank-id delivery-id attempt-id]
   (fdb/transact
    txn
    (fn [txn]
      (some-> (fdb/load-record (fdb/open txn attempts-store-name)
                               bank-id
+                              delivery-id
                               attempt-id)
              schema/pb->WebhookDeliveryAttempt))
    :webhook-delivery-attempt/find
    "Failed to load webhook delivery attempt"))
 
 (defn find-attempts-by-delivery
-  [txn delivery-id]
+  [txn bank-id delivery-id]
   (fdb/transact
    txn
    (fn [txn]
      (mapv schema/pb->WebhookDeliveryAttempt
-           (fdb/query-records (fdb/open txn attempts-store-name)
-                              "WebhookDeliveryAttempt"
-                              "delivery_id"
-                              delivery-id
-                              {:index "WebhookDeliveryAttempt_by_delivery"})))
+           (first (fdb/scan-prefixes (fdb/open txn attempts-store-name)
+                                     [[bank-id delivery-id]]
+                                     most-attempts-read))))
    :webhook-delivery-attempt/find-by-delivery
    "Failed to find webhook delivery attempts by delivery"))
 
@@ -271,37 +274,24 @@
                                   due-by
                                   (assoc :through [due-by]))))
 
-(defn- claimable?
-  "Whether a row may be claimed now: a pending one whose next attempt
-  has come, or an in-flight one whose lease has passed — the runner
-  holding it died between the claim commit and the outcome commit, and
-  nothing else would ever look at the row again."
-  [{:keys [status next-attempt-at claim-lease-expires-at]} now]
-  (if (= delivery-in-flight status)
-    (<= (or claim-lease-expires-at 0) now)
-    (<= (or next-attempt-at 0) now)))
-
 (defn claim-due-deliveries
   "Claim the deliveries that are due, in the transaction that read
-  them: each takes a lease and the claiming runner, and moves to
-  in-flight if it was not already. A second replica reading the same
-  row loses this transaction and claims nothing, so a due delivery is
-  sent once.
+  them: each moves to in-flight, its next attempt at when the claim
+  lapses. A second replica reading the same row loses this transaction
+  and claims nothing, so a due delivery is sent once. An in-flight row
+  whose claim has lapsed is due again: the runner holding it died
+  between the claim commit and the outcome commit.
 
-  Rows whose claim lease has expired are scanned before the pending
-  ones, so a pending backlog of more than `:limit` rows cannot starve
-  the recovery.
+  Lapsed claims are scanned before the pending rows, so a pending
+  backlog of more than `:limit` rows cannot starve the recovery.
 
   Returns the claimed deliveries as they were written.
 
   Args:
   - txn: FDB transaction or config map.
   - opts:
-    - `:now` — epoch-ms; a pending delivery is due when its next
-      attempt is at or before this, and one that has never been
-      attempted has none. An in-flight delivery is due again when its
-      claim lease is at or before this.
-    - `:claimed-by` — the runner's id, stamped on the row.
+    - `:now` — epoch-ms; a delivery is due when its next attempt is at
+      or before this.
     - `:lease-ms` — how long the claim holds.
     - `:limit` — how many to claim in this pass.
     - `:per-endpoint-limit` — how many of one endpoint's deliveries the
@@ -311,8 +301,7 @@
       this transaction the first time an endpoint's delivery is reached,
       answering how many of its deliveries the batch may carry at most."
   [txn
-   {:keys [now claimed-by lease-ms limit per-endpoint-limit
-           endpoint-allowance]}]
+   {:keys [now lease-ms limit per-endpoint-limit endpoint-allowance]}]
   (fdb/transact
    txn
    (fn [txn]
@@ -338,13 +327,12 @@
                true))
            due (into []
                      (comp (map schema/pb->WebhookDelivery)
-                           (filter #(claimable? % now))
                            (filter within-endpoint-limit?)
                            (take limit))
                      (concat (deliveries-with-status store
                                                      delivery-in-flight
                                                      (* scan-factor limit)
-                                                     nil)
+                                                     now)
                              (deliveries-with-status store
                                                      delivery-pending
                                                      (* scan-factor limit)
@@ -352,9 +340,7 @@
        (reduce (fn [claimed delivery]
                  (let [row (assoc delivery
                                   :status delivery-in-flight
-                                  :claim-lease-expires-at (+ now lease-ms)
-                                  :claimed-by claimed-by
-                                  :updated-at now)
+                                  :next-attempt-at (+ now lease-ms))
                        res (fdb/save-record
                             store
                             (schema/WebhookDelivery->java row))]

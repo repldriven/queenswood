@@ -107,7 +107,7 @@
                                                    real-acct-id))
                (fn [account]
                  (and (not (error/anomaly? account))
-                      (= status (:account-status account))))))
+                      (= status (:status account))))))
 
 (defn- await-opened
   [ctx bank-real-id real-acct-id]
@@ -126,7 +126,7 @@
                (fn [account]
                  (and (not (error/anomaly? account))
                       (not= :cash-account-status-closing
-                            (:account-status account))))))
+                            (:status account))))))
 
 (defn- await-party-active
   [{:keys [bank] :as ctx} bank-real-id party-id]
@@ -146,7 +146,7 @@
                (fn [] (payment-query/get-outbound-payment bank payment-id))
                (fn [payment]
                  (and (not (error/anomaly? payment))
-                      (= status (:payment-status payment))))))
+                      (= status (:status payment))))))
 
 (defn- await-outbound-completed
   "The outbound payment once the provider's settlement has completed it,
@@ -160,7 +160,6 @@
                                       bank-real-id
                                       account-id
                                       :balance-type-default
-                                      "GBP"
                                       :balance-status-posted)]
     (when-not (error/anomaly? b) (- (:credit b 0) (:debit b 0)))))
 
@@ -233,10 +232,11 @@
   template seeded at bootstrap (see templates/*.yml). Products are
   now created from a template-id; the product-type is snapshotted from
   the template."
-  {:product-type-sub-ledger-current "tpl.00000000000000000000000001"
-   :product-type-sub-ledger-savings "tpl.00000000000000000000000002"
-   :product-type-sub-ledger-term-deposit "tpl.00000000000000000000000003"
-   :product-type-sub-ledger-own-funds "tpl.00000000000000000000000004"})
+  {:account-product-type-sub-ledger-current "tpl.00000000000000000000000001"
+   :account-product-type-sub-ledger-savings "tpl.00000000000000000000000002"
+   :account-product-type-sub-ledger-term-deposit
+   "tpl.00000000000000000000000003"
+   :account-product-type-sub-ledger-own-funds "tpl.00000000000000000000000004"})
 
 (defn- version-payload
   "Build a flat version input for open-draft/update-draft, optionally
@@ -279,6 +279,9 @@
   []
   (set (keys (methods dispatch))))
 
+(def ^:private scenario-operator
+  {:kind :actor-kind-operator :principal-id "test-scenarios"})
+
 (defmethod dispatch :create-bank
   [{:keys [bank identity-provider counter next-model-id next-bank-id
            next-product-id next-party-id id-mapping]
@@ -311,7 +314,9 @@
                                ["GBP"]
                                {:identity-provider identity-provider
                                 :idv-provider idv-provider
-                                :audience "queenswood-api-test"})
+                                :audience "queenswood-api-test"
+                                :actor scenario-operator
+                                :idempotency-key (str (utility/uuidv7))})
         bank-entity (:bank result)
         real-bank-id (:bank-id bank-entity)
         real-party-id (when-not (error/anomaly? result)
@@ -323,8 +328,10 @@
                            (products/new-product
                             bank
                             real-bank-id
-                            (product-payload "Scenario Current"
-                                             :product-type-sub-ledger-current)))
+                            (product-payload
+                             "Scenario Current"
+                             :account-product-type-sub-ledger-current)
+                            {:actor scenario-operator}))
         scenario-product-id (:product-id scenario-product)
         scenario-version-id (:version-id scenario-product)
         _ (when (and scenario-product-id
@@ -332,7 +339,8 @@
             (products/publish bank
                               real-bank-id
                               scenario-product-id
-                              scenario-version-id))
+                              scenario-version-id
+                              {:actor scenario-operator}))
         scenario-account (when scenario-product-id
                            (cash-accounts/new-account
                             bank
@@ -340,7 +348,8 @@
                              :party-id real-party-id
                              :product-id scenario-product-id
                              :currency "GBP"
-                             :name "Scenario Account"}))
+                             :name "Scenario Account"
+                             :actor scenario-operator}))
         real-acct-id (:account-id scenario-account)
         opened (when real-acct-id (await-opened ctx real-bank-id real-acct-id))
         real-bban (:bban opened)]
@@ -386,21 +395,24 @@
                         :number 1}]})))
 
 (def ^:private product-type->kind
-  {:current :product-type-sub-ledger-current
-   :savings :product-type-sub-ledger-savings})
+  {:current :account-product-type-sub-ledger-current
+   :savings :account-product-type-sub-ledger-savings})
 
 (defmethod dispatch :create-product
   [{:keys [bank counter next-product-id banks] :as ctx}
    {[model-bank type rate-bps] :args}]
   (let [model-prod (model-id-for-next-product next-product-id)
         {:keys [real-id]} (get banks model-bank)
-        kind (get product-type->kind type :product-type-sub-ledger-current)
+        kind
+        (get product-type->kind type :account-product-type-sub-ledger-current)
         name
         (str (if (= :savings type) "Savings" "Current") " Product " counter)
         extras (when (and rate-bps (pos? rate-bps))
                  {:interest-rate-bps rate-bps})
-        result
-        (products/new-product bank real-id (product-payload name kind extras))]
+        result (products/new-product bank
+                                     real-id
+                                     (product-payload name kind extras)
+                                     {:actor scenario-operator})]
     (-> ctx
         (record-fresh-product model-prod model-bank type result)
         (update :next-product-id inc)
@@ -423,7 +435,11 @@
         {model-bank :bank :keys [real-id]} product
         {version-real-id :real-id} (latest-version product)
         bank-real-id (get-in banks [model-bank :real-id])
-        result (products/publish bank bank-real-id real-id version-real-id)]
+        result (products/publish bank
+                                 bank-real-id
+                                 real-id
+                                 version-real-id
+                                 {:actor scenario-operator})]
     (-> ctx
         (cond-> (not (error/anomaly? result))
                 (update-latest-version model-prod
@@ -441,7 +457,8 @@
                                     bank-real-id
                                     real-id
                                     (version-payload (str "Draft Version "
-                                                          next-number)))]
+                                                          next-number))
+                                    {:actor scenario-operator})]
     (-> ctx
         (cond-> (not (error/anomaly? result))
                 (update-in [:products model-prod :versions]
@@ -458,8 +475,11 @@
         {model-bank :bank :keys [real-id]} product
         {version-real-id :real-id} (latest-version product)
         bank-real-id (get-in banks [model-bank :real-id])
-        result
-        (products/discard-draft bank bank-real-id real-id version-real-id)]
+        result (products/discard-draft bank
+                                       bank-real-id
+                                       real-id
+                                       version-real-id
+                                       {:actor scenario-operator})]
     (-> ctx
         (cond-> (not (error/anomaly? result))
                 (update-latest-version model-prod
@@ -473,10 +493,10 @@
   (let [model-party (model-id-for-next-party next-party-id)
         {bank-real-id :real-id} (get banks model-bank)
         payload (cond-> {:bank-id bank-real-id
-                         :type :party-type-person
-                         :display-name (str "Scenario Person " counter)
-                         :given-name "Scenario"
-                         :family-name (str "Person" counter)}
+                         :party-type :party-type-person
+                         :actor scenario-operator
+                         :legal-name (str "Scenario Person" counter)
+                         :display-name (str "Scenario Person " counter)}
 
                         reference-marker
                         (assoc :external-reference (name reference-marker)))
@@ -517,7 +537,8 @@
                                            :product-id prod-real-id
                                            :currency currency
                                            :name (str "Scenario Account "
-                                                      counter)})
+                                                      counter)
+                                           :actor scenario-operator})
         real-acct-id (:account-id result)
         opened (when real-acct-id (await-opened ctx bank-real-id real-acct-id))]
     (-> ctx
@@ -571,27 +592,29 @@
                        (model-id-for-next-product next-product-id))
         {bank-real-id :real-id :keys [currency]} (get banks model-bank)
         prod-result (when create-prod?
-                      (products/new-product bank
-                                            bank-real-id
-                                            (product-payload
-                                             (str "Scenario Current Product "
-                                                  counter)
-                                             :product-type-sub-ledger-current)))
+                      (products/new-product
+                       bank
+                       bank-real-id
+                       (product-payload
+                        (str "Scenario Current Product " counter)
+                        :account-product-type-sub-ledger-current)
+                       {:actor scenario-operator}))
         _
         (when (and create-prod? prod-result (not (error/anomaly? prod-result)))
           (products/publish bank
                             bank-real-id
                             (:product-id prod-result)
-                            (:version-id prod-result)))
+                            (:version-id prod-result)
+                            {:actor scenario-operator}))
         prod-real-id (or (get-in products [prod-model-id :real-id])
                          (:product-id prod-result))
         ;; Onboard the person party (mirror of :create-person-party).
         model-party (model-id-for-next-party next-party-id)
         party-payload {:bank-id bank-real-id
-                       :type :party-type-person
-                       :display-name (str "Scenario Customer " counter)
-                       :given-name "Scenario"
-                       :family-name (str "Customer" counter)}
+                       :party-type :party-type-person
+                       :actor scenario-operator
+                       :legal-name (str "Scenario Customer" counter)
+                       :display-name (str "Scenario Customer " counter)}
         party-result (party/new-party bank party-payload)
         party-result (if (error/anomaly? party-result)
                        party-result
@@ -616,7 +639,8 @@
                         :party-id party-real-id
                         :product-id prod-real-id
                         :currency currency
-                        :name (str "Scenario Customer Account " counter)}))
+                        :name (str "Scenario Customer Account " counter)
+                        :actor scenario-operator}))
         real-acct-id (:account-id acct-result)
         opened (when real-acct-id (await-opened ctx bank-real-id real-acct-id))
         outcome (cond
@@ -658,7 +682,8 @@
         real-acct-id (get-in id-mapping [:model->real model-acct])
         result (cash-accounts/close-account bank
                                             {:bank-id bank-real-id
-                                             :account-id real-acct-id})
+                                             :account-id real-acct-id
+                                             :actor scenario-operator})
         answered (when-not (error/anomaly? result)
                    (await-close-answered ctx bank-real-id real-acct-id))]
     (-> ctx
@@ -678,11 +703,11 @@
    :reference reference
    :legs [gl-leg customer-leg]})
 
-(defn- gl-account-for
-  "Look up the bank's GL account by `gl-account-code` role and `currency`
+(defn- ledger-account-for
+  "Look up the bank's GL account by `code` role and `currency`
   on its own books."
-  [bank bank-id gl-account-code currency]
-  (ledger-accounts/find-by-code bank bank-id gl-account-code currency))
+  [bank bank-id code currency]
+  (ledger-accounts/find-by-code bank bank-id code currency))
 
 (defn- bank-id-for-account
   "Resolve the bank-id that owns `model-acct`."
@@ -797,25 +822,25 @@
         result (let [created (policy/new-policy bank policy-data)]
                  (if (error/anomaly? created)
                    created
-                   (policy/new-binding
-                    bank
-                    {:policy-id (:policy-id created)
-                     :target {:kind {:bank {:bank-id bank-real-id}}}
-                     :reason "scenario-bound test policy"})))]
+                   (policy/new-binding bank
+                                       {:policy-id (:policy-id created)
+                                        :target {:kind {:bank {:bank-id
+                                                               bank-real-id}}}
+                                        :reason "scenario-bound test policy"
+                                        :actor scenario-operator})))]
     (track ctx result)))
 
 ;; Closes a bank's own ledger account, which no route or command does, so
 ;; a scenario can meet a closed control on a production path.
 (defmethod dispatch :close-ledger-account
-  [{:keys [bank banks] :as ctx} {[model-bank gl-account-code] :args}]
+  [{:keys [bank banks] :as ctx} {[model-bank code] :args}]
   (let [{bank-real-id :real-id} (get banks model-bank)
-        result (error/let-nom> [account (gl-account-for bank
-                                                        bank-real-id
-                                                        gl-account-code
-                                                        "GBP")]
-                 (ledger-accounts/close-account bank
-                                                bank-real-id
-                                                (:ledger-account-id account)))]
+        result
+        (error/let-nom> [account
+                         (ledger-account-for bank bank-real-id code "GBP")]
+          (ledger-accounts/close-account bank
+                                         bank-real-id
+                                         (:ledger-account-id account)))]
     (-> ctx
         (update :counter inc)
         (track result))))
@@ -835,7 +860,8 @@
                  :creditor-account-id to-real
                  :currency (or currency "GBP")
                  :amount amount
-                 :reference (str "scenario internal " counter)})]
+                 :reference (str "scenario internal " counter)
+                 :actor scenario-operator})]
     (-> ctx
         (update :counter inc)
         (track result))))
@@ -880,12 +906,13 @@
                 {:idempotency-key (str "scen-pay-" run-id "-" counter)
                  :bank-id bank-real-id
                  :debtor-account-id real-acct-id
-                 :scheme "fps"
+                 :scheme-type :scheme-type-fps
                  :currency "GBP"
                  :amount amount
                  :reference (str "scenario payment " counter)
                  :creditor-bban creditor-bban
-                 :creditor-name creditor-name})
+                 :creditor-name creditor-name
+                 :actor scenario-operator})
         real-pmt-id (:payment-id result)
         ;; The model completes the payment at once, so the step waits for
         ;; the provider's debit to complete it and, paying a known
@@ -915,12 +942,13 @@
      {:idempotency-key (str "scen-pay-" run-id "-" counter)
       :bank-id (get-in banks [model-bank :real-id])
       :debtor-account-id (id-mapping/real id-mapping model-acct)
-      :scheme "fps"
+      :scheme-type :scheme-type-fps
       :currency "GBP"
       :amount amount
       :reference (str "scenario payment " counter)
       :creditor-bban creditor-bban
-      :creditor-name (str "Scenario External Creditor " counter)})))
+      :creditor-name (str "Scenario External Creditor " counter)
+      :actor scenario-operator})))
 
 (defn- record-payment
   [{:keys [next-payment-id] :as ctx} result]
@@ -1014,8 +1042,7 @@
                   ctx
                   (str "outbound payment " real-pmt-id " to be returned")
                   (fn [] (payment-query/get-outbound-payment bank real-pmt-id))
-                  (fn [p]
-                    (= :outbound-payment-status-returned (:payment-status p))))
+                  (fn [p] (= :outbound-payment-status-returned (:status p))))
                  (error/fail :scenario/return-outbound
                              {:message "The simulator refused the return"
                               :payment-id real-pmt-id
@@ -1105,10 +1132,10 @@
   ;; until 4100 fee-income lands in a future wave).
   (let [real-id (id-mapping/real id-mapping model-id)
         bank-id (bank-id-for-account banks accounts model-id)
-        cash (gl-account-for bank
-                             bank-id
-                             :gl-account-code-cash-at-correspondent
-                             "GBP")
+        cash (ledger-account-for bank
+                                 bank-id
+                                 :ledger-account-code-cash-at-correspondent
+                                 "GBP")
         result
         (if (or (nil? cash) (error/anomaly? cash))
           (error/reject :scenario/no-cash-at-correspondent-account
@@ -1156,7 +1183,8 @@
 (defmethod dispatch :force-start-job
   [{:keys [bank banks] :as ctx} {[model-bank job-id] :args}]
   (let [{bank-real-id :real-id} (get banks model-bank)
-        result (scheduler/force-start bank bank-real-id job-id)]
+        result
+        (scheduler/force-start bank bank-real-id job-id scenario-operator)]
     (-> ctx
         (update :counter inc)
         (track result))))
@@ -1202,10 +1230,10 @@
   ;; sandbox's simulated inbound posts it: 1100 up and the house account
   ;; credited. Mirroring credits the house's provider account from outside.
   (let [{bank-real-id :real-id} (get banks model-bank)
-        cash (gl-account-for bank
-                             bank-real-id
-                             :gl-account-code-cash-at-correspondent
-                             "GBP")
+        cash (ledger-account-for bank
+                                 bank-real-id
+                                 :ledger-account-code-cash-at-correspondent
+                                 "GBP")
         house (cash-accounts-query/house-account bank bank-real-id "GBP")
         result (if (error/anomaly? house)
                  house
@@ -1250,7 +1278,6 @@
                                             bank-id
                                             account-id
                                             :balance-type-default
-                                            "GBP"
                                             :balance-status-posted)]
     (if (error/anomaly? balance) 0 (- (:credit balance 0) (:debit balance 0)))))
 
@@ -1275,10 +1302,10 @@
                                                          bank-real-id
                                                          account-id)))
         held (simulated-balances bank)
-        cash (gl-account-for bank
-                             bank-real-id
-                             :gl-account-code-cash-at-correspondent
-                             "GBP")]
+        cash (ledger-account-for bank
+                                 bank-real-id
+                                 :ledger-account-code-cash-at-correspondent
+                                 "GBP")]
     {:accounts (into {}
                      (map (fn [account-id]
                             [account-id
@@ -1309,14 +1336,12 @@
     ctx))
 
 (defmethod dispatch :assert-gl-balance
-  [{:keys [bank banks] :as ctx}
-   {[model-bank gl-account-code currency expected] :args}]
+  [{:keys [bank banks] :as ctx} {[model-bank code currency expected] :args}]
   (let [{bank-real-id :real-id} (get banks model-bank)
-        gl (gl-account-for bank bank-real-id gl-account-code currency)
+        gl (ledger-account-for bank bank-real-id code currency)
         balances (ledger-accounts/get-balances bank bank-real-id gl)
         actual (:value (:posted-balance balances))]
-    (is (= expected actual)
-        (str "GL " (name gl-account-code) " balance for " model-bank))
+    (is (= expected actual) (str "GL " (name code) " balance for " model-bank))
     ctx))
 
 (defn- decode-message
@@ -1358,15 +1383,15 @@
     ctx))
 
 (defn- intent-count
-  [bank dedup-key]
+  [bank idempotency-key]
   (fdb/transact bank
                 (fn [txn]
                   (count (fdb/query-records
                           (fdb/open txn "modulr-outbound-intents")
                           "ModulrOutboundIntent"
-                          "dedup_key"
-                          dedup-key
-                          {:index "ModulrOutboundIntent_by_dedup_key"})))
+                          "idempotency_key"
+                          idempotency-key
+                          {:index "ModulrOutboundIntent_by_idempotency_key"})))
                 :scenario/intents
                 "Failed to count outbound intents"))
 
@@ -1405,7 +1430,8 @@
    :inbound-payment-status-suspended
    :inbound-payment-status-held
    :inbound-payment-status-returned
-   :inbound-payment-status-admitted])
+   :inbound-payment-status-admitted
+   :inbound-payment-status-return-failed])
 
 (defn- inbound-statuses
   "The statuses of the inbound payments carrying `e2e` in the run's banks,
@@ -1423,7 +1449,7 @@
                                     (or (nil? account-id)
                                         (= account-id
                                            (:creditor-account-id p))))))
-                     (map :payment-status))
+                     (map :status))
                payments))))
    []
    (for [{bank-id :real-id} (vals banks)
@@ -1452,12 +1478,14 @@
 
 (defmethod dispatch :assert-breaker
   [{:keys [bank] :as ctx} {[destination expected] :args}]
-  (let [breaker (await/value ctx
-                             (str "breaker " destination " to be " expected)
-                             (fn [] (circuit-breaker/breaker bank destination))
-                             (fn [b]
-                               (and (not (error/anomaly? b))
-                                    (= expected (:state b "closed")))))]
+  (let [breaker (await/value
+                 ctx
+                 (str "breaker " destination " to be " expected)
+                 (fn [] (circuit-breaker/breaker bank destination))
+                 (fn [b]
+                   (and (not (error/anomaly? b))
+                        (= (keyword (str "circuit-breaker-status-" expected))
+                           (:status b :circuit-breaker-status-closed)))))]
     (is (not (await/timed-out? breaker))
         (str "breaker " destination " — expected " expected))
     ctx))
@@ -1471,8 +1499,8 @@
   (error/let-nom>
     [accounts (ledger-accounts/list-accounts txn bank-id)
      payable (or (first (filter (fn [account]
-                                  (and (= :gl-account-code-interest-payable
-                                          (:gl-account-code account))
+                                  (and (= :ledger-account-code-interest-payable
+                                          (:code account))
                                        (= currency (:currency account))))
                                 accounts))
                  (error/fail
@@ -1493,15 +1521,17 @@
    txn
    bank-id
    (fn [total account]
-     (reduce (fn [total balance]
-               (if (and (= :balance-type-interest-accrued
-                           (:balance-type balance))
-                        (= :balance-status-posted (:balance-status balance))
-                        (= currency (:currency balance)))
-                 (+ total (- (:credit balance 0) (:debit balance 0)))
-                 total))
-             total
-             (:balances account)))
+     (if (= currency (:currency account))
+       (reduce (fn [total balance]
+                 (if (and (= :balance-type-interest-accrued
+                             (:balance-type balance))
+                          (= :balance-status-posted
+                             (:balance-status balance)))
+                   (+ total (- (:credit balance 0) (:debit balance 0)))
+                   total))
+               total
+               (:balances account))
+       total))
    0))
 
 (defmethod dispatch :assert-interest-reconciliation

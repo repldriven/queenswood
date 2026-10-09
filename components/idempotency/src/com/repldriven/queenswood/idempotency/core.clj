@@ -2,14 +2,17 @@
   (:require
     [com.repldriven.queenswood.idempotency.store :as store]
 
-    [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.edn :as edn]
     [clojure.walk :as walk]))
 
 (def ^:private completed-ttl-ms (* 24 60 60 1000))    ; 24 hours
 (def ^:private pending-ttl-ms (* 60 1000))          ; 60 seconds
+
+(def ^:private pending :idempotency-status-pending)
+(def ^:private completed :idempotency-status-completed)
 
 (defn cacheable-status?
   "Cache definite outcomes (2xx, 4xx) — skip 5xx, which are
@@ -34,8 +37,8 @@
   [entry now]
   (boolean
    (and entry
-        (or (and (= "completed" (:state entry)) (not (expired? entry now)))
-            (and (= "pending" (:state entry))
+        (or (and (= completed (:status entry)) (not (expired? entry now)))
+            (and (= pending (:status entry))
                  (not (stale-pending? entry now)))))))
 
 (defn claim-or-replay
@@ -57,7 +60,7 @@
   runs inside the open transaction, and `fdb/transact` on an open
   `Txn` returns an anomaly *value* rather than throwing, so without
   this the `cond` would bind it as a truthy `existing` with a nil
-  `:state`, fall through to `:else`, and run the handler on a cache
+  `:status`, fall through to `:else`, and run the handler on a cache
   it could not read.
 
   FDB's optimistic concurrency control serialises concurrent
@@ -73,21 +76,21 @@
        (if (error/anomaly? existing)
          existing
          (let [live (live? existing now)
-               ;; Absent on an entry written before the field existed,
-               ;; which matches anything for the rest of its life.
-               stored (not-empty (:fingerprint existing))]
+               stored (:fingerprint existing)]
            (cond
-            (and live stored (not= stored fingerprint))
+            (and live (not= stored fingerprint))
             {:type ::mismatch}
 
-            (and live (= "completed" (:state existing)))
-            {:type ::completed
-             :status (:status existing)
-             :headers (some-> (not-empty (:headers existing))
-                              edn/read-string)
-             :body (edn/read-string (:body existing))}
+            (and live (= completed (:status existing)))
+            (let [{:keys [status headers body]} (:response existing)]
+              (let-nom> [headers (transit/read-str headers)
+                         body (transit/read-str body)]
+                {:type ::completed
+                 :status status
+                 :headers headers
+                 :body body}))
 
-            (and live (= "pending" (:state existing)))
+            (and live (= pending (:status existing)))
             {:type ::in-flight}
 
             :else
@@ -95,7 +98,7 @@
                             {:principal-id principal-id
                              :operation operation
                              :idempotency-key idempotency-key
-                             :state "pending"
+                             :status pending
                              :fingerprint fingerprint
                              :created-at now
                              :expires-at (+ now completed-ttl-ms)})
@@ -105,32 +108,42 @@
 
 (defn- plain
   "Every record in `body` as a plain map. A handler's response carries
-  the protojure defrecords the schema brick generates, and `pr-str`
-  writes one with a tag `edn/read-string` has no reader for — so a
-  body holding one could be written and never read back, and the
-  replay it was written for would answer 503 instead. The keys and
+  the protojure defrecords the schema brick generates, which transit
+  has no handler for, so a body holding one could not be written and
+  the replay it was written for would never be stored. The keys and
   values are the record's own, which is all the replay needs."
   [body]
   (walk/postwalk (fn [x] (if (record? x) (into {} x) x)) body))
 
 (defn complete
   "Replace the `pending` marker with a `completed` entry holding the
-  response to replay. Called from the interceptor's `:leave` when the
-  handler returned a cacheable status (2xx/4xx)."
+  response to replay, keeping when the key was claimed. Called from the
+  interceptor's `:leave` when the handler returned a cacheable status
+  (2xx/4xx)."
   [config principal-id operation idempotency-key fingerprint
    {:keys [status headers body]}]
-  (let [now (utility/now)]
-    (store/save config
-                {:principal-id principal-id
-                 :operation operation
-                 :idempotency-key idempotency-key
-                 :state "completed"
-                 :status status
-                 :headers (pr-str (or headers {}))
-                 :body (pr-str (plain body))
-                 :fingerprint fingerprint
-                 :created-at now
-                 :expires-at (+ now completed-ttl-ms)})))
+  (store/transact
+   config
+   (fn [txn]
+     (let [existing (store/lookup txn principal-id operation idempotency-key)
+           now (utility/now)]
+       (let-nom> [_ existing
+                  written-headers (transit/write-str (or headers {}))
+                  written-body (transit/write-str (plain body))]
+         (store/save txn
+                     {:principal-id principal-id
+                      :operation operation
+                      :idempotency-key idempotency-key
+                      :status completed
+                      :fingerprint fingerprint
+                      :response {:status status
+                                 :headers written-headers
+                                 :body written-body}
+                      :expires-at (+ now completed-ttl-ms)
+                      :completed-at now
+                      :created-at (or (:created-at existing) now)}))))
+   :idempotency/complete
+   "Failed to complete idempotency entry"))
 
 (defn release
   "Drop the `pending` claim — used when the response wasn't cacheable

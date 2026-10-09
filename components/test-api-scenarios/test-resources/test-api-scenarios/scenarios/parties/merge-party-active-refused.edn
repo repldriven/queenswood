@@ -6,14 +6,12 @@
           :as :party-0
           :with {:token [:ref :org-0 :token]
                  :display-name "Survivor Customer"
-                 :given-name "Survivor"
-                 :family-name "Customer"}}
+                 :legal-name "Survivor Customer"}}
          {:fixture :person
           :as :party-1
           :with {:token [:ref :org-0 :token]
                  :display-name "Active Duplicate Customer"
-                 :given-name "Active"
-                 :family-name "Duplicate"}}]
+                 :legal-name "Active Duplicate"}}]
  :when [{:command :api/request
          :request {:method :post
                    :path "/v1/parties/{party-id}/merge"

@@ -1,7 +1,7 @@
 (ns ^:eftest/synchronized com.repldriven.queenswood.bank.interface-test
-  "What the API scenario suite can't see: that the owner membership, the
-  bank-created access event and the owner invitation commit atomically
-  with the bank, that a failure after the last write rolls every earlier
+  "What the API scenario suite can't see: that the owner member and
+  the owner invitation commit atomically with the bank, the bank's
+  creation leading its access history, that a failure after the last write rolls every earlier
   write back, that the service-account client is created only once the
   bank has committed and a create sent again issues one that failed, and
   that the changelog separates a status change from a tier change. Creating a bank over the bus, its providers, and changing
@@ -18,8 +18,8 @@
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
-    [com.repldriven.queenswood.membership.interface :as memberships]
-    [com.repldriven.queenswood.membership-query.interface :as q]
+    [com.repldriven.queenswood.member.interface :as members]
+    [com.repldriven.queenswood.member-query.interface :as q]
     [com.repldriven.queenswood.party-query.interface :as party-query]
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.scheduler.interface :as scheduler]
@@ -31,6 +31,7 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.java.io :as io]
     [clojure.test :refer [deftest is testing]]))
@@ -63,7 +64,9 @@
                 :bank-status-test
                 "micro"
                 ["GBP"]
-                (assoc opts :identity-provider idp :idv-provider idv-provider)))
+                (merge {:actor operator :idempotency-key (str (utility/uuidv7))}
+                       opts
+                       {:identity-provider idp :idv-provider idv-provider})))
 
 (defn- owner-invitation
   [email]
@@ -77,38 +80,29 @@
 
 (def ^:private ^:dynamic *fail-bank-created?* false)
 
-(def ^:private real-record-bank-created memberships/record-bank-created)
+(def ^:private real-new-member members/new-member)
 
-(defn- probed-record-bank-created
-  [txn-or-config bank-id opts]
+(defn- probed-new-member
+  [txn-or-config input]
   (if-let [created *created-bank-id*]
-    (do (reset! created bank-id)
+    (do (reset! created (:bank-id input))
         (if *fail-bank-created?*
           (error/fail :test/injected {:message "Injected after every write"})
-          (real-record-bank-created txn-or-config bank-id opts)))
-    (real-record-bank-created txn-or-config bank-id opts)))
+          (real-new-member txn-or-config input)))
+    (real-new-member txn-or-config input)))
 
 (deftest create-bank-schema-test
   (let [create-schema (avro/json->schema
                        (slurp (io/resource
-                               "schemas/banks/create-bank.avsc.json")))
-        bank-schema (avro/json->schema
-                     (slurp (io/resource "schemas/banks/bank.avsc.json")))]
-    (testing "a create-bank map without the new keys encodes and decodes"
-      (nom-test> [bytes (avro/serialize create-schema
-                                        {:name "Old Shape Bank"
-                                         :status :bank-status-test
-                                         :tier "micro"
-                                         :currencies ["GBP"]})
-                  decoded (avro/deserialize-same create-schema bytes)
-                  _ (is (= "Old Shape Bank" (:name decoded)))
-                  _ (is (nil? (:owner-invitation decoded)))
-                  _ (is (nil? (:actor decoded)))]))
+                               "schemas/bank/create-bank.avsc.json")))
+        bank-schema (avro/json->schema (slurp (io/resource
+                                               "schemas/bank/bank.avsc.json")))]
     (testing "the owner invitation and actor decode as the brick reads them"
       (nom-test> [bytes (avro/serialize create-schema
                                         {:name "New Shape Bank"
                                          :status :bank-status-test
                                          :tier "micro"
+                                         :providers []
                                          :currencies ["GBP"]
                                          :owner-invitation {:email
                                                             "owner@example.com"}
@@ -122,50 +116,55 @@
                                         {:bank-id "bnk.schema"
                                          :name "Reply Bank"
                                          :status :bank-status-test
+                                         :tier "micro"
+                                         :providers []
                                          :created-at 1
-                                         :updated-at 1
-                                         :sort-code "000001"})
+                                         :updated-at 1})
                   decoded (avro/deserialize-same bank-schema bytes)
                   _ (is (= "bnk.schema" (:bank-id decoded)))
                   _ (is (nil? (:owner-invitation-id decoded)))]))))
 
-(deftest new-bank-with-membership-test
+(deftest new-bank-with-member-test
   (with-test-system
    [sys "classpath:bank/application-test.yml"]
    (let [config (fdb-config sys)
          idp (identity-provider/local-provider {})
          user-id "usr.test-onboard"
-         membership {:user-id user-id :role :role-owner}]
+         member {:user-id user-id :role :role-owner}
+         person {:kind :actor-kind-member :principal-id user-id}]
      (testing
-       "creates the bank, owner membership and bank-created event in one
-        transaction, the person as actor"
-       (nom-test> [{:keys [bank membership owner-invitation-id]}
-                   (create-bank config idp "Acme Bank" {:membership membership})
+       "creates the bank and owner member in one transaction, its
+        history opening with the bank's creation, the person as actor"
+       (nom-test> [{:keys [bank member owner-invitation-id]}
+                   (create-bank config
+                                idp
+                                "Acme Bank"
+                                {:member member :actor person})
                    bank-id (:bank-id bank)
                    _ (is (re-find #"^bnk\." bank-id))
-                   _ (is (= user-id (:user-id membership)))
-                   _ (is (= bank-id (:bank-id membership)))
-                   _ (is (= :role-owner (:role membership)))
+                   _ (is (= user-id (:user-id member)))
+                   _ (is (= bank-id (:bank-id member)))
+                   _ (is (= :role-owner (:role member)))
                    _ (is (nil? owner-invitation-id))
-                   {:keys [access-events]} (q/list-access-events config bank-id)
-                   _ (is (= [:access-event-kind-bank-created]
-                            (mapv :kind access-events)))
+                   stored (bank-query/get-bank config bank-id)
+                   audit-events (q/list-audit-events config stored)
+                   _ (is (= [:audit-event-kind-bank-created]
+                            (mapv :kind audit-events)))
                    _ (is (= {:kind :actor-kind-member :principal-id user-id}
-                            (:actor (first access-events))))
-                   _ (is (= (:membership-id membership)
-                            (:membership-id (first access-events))))
+                            (:actor (first audit-events))))
+                   _ (is (= (:member-id member)
+                            (:member-id (first audit-events))))
                    invitations (q/list-invitations-by-bank config bank-id)
                    _ (is (empty? invitations))
                    listed (q/list-by-user config user-id)
                    _ (is (= 1 (count listed)))]))
-     (testing
-       "a second bank for the same user commits a second owner membership"
-       (nom-test> [{:keys [bank membership]} (create-bank config
-                                                          idp
-                                                          "Acme Again"
-                                                          {:membership
-                                                           membership})
-                   _ (is (= (:bank-id bank) (:bank-id membership)))
+     (testing "a second bank for the same user commits a second owner member"
+       (nom-test> [{:keys [bank member]} (create-bank config
+                                                      idp
+                                                      "Acme Again"
+                                                      {:member member
+                                                       :actor person})
+                   _ (is (= (:bank-id bank) (:bank-id member)))
                    listed (q/list-by-user config user-id)
                    _ (is (= 2 (count listed)))
                    _ (is (= 2 (count (set (map :bank-id listed)))))
@@ -178,15 +177,15 @@
          idp (identity-provider/local-provider {})
          invitation (owner-invitation "Owner@Example.com")]
      (testing
-       "writes one bank-created event and one pending owner invitation, both
+       "records the bank's creation and one pending owner invitation, both
         in the operator's name"
-       (nom-test> [{:keys [bank membership owner-invitation-id]}
+       (nom-test> [{:keys [bank member owner-invitation-id]}
                    (create-bank config
                                 idp
                                 "Invited Bank"
                                 {:owner-invitation invitation :actor operator})
                    bank-id (:bank-id bank)
-                   _ (is (nil? membership))
+                   _ (is (nil? member))
                    _ (is (re-find #"^inv\." owner-invitation-id))
                    invitations (q/list-invitations-by-bank config bank-id)
                    _ (is (= [owner-invitation-id]
@@ -195,13 +194,14 @@
                             (:status (first invitations))))
                    _ (is (= :role-owner (:role (first invitations))))
                    _ (is (= "Owner@Example.com" (:email (first invitations))))
-                   _ (is (= operator (:invited-by (first invitations))))
-                   {:keys [access-events]} (q/list-access-events config bank-id)
+                   _ (is (= operator (:created-by (first invitations))))
+                   stored (bank-query/get-bank config bank-id)
+                   audit-events (q/list-audit-events config stored)
                    _ (testing "newest first, so the bank-created event is older"
-                       (is (= [:access-event-kind-invitation-created
-                               :access-event-kind-bank-created]
-                              (mapv :kind access-events))))
-                   _ (is (every? #(= operator (:actor %)) access-events))]))
+                       (is (= [:audit-event-kind-invitation-created
+                               :audit-event-kind-bank-created]
+                              (mapv :kind audit-events))))
+                   _ (is (every? #(= operator (:actor %)) audit-events))]))
      (testing "the owner invitation's creation is on the invitations changelog"
        (let [seen (atom [])]
          (nom-test> [_ (fdb/process-changelog
@@ -213,20 +213,7 @@
                         {:deduplicate? false
                          :keyspace-prefix
                          (system/instance sys [:fdb :keyspace-prefix])})
-                     _ (is (= ["invitation-created"] (mapv :event-name @seen)))])))
-     (testing
-       "a create with neither actor nor membership records an unknown operator"
-       (nom-test> [{:keys [bank owner-invitation-id]}
-                   (create-bank config idp "Actorless Bank" {})
-                   _ (is (nil? owner-invitation-id))
-                   {:keys [access-events]}
-                   (q/list-access-events config (:bank-id bank))
-                   _ (is (= [{:kind :actor-kind-operator
-                              :principal-id "unknown"}]
-                            (mapv :actor access-events)))
-                   invitations (q/list-invitations-by-bank config
-                                                           (:bank-id bank))
-                   _ (is (empty? invitations))])))))
+                     _ (is (= ["invitation-created"] (mapv :event-name @seen)))]))))))
 
 (deftest new-bank-rolls-back-on-failure-test
   (with-test-system
@@ -236,13 +223,12 @@
          user-id "usr.rollback"
          created (atom nil)]
      (testing "a failure after the last write leaves nothing behind"
-       ;; The bank-created event is `new-bank`'s final write when no owner
+       ;; The owner member is `new-bank`'s final write when no owner
        ;; invitation is given, so failing there leaves every other write —
-       ;; the seeded jobs and the owner membership included — behind the
-       ;; rollback. `fdb/transact` rolls its transaction back when the body
-       ;; returns an anomaly; this is the evidence.
-       (let [r (with-redefs [memberships/record-bank-created
-                             probed-record-bank-created]
+       ;; the seeded jobs included — behind the rollback. `fdb/transact`
+       ;; rolls its transaction back when the body returns an anomaly; this
+       ;; is the evidence.
+       (let [r (with-redefs [members/new-member probed-new-member]
                  (binding [*created-bank-id* created
                            *fail-bank-created?* true]
                    (SUT/new-bank config
@@ -252,8 +238,10 @@
                                  ["GBP"]
                                  {:identity-provider idp
                                   :idv-provider idv-provider
-                                  :membership {:user-id user-id
-                                               :role :role-owner}})))
+                                  :member {:user-id user-id :role :role-owner}
+                                  :actor {:kind :actor-kind-member
+                                          :principal-id user-id}
+                                  :idempotency-key "ik-rollback"})))
              bank-id @created]
          (is (error/anomaly? r))
          (is (= :test/injected (error/kind r)))
@@ -283,9 +271,8 @@
                      _ (is (empty? jobs))
                      listed (q/list-by-user config user-id)
                      _ (is (empty? listed))
-                     {:keys [access-events]} (q/list-access-events config
-                                                                   bank-id)
-                     _ (is (empty? access-events))]))))))
+                     members (q/list-by-bank config bank-id)
+                     _ (is (empty? members))]))))))
 
 (defn- failing-first-create
   "An identity-provider whose first `create-service-account` fails, as
@@ -341,7 +328,9 @@
                                      ["GBP"]
                                      {:identity-provider idp
                                       :idv-provider idv-provider
-                                      :audience "queenswood-api-test"})
+                                      :audience "queenswood-api-test"
+                                      :actor operator
+                                      :idempotency-key "ik-changelog"})
         bank-id (:bank-id bank)
         _ (SUT/change-status config
                              bank-id
@@ -352,7 +341,7 @@
         _ (SUT/change-tier config
                            bank-id
                            "test-scenario"
-                           {:idv-providers (:idv providers)})
+                           {:idv-providers (:idv providers) :actor operator})
         ;; `:deduplicate? false` matters: the default keeps only
         ;; the latest entry per record id, which would collapse
         ;; both writes on this one bank into one.

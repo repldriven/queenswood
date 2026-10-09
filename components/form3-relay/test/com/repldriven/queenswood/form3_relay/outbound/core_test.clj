@@ -15,9 +15,9 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.edn :as edn]
     [clojure.test :refer [deftest is testing]]))
 
 (defn- json-response
@@ -54,13 +54,13 @@
 (defn- intent
   [intent-id kind dedup-key context & [extra]]
   (merge {:intent-id intent-id
-          :dedup-key dedup-key
+          :idempotency-key dedup-key
           :kind kind
           :request "{}"
-          :status "pending"
-          :attempts 0
+          :status :outbound-intent-status-pending
+          :attempt-count 0
           :created-at (utility/now)
-          :context (pr-str context)}
+          :context (transit/write-str context)}
          extra))
 
 (defn- load-intent
@@ -102,7 +102,7 @@
      (nom-test> [_ (relay/save-intent
                     config
                     (intent "int.p1"
-                            "payment"
+                            :form3-outbound-intent-kind-payment
                             "pmt.1"
                             {:amount 150 :currency "GBP" :submission-id "S1"}
                             {:provider-payment-id "P1"
@@ -114,7 +114,8 @@
               (mapv (fn [{:keys [path body]}] [path (get-in body [:data :id])])
                     @calls))))
      (testing "a submission Form3 already holds counts as made"
-       (is (= "sent" (:status (load-intent config "int.p1"))))))))
+       (is (= :outbound-intent-status-sent
+              (:status (load-intent config "int.p1"))))))))
 
 (deftest payment-refused-test
   (with-test-system
@@ -125,12 +126,13 @@
      (nom-test> [_ (relay/save-intent
                     config
                     (intent "int.p2"
-                            "payment"
+                            :form3-outbound-intent-kind-payment
                             "pmt.2"
                             {:amount 150 :currency "GBP" :submission-id "S2"}
                             {:provider-payment-id "P2"}))])
      (SUT/drain-once config 0)
-     (is (= "failed" (:status (load-intent config "int.p2"))))
+     (is (= :outbound-intent-status-failed
+            (:status (load-intent config "int.p2"))))
      (let [data (decoded config
                          (outbox-event config "pmt.2:submission-rejected"))]
        (is (= :failure-kind-refused (:failure-kind data)))
@@ -152,13 +154,13 @@
                                                             [:data :attributes])
                                                     :status
                                                     "confirmed"))}))))]
-     (nom-test> [_ (relay/save-intent config
-                                      (intent "int.o1" "open-account"
-                                              "open:acc.1" {:bank-id "bnk.1"
-                                                            :account-id "acc.1"
-                                                            :holder-name
-                                                            "Arthur Dent"
-                                                            :currency "GBP"}))])
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.o1" :form3-outbound-intent-kind-open-account
+                            "open:acc.1" {:bank-id "bnk.1"
+                                          :account-id "acc.1"
+                                          :holder-name "Arthur Dent"
+                                          :currency "GBP"}))])
      (SUT/drain-once config 0)
      (let [{:keys [attributes]} (:data (:body (first @calls)))
            data (decoded config
@@ -177,8 +179,9 @@
                 (mapv (fn [a]
                         (select-keys a [:scheme :sort-code :account-number]))
                       (:addresses data)))))
-       (is (= "settled" (:status (load-intent config "int.o1"))))
-       (is (some? (:account-number (edn/read-string
+       (is (= :outbound-intent-status-settled
+              (:status (load-intent config "int.o1"))))
+       (is (some? (:account-number (transit/read-str
                                     (:context (load-intent config
                                                            "int.o1"))))))))))
 
@@ -195,14 +198,15 @@
      (nom-test> [_ (relay/save-intent
                     config
                     (intent "int.p3"
-                            "payment"
+                            :form3-outbound-intent-kind-payment
                             "pmt.3"
                             {:amount 150 :currency "GBP" :submission-id "S3"}
                             {:provider-payment-id "P3"
-                             :status "sent"
+                             :status :outbound-intent-status-sent
                              :next-attempt-at 0}))])
      (SUT/drain-once config 1)
-     (is (= "settled" (:status (load-intent config "int.p3"))))
+     (is (= :outbound-intent-status-settled
+            (:status (load-intent config "int.p3"))))
      (is (= "AC04"
             (:reason-code (decoded config
                                    (outbox-event config "P3:rejected"))))))))
@@ -225,7 +229,7 @@
      (nom-test> [_ (relay/save-intent
                     config
                     (intent "int.r1"
-                            "return"
+                            :form3-outbound-intent-kind-return
                             "return:pmt.in1"
                             return-context
                             {:provider-payment-id "IN1"
@@ -241,7 +245,8 @@
        (is (= "AC04"
               (get-in (first @calls) [:body :data :attributes :return_code]))))
      (testing "and waits for Form3 to deliver it"
-       (is (= "sent" (:status (load-intent config "int.r1"))))))))
+       (is (= :outbound-intent-status-sent
+              (:status (load-intent config "int.r1"))))))))
 
 (deftest return-refused-test
   (with-test-system
@@ -251,13 +256,14 @@
                                  (json-response 404 {:error_message "No"})))]
      (nom-test> [_ (relay/save-intent config
                                       (intent "int.r2"
-                                              "return"
+                                              :form3-outbound-intent-kind-return
                                               "return:pmt.in2"
                                               return-context
                                               {:provider-payment-id "IN2"}))])
      (SUT/drain-once config 0)
      (testing "a return Form3 refuses fails, and reports nothing"
-       (is (= "failed" (:status (load-intent config "int.r2"))))
+       (is (= :outbound-intent-status-failed
+              (:status (load-intent config "int.r2"))))
        (is (nil? (outbox-event config "IN2:returned")))))))
 
 (deftest reconcile-reads-the-return-back-test
@@ -274,18 +280,20 @@
                                            {:status "delivery_confirmed"}}}))))]
      (nom-test> [_ (relay/save-intent config
                                       (intent "int.r3"
-                                              "return"
+                                              :form3-outbound-intent-kind-return
                                               "return:pmt.in3"
                                               return-context
                                               {:provider-payment-id "IN3"
-                                               :status "sent"
+                                               :status
+                                               :outbound-intent-status-sent
                                                :next-attempt-at 0}))])
      (SUT/drain-once config 1)
      (testing "the return's submission is read back"
        (is (= "/v1/transaction/payments/IN3/returns/R1/submissions/RS1"
               (:path (first @calls)))))
      (testing "and a delivered one reports the inbound returned"
-       (is (= "settled" (:status (load-intent config "int.r3"))))
+       (is (= :outbound-intent-status-settled
+              (:status (load-intent config "int.r3"))))
        (is (= {:end-to-end-id "e2e-in"
                :debit-credit-code :debit-credit-code-credit
                :scheme-transaction-id "IN3"

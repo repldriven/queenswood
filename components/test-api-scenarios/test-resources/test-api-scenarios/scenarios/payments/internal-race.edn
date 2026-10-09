@@ -13,8 +13,7 @@
    :as :party
    :with {:token [:ref :bank-0 :token]
           :display-name "Random Frequentflyer"
-          :given-name "Random"
-          :family-name "Frequentflyer"}}
+          :legal-name "Random Frequentflyer"}}
   {:fixture :account
    :as :debtor
    :with {:token [:ref :bank-0 :token]

@@ -33,7 +33,7 @@
    :record-store (system/instance sys [:fdb :store])})
 
 (def ^:private allow-rotate
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:effect :effect-allow
                     :kind {:cash-account
                            {:action :cash-account-action-rotate-address}}}]}])
@@ -46,10 +46,12 @@
    :party-id "pty.test"
    :product-id "prd.test"
    :version-id "prv.test"
-   :product-type :product-type-sub-ledger-current
+   :version-from-on 20089
+   :created-by {:kind :actor-kind-operator :principal-id "test"}
+   :product-type :account-product-type-sub-ledger-current
    :name "Provider Legs Account"
    :currency "GBP"
-   :account-status status
+   :status status
    :payment-addresses []
    :created-at (utility/now)
    :updated-at (utility/now)})
@@ -59,7 +61,7 @@
   (store/save-account config
                       account
                       {:account-id (:account-id account)
-                       :status-after (:account-status account)
+                       :status-after (:status account)
                        :change-kind :cash-account-change-kind-open}))
 
 (defn- issued
@@ -82,8 +84,7 @@
                  opened (core/provider-opened config
                                               (issued account-id "20000001"))
                  _ (testing "the provider's address opens the account"
-                     (is (= :cash-account-status-opened
-                            (:account-status opened)))
+                     (is (= :cash-account-status-opened (:status opened)))
                      (is (= "04000420000001" (:bban opened)))
                      (is (= "va-1" (:provider-account-id opened))))
                  again (core/provider-opened config
@@ -98,8 +99,7 @@
                      (is (nil? refused)))
                  stored (q/get-account config test-bank-id account-id)
                  _ (is (= "04000420000001" (:bban stored)))
-                 _ (is (= :cash-account-status-opened
-                          (:account-status stored)))]))))
+                 _ (is (= :cash-account-status-opened (:status stored)))]))))
 
 (deftest rotate-address-retried-under-one-key-asks-once-test
   (with-test-system
@@ -116,7 +116,9 @@
                  requested
                  (SUT/rotate-address config command {:policies allow-rotate})
                  _ (testing "the rotation is pending and the address stays"
-                     (is (= key (:pending-rotation-key requested)))
+                     (is (= {:idempotency-key key
+                             :status :address-rotation-status-pending}
+                            (:rotation requested)))
                      (is (= (:bban opened) (:bban requested))))
                  retried
                  (SUT/rotate-address config command {:policies allow-rotate})
@@ -136,7 +138,8 @@
                  _ (testing "the provider's new address replaces the old"
                      (is (= "04000420000002" (:bban reissued)))
                      (is (= 1 (count (:retired-payment-addresses reissued))))
-                     (is (nil? (:pending-rotation-key reissued))))
+                     (is (= :address-rotation-status-completed
+                            (get-in reissued [:rotation :status]))))
                  replayed (core/provider-reissued
                            config
                            (issued account-id "20000002" :rotation-key key))

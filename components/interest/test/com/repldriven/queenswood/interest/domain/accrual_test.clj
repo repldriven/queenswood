@@ -10,19 +10,19 @@
 (def ^:private earning-balances
   "A current account holding 1500 available (2000 posted less a 500
   outgoing reservation) and an accrued balance."
-  [{:product-type :product-type-sub-ledger-current
+  [{:product-type :account-product-type-sub-ledger-current
     :balance-type :balance-type-default
     :balance-status :balance-status-posted
     :currency "GBP"
     :credit 2000
     :debit 0}
-   {:product-type :product-type-sub-ledger-current
+   {:product-type :account-product-type-sub-ledger-current
     :balance-type :balance-type-default
     :balance-status :balance-status-pending-outgoing
     :currency "GBP"
     :credit 0
     :debit 500}
-   {:product-type :product-type-sub-ledger-current
+   {:product-type :account-product-type-sub-ledger-current
     :balance-type :balance-type-interest-accrued
     :balance-status :balance-status-posted
     :currency "GBP"
@@ -76,12 +76,12 @@
     ;; 1500 available at 100 bps opening at 27_397: Total-micro = 1500 *
     ;; 100 * 100 + 27_397 * 365 = 24_999_905 daily-micro = 24_999_905 / 365
     ;; = 68_492
-    (let [{:keys [amount closing-carry carry-change principal opening-carry]}
+    (let [{:keys [amount closing-carry carry-delta principal opening-carry]}
           (SUT/accrue "acc.1" "GBP" earning-balances 27397 100)]
       (testing "what the account earned, and the remainder it leaves"
         (is (= 0 amount))
         (is (= 68492 closing-carry))
-        (is (= (- 68492 27397) carry-change)))
+        (is (= (- 68492 27397) carry-delta)))
       (testing "and what those were computed from, so the row explains itself"
         (testing "interest is earned on available, not posted"
           (is (= 1500 principal)))
@@ -90,7 +90,7 @@
 (def ^:private current
   {:account-id "acc.1"
    :currency "GBP"
-   :product-type :product-type-sub-ledger-current})
+   :product-type :account-product-type-sub-ledger-current})
 
 (def ^:private expense {"GBP" "led.expense" "EUR" "led.expense-eur"})
 
@@ -104,7 +104,7 @@
   (testing "CR each account's interest accrued, DR interest expense"
     (let [saver (assoc current
                        :account-id "acc.2"
-                       :product-type :product-type-sub-ledger-savings)
+                       :product-type :account-product-type-sub-ledger-savings)
           [tx] (SUT/chunk-transactions "org.1"
                                        expense
                                        [[current {:amount 3}]
@@ -115,9 +115,9 @@
           legs (:legs tx)]
       (is (= :transaction-type-interest-accrual (:transaction-type tx)))
       (is (= "accrue-org.1-20260501-GBP-acc.1" (:idempotency-key tx)))
-      (is (= [["acc.1" :product-type-sub-ledger-current
+      (is (= [["acc.1" :account-product-type-sub-ledger-current
                :balance-type-interest-accrued :leg-side-credit 3]
-              ["acc.2" :product-type-sub-ledger-savings
+              ["acc.2" :account-product-type-sub-ledger-savings
                :balance-type-interest-accrued :leg-side-credit 5]
               ["led.expense" nil :balance-type-default :leg-side-debit 8]]
              (mapv (juxt :account-id :product-type :balance-type :side :amount)

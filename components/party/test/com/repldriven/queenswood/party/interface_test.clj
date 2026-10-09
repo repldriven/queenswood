@@ -22,15 +22,16 @@
 (def ^:private test-bank-id "bnk_party_retry_test")
 
 (def ^:private allow-create
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:effect :effect-allow
                     :kind {:party {:action :party-action-create}}}]}])
 
 (defn- organisation
   [idempotency-key]
   {:bank-id test-bank-id
-   :type :party-type-organization
-   :display-name "Retried Organisation"
+   :party-type :party-type-organization
+   :legal-name "Retried Organisation"
+   :actor {:kind :actor-kind-operator :principal-id "queenswood-admin"}
    :idempotency-key idempotency-key})
 
 (deftest new-party-retried-under-one-key-creates-one-party-test

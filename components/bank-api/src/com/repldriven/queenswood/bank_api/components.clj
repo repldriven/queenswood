@@ -39,9 +39,9 @@
   [:map
    {:json-schema/example examples/Owner
     :description
-    "An owner of the bank: an active membership with the owner role, with
+    "An owner of the bank: an active member with the owner role, with
     the name and email its user record holds."}
-   [:membership-id [:ref "MembershipId"]]
+   [:member-id [:ref "MemberId"]]
    [:user-id [:ref "UserId"]]
    [:name {:optional true} string?]
    [:email {:optional true} string?]])
@@ -66,7 +66,7 @@
      [:ref "Owner"]]]
    [:client-id [:ref "BankId"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def BankList (list-schema "Bank" examples/BankList))
 
@@ -74,14 +74,15 @@
   "The confirmed legal-entity snapshot a bank is bound to (onboarding
   via a company registry). Absent for admin-provisioned banks."
   [:map {:json-schema/example examples/CompanyBinding}
-   [:registry string?]
+   [:registry [:ref "CompanyRegistry"]]
    [:company-number string?]
-   [:company-name string?]
-   [:company-status string?]
-   [:type {:optional true} string?]
+   [:name string?]
+   [:status string?]
+   [:company-type string?]
    [:jurisdiction {:optional true} string?]
-   [:date-of-creation {:optional true} string?]
-   [:registered-office-address {:optional true} string?]])
+   [:incorporated-on {:optional true} [:ref "BusinessDay"]]
+   [:registered-office-address {:optional true}
+    [:ref "RegisteredOfficeAddress"]]])
 
 (def CreateBankResponse
   [:map {:json-schema/example examples/CreateBankResponse}
@@ -99,10 +100,10 @@
    [:client-id [:ref "BankId"]]
    [:client-secret string?]
    [:owner-invitation {:optional true} [:ref "Invitation"]]
-   [:membership {:optional true} [:ref "Membership"]]
+   [:member {:optional true} [:ref "Member"]]
    [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def ChangeBankTierRequest
   [:map {:closed true :json-schema/example examples/ChangeBankTierRequest}
@@ -131,7 +132,7 @@
    [:client-secret string?]
    [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def Provider
   [:map

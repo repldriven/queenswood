@@ -18,12 +18,12 @@
   [status]
   {:account-id "acc.test"
    :account-type :account-type-personal
-   :account-status status
+   :status status
    :currency "GBP"})
 
 (defn- policy-allowing
   [& actions]
-  {:enabled true
+  {:status :policy-status-active
    :capabilities (mapv (fn [action]
                          {:effect :effect-allow
                           :kind {:cash-account {:action action}}})
@@ -31,21 +31,24 @@
 
 (def ^:private open-as-of 20468)
 
+(def ^:private operator {:kind :actor-kind-operator :principal-id "test"})
+
 (def ^:private open-data
   {:bank-id "bnk.test"
    :party-id "pty.test"
    :product-id "prd.001"
-   :name "Test Account"})
+   :name "Test Account"
+   :actor operator})
 
 (defn- party-with
   [status]
-  {:party-id "pty.test" :type :party-type-person :status status})
+  {:party-id "pty.test" :party-type :party-type-person :status status})
 
-(defn- version-allowing
-  [allowed-currencies]
+(defn- version-in
+  [currency]
   {:version-id "prv.001"
-   :product-type :product-type-sub-ledger-current
-   :allowed-currencies allowed-currencies
+   :product-type :account-product-type-sub-ledger-current
+   :currency currency
    :allowed-payment-address-schemes [:payment-address-scheme-scan]})
 
 (defn- open-account-with
@@ -69,38 +72,32 @@
       (is (= open-as-of (:as-of (error/payload result)))))))
 
 (deftest open-account-currency-test
-  (testing "a currency outside the product's allowed list is rejected"
+  (testing "a currency other than the version's is rejected"
     (let [result (open-account-with "EUR"
-                                    (version-allowing ["GBP" "USD"])
+                                    (version-in "GBP")
                                     (party-with :party-status-active))]
       (is (error/rejection? result))
       (is (= :cash-account/invalid-currency (error/kind result)))))
-  (testing "a currency in the allowed list passes"
+  (testing "the version's currency passes"
     ;; The party guard runs next, so reaching it is what shows the
     ;; currency was accepted.
     (let [result (open-account-with "GBP"
-                                    (version-allowing ["GBP" "USD"])
-                                    (party-with :party-status-pending))]
-      (is (= :cash-account/party-status (error/kind result)))))
-  (testing "an empty allowed list is treated as unrestricted"
-    (let [result (open-account-with "EUR"
-                                    (version-allowing [])
+                                    (version-in "GBP")
                                     (party-with :party-status-pending))]
       (is (= :cash-account/party-status (error/kind result))))))
 
 (deftest open-account-party-status-test
   (testing "opening for a party that isn't active is rejected"
     (doseq [status [:party-status-pending :party-status-closed]]
-      (let [result (open-account-with "GBP"
-                                      (version-allowing ["GBP"])
-                                      (party-with status))]
+      (let [result
+            (open-account-with "GBP" (version-in "GBP") (party-with status))]
         (is (error/rejection? result))
         (is (= :cash-account/party-status (error/kind result)))
         (is (= status (:status (error/payload result))))))))
 
 (defn- version-with-schemes
   [schemes]
-  (assoc (version-allowing ["GBP"]) :allowed-payment-address-schemes schemes))
+  (assoc (version-in "GBP") :allowed-payment-address-schemes schemes))
 
 (def ^:private scan-version
   (version-with-schemes [:payment-address-scheme-scan]))
@@ -142,7 +139,7 @@
   (testing "and a scan account opens with no address until the provider's"
     (let [result
           (open-account-past-the-guards scan-version (counts 0 0) allow-open)]
-      (is (= :cash-account-status-opening (:account-status result)))
+      (is (= :cash-account-status-opening (:status result)))
       (is (= [] (:payment-addresses result)))
       (is (not (contains? result :bban))))))
 
@@ -160,7 +157,7 @@
     (let [result (SUT/provider-opened-account (account
                                                :cash-account-status-opening)
                                               issued)]
-      (is (= :cash-account-status-opened (:account-status result)))
+      (is (= :cash-account-status-opened (:status result)))
       (is (= "va-1" (:provider-account-id result)))
       (is (= "04000420000001" (:bban result)))
       (is (= [{:scheme :payment-address-scheme-scan
@@ -171,8 +168,9 @@
   (testing "a declined opening is refused with the provider's reason"
     (let [result (SUT/refused-account (account :cash-account-status-opening)
                                       "The account was declined")]
-      (is (= :cash-account-status-refused (:account-status result)))
-      (is (= "The account was declined" (:refusal-reason result))))))
+      (is (= :cash-account-status-refused (:status result)))
+      (is (= "The account was declined" (:refused-reason result)))
+      (is (number? (:refused-at result))))))
 
 (defn- count-limit
   [bound filters]
@@ -193,7 +191,7 @@
       (let [result (open-account-past-the-guards scan-version
                                                  (counts 1 1)
                                                  two-in-total)]
-        (is (= :cash-account-status-opening (:account-status result)))))
+        (is (= :cash-account-status-opening (:status result)))))
     (testing "and refuses the open past it"
       (let [result (open-account-past-the-guards scan-version
                                                  (counts 2 2)
@@ -202,12 +200,14 @@
         (is (= :policy/limit-exceeded (error/kind result)))))))
 
 (deftest open-account-filtered-count-limit-test
-  (let [term-deposit
-        (assoc scan-version :product-type :product-type-sub-ledger-term-deposit)
-        one-term-deposit
-        (allow-open-within
-         (count-limit 1
-                      [{:product-type :product-type-sub-ledger-term-deposit}]))]
+  (let [term-deposit (assoc scan-version
+                            :product-type
+                            :account-product-type-sub-ledger-term-deposit)
+        one-term-deposit (allow-open-within
+                          (count-limit
+                           1
+                           [{:product-type
+                             :account-product-type-sub-ledger-term-deposit}]))]
     (testing "a limit filtered by product type bites on that type's subtotal"
       (let [result (open-account-past-the-guards term-deposit
                                                  (counts 5 1)
@@ -218,7 +218,7 @@
       (let [result (open-account-past-the-guards scan-version
                                                  (counts 5 1)
                                                  one-term-deposit)]
-        (is (= :cash-account-status-opening (:account-status result)))))))
+        (is (= :cash-account-status-opening (:status result)))))))
 
 (deftest close-account-source-state-guard-test
   (testing
@@ -228,7 +228,7 @@
     (doseq [status [:cash-account-status-opening
                     :cash-account-status-closing
                     :cash-account-status-closed]]
-      (let [result (SUT/close-account (account status) [] [])]
+      (let [result (SUT/close-account (account status) [] operator [])]
         (is (error/rejection? result))
         (is (= :cash-account/invalid-status (error/kind result)))
         (is (= status (:status (error/payload result))))
@@ -239,9 +239,12 @@
   (testing "a suspended account closes without being resumed first"
     (let [result (SUT/close-account (account :cash-account-status-suspended)
                                     []
+                                    operator
                                     [(policy-allowing
                                       :cash-account-action-close)])]
-      (is (= :cash-account-status-closing (:account-status result))))))
+      (is (= :cash-account-status-closing (:status result)))
+      (is (= operator (:close-requested-by result)))
+      (is (some? (:close-requested-at result))))))
 
 (def ^:private posted-bucket
   {:balance-type :balance-type-default
@@ -266,6 +269,7 @@
              a posted total"
       (let [result (SUT/close-account acct
                                       balances
+                                      operator
                                       [(policy-allowing
                                         :cash-account-action-close)])
             payload (error/payload result)]
@@ -277,16 +281,18 @@
     (testing "a bucket carrying no type or status reports what it has"
       (let [result (SUT/close-account acct
                                       [{:credit 500 :debit 0}]
+                                      operator
                                       [(policy-allowing
                                         :cash-account-action-close)])]
         (is (= [{:credit 500 :debit 0}] (:balances (error/payload result))))))
     (testing "an explicit opt-out capability allows the close"
       (let [result (SUT/close-account acct
                                       balances
+                                      operator
                                       [(policy-allowing
                                         :cash-account-action-close
                                         :cash-account-action-close-non-zero)])]
-        (is (= :cash-account-status-closing (:account-status result)))))))
+        (is (= :cash-account-status-closing (:status result)))))))
 
 (deftest close-account-zero-balance-test
   (testing
@@ -296,9 +302,10 @@
           balances [{:credit 500 :debit 500} {:credit 0 :debit 0}]
           result (SUT/close-account acct
                                     balances
+                                    operator
                                     [(policy-allowing
                                       :cash-account-action-close)])]
-      (is (= :cash-account-status-closing (:account-status result))))))
+      (is (= :cash-account-status-closing (:status result))))))
 
 (deftest suspend-account-source-state-guard-test
   (testing
@@ -308,7 +315,7 @@
                     :cash-account-status-closing
                     :cash-account-status-closed
                     :cash-account-status-suspended]]
-      (let [result (SUT/suspend-account (account status) [])]
+      (let [result (SUT/suspend-account (account status) operator [])]
         (is (error/rejection? result))
         (is (= :cash-account/invalid-status (error/kind result)))
         (is (= status (:status (error/payload result))))))))
@@ -321,7 +328,7 @@
                     :cash-account-status-opened
                     :cash-account-status-closing
                     :cash-account-status-closed]]
-      (let [result (SUT/resume-account (account status) [])]
+      (let [result (SUT/resume-account (account status) operator [])]
         (is (error/rejection? result))
         (is (= :cash-account/invalid-status (error/kind result)))
         (is (= status (:status (error/payload result))))))))
@@ -354,16 +361,18 @@
                                        {:idempotency-key "ik-rotate-0000000001"}
                                        [(policy-allowing
                                          :cash-account-action-rotate-address)])]
-      (is (= :cash-account-status-opened (:account-status result)))
+      (is (= :cash-account-status-opened (:status result)))
       (is (= (:payment-addresses acct) (:payment-addresses result)))
-      (is (= "ik-rotate-0000000001" (:pending-rotation-key result)))
-      (is (= "ik-rotate-0000000001" (:last-rotation-idempotency-key result)))))
+      (is (= {:idempotency-key "ik-rotate-0000000001"
+              :status :address-rotation-status-pending}
+             (:rotation result)))))
   (testing
     "the provider's new address replaces the old, which is retired
            on-record"
     (let [acct (assoc (opened-account-with-address)
-                      :pending-rotation-key
-                      "ik-rotate-0000000001")
+                      :rotation
+                      {:idempotency-key "ik-rotate-0000000001"
+                       :status :address-rotation-status-pending})
           result (SUT/reissued-account acct
                                        {:provider-account-id "va-1"
                                         :addresses [{:scheme "scan"
@@ -377,7 +386,8 @@
       (is (= (:payment-addresses acct)
              (mapv :address (:retired-payment-addresses result))))
       (is (every? int? (map :retired-at (:retired-payment-addresses result))))
-      (is (not (contains? result :pending-rotation-key))))))
+      (is (= :address-rotation-status-completed
+             (get-in result [:rotation :status]))))))
 
 (def ^:private migration-target {:product-id "prd.mega" :version-id "prv.4"})
 
@@ -391,6 +401,7 @@
                     :cash-account-status-suspended]]
       (let [result (SUT/migrate-product (account status)
                                         migration-target
+                                        20500
                                         [(policy-allowing
                                           :cash-account-action-migrate)])]
         (is (error/rejection? result))
@@ -404,6 +415,7 @@
     ;; another transition's.
     (let [result (SUT/migrate-product (account :cash-account-status-opened)
                                       migration-target
+                                      20500
                                       [])]
       (is (error/anomaly? result)))))
 
@@ -417,11 +429,13 @@
     (let [acct (opened-account-with-address)
           result (SUT/migrate-product acct
                                       migration-target
+                                      20500
                                       [(policy-allowing
                                         :cash-account-action-migrate)])]
       (is (= "prd.mega" (:product-id result)))
       (is (= "prv.4" (:version-id result)))
-      (is (= :cash-account-status-opened (:account-status result)))
+      (is (= 20500 (:version-from-on result)))
+      (is (= :cash-account-status-opened (:status result)))
       (is (= (:bban acct) (:bban result)))
       (is (= (:payment-addresses acct) (:payment-addresses result)))
       (is (= (:account-id acct) (:account-id result)))

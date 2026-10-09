@@ -19,13 +19,12 @@
   {:reward-id "rwd.01kprbmgcj35ptc8npmybhh4t1"
    :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
    :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
-   :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
    :product-id "prd.01kprbmgcj35ptc8npmybhh4se"
    :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
    :kind :reward-kind-opening
    :amount 5000
    :currency "GBP"
-   :status :reward-status-paid
+   :status :account-reward-status-paid
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
    :paid-at 1700000000000
    :created-at 1700000000000

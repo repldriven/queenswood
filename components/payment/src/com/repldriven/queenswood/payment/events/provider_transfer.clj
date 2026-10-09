@@ -25,7 +25,7 @@
        [cash (ledger-accounts/find-by-code
               txn
               bank-id
-              :gl-account-code-cash-at-correspondent
+              :ledger-account-code-cash-at-correspondent
               currency)
         house (cash-accounts/house-account txn bank-id currency)]
        {:cash-at-correspondent-id (:ledger-account-id cash)
@@ -100,6 +100,7 @@
    (fn [txn]
      (let-nom> [existing (store/transfers-for-transaction
                           txn
+                          (:bank-id posted)
                           (:transaction-id posted))]
        (if (seq existing)
          existing
@@ -123,7 +124,7 @@
   (let [{:keys [bank-id transaction-id debtor-account-id]} transfer]
     (provider/send-command config
                            bank-id
-                           "transfer-between-accounts"
+                           "transfer-between-provider-accounts"
                            transaction-id
                            (utility/assoc-some
                             (select-keys transfer
@@ -153,7 +154,8 @@
                      cash-at-correspondent-id)
             (let-nom> [transfers (record-transfers config posted)]
               (reduce (fn [_ t]
-                        (if (= :provider-transfer-status-pending (:status t))
+                        (if (= :payment-provider-transfer-status-pending
+                               (:status t))
                           (let [res (send-transfer config t)]
                             (if (error/anomaly? res) (reduced res) nil))
                           nil))
@@ -181,7 +183,10 @@
 
 (defn complete-transfer
   [config data]
-  (finish-transfer config data :provider-transfer-status-completed nil))
+  (finish-transfer config
+                   data
+                   :payment-provider-transfer-status-completed
+                   nil))
 
 (defn fail-transfer
   "A transfer the provider did not make leaves the ledger as it is: the
@@ -191,4 +196,7 @@
   (let [{:keys [bank-id transfer-id reason]} data]
     (log/error "A provider transfer failed, leaving the provider off the ledger"
                {:bank-id bank-id :transfer-id transfer-id :reason reason})
-    (finish-transfer config data :provider-transfer-status-failed reason)))
+    (finish-transfer config
+                     data
+                     :payment-provider-transfer-status-failed
+                     reason)))

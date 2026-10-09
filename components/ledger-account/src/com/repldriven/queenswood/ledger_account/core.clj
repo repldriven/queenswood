@@ -25,7 +25,7 @@
      [policies (get-policies txn bank-id opts)
       account (domain/new-ledger-account bank-id currency row policies)
       _ (store/save-account txn account)
-      _ (when-not (domain/derived (:gl-account-code account))
+      _ (when-not (domain/derived (:code account))
           (balances/new-balances txn
                                  bank-id
                                  [(domain/opening-balance account)]))]
@@ -60,6 +60,7 @@
   (let-nom>
     [sums (if (:journal? spec)
             (transactions/sum-legs txn
+                                   (:bank-id account)
                                    (:ledger-account-id account)
                                    :balance-type-default
                                    (:balance-status spec)
@@ -69,7 +70,7 @@
 
 (defn- account-balances
   [txn bank-id account]
-  (if-let [spec (domain/derived (:gl-account-code account))]
+  (if-let [spec (domain/derived (:code account))]
     (let-nom> [balance (derived-balance txn account spec {})]
       [balance])
     (balance-query/list-balances txn bank-id (:ledger-account-id account))))
@@ -78,17 +79,16 @@
   [txn bank-id account]
   (let-nom>
     [balances (account-balances txn bank-id account)]
-    (balance-query/totals balances)))
+    (balance-query/totals balances (:currency account))))
 
 (defn- posted-balance
   [txn bank-id account]
-  (if-let [spec (domain/derived (:gl-account-code account))]
+  (if-let [spec (domain/derived (:code account))]
     (derived-balance txn account spec {:isolation :serializable})
     (balance-query/get-balance txn
                                bank-id
                                (:ledger-account-id account)
                                :balance-type-default
-                               (:currency account)
                                :balance-status-posted)))
 
 (defn close-account
@@ -108,19 +108,39 @@
   [txn bank-id]
   (store/list-by-bank txn bank-id))
 
+(defn- paired
+  [txn accounts stored]
+  (reduce (fn [acc {:keys [ledger-account-id code] :as account}]
+            (if-let [spec (domain/derived code)]
+              (let [balance (derived-balance txn account spec {})]
+                (if (error/anomaly? balance)
+                  (reduced balance)
+                  (conj acc {:account account :balances [balance]})))
+              (conj acc
+                    {:account account
+                     :balances (get stored ledger-account-id [])})))
+          []
+          accounts))
+
 (defn list-accounts-with-balances
-  [config bank-id]
-  (let-nom>
-    [pairs (store/list-by-bank-with-balances config bank-id)]
-    (reduce (fn [acc {:keys [account] :as pair}]
-              (if-let [spec (domain/derived (:gl-account-code account))]
-                (let [balance (derived-balance config account spec {})]
-                  (if (error/anomaly? balance)
-                    (reduced balance)
-                    (conj acc (assoc pair :balances [balance]))))
-                (conj acc pair)))
-            []
-            pairs)))
+  [txn bank-id]
+  (store/transact
+   txn
+   (fn [txn]
+     (let-nom>
+       [accounts (store/list-by-bank txn bank-id)
+        stored-ids (into []
+                         (comp (remove (fn [{:keys [code]}]
+                                         (domain/derived code)))
+                               (map :ledger-account-id))
+                         accounts)
+        stored (balance-query/list-balances-of txn
+                                               bank-id
+                                               stored-ids
+                                               {:stored-ids stored-ids})]
+       (paired txn accounts stored)))
+   :ledger-account/list-with-balances
+   "Failed to list ledger accounts with balances"))
 
 (defn- cached-ids
   [cache bank-id codes currency]
@@ -171,8 +191,8 @@
             codes)))
 
 (defn find-by-code
-  [txn bank-id gl-account-code currency]
-  (let-nom> [[account] (find-by-codes txn bank-id [gl-account-code] currency)]
+  [txn bank-id code currency]
+  (let-nom> [[account] (find-by-codes txn bank-id [code] currency)]
     account))
 
 (def ^:private journal-codes

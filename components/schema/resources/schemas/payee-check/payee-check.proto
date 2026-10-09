@@ -1,0 +1,49 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.payee_check;
+
+import "record_metadata_options.proto";
+import "schemas/cash-account/types.proto";
+import "schemas/actor/actor.proto";
+
+option java_outer_classname = "PayeeCheckProto";
+
+enum MatchResult {
+  MATCH_RESULT_UNKNOWN = 0;
+  MATCH_RESULT_MATCH = 1;
+  MATCH_RESULT_CLOSE_MATCH = 2;
+  MATCH_RESULT_NO_MATCH = 3;
+  MATCH_RESULT_UNAVAILABLE = 4;
+}
+
+message AccountIdentifier {
+  required string sort_code = 1;
+  required string account_number = 2;
+}
+
+message PayeeCheckRequest {
+  required string creditor_name = 1;
+  required AccountIdentifier account = 2;
+  required com.repldriven.queenswood.schema.cash_account.AccountType account_type = 3;
+}
+
+message PayeeCheckResult {
+  required MatchResult match_result = 1;
+  optional string actual_name = 2;
+  optional string reason_code = 3;
+  optional string reason = 4;
+}
+
+// A confirmation-of-payee check of a name against an account.
+message PayeeCheck {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string check_id = 2; // chk.<uuidv7>
+
+  required PayeeCheckRequest request = 3;
+  required PayeeCheckResult result = 4;
+
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+}

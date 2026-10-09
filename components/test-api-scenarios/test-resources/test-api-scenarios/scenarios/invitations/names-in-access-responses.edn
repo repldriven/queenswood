@@ -39,7 +39,7 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation
                                            :invitation-id]}
              :auth :owner-token}
-   :as :owner-membership
+   :as :owner-member
    :assert {:status 201}}
   {:command :api/request
    :request {:method :get :path "/v1/me" :auth :owner-token}
@@ -66,7 +66,7 @@
    :assert {:status 200
             :body {:invitation-id [:ref :invitation :invitation-id]
                    :invited-by {:kind "member"
-                                :principal-id [:ref :owner-membership :user-id]
+                                :principal-id [:ref :owner-member :user-id]
                                 :name [:ref :owner-me :name]}}}}
   {:command :api/request
    :request {:method :post
@@ -82,13 +82,13 @@
              :path-params {:invitation-id [:ref :member-invitation
                                            :invitation-id]}
              :auth :member-token}
-   :as :member-membership
+   :as :member-member
    :assert {:status 201 :body {:role "developer"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/memberships/{membership-id}/remove"
-             :path-params {:membership-id [:ref :member-membership
-                                           :membership-id]}
+             :path "/v1/members/{member-id}/remove"
+             :path-params {:member-id [:ref :member-member
+                                           :member-id]}
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :body {:reason "Left the company"}}
@@ -106,9 +106,9 @@
      [:m/embeds
       [{:kind "member-removed"
         :actor {:kind "member"
-                :principal-id [:ref :owner-membership :user-id]
+                :principal-id [:ref :owner-member :user-id]
                 :name [:ref :owner-me :name]}
-        :subject-user-id [:ref :member-membership :user-id]
+        :subject-user-id [:ref :member-member :user-id]
         :subject-name [:ref :member-me :name]}
        {:kind "bank-created"
         :actor {:kind "operator"

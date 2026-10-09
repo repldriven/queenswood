@@ -9,9 +9,9 @@
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.edn :as edn]
     [clojure.string :as str]))
 
 (def ^:private move-prefix "move-")
@@ -50,7 +50,7 @@
                 :context
                 (fn [c]
                   (or (some-> (not-empty c)
-                              edn/read-string)
+                              transit/read-str)
                       {})))))))
 
 (defn- persist-one
@@ -108,9 +108,11 @@
   [request payin]
   (let [{:keys [SourceExternalReference PaymentReference]} payin]
     (or (str/starts-with? (or SourceExternalReference "") move-prefix)
-        (contains? #{"transfer" "credit"}
+        (contains? #{:modulr-outbound-intent-kind-transfer
+                     :modulr-outbound-intent-kind-credit}
                    (:kind (intent request SourceExternalReference)))
-        (= "credit" (:kind (intent request PaymentReference))))))
+        (= :modulr-outbound-intent-kind-credit
+           (:kind (intent request PaymentReference))))))
 
 (defn- search-payments
   [request query]
@@ -177,7 +179,7 @@
                     (respond request
                              "PAYOUT"
                              (publisher/payout body found)
-                             (:dedup-key found))))))))
+                             (:idempotency-key found))))))))
 
 (def compliance
   (verified (fn [request]

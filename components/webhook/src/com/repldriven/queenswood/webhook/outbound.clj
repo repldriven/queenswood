@@ -63,12 +63,12 @@
 (defn- attempt-row
   [delivery outcome now duration-ms]
   (utility/assoc-some {:bank-id (:bank-id delivery)
-                       :attempt-id (utility/generate-id "wha")
                        :delivery-id (:delivery-id delivery)
-                       :attempted-at now
-                       :duration-ms duration-ms}
+                       :attempt-id (utility/generate-id "wha")
+                       :duration-ms duration-ms
+                       :created-at now}
                       :response-status (:status outcome)
-                      :error (:error outcome)))
+                      :failed-reason (:error outcome)))
 
 (defn- destination
   [{:keys [bank-id endpoint-id]}]
@@ -92,10 +92,10 @@
      (log/error "Circuit breaker not recorded"
                 {:destination (destination endpoint) :anomaly res})
 
-     (= "open" (:state res))
+     (= :circuit-breaker-status-open (:status res))
      (log/warn "Circuit breaker open; webhook deliveries held"
                {:destination (destination endpoint)
-                :retry-at (:retry-at res)}))))
+                :next-probe-at (:next-probe-at res)}))))
 
 (defn address-refusal
   "Why the endpoint's address may not be called now, or nil. The host
@@ -144,7 +144,7 @@
                                            (:notification-id delivery))]
     (telemetry/with-span-parent
      "webhook-delivery"
-     (telemetry/extract-parent-context notification)
+     (telemetry/extract-parent-context delivery)
      (utility/assoc-some {} "delivery.id" (:delivery-id delivery))
      (fn []
        (let [started (utility/now)
@@ -184,8 +184,7 @@
                                           (destination {:bank-id bank-id
                                                         :endpoint-id
                                                         endpoint-id})
-                                          now
-                                          (:runner-id config))]
+                                          now)]
       (cond
        (error/anomaly? decision)
        (do (log/error "Circuit breaker not read; delivering as though closed"
@@ -212,7 +211,6 @@
         claimed (store/claim-due-deliveries
                  config
                  {:now now
-                  :claimed-by (:runner-id config)
                   :lease-ms (:claim-lease-ms config)
                   :limit (:batch-size config)
                   :per-endpoint-limit (:max-in-flight-per-endpoint config)
@@ -227,7 +225,6 @@
   [config]
   (let [running (atom true)
         poll-ms (:poll-ms config)
-        config (update config :runner-id #(or % (str (utility/uuidv7))))
         t (doto
             (Thread.
              (fn []

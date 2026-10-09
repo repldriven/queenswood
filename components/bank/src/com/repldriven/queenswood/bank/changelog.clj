@@ -18,11 +18,11 @@
 ;; receives a Txn, never the system config the serde arrives in.
 (def ^:private status-schema
   (delay (avro/json->schema
-          (slurp (io/resource "schemas/banks/bank-status-changed.avsc.json")))))
+          (slurp (io/resource "schemas/bank/bank-status-changed.avsc.json")))))
 
 (def ^:private tier-schema
   (delay (avro/json->schema
-          (slurp (io/resource "schemas/banks/bank-tier-changed.avsc.json")))))
+          (slurp (io/resource "schemas/bank/bank-tier-changed.avsc.json")))))
 
 (defn status-changed
   "Build the shared-envelope changelog bytes for a bank status

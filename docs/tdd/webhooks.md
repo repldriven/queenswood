@@ -198,12 +198,13 @@ and the rejection examples every route shares live in `api-schema`.
   freedom ADR-0036 grants it: a runner claiming each row by a
   conditional transition inside one FDB transaction is not
   exclusive-dispatcher work. A delivery is claimed by moving it from
-  pending to in-flight and stamping a lease, in the transaction that
-  read it, so a second replica reaching the same due row loses that
-  transaction and sends nothing. A pass also takes an in-flight row
-  whose lease has passed, which is what a runner that died between the
-  claim commit and the outcome commit leaves behind. What that leaves
-  is written rather than designed away: a lease expiring while the
+  pending to in-flight with its next attempt at when the claim lapses,
+  in the transaction that read it, so a second replica reaching the
+  same due row loses that transaction and sends nothing. A pass also
+  takes an in-flight row whose claim has lapsed, which is what a runner
+  that died between the claim commit and the outcome commit leaves
+  behind. What that leaves
+  is written rather than designed away: a claim lapsing while the
   first replica is still inside the call lets a second claim the
   delivery and send it again, which the notification id makes safe for
   the tenant to recognise as a repeat.
@@ -352,7 +353,7 @@ same status.
   `VerificationSession`, by bank and session id, told by the status
   it lands on: `ready` once the session holds a hand-off, `failed`
   when the identity provider refuses its check.
-- `reward.paid` — `reward-status-changed` with `change_kind` pay,
+- `reward.paid` — `account-reward-status-changed` with `change_kind` pay,
   `Reward`, by bank and reward id. A defer, the other kind the entry
   carries, is the bank's operational problem and is not published.
 
@@ -365,8 +366,9 @@ Three more wait on work outside the catalogue:
   party.
 - `webhook-endpoint.paused` — `WebhookEndpoint`, so an endpoint an
   operator pauses is told to the bank's other endpoints through the
-  same path as everything else. Nothing pauses an endpoint yet, and the
-  endpoint store writes no changelog.
+  same path as everything else. Nothing pauses an endpoint yet, the
+  endpoint has no paused status, and the endpoint store writes no
+  changelog.
 - `interest.capitalised` — the interest brick's per-account
   capitalisation, resolving to the `Transaction` the run posted,
   behind the single-transaction read its slice creates first.
@@ -518,7 +520,7 @@ sequenceDiagram
     WR->>DB: read the endpoint's breaker, saving it when this pass claims the half-open probe
     end
     opt the breaker closed, or this its probe, and the endpoint under max-in-flight-per-endpoint
-    WR->>DB: save the delivery, in flight, under a claim-lease-ms lease, claimed by this runner
+    WR->>DB: save the delivery, in flight, its next attempt claim-lease-ms away
     end
     end
     end
@@ -655,8 +657,9 @@ that lands.
   under a notification id the tenant has already seen, which is the
   repeat the signing convention exists to let it recognise.
 
-Reads take no key: get and list endpoints, and list an endpoint's
-deliveries with filters on kind, outcome and time.
+Reads take no key: get and list endpoints, list an endpoint's
+deliveries with filters on kind, outcome and time, and list a
+delivery's attempts at `GET .../deliveries/{delivery-id}/attempts`.
 
 `POST .../enable` takes an optional `since`. Without it the endpoint
 resumes from the next change; with it, every notification for the
@@ -705,17 +708,18 @@ base's override table.
 
 ### Records
 
-Four record types, as protos under `schemas/webhooks/`, registered in
+Four record types, as protos under `schemas/webhook/`, registered in
 three places the way the ClearBank outbox was: the record-type union,
 the FDB record-type YAML, and the `pb->`, `->pb` and `->java` trio per
 type in the `schema` brick's `interface.clj`.
 
 - `WebhookEndpoint` — bank id, endpoint id, address, description, the
-  chosen kinds, status (enabled, disabled, paused, removed), the
+  chosen kinds, status (enabled, disabled, removed), the
   current secret, the previous secret and when it expires, the
   idempotency key of the registration
   that created it, the idempotency key of its last secret rotation,
-  and timestamps. Indexed by bank, with an FDB
+  and who registered, edited, disabled, enabled, removed it and
+  rotated its secret, and when. Indexed by bank, with an FDB
   `count` index over `[bank_id, endpoint_id]` for the limit check and
   a unique index on `[bank_id, idempotency_key]`. That unique index is
   what makes registration retry-safe: a retried request reads back the
@@ -725,23 +729,25 @@ type in the `schema` brick's `interface.clj`.
   is configuration.
 - `WebhookNotification` — notification id, bank id, kind, resource
   type and id, the envelope fields above, the rendered body, and the
-  changelog event id under a unique index.
+  relayed changelog event's id as its idempotency key, unique per bank.
 - `WebhookDelivery` — delivery id, notification id, endpoint id,
-  status (pending, in-flight, delivered, failed), the lease a claim
-  stamps, attempts, when the next attempt is due, the last response
-  status or error, and timestamps. Indexed
+  status (pending, in-flight, delivered, failed), the kind, how many
+  attempts it has made, when the next is due or the claim lapses, the
+  trace each attempt joins, when it was delivered or failed, and who
+  asked for it where a person did. Indexed
   by status and due time for the runner, and by endpoint and time for
   the delivery history. Kind and outcome are denormalised onto the
   delivery, so the history's filters answer off one index rather than
   a join back to the notification.
 - `WebhookDeliveryAttempt` — attempt id, delivery id, when it was
-  attempted, the response status or the error, and how long the call
-  took. Indexed by delivery. A re-send is a new delivery of the same
-  notification, so "recorded alongside the original attempts" is
-  satisfied by rows that survive rather than by a history a counter
-  discards. The operator's dispute case reads straight down the four:
-  which notification, which endpoint, every attempt, and what each
-  one answered.
+  made, the response status or why the call failed before one, and how
+  long the call took. Keyed under its delivery, so a delivery's
+  attempts read in the order made from one range. A re-send is a new
+  delivery of the same notification, so "recorded alongside the
+  original attempts" is satisfied by rows that survive rather than by a
+  history a counter discards. The operator's dispute case reads
+  straight down the four: which notification, which endpoint, every
+  attempt, and what each one answered.
 
 A repeated field on the delivery would have kept the attempts in one
 row. It was rejected: the row grows against the retry schedule's

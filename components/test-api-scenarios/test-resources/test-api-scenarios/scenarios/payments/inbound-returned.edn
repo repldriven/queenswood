@@ -16,8 +16,7 @@
    :as :trillian
    :with {:token [:ref :bank-0 :token]
           :display-name "Trillian Astra"
-          :given-name "Trillian"
-          :family-name "Astra"}}
+          :legal-name "Trillian Astra"}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts"
@@ -33,7 +32,7 @@
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :creditor :account-id]}
              :auth [:ref :bank-0 :token]}
-   :until {:status 200 :body {:account-status "opened"}}
+   :until {:status 200 :body {:status "opened"}}
    :as :creditor}
   {:command :api/request
    :request {:method :get
@@ -59,13 +58,13 @@
              :path "/v1/cash-accounts/{account-id}/close"
              :path-params {:account-id [:ref :creditor :account-id]}
              :auth [:ref :bank-0 :token]}
-   :assert {:status 200 :body {:account-status "closing"}}}
+   :assert {:status 200 :body {:status "closing"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :creditor :account-id]}
              :auth [:ref :bank-0 :token]}
-   :until {:status 200 :body {:account-status "closed"}}
+   :until {:status 200 :body {:status "closed"}}
    :timeout-ms 10000}
   {:command :api/request
    :request {:method :post
@@ -81,7 +80,7 @@
              :auth [:ref :bank-0 :token]}
    :until {:status 200
            :body {:items
-                  [{:amount 700 :currency "GBP" :payment-status "returned"}]}}
+                  [{:amount 700 :currency "GBP" :status "returned"}]}}
    :timeout-ms 20000}
   {:command :api/request
    :request
@@ -89,6 +88,6 @@
    :assert
    {:status 200
     :body {:items [:m/embeds
-                   [{:gl-code "1100" :posted-balance {:value 0 :currency "GBP"}}
-                    {:gl-code "2500"
+                   [{:code "1100" :posted-balance {:value 0 :currency "GBP"}}
+                    {:code "2500"
                      :posted-balance {:value 0 :currency "GBP"}}]]}}}]}

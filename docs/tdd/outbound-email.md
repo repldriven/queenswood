@@ -28,10 +28,10 @@ profile and the chart; the SMTP values and credential at an
 installation; and the tests.
 
 Out of scope: the `Invitation` record, the invitation changelog and the
-`record-invitation-token` guard, which [memberships.md](memberships.md) covers;
+`record-invitation-token` guard, which [members.md](members.md) covers;
 the `smtp` brick, which mono's SMTP TDD covers; the accept screen the
-link lands on, which [memberships.md](memberships.md) covers under The console;
-emails other than invitations, which the memberships PRD lists as open;
+link lands on, which [members.md](members.md) covers under The console;
+emails other than invitations, which the members PRD lists as open;
 Keycloak's own mail, which it never sends, since every person signs in
 through a federated identity and [authentication.md](authentication.md)
 has no local account to verify; and bounce handling.
@@ -60,9 +60,9 @@ has no local account to verify; and bounce handling.
 - **The command dispatcher.** mono's `command` brick sends a command
   and awaits its reply. The `api` base's `commands/send` is the one
   caller today.
-- **The invitation.** `Invitation` under `schemas/memberships/`, and
+- **The invitation.** `Invitation` under `schemas/member/`, and
   the link's token minted and hashed by
-  `membership/new-invitation-token`, whose plaintext the API returns.
+  `member/new-invitation-token`, whose plaintext the API returns.
 
 ## Proposed Solution
 
@@ -78,9 +78,9 @@ is.
 ### The flow
 
 The invitation and its `invitation-created` or `invitation-resent`
-changelog entry commit together, in the `membership` processor's
+changelog entry commit together, in the `member` processor's
 transaction, or the `bank` processor's for a new bank's owner, as
-[memberships.md](memberships.md) describes. Three hops follow.
+[members.md](members.md) describes. Three hops follow.
 
 #### The invitation is published
 
@@ -145,11 +145,11 @@ sequenceDiagram
     participant ER as external-adapters-service<br/>email/outbound-runner
     end
     box rgba(165, 216, 255, 0.45)
-    participant MC as topic-memberships-command<br/>partition-key = invitation
-    participant MR as topic-memberships-command-response
+    participant MC as topic-members-command<br/>partition-key = invitation
+    participant MR as topic-members-command-response
     end
     box rgba(208, 191, 255, 0.45)
-    participant MP as operational-processors-service<br/>membership/processor
+    participant MP as operational-processors-service<br/>member/processor
     end
     box rgba(233, 236, 239, 0.5)
     participant X as Mail server
@@ -160,20 +160,20 @@ sequenceDiagram
     end
     opt the breaker closed, or this its probe
     critical transact
-    ER->>DB: read the in-flight deliveries whose lease has passed, then the pending ones due
+    ER->>DB: read the in-flight deliveries whose claim has lapsed, then the pending ones due
     loop each, up to batch-size, or the one probe
-    ER->>DB: save the delivery, in flight, under a claim-lease-ms lease, claimed by this runner
+    ER->>DB: save the delivery, in flight, its next attempt claim-lease-ms away
     end
     end
     loop each claimed delivery, alongside each other
     critical transact
-    ER->>DB: read the invitation, its bank and the inviting member's user
+    ER->>DB: read the invitation, its bank, the inviting member's user and any newer delivery about the invitation
     end
-    alt the invitation gone, no longer pending, or sent again since
+    alt the invitation gone, no longer pending, or a newer delivery written
     Note over ER: superseded, nothing sent
     else
     Note over ER: mint a token, keeping its hash
-    ER->>MC: record-invitation-token, the hash and the delivery's expires-at
+    ER->>MC: record-invitation-token, the hash and the invitation's expires-at
     MC->>MP: one command at a time
     critical transact
     MP->>DB: read the invitation
@@ -220,7 +220,7 @@ named for the protocol rather than a provider:
 [ADR-0020](../adr/0020-providers-are-deployment-facts.md) keeps the
 provider in the `smtp/client` configuration. It acts on its own
 `EmailDelivery` records, and reads across domains the way the webhook
-component does, through `membership-query`, `bank-query` and `user`.
+component does, through `member-query`, `bank-query` and `user`.
 
 Two component kinds, registered from `system.clj`:
 
@@ -235,20 +235,23 @@ Two component kinds, registered from `system.clj`:
 
 ### Records
 
-`EmailDelivery` under `schemas/emails/`, in its own store:
+`EmailDelivery` under `schemas/email/`, in its own store:
 
-- Delivery id (prefix `eml`), bank id, kind (invitation), invitation
-  id, and the `expires_at` the event carried.
-- The changelog event id, under a unique index, so a relay redrive
-  writes nothing twice.
+- Delivery id (prefix `eml`), bank id, kind (invitation), and
+  `kind_id`, the id of the record the kind names: the invitation's.
 - Status: pending, in flight, sent, superseded, failed.
-- `claim_lease_expires_at`, `claimed_by`, `attempts`,
-  `next_attempt_at`, `last_error`, and the `message_id` the mail server
-  was handed, each `optional`.
-- `created_at` and `updated_at`.
+- The `message_id` the mail server was handed, and `sent_at`.
+- The changelog event id as its `idempotency_key`, under a unique
+  index, so a relay redrive writes nothing twice; `created_at` and
+  `updated_at`.
+- The `failure_reason` a failed delivery ends with, at 200, and the
+  delivery band from 201: `attempt_count`, `next_attempt_at` and
+  `traceparent`.
+  An in-flight delivery's `next_attempt_at` is when its claim lapses.
 
-Indexed by the event id and by status with `next_attempt_at`, which is
-what a claim scans. The declaration follows
+Indexed by the idempotency key, by status with `next_attempt_at`, which
+is what a claim scans, and by bank, kind and `kind_id`, which finds a
+newer delivery about the same invitation. The declaration follows
 [schema-evolution](../recipes/code/schema-evolution.md): `version`
 bumps once and the store carries it as `since`. The recipient's address
 is not stored: it is read from the invitation at send, so a withdrawn
@@ -258,22 +261,26 @@ invitation's address is not kept twice.
 
 For each claimed delivery the runner:
 
-1. Reads the invitation, its bank's name and the inviter's name. An
-   invitation that is no longer pending, or whose `expires_at` differs
-   from the delivery's, is marked superseded and nothing is sent.
-2. Mints a token with `membership-query/new-invitation-token`, the one
+1. Reads the invitation, its bank's name, the inviter's name and
+   whether a newer delivery about the invitation was written. An
+   invitation that is no longer pending, or one with a newer delivery,
+   marks this one superseded and nothing is sent.
+2. Mints a token with `member-query/new-invitation-token`, the one
    place the token's length and hash are decided.
 3. Sends `record-invitation-token` with the bank id, invitation id,
-   `expires_at` and the hash, and awaits the reply. A rejection —
+   the invitation's `expires_at` as read and the hash, and awaits the
+   reply. A rejection —
    `:invitation/superseded` or `:invitation/invalid-status` — marks the
    delivery superseded. A failure or no reply is a failed attempt.
 4. Sends the message through `smtp/send`. An anomaly is a failed
    attempt.
-5. Marks the delivery sent with the Message-ID `send` answered.
+5. Marks the delivery sent with the Message-ID `send` answered and
+   `sent_at`.
 
-A failed attempt increments `attempts` and sets `next_attempt_at` from the
-runner's `delivery-policy`, and past its maximum attempts or age marks the
-delivery failed. A pass claims nothing while the mail server's breaker is open,
+A failed attempt increments `attempt_count`, logs its error and sets
+`next_attempt_at` from the runner's `delivery-policy`, and past its
+maximum attempts or age marks the delivery failed with the error as its
+`failure_reason`. A pass claims nothing while the mail server's breaker is open,
 as [outbound-delivery](outbound-delivery.md) describes. The next attempt mints a
 fresh token, so an email that went out but was never recorded as sent is
 followed by one whose link works and whose predecessor's does not. The plaintext
@@ -281,10 +288,10 @@ token exists in the runner's memory and the message, and nowhere else.
 
 ### The command
 
-`record-invitation-token` is a `membership` processor command on the
-`memberships-command` topic, its Avro payload
-`schemas/memberships/record-invitation-token.avsc.json` registered in
-`avro-schemas.yml`. The guard is in [memberships.md](memberships.md). The runner holds a
+`record-invitation-token` is a `member` processor command on the
+`members-command` topic, its Avro payload
+`schemas/member/record-invitation-token.avsc.json` registered in
+`avro-schemas.yml`. The guard is in [members.md](members.md). The runner holds a
 dispatcher for the topic and its reply topic, as the `api` base does.
 
 ### The message
@@ -312,7 +319,7 @@ included by `external-adapters-service` and `monolith-service`:
 - `outbound-runner`, with its id minted per replica, so the group
   needs no single-replica pin under
   [ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md). It takes the
-  dispatcher of the shared `system/membership-dispatcher.yml` group,
+  dispatcher of the shared `system/member-dispatcher.yml` group,
   the client of the `smtp` group, and `console-url`, which is
   `http://localhost:5173` under the dev and test profiles and
   `!env CONSOLE_URL` otherwise.
@@ -373,16 +380,16 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
 
 ### The first slice
 
-1. The `membership` processor and `membership-query` split, the
+1. The `member` processor and `member-query` split, the
    invitation changelog and its relay runner, and the token leaving the
-   API, under [memberships.md](memberships.md)'s slice 3.
+   API, under [members.md](members.md)'s slice 3.
 2. The records: `EmailDelivery` under a version bump, and the guard
    green under `just test-all`.
 3. The `email` brick: the event processor, the runner, the message, and
-   `record-invitation-token` in the `membership` processor.
+   `record-invitation-token` in the `member` processor.
 4. The wiring: `system/email.yml`, the external-adapters base and
    project, and Mailpit in the monolith's dev profile.
-5. The accept screen, under [memberships.md](memberships.md).
+5. The accept screen, under [members.md](members.md).
 6. The chart: Mailpit for kind, then the values, credential and DNS
    records for an installation, with a recipe for the provider.
 
@@ -390,11 +397,12 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
 
 - **The `email` brick** covers the backoff and give-up, and a pass
   claiming nothing while the mail server's breaker is open; the
-  superseded rules against a withdrawn, accepted and resent invitation;
-  the link and message against `smtp/render`; the event processor
-  writing one delivery for a repeated event id; and the claim under a
-  live and a passed lease, against FDB under `with-test-system`.
-- **The `membership` brick** covers `record-invitation-token` refusing
+  superseded rules against a withdrawn and accepted invitation and a
+  newer delivery; the link and message against `smtp/render`; the event
+  processor writing one delivery for a repeated event id; the claim
+  under a live and a lapsed claim; and finding a newer delivery, against
+  FDB under `with-test-system`.
+- **The `member` brick** covers `record-invitation-token` refusing
   a superseded `expires_at`, an expired and a non-pending invitation,
   and replacing an earlier hash.
 - **API scenarios** in `test-api-scenarios/scenarios/access/`, with
@@ -414,15 +422,15 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
   send that succeeds and an acknowledgement that fails send the email
   again on redelivery, and a mail server that is down holds the
   subscription rather than a row.
-- **The membership processor sending the email.** Rejected: the send is
+- **The member processor sending the email.** Rejected: the send is
   a call outside the platform, which the adapter makes after recording
-  the intent, and membership would learn what an invitation is
+  the intent, and the member brick would learn what an invitation is
   delivered by.
-- **The token minted by the API or the membership processor** and
+- **The token minted by the API or the member processor** and
   carried to the adapter. Rejected: the plaintext would sit on the bus
   or in a store, since only the hash is kept.
 - **A second hash on the invitation**, one shown to the inviter and one
-  emailed. Rejected with the shown link, which [memberships.md](memberships.md)
+  emailed. Rejected with the shown link, which [members.md](members.md)
   removes.
 - **A provider's HTTP API** rather than SMTP. Rejected: SMTP names no
   provider, and mono's `smtp` brick exists.
@@ -444,14 +452,14 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
 
 ## References
 
-- [memberships](../prd/memberships.md) — Memberships, the product requirements that
+- [members](../prd/members.md) — Members, the product requirements that
   say what an invitation email carries.
-- [memberships.md](memberships.md) — the invitation, its changelog and the guard
+- [members.md](members.md) — the invitation, its changelog and the guard
   on the token.
 - [webhooks.md](webhooks.md) — the claimed-intent runner this adapter
   copies.
 - [processor-bricks.md](processor-bricks.md) — the command the
-  `membership` processor adds.
+  `member` processor adds.
 - [transaction-processing.md](transaction-processing.md) — intent
   before the external call.
 - [outbound-delivery.md](outbound-delivery.md) — the mail server's

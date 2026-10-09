@@ -120,14 +120,14 @@
   ([] (coercion/inbound-payment-status-enum-schema))
   ([extra-props] (coercion/inbound-payment-status-enum-schema extra-props)))
 
-(defn payment-scheme-enum-schema
-  "The `PaymentScheme` `:enum` schema, coercing between the wire string
+(defn scheme-type-enum-schema
+  "The `SchemeType` `:enum` schema, coercing between the wire string
   `fps` and the record's prefixed keyword.
 
   Args:
   - extra-props (optional): as `outbound-payment-status-enum-schema`."
-  ([] (coercion/payment-scheme-enum-schema))
-  ([extra-props] (coercion/payment-scheme-enum-schema extra-props)))
+  ([] (coercion/scheme-type-enum-schema))
+  ([extra-props] (coercion/scheme-type-enum-schema extra-props)))
 
 (defn encode-inbound-payment-status
   "The wire string of an inbound payment status keyword, or nil.
@@ -136,15 +136,6 @@
   - status: the record's prefixed keyword."
   [status]
   (coercion/encode-inbound-payment-status status))
-
-(defn encode-payment-scheme
-  "The wire string of a payment scheme keyword, or nil. Required
-  before Avro serialization of a submission.
-
-  Args:
-  - scheme: the record's prefixed keyword."
-  [scheme]
-  (coercion/encode-payment-scheme scheme))
 
 ;; ---
 ;; links

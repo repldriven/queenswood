@@ -21,7 +21,7 @@
                    :name "Easy Saver"
                    :product-type "savings"
                    :balance-sheet-side "liability"
-                   :allowed-currencies ["GBP"]
+                   :currency "GBP"
                    :allowed-payment-address-schemes ["scan"]
                    :interest-rate-bps 150
                    :effective-from "2026-01-01"}}}

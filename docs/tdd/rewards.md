@@ -71,8 +71,7 @@ bank consuming `reward.paid`, which is the demo's own slice in
 - **The scheduler is per bank, registered at start.** A job is a
   `SchedulerJob` row seeded per bank at creation from
   [jobs.edn](/components/resources/resources/scheduler/jobs.edn), with
-  a periodicity of daily, monthly or yearly and a time of day, turned
-  into a Quartz cron by `domain/->cron` in the `scheduler` brick. The
+  a Quartz cron schedule in UTC, which each of its tasks limits. The
   `bank-scheduler/runner` registers one trigger per enabled job across
   every bank when it starts, and the run calls the task's brick in
   process, synchronously, recording a `SchedulerRun` with per-task
@@ -101,19 +100,26 @@ bank consuming `reward.paid`, which is the demo's own slice in
 
 ### The term on the version
 
-A version carries an optional `opening_reward`, a nested message beside
-`interest_rate_bps` in
-[account-product.proto](/components/schema/resources/schemas/cash-account-products/account-product.proto),
-at the next free tag:
+A version carries the rewards it promises as `reward_terms`, a list of
+`RewardTerms` beside `interest_terms` in
+[cash-account-product.proto](/components/schema/resources/schemas/cash-account-product/cash-account-product.proto),
+each naming the `RewardKind` it is for, an enum the paid `Reward`
+record shares from the folder's `types.proto`:
 
 ```proto
-message OpeningReward {
-  required int64 amount = 1;  // minor units of the version's currency
+message RewardTerms {
+  required RewardKind kind = 1;
+  required int64 amount = 2; // minor units
 }
-optional OpeningReward opening_reward = 26;
+repeated RewardTerms reward_terms = 16;
 ```
 
-The amount is in the version's one currency, so the term carries none.
+`REWARD_KIND_OPENING` is the one kind. Another, such as a referral,
+adds a value and the event that pays it; a kind paid more than once to
+an account adds what each payment is for to the `Reward` record and its
+once-only index. The amount is in the version's one currency, so the
+term carries none. Until the API takes the list, it takes
+`opening-reward` and stores it as the opening kind's terms.
 `product-fields` threads `:opening-reward` from the caller's data, which
 covers create, new version and update in one edit, and a guard beside
 `ensure-effective-window` refuses a non-positive amount with
@@ -125,16 +131,17 @@ published version with a one-month window.
 
 ### The record
 
-A `Reward` is what was paid, or is due, to one account, in a new
-`rewards` store:
+An `AccountReward` is what was paid, or is owed, to one account, in a
+new `account-rewards` store:
 
-- `bank_id`, `reward_id` (`rwd.` prefix), `account_id`, `party_id`,
-  `product_id`, `version_id`, `kind` (`REWARD_KIND_OPENING`),
-  `amount`, `currency`, `status` (`DUE`, `PAID`), `transaction_id`,
-  `error`, `created_at`, `updated_at`, `paid_at`, and `run_id`,
-  deprecated, since a reward is paid by no run.
-- Primary key `[bank_id, reward_id]`; index `Reward_by_bank_account` on
-  `[bank_id, account_id, kind]`, which is the once-only check.
+- `bank_id`, `reward_id` (`rwd.` prefix), `status` (`DEFERRED`,
+  `PAID`), `kind` (`REWARD_KIND_OPENING`), `account_id`, `product_id`,
+  `version_id`, `amount`, `currency`, `transaction_id`,
+  `deferred_reason`, `deferred_at`, `paid_at`, `created_at` and
+  `updated_at`.
+- Primary key `[bank_id, reward_id]`; index
+  `AccountReward_by_bank_account` on `[bank_id, account_id, kind]`,
+  which is the once-only check.
 
 `fdb-record-types.yml` bumps its `version` and declares the store with
 `since` at that version, per
@@ -159,10 +166,10 @@ none of them pays. `pay-opening` takes `{:bank-id :account-id}`:
 1. Read the account, and keep it only where its status is `opened` and
    its product type a customer's.
 2. Read its pinned version through `products/get-version`. A version
-   with no `opening-reward`, or an account with a `Reward` row of kind
-   `opening` already `paid`, pays nothing.
+   with no `opening-reward`, or an account with an `AccountReward` row
+   of kind `opening` already `paid`, pays nothing.
 3. Pay the rest in the same FDB transaction as those reads: the
-   `Reward` row `paid` with its changelog entry, and the transaction
+   `AccountReward` row `paid` with its changelog entry, and the transaction
    below, all committed together, so a crash leaves either nothing or a
    paid reward with its posting, and a redelivered entry finds the row
    paid and pays nothing. The house account comes from a cache keyed by
@@ -170,9 +177,10 @@ none of them pays. `pay-opening` takes `{:bank-id :account-id}`:
    control accounts' ids from the ledger cache the payment processor
    uses.
 4. Where the posting is refused — the house account short of funds, or
-   missing for the currency — write the row `due` with the refusal's
-   message in `error`, in a transaction of its own. Any other anomaly is
-   answered, so the consumer delivers the entry again.
+   missing for the currency — write the row `deferred` with the
+   refusal's message in `deferred_reason`, in a transaction of its own.
+   Any other anomaly is answered, so the consumer delivers the entry
+   again.
 
 The financial-processors service hosts it because a reward is a
 posting. It is its own brick, rather than a reaction inside
@@ -183,7 +191,7 @@ change to the account's processor.
 ### The transaction
 
 A reward posts as `TRANSACTION_TYPE_REWARD`, a new value in
-[transaction.proto](/components/schema/resources/schemas/transactions/transaction.proto),
+[transaction.proto](/components/schema/resources/schemas/transaction/transaction.proto),
 with two posting legs — a debit on the house account for the version's
 currency and a credit on the customer's, both `default` and `posted` —
 which move 3100 and the customer's deposit control, each the sum of
@@ -200,12 +208,12 @@ shares.
 
 ### Telling the bank
 
-The `Reward` row's changelog entry, `reward-status-changed`, carries the
-bank, the reward and account ids, the status before and after and a
-change kind of `pay` or `defer`, in a new Avro schema under
-`components/schema/resources/schemas/rewards/`. A `reward-relay.yml`
-declares the handler and one runner over the `rewards` store onto a
-`rewards-event` channel, wired through the Kafka topics, the exclusive
+The `AccountReward` row's changelog entry, `account-reward-status-changed`,
+carries the bank, the reward and account ids, the status before and
+after and a change kind of `pay` or `defer`, in a new Avro schema under
+`components/schema/resources/schemas/reward/`. A `reward-relay.yml`
+declares the handler and one runner over the `account-rewards` store
+onto a `rewards-event` channel, wired through the Kafka topics, the exclusive
 dispatchers and external adapters services, the monoliths and the test
 rigs exactly as `payments-event` was. The webhook brick catalogues
 `reward.paid`, terminal on status `paid`, loading the record through
@@ -252,12 +260,10 @@ What moves with it:
 Three changes, made for the hourly reward job the processor replaced
 and kept, since each holds for every job:
 
-- **Hourly.** `SCHEDULER_PERIODICITY_HOURLY` in
-  [scheduler-job.proto](/components/schema/resources/schemas/scheduler/scheduler-job.proto);
-  `->cron` answers `0 m * * * ?` for it, where `run-time-minutes` is
-  the minute past the hour and the schedule guard refuses sixty or
-  more; the jobs API's coercion and view order learn the word. No
-  seeded task allows it.
+- **Hourly.** A job's schedule in
+  [scheduler-job.proto](/components/schema/resources/schemas/scheduler/scheduler-job.proto)
+  may fire hourly, `0 m * * * ?`; the jobs API's coercion and view
+  order learn the word. No seeded task allows it.
 - **Declared once, run locally.** A `system/scheduler.yml` declares the
   `scheduler` and `bank-scheduler` components, included by the monolith
   and exclusive-dispatchers manifests in place of their inline copies
@@ -319,7 +325,7 @@ and is built.
 
 ### Tests
 
-- `scheduler` — `->cron` for hourly and the sixty-minute guard in
+- `scheduler` — what each task's cadence allows a schedule in
   `domain_test.clj`; a tick test that starts mono's scheduler and sees
   a job fire; the sweep registering a bank created after start.
 - `cash-account-product` — the term threads through create, new
@@ -330,8 +336,8 @@ and is built.
   (status, product type), what a version promises, the legs a reward
   posts, and the rows a paid and a deferred reward leave.
 - `test-api-scenarios` — the opening-reward scenario above, and one
-  opening an account on an unfunded bank whose reward reads `due` with
-  why; the simulate route funding the house account and refusing
+  opening an account on an unfunded bank whose reward reads `deferred` with
+  its reason; the simulate route funding the house account and refusing
   nothing; the twelve rewritten funding steps still passing.
 - `webhook` — `reward.paid` delivered once for a `pay` and never for a
   `defer`, in `events_test.clj`.
@@ -365,8 +371,8 @@ and is built.
 
 ## Known Limitations
 
-- **A due reward waits.** A reward the house account could not cover
-  is left `due`, visible on the read routes, and nothing pays it once
+- **A deferred reward waits.** A reward the house account could not
+  cover is left `deferred`, visible on the read routes, and nothing pays it once
   the bank is funded. Paying it when own funds are credited needs an
   event for that posting, which the event per posting below would give
   the processor to listen to.
@@ -386,7 +392,7 @@ and is built.
   deferred.
 - **The house account must hold the currency.** A version in a currency
   the bank was not created with has no house account to pay from, and
-  every reward under it is left `due`.
+  every reward under it is left `deferred`.
 
 ## References
 

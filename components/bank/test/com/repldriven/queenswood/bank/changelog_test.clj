@@ -15,7 +15,7 @@
 ;; payload back through the schema that wrote it.
 (def ^:private tier-schema
   (delay (avro/json->schema
-          (slurp (io/resource "schemas/banks/bank-tier-changed.avsc.json")))))
+          (slurp (io/resource "schemas/bank/bank-tier-changed.avsc.json")))))
 
 (deftest changelog-carries-the-shared-envelope-test
   (testing
@@ -67,9 +67,3 @@
                                                          :bank-status-live})))
                 (:dedup-key decoded))
           "a status key and a tier key for one bank are disjoint"))))
-
-(deftest bank-creation-has-no-tier-before-test
-  (testing "a newly created bank has no source tier"
-    (let [bytes (changelog/tier-changed {:bank-id "bnk.y" :tier-after "micro"})
-          decoded (schema/pb->ChangelogEvent bytes)]
-      (is (= "bnk.y:tier:micro" (:dedup-key decoded))))))

@@ -11,10 +11,9 @@
    :request {:method :post
              :path "/v1/parties"
              :auth [:ref :org-0 :token]
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Ford Prefect"
-                    :given-name "Ford"
-                    :family-name "Prefect"}}
+                    :legal-name "Ford Prefect"}}
    :as :party-0
    :assert {:status 201}}
   {:fixture :webhook-receiver :as :hook :with {:token [:ref :org-0 :token]}}]

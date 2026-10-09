@@ -6,12 +6,12 @@ A first-time human signs in to the Queenswood console and ends
 up at a working dashboard with an organisation provisioned and
 their hand on the wheel. The act of first sign-in atomically
 creates three records: a **User** (platform-identity), an
-**Organisation** (existing tenant entity), and a **Membership**
+**Organisation** (existing tenant entity), and a **Member**
 binding the two as owner.
 
 This TDD covers the technical pieces: the Keycloak realm
 shape that lets the console SPA mint user JWTs, the
-`user` and `membership` bricks that own the new
+`user` and `member` bricks that own the new
 records, the api auth interceptor's user-JWT path, and the
 two endpoints the console talks to (`POST /v1/banks`
 and `GET /v1/me`).
@@ -28,7 +28,7 @@ two HTTP endpoints, the SPA's auth-state state machine.
 
 Out of scope: the Keycloak chart's external provisioning,
 the Google OAuth client (operator job at the Google Cloud
-console), invitations, multi-organisation membership UX,
+console), invitations, multi-organisation member UX,
 non-owner roles.
 
 ## Background
@@ -72,7 +72,7 @@ graph LR
     KC["Keycloak realm<br/>queenswood-console client<br/>+ Google IdP"]
     API["api<br/>auth interceptor + handlers"]
     BU["user<br/>(User store)"]
-    BM["membership<br/>(Membership store)"]
+    BM["member<br/>(Member store)"]
     BO["bank<br/>(Bank store)"]
     FDB[("FDB")]
 
@@ -98,51 +98,49 @@ project's processor / store conventions.
 
 #### `User`
 
-Lives in `components/schema/resources/schemas/users/`.
-Keyed by `user-id` (ULID, prefix `usr`). The federated
+Lives in `components/schema/resources/schemas/user/`.
+Keyed by `user-id` (UUIDv7, prefix `usr`). The federated
 subject is the OIDC `(issuer, sub)` pair — `sub` is only
 unique within an `issuer`, so both are required for a safe
-lookup, and the FDB index is composite over both. Email is a
-non-unique secondary index for the future invitation flow.
+lookup, and the FDB index is composite over both.
 
 ```protobuf
 message User {
-  string user_id = 1;
-  string issuer = 2;
-  string sub = 3;
-  string email = 4;
-  string name = 5;
-  string avatar_url = 6;
-  IdentityProvider identity_provider = 7;
-  UserStatus status = 8;
-  int64 created_at = 9;
-  int64 updated_at = 10;
+  required string user_id = 1;
+  required string issuer = 2;
+  required string sub = 3;
+  required string name = 4;
+  required IdentityProvider identity_provider = 5;
+  required string email = 6;
+  optional string avatar_url = 7;
+
+  required int64 created_at = 101;
+  optional int64 updated_at = 103;
 }
 ```
 
-`IdentityProvider` and `UserStatus` are forward-compatible
-enums: `IDENTITY_PROVIDER_GOOGLE`, plus reserved
-`GITHUB` / `PASSWORD` slots; `USER_STATUS_ACTIVE` plus a
-reserved `SUSPENDED` slot.
+`IdentityProvider` names the IdP the user signed in
+through: `GOOGLE`, `GITHUB`, or `PASSWORD` for a direct
+sign-in. `updated_at` is set when a sign-in brings changed
+claims. A user has no status: nothing suspends one.
 
 FDB record-type registrations:
 
 - `User_by_issuer_and_sub` — unique. Sign-in lookup.
-- `User_by_email` — non-unique. Future invitation matching.
 
-#### `Membership`
+#### `Member`
 
-Superseded by [memberships.md](memberships.md).
+Superseded by [members.md](members.md).
 
 Lives in `components/schema/resources/schemas/
-memberships/`. Keyed by `membership-id` (ULID, prefix `mem`).
+members/`. Keyed by `member-id` (ULID, prefix `mem`).
 The (user, organisation) pair is a unique secondary index
-guarding against duplicate memberships of the same human in
+guarding against duplicate members of the same human in
 the same tenant.
 
 ```protobuf
-message Membership {
-  string membership_id = 1;
+message Member {
+  string member_id = 1;
   string user_id = 2;
   string organization_id = 3;
   Role role = 4;
@@ -156,9 +154,9 @@ message Membership {
 
 FDB record-type registrations:
 
-- `Membership_by_user` — non-unique.
-- `Membership_by_organization` — non-unique.
-- `Membership_by_user_and_org` — unique.
+- `Member_by_user` — non-unique.
+- `Member_by_organization` — non-unique.
+- `Member_by_user_and_org` — unique.
 
 ### Bricks
 
@@ -174,10 +172,10 @@ takes both issuer and sub explicitly and returns the record
 or `nil` (not an anomaly) so callers can drive first-sign-in
 onboarding off the nil.
 
-#### `membership`
+#### `member`
 
-Polylith component at `components/membership/` with the
-same shape. `new-membership` defaults the role to
+Polylith component at `components/member/` with the
+same shape. `new-member` defaults the role to
 `role-owner`. The two list operations
 (`list-by-user` / `list-by-organization`) traverse the FDB
 secondary indexes.
@@ -204,7 +202,7 @@ chart-resources sibling):
 
 ### api auth
 
-Superseded by [memberships.md](memberships.md).
+Superseded by [members.md](members.md).
 
 The existing authenticate interceptor at
 `bases/api/.../auth.clj` grows a user-JWT branch.
@@ -219,7 +217,7 @@ Discrimination is on the verified JWT's `azp` claim:
 - anything else → existing service-JWT path.
 
 The user-JWT path looks up `user/find-by-sub` (passing
-both `iss` and `sub`) and `membership/list-by-user`
+both `iss` and `sub`) and `member/list-by-user`
 against the FDB record-store the same way handlers do. The
 resolved principal carries:
 
@@ -229,14 +227,14 @@ resolved principal carries:
  :issuer      iss
  :sub         sub
  :user        user-record-or-nil
- :memberships memberships-or-empty-vector
+ :members members-or-empty-vector
  :organization-id org-id-or-nil
  :claims      claims
  :roles       #{:user} or #{:user :org}}
 ```
 
-A user with no memberships carries only `:user`; a user with
-at least one membership additionally carries `:org` (the
+A user with no members carries only `:user`; a user with
+at least one member additionally carries `:org` (the
 existing tenant role). That means every existing org-scoped
 endpoint continues to work without per-route changes — the
 authorize interceptor already intersects the principal's
@@ -271,13 +269,13 @@ For a person, the handler:
 3. Sends the `create-bank` command with the defaults a person cannot
    change: status `bank-status-test`, tier `micro`, currencies
    `["GBP"]`, a company binding snapshotted from the lookup, and an
-   owner membership carrying `role-owner` for the signed-in user. The
+   owner member carrying `role-owner` for the signed-in user. The
    command itself rejects `:bank/company-not-active` when the snapshot
    is not active.
 4. Returns 201 with the bank (party, accounts, client-id, one-time
-   client-secret) and the person's owner membership.
+   client-secret) and the person's owner member.
 
-The organisation, its party, its accounts and the owner membership are
+The organisation, its party, its accounts and the owner member are
 written in one FDB transaction. The user upsert is the one write
 outside it, and repeating it is harmless.
 
@@ -285,8 +283,8 @@ outside it, and repeating it is harmless.
 
 Accepts a verified user JWT and returns 200 with the user record
 and an `operator` flag; the authenticate interceptor upserts the
-record, so there is no 404. The person's memberships are at
-`GET /v1/me/memberships`, which the SPA reads beside it to decide
+record, so there is no 404. The person's members are at
+`GET /v1/me/members`, which the SPA reads beside it to decide
 between the create screen and the console.
 
 ### console SPA
@@ -352,16 +350,16 @@ The end-to-end flow:
    button bounces through Keycloak → Google → Keycloak →
    console with a valid token in browser storage.
 4. **Onboarding 201.** Submitting the org-name form returns
-   201 with the new user, organisation, and membership; the
+   201 with the new user, organisation, and member; the
    console transitions to the dashboard.
 5. **/v1/me after refresh.** A page refresh hits
    `/v1/me`, gets 200 with the same user and the single
-   membership, and renders the dashboard directly.
+   member, and renders the dashboard directly.
 6. **FDB state.** A quick exec into api against the
-   record store confirms one `User` row and one `Membership`
+   record store confirms one `User` row and one `Member`
    row keyed by the same user identifier.
 7. **Idempotency.** Sign out, sign back in. `/v1/me` still
-   returns the same `user-id` and the same single membership;
+   returns the same `user-id` and the same single member;
    no second organisation gets created.
 8. **Service JWT path unchanged.** A `client_credentials`
    exchange against an organisation's service account still
@@ -391,10 +389,10 @@ The end-to-end flow:
   in different deployment paths diverge.
 - **User upsert outside the create transaction.** The
   `create-bank` command writes the organisation, its party,
-  its accounts and the owner membership together, but the
+  its accounts and the owner member together, but the
   user upsert in step 1 of the handler runs before it and on
   its own. A user who abandons onboarding is left with a user
-  record and no membership; nothing cleans that record up,
+  record and no member; nothing cleans that record up,
   and the next sign-in reuses it.
 - **Token lifetime vs SPA UX.** Keycloak's default access
   token lifetime is 5 minutes. The SPA's API wrapper calls

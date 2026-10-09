@@ -21,10 +21,9 @@
 
 (deftest party-registration-test
   (testing "the person is registered by name, under the sign-up's id"
-    (is (= {:type "person"
+    (is (= {:party-type "person"
+            :legal-name "Amara Okafor"
             :display-name "Amara Okafor"
-            :given-name "Amara"
-            :family-name "Okafor"
             :external-reference "sgn.1"}
            (SUT/party-registration "sgn.1"
                                    {:given-name "Amara"
@@ -191,7 +190,7 @@
           :creditor-name "Arthur Dent"
           :currency "GBP"
           :amount 2500
-          :scheme "fps"
+          :scheme-type "fps"
           :reference "Towel"}
          (SUT/outbound-payment-request "acc.1" {:name "Arthur Dent"
                                                 :sort-code "040062"

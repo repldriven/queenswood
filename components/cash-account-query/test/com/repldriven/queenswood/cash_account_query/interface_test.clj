@@ -31,7 +31,7 @@
 ;; must match cash-account.store/store-name and balance.store/store-name
 ;; — the two stores this brick reads
 (def ^:private accounts-store "cash-accounts")
-(def ^:private balances-store "balances")
+(def ^:private balances-store "account-balances")
 (def ^:private products-store "cash-account-products")
 
 (defn- fdb-config
@@ -50,10 +50,12 @@
      :party-id party-id
      :product-id "prd.query"
      :version-id version-id
-     :product-type :product-type-sub-ledger-current
+     :version-from-on 20089
+     :created-by {:kind :actor-kind-operator :principal-id "test"}
+     :product-type :account-product-type-sub-ledger-current
      :name account-id
      :currency "GBP"
-     :account-status :cash-account-status-opened
+     :status :cash-account-status-opened
      :payment-addresses [{:scheme :payment-address-scheme-scan
                           :scan {:sort-code sort-code
                                  :account-number account-number}}]
@@ -67,13 +69,12 @@
   (let [now (utility/now)]
     {:bank-id bank-id
      :account-id account-id
-     :product-type :product-type-sub-ledger-current
+     :product-type :account-product-type-sub-ledger-current
      :balance-type :balance-type-default
      :balance-status balance-status
      :currency "GBP"
      :credit 0
      :debit 0
-     :credit-carry 0
      :created-at now
      :updated-at now}))
 
@@ -87,7 +88,8 @@
                     (doseq [a accounts]
                       (fdb/save-record acc-store (schema/CashAccount->java a)))
                     (doseq [b balances]
-                      (fdb/save-record bal-store (schema/Balance->java b)))
+                      (fdb/save-record bal-store
+                                       (schema/AccountBalance->java b)))
                     nil))
                 :test/seed
                 "Failed to seed rows"))
@@ -268,16 +270,18 @@
      :product-id product-id
      :version-id (str "prv." product-id)
      :version-number 1
-     :status :cash-account-product-status-published
-     :product-type :product-type-sub-ledger-own-funds
+     :status :version-status-published
+     :product-type :account-product-type-sub-ledger-own-funds
      :balance-sheet-side :balance-sheet-side-liability
      :name "Bank own funds"
-     :allowed-currencies [currency]
+     :currency currency
+     :template-id "tpl.00000000000000000000000004"
+     :iso-cash-account-type :iso-cash-account-type-cacc
      :balance-products [{:balance-type :balance-type-default
                          :balance-status :balance-status-posted}]
-     :internal true
      :effective-from 20089
      :created-at now
+     :created-by {:kind :actor-kind-operator :principal-id "queenswood-admin"}
      :updated-at now}))
 
 (deftest house-account-test
@@ -293,14 +297,16 @@
                                    (:version-id gbp)
                                    "10000031")
                           :product-id "prd.house.gbp"
-                          :product-type :product-type-sub-ledger-own-funds)
+                          :product-type
+                          :account-product-type-sub-ledger-own-funds)
          house-eur (assoc (account bank-id
                                    "acc.house.eur"
                                    "pty.bank"
                                    (:version-id eur)
                                    "10000032")
                           :product-id "prd.house.eur"
-                          :product-type :product-type-sub-ledger-own-funds
+                          :product-type
+                          :account-product-type-sub-ledger-own-funds
                           :currency "EUR")
          customer
          (account bank-id "acc.house.cust" "pty.cust" "prv.1" "10000033")]

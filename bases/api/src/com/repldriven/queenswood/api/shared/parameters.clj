@@ -69,14 +69,14 @@
 (def BankIdHeader
   "`components.parameters` entry for the `Bank-Id` header, which names
   the bank an organisation operation acts on. Every operation gated by
-  an organisation level lists it. A person with one active membership,
+  an organisation level lists it. A person with one active member,
   and a service credential, may leave it out."
   {:name "Bank-Id"
    :in "header"
    :required false
    :description (str "The bank the call acts on, and the only way a "
                      "request names one. Required of a person holding "
-                     "more than one active membership, and of an " "operator.")
+                     "more than one active member, and of an " "operator.")
    :schema {:$ref "#/components/schemas/BankId"}})
 
 (def InvitationToken
@@ -162,7 +162,7 @@
 (def PartyEmbedQuery
   "`embed` query parameter for optional sub-resource embedding on the
   party detail endpoint, deepObject-styled so clients send
-  `embed[person-identification]=true`."
+  `embed[legal-name]=true`."
   {:name "embed"
    :in "query"
    :required false

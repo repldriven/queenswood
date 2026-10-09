@@ -67,9 +67,9 @@
                                (dissoc data :bank-id :creditor-account-id))))))
 
 (def ^:private handlers
-  {"account-opening" open-account
-   "account-closing" close-account
-   "account-address-rotation-requested" reissue-address
+  {"cash-account-open-requested" open-account
+   "cash-account-close-requested" close-account
+   "cash-account-address-rotation-requested" reissue-address
    "transaction-posted" provider-transfer/mirror-posted
    "outbound-payment-submitted" submit-payment
    "inbound-payment-suspended" return-payment})

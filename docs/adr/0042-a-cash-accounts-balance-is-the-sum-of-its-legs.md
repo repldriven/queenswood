@@ -27,7 +27,8 @@ their retries on `:fdb/contention` over customers' balance rows.
 
 The rows are a second copy of the journal. Every posting already
 records each leg in the `transaction-legs` store, which no record
-rewrites, and `TransactionLeg_sum_amount_by_account_bucket_side`, which
+rewrites, and
+`TransactionLeg_sum_amount_by_bank_account_bucket_side`, which
 [ADR-0039](0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md)
 added, already sums every account's legs by bucket and side by atomic
 mutation.
@@ -68,7 +69,7 @@ The parts, in two stages, each released and load-tested before the next:
     product_type, currency, balance_type, balance_status, side]`, at the
     next meta-data version.
   - Read a cash account's buckets from
-    `TransactionLeg_sum_amount_by_account_bucket_side` wherever a
+    `TransactionLeg_sum_amount_by_bank_account_bucket_side` wherever a
     balance is read: the balances routes, the account's embedded
     balances, available balance and every limit.
   - Read a deposit or own-funds control, and 1200 pending-outbound, from

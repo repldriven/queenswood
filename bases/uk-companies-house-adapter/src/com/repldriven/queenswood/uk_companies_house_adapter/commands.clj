@@ -9,12 +9,6 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.processor.interface :as processor]))
 
-(def ^:private registry
-  "This adapter's own identity, stamped onto every reply. Provenance for
-  the caller — the bank records which registry it was bound against —
-  never a value anything dispatches on."
-  "uk-companies-house")
-
 (defn- ->response
   [config result]
   (if (error/anomaly? result)
@@ -33,11 +27,10 @@
         {:keys [company-number]} data
         result (let-nom>
                  [body (companies-house/fetch-company config company-number)
-                  company (companies-house/body->company body)
-                  _ (company/save-company
-                     {:record-db record-db :record-store record-store}
-                     company)]
-                 (assoc company :registry-id registry))]
+                  company (companies-house/body->company body)]
+                 (company/save-company {:record-db record-db
+                                        :record-store record-store}
+                                       company))]
     (->response config result)))
 
 (def ^:private command-handlers {"lookup-company" lookup-company})

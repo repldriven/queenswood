@@ -101,7 +101,7 @@
                         :currency "GBP"
                         :product-id "prd.00000000000000000000000001"
                         :product-type "current"
-                        :account-status "opened"
+                        :status "opened"
                         :payment-addresses [{:scheme "scan"
                                              :scan {:sort-code "040075"
                                                     :account-number

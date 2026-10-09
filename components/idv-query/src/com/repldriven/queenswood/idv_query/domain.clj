@@ -52,9 +52,9 @@
   [a b]
   (= (criterion-value a) (criterion-value b)))
 
-(defn- settled-state
+(defn- settled-status
   [idv criterion]
-  (some (fn [c] (when (same-criterion? c criterion) (:state c)))
+  (some (fn [c] (when (same-criterion? c criterion) (:status c)))
         (:criteria idv)))
 
 (defn verification
@@ -65,18 +65,18 @@
      :criteria
      (into []
            (keep (fn [criterion]
-                   (let [state (settled-state idv criterion)
+                   (let [settled (settled-status idv criterion)
                          reason (outstanding-reason policies criterion)]
                      (cond
-                      (contains? #{:idv-criterion-state-established
-                                   :idv-criterion-state-review
-                                   :idv-criterion-state-failed}
-                                 state)
-                      (assoc criterion :state state)
+                      (contains? #{:idv-criterion-status-established
+                                   :idv-criterion-status-review
+                                   :idv-criterion-status-failed}
+                                 settled)
+                      (assoc criterion :status settled)
 
                       (some? reason)
                       (assoc criterion
-                             :state :idv-criterion-state-outstanding
+                             :status :idv-criterion-status-outstanding
                              :reason reason)))))
            criteria)}))
 

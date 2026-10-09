@@ -7,10 +7,10 @@
   told' so they cannot diverge. The outbound runner relays each pending
   intent's FPS request with exponential backoff, and fails an intent the
   scheme refuses, or one still failing at its last attempt, into a
-  `transaction-rejected` event written to the same outbox. An intent of
+  `provider-payment-rejected` event written to the same outbox. An intent of
   another `:kind` — `open-account`, `close-account` or
   `reissue-address` — is an account call, whose outcome is written to
-  the outbox as `payment-account-opened`, `payment-account-refused`,
+  the outbox as `payment-account-opened`, `payment-account-open-refused`,
   `payment-account-closed` or `payment-address-reissued`, read back from
   the intent's `:context`."
   (:require
@@ -44,12 +44,12 @@
   write — in one FDB transaction. The out-of-transaction outbound relay
   makes the ClearBank HTTP call later. Returns the intent, or a
   `:clearbank-outbound/save` anomaly (a uniqueness violation when the
-  `dedup-key` was already enqueued — a redelivered submit-payment).
+  `idempotency-key` was already enqueued — a redelivered submit-payment).
 
   Args:
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
-  - intent: a map with `:intent-id`, `:dedup-key` (end-to-end id),
-    `:request` (FPS JSON body), `:status` (\"pending\"), `:attempts`,
+  - intent: a map with `:intent-id`, `:idempotency-key` (end-to-end id),
+    `:request` (FPS JSON body), `:status` (\"pending\"), `:attempt-count`,
     `:created-at`, and for an account call its `:kind` and `:context`,
     an EDN map of `:bank-id`, `:account-id` and, as the call needs them,
     `:provider-account-id` and `:rotation-key`."

@@ -22,7 +22,7 @@
   draft is still being written and a discarded version was abandoned;
   neither is something to hold customers on."
   [target-version]
-  (when-not (= :cash-account-product-status-published (:status target-version))
+  (when-not (= :version-status-published (:status target-version))
     (error/reject :cash-account-migration/target-not-published
                   {:message "A migration's target version must be published"
                    :version-id (:version-id target-version)
@@ -91,14 +91,14 @@
   everything an earlier run moved — it is how the pass stays idempotent
   without tracking what it did."
   [target-version account]
-  (let [{:keys [account-status currency version-id]} account
-        allowed (set (:allowed-currencies target-version))]
+  (let [{:keys [status currency version-id]} account
+        allowed #{(:currency target-version)}]
     (cond
      (= (:version-id target-version) version-id)
      {:outcome :cash-account-migration-outcome-ineligible
       :ineligibility :cash-account-migration-ineligibility-already-on-target}
 
-     (not= :cash-account-status-opened account-status)
+     (not= :cash-account-status-opened status)
      {:outcome :cash-account-migration-outcome-ineligible
       :ineligibility :cash-account-migration-ineligibility-account-not-open}
 
@@ -118,7 +118,7 @@
   approves."
   [data source-version target-version]
   (let [{:keys [bank-id name source-product-id source-version-ids notified-on
-                due-on idempotency-key]}
+                due-on idempotency-key created-by]}
         data
         now (utility/now)]
     (let-nom>
@@ -137,13 +137,13 @@
          :source-product-id source-product-id
          :target-product-id (:product-id target-version)
          :target-version-id (:version-id target-version)
+         :idempotency-key idempotency-key
          :created-at now
-         :updated-at now}
+         :created-by created-by}
         :source-version-ids
         source-version-ids)
        :notified-on notified-on
-       :due-on due-on
-       :idempotency-key idempotency-key))))
+       :due-on due-on))))
 
 (defn- ensure-status
   "A transition asserts the state it moves out of before anything else,
@@ -167,9 +167,9 @@
 
   Approval attaches to the migration — its source, target and selection
   — and not to any preview's numbers. Accounts open and close between
-  approval and the commit, so the figures move; what was agreed does
+  approval and the run, so the figures move; what was agreed does
   not."
-  [migration]
+  [migration actor]
   (let-nom>
     [_ (ensure-status migration
                       #{:cash-account-migration-status-draft}
@@ -186,6 +186,7 @@
       (assoc migration
              :status :cash-account-migration-status-approved
              :approved-at now
+             :approved-by actor
              :updated-at now))))
 
 (defn cancel-migration
@@ -195,7 +196,7 @@
   list, because the system cannot tell a target whose dates slipped from
   one nobody intends to use. A completed migration is not cancellable —
   accounts have moved, and saying otherwise would misdescribe them."
-  [migration]
+  [migration actor]
   (let-nom>
     [_ (ensure-status migration
                       #{:cash-account-migration-status-draft
@@ -205,9 +206,10 @@
       (assoc migration
              :status :cash-account-migration-status-cancelled
              :cancelled-at now
+             :cancelled-by actor
              :updated-at now))))
 
-(defn ensure-committable
+(defn ensure-runnable
   "Asserts a migration may be run for real, before anything moves.
   Separate from `complete-migration` so the guard fires ahead of the
   pass while the completion is stamped after it, rather than dating a
@@ -215,10 +217,10 @@
   [migration]
   (ensure-status migration
                  #{:cash-account-migration-status-approved}
-                 "committed"))
+                 "run"))
 
 (defn complete-migration
-  "Close an approved migration once a commit has run it. Separate from
+  "Close an approved migration once its run has finished. Separate from
   the run's own completion: a run can finish having moved nothing, and
   it is the migration that is done, not the pass."
   [migration]
@@ -258,12 +260,12 @@
   not count."
   [runs now]
   (when-let [running
-             (first (filter (fn [{:keys [dry-run status started-at]}]
+             (first (filter (fn [{:keys [dry-run status created-at]}]
                               (and dry-run
                                    (= :cash-account-migration-run-status-running
                                       status)
                                    (< now
-                                      (+ started-at
+                                      (+ created-at
                                          abandoned-after-ms))))
                             runs))]
     (error/reject :cash-account-migration/preview-running
@@ -273,7 +275,7 @@
 
 (defn new-run
   "A run opens as running, and is closed by whatever finishes it. A
-  preview and a commit are the same record: `dry-run?` decides only
+  preview and a run are the same record: `dry-run?` decides only
   whether accounts are written, never what is decided about them."
   [migration business-day dry-run?]
   {:bank-id (:bank-id migration)
@@ -282,18 +284,17 @@
    :status :cash-account-migration-run-status-running
    :dry-run dry-run?
    :business-day business-day
-   :started-at (utility/now)})
+   :created-at (utility/now)})
 
-(defn moved-verdict
-  "What a commit records for an account it actually moved. Distinct from
-  the eligible verdict a preview writes: eligible is a forecast, migrated
-  is a fact, and the two sit in the same table."
-  [target-version]
-  {:outcome :cash-account-migration-outcome-migrated
-   :to-version-id (:version-id target-version)})
+(def moved-verdict
+  "What a run records for an account it actually moved, onto the
+  migration's target. Distinct from the eligible verdict a preview
+  writes: eligible is a forecast, migrated is a fact, and the two sit in
+  the same table."
+  {:outcome :cash-account-migration-outcome-migrated})
 
 (defn failed-verdict
-  "What a commit records for an account it could not move. One account's
+  "What a run records for an account it could not move. One account's
   failure is its own — the pass carries on, and the row says which one
   and why."
   [anomaly]
@@ -301,20 +302,18 @@
    :failure-reason (str (error/kind anomaly))})
 
 (defn account-verdict
-  "One account's row, as the run saw it. `to-version-id` is set only
-  where an account actually moved — a dry run's eligible verdict leaves
-  it off, because nothing moved it."
+  "One account's row, as the run saw it, with the source version it was
+  on."
   [run account decision]
-  (let [{:keys [outcome ineligibility to-version-id failure-reason]} decision]
+  (let [{:keys [outcome ineligibility failure-reason]} decision]
     (utility/assoc-some
      {:bank-id (:bank-id run)
       :run-id (:run-id run)
       :account-id (:account-id account)
       :migration-id (:migration-id run)
       :outcome outcome
+      :source-version-id (:version-id account)
       :created-at (utility/now)}
-     :from-version-id (:version-id account)
-     :to-version-id to-version-id
      :ineligibility ineligibility
      :failure-reason failure-reason)))
 
@@ -326,7 +325,7 @@
   (utility/assoc-some (assoc run
                              :status
                              :cash-account-migration-run-status-completed
-                             :finished-at (utility/now))
+                             :completed-at (utility/now))
                       :accounts-seen (:seen tally)
                       :accounts-moved (:moved tally)
                       :accounts-ineligible (:ineligible tally)
@@ -339,5 +338,5 @@
   [run anomaly]
   (assoc run
          :status :cash-account-migration-run-status-failed
-         :finished-at (utility/now)
-         :error (str (error/kind anomaly))))
+         :failed-at (utility/now)
+         :failure-reason (str (error/kind anomaly))))

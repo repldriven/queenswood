@@ -27,7 +27,7 @@
    :amount 1500
    :transaction-id "txn.internal"
    :created-at (utility/now)
-   :updated-at (utility/now)
+   :created-by {:kind :actor-kind-member :principal-id "usr.payer"}
    :bank-id bank-id
    :business-day 20260101})
 
@@ -35,31 +35,32 @@
   [payment-id bank-id idempotency-key]
   {:payment-id payment-id
    :idempotency-key idempotency-key
-   :scheme "fps"
+   :scheme-type :scheme-type-fps
    :debtor-account-id "acc.debtor"
    :creditor-bban "12345678901234"
    :creditor-name "Acme Ltd"
    :currency "GBP"
    :amount 2500
-   :payment-status :outbound-payment-status-pending
+   :status :outbound-payment-status-pending
    :transaction-id "txn.outbound"
    :created-at (utility/now)
+   :created-by {:kind :actor-kind-member :principal-id "usr.payer"}
+   :updated-at (utility/now)
    :bank-id bank-id
    :business-day 20260101})
 
 (defn- inbound-payment
   [{:keys [payment-id] :as payment}]
-  (merge {:scheme-transaction-id (str "stx." payment-id)
-          :end-to-end-id "e2e.default"
-          :scheme "fps"
+  (merge {:bank-id "bnk.test"
+          :status :inbound-payment-status-held
+          :scheme-type :scheme-type-fps
           :creditor-account-id "acc.creditor"
-          :currency "GBP"
           :amount 1000
-          :created-at (utility/now)
-          :updated-at (utility/now)
-          :bank-id "bnk.test"
+          :currency "GBP"
+          :end-to-end-id "e2e.default"
+          :scheme-transaction-id (str "stx." payment-id)
           :business-day 20260101
-          :payment-status :inbound-payment-status-held}
+          :created-at (utility/now)}
          payment))
 
 (defn- payment-ids
@@ -215,7 +216,7 @@
                                         :creditor-account-id "acc.a"
                                         :amount 1000
                                         :created-at 500
-                                        :payment-status
+                                        :status
                                         :inbound-payment-status-settled})
                       {:change-kind :inbound-payment-change-kind-settle})
                    _ (store/save-inbound-payment
@@ -262,12 +263,12 @@
          outbound
          (fn [payment-id bank-id status created-at]
            (assoc (outbound-payment payment-id bank-id (str "idem-" payment-id))
-                  :payment-status status
+                  :status status
                   :created-at created-at))
          inbound (fn [payment-id bank-id status created-at]
                    (inbound-payment {:payment-id payment-id
                                      :bank-id bank-id
-                                     :payment-status status
+                                     :status status
                                      :created-at created-at}))]
      (testing "outbound payments save in several statuses and banks"
        (nom-test> [_ (store/save-outbound-payment

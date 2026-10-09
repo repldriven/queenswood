@@ -62,14 +62,15 @@
       endpoint has chosen; all kinds when absent.
     - `:idempotency-key` — the registering request's key, unique per
       bank.
+  - actor: who is acting, as `api.shared.actor/actor` builds it.
   - opts (optional): map; `:policies` overrides policy resolution,
     `:platform-hosts` names the hosts a tenant may not point at, and
     `:address-rule` is the deployment's configuration of the scheme
     and the ranges, as `check-address` takes it."
-  ([txn bank-id data]
-   (core/register txn bank-id data))
-  ([txn bank-id data opts]
-   (core/register txn bank-id data opts)))
+  ([txn bank-id data actor]
+   (core/register txn bank-id data actor))
+  ([txn bank-id data actor opts]
+   (core/register txn bank-id data actor opts)))
 
 (defn get-endpoint
   "Load one endpoint. Returns the endpoint map or a
@@ -109,44 +110,47 @@
   - bank-id: owning bank id.
   - endpoint-id: endpoint id.
   - data: `:address` (required), `:description`, `:kinds`.
+  - actor: who is acting, as `api.shared.actor/actor` builds it.
   - opts (optional): as `register`."
-  ([txn bank-id endpoint-id data]
-   (core/update-endpoint txn bank-id endpoint-id data))
-  ([txn bank-id endpoint-id data opts]
-   (core/update-endpoint txn bank-id endpoint-id data opts)))
+  ([txn bank-id endpoint-id data actor]
+   (core/update-endpoint txn bank-id endpoint-id data actor))
+  ([txn bank-id endpoint-id data actor opts]
+   (core/update-endpoint txn bank-id endpoint-id data actor opts)))
 
 (defn enable
-  "Enable a disabled or paused endpoint. Returns the updated endpoint
+  "Enable a disabled endpoint. Returns the updated endpoint
   or an anomaly.
 
   Args:
   - txn: FDB transaction or config map.
   - bank-id: owning bank id.
   - endpoint-id: endpoint id.
+  - actor: who is acting, as `api.shared.actor/actor` builds it.
   - opts (optional): map; `:policies` overrides policy resolution, and
     `:since` — an epoch-ms instant — asks for the gap as well as the
     resumption: every notification from that instant on that this
     endpoint has chosen and has never had delivered gets a fresh
     pending delivery, written in the transaction the enable commits
     in."
-  ([txn bank-id endpoint-id]
-   (core/enable txn bank-id endpoint-id))
-  ([txn bank-id endpoint-id opts]
-   (core/enable txn bank-id endpoint-id opts)))
+  ([txn bank-id endpoint-id actor]
+   (core/enable txn bank-id endpoint-id actor))
+  ([txn bank-id endpoint-id actor opts]
+   (core/enable txn bank-id endpoint-id actor opts)))
 
 (defn disable
-  "Disable an enabled or paused endpoint. Returns the updated endpoint
+  "Disable an enabled endpoint. Returns the updated endpoint
   or an anomaly.
 
   Args:
   - txn: FDB transaction or config map.
   - bank-id: owning bank id.
   - endpoint-id: endpoint id.
+  - actor: who is acting, as `api.shared.actor/actor` builds it.
   - opts (optional): map; `:policies` overrides policy resolution."
-  ([txn bank-id endpoint-id]
-   (core/disable txn bank-id endpoint-id))
-  ([txn bank-id endpoint-id opts]
-   (core/disable txn bank-id endpoint-id opts)))
+  ([txn bank-id endpoint-id actor]
+   (core/disable txn bank-id endpoint-id actor))
+  ([txn bank-id endpoint-id actor opts]
+   (core/disable txn bank-id endpoint-id actor opts)))
 
 (defn remove-endpoint
   "Move an endpoint to removed — a terminal status, not a deletion, so
@@ -157,11 +161,12 @@
   - txn: FDB transaction or config map.
   - bank-id: owning bank id.
   - endpoint-id: endpoint id.
+  - actor: who is acting, as `api.shared.actor/actor` builds it.
   - opts (optional): map; `:policies` overrides policy resolution."
-  ([txn bank-id endpoint-id]
-   (core/remove-endpoint txn bank-id endpoint-id))
-  ([txn bank-id endpoint-id opts]
-   (core/remove-endpoint txn bank-id endpoint-id opts)))
+  ([txn bank-id endpoint-id actor]
+   (core/remove-endpoint txn bank-id endpoint-id actor))
+  ([txn bank-id endpoint-id actor opts]
+   (core/remove-endpoint txn bank-id endpoint-id actor opts)))
 
 (defn rotate-secret
   "Mint a new signing secret, keeping the current one as
@@ -178,11 +183,12 @@
   - endpoint-id: endpoint id.
   - data: `:idempotency-key`, and `:previous-secret-ttl-ms` to
     override how long the rotated-away secret stays accepted.
+  - actor: who is acting, as `api.shared.actor/actor` builds it.
   - opts (optional): map; `:policies` overrides policy resolution."
-  ([txn bank-id endpoint-id data]
-   (core/rotate-secret txn bank-id endpoint-id data))
-  ([txn bank-id endpoint-id data opts]
-   (core/rotate-secret txn bank-id endpoint-id data opts)))
+  ([txn bank-id endpoint-id data actor]
+   (core/rotate-secret txn bank-id endpoint-id data actor))
+  ([txn bank-id endpoint-id data actor opts]
+   (core/rotate-secret txn bank-id endpoint-id data actor opts)))
 
 (defn check-address
   "Whether an address may be called: nil when it may, a
@@ -218,11 +224,12 @@
   - txn: FDB transaction or config map.
   - bank-id: owning bank id.
   - endpoint-id: endpoint id.
+  - actor: who is acting, as `api.shared.actor/actor` builds it.
   - opts (optional): map; `:policies` overrides policy resolution."
-  ([txn bank-id endpoint-id]
-   (core/test-notification txn bank-id endpoint-id))
-  ([txn bank-id endpoint-id opts]
-   (core/test-notification txn bank-id endpoint-id opts)))
+  ([txn bank-id endpoint-id actor]
+   (core/test-notification txn bank-id endpoint-id actor))
+  ([txn bank-id endpoint-id actor opts]
+   (core/test-notification txn bank-id endpoint-id actor opts)))
 
 (defn resend
   "Send one delivery's notification again, as a new delivery to the
@@ -236,11 +243,12 @@
   - endpoint-id: the endpoint the delivery belongs to; one reached
     under any other is `:webhook-delivery/not-found`.
   - delivery-id: the delivery to send again.
+  - actor: who is acting, as `api.shared.actor/actor` builds it.
   - opts (optional): map; `:policies` overrides policy resolution."
-  ([txn bank-id endpoint-id delivery-id]
-   (core/resend txn bank-id endpoint-id delivery-id))
-  ([txn bank-id endpoint-id delivery-id opts]
-   (core/resend txn bank-id endpoint-id delivery-id opts)))
+  ([txn bank-id endpoint-id delivery-id actor]
+   (core/resend txn bank-id endpoint-id delivery-id actor))
+  ([txn bank-id endpoint-id delivery-id actor opts]
+   (core/resend txn bank-id endpoint-id delivery-id actor opts)))
 
 (defn resend-window
   "Send every notification the endpoint has chosen from a window again,
@@ -255,11 +263,12 @@
   - endpoint-id: endpoint id.
   - data: `:from` (required) and `:to`, epoch-ms bounds over when the
     notification was created. An absent `:to` leaves the window open.
+  - actor: who is acting, as `api.shared.actor/actor` builds it.
   - opts (optional): map; `:policies` overrides policy resolution."
-  ([txn bank-id endpoint-id data]
-   (core/resend-window txn bank-id endpoint-id data))
-  ([txn bank-id endpoint-id data opts]
-   (core/resend-window txn bank-id endpoint-id data opts)))
+  ([txn bank-id endpoint-id data actor]
+   (core/resend-window txn bank-id endpoint-id data actor))
+  ([txn bank-id endpoint-id data actor opts]
+   (core/resend-window txn bank-id endpoint-id data actor opts)))
 
 (defn get-deliveries
   "An endpoint's delivery history, in creation order. Returns
@@ -276,6 +285,20 @@
    (core/get-deliveries txn bank-id endpoint-id))
   ([txn bank-id endpoint-id filters]
    (core/get-deliveries txn bank-id endpoint-id filters)))
+
+(defn get-attempts
+  "A delivery's attempts, in the order they were made. Returns
+  `{:attempts [...]}`, or a `:webhook-endpoint/not-found` or
+  `:webhook-delivery/not-found` rejection, the second also for a
+  delivery to another endpoint.
+
+  Args:
+  - txn: FDB transaction or config map.
+  - bank-id: owning bank id.
+  - endpoint-id: endpoint id.
+  - delivery-id: delivery id."
+  [txn bank-id endpoint-id delivery-id]
+  (core/get-attempts txn bank-id endpoint-id delivery-id))
 
 ;; ---
 ;; the resources as the API publishes them
@@ -294,13 +317,20 @@
 
 (defn ->delivery-body
   "Project a stored delivery onto the keys `WebhookDelivery` declares.
-  The runner's claim — its lease and the replica holding it — is not
-  among them.
 
   Args:
   - delivery: a delivery as this brick hands it back."
   [delivery]
   (components/->delivery-body delivery))
+
+(defn ->attempt-body
+  "Project a stored delivery attempt onto the keys
+  `WebhookDeliveryAttempt` declares.
+
+  Args:
+  - attempt: an attempt as this brick hands it back."
+  [attempt]
+  (components/->attempt-body attempt))
 
 ;; ---
 ;; the notification resource

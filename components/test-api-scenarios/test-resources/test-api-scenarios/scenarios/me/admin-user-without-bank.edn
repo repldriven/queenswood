@@ -2,7 +2,7 @@
  ;; `/v1/me` does not expose roles, so the admin realm role is proven
  ;; by the pair rather than read: the token reached `/v1/me` at all,
  ;; which only a user JWT does, and the org route answered 403 rather
- ;; than 200 over a nil bank. A user with no membership carries `:org`
+ ;; than 200 over a nil bank. A user with no member carries `:org`
  ;; only when the realm gave it `admin`. The issuer assertion is what
  ;; shows the ops provider, not the orgs one, verified the token.
  :when
@@ -18,7 +18,7 @@
             :body {:issuer [:m/regex "/realms/queenswood-ops$"]
                    :email "ops@queenswood.local"}}}
   {:command :api/request
-   :request {:method :get :path "/v1/me/memberships" :auth :ops-token}
+   :request {:method :get :path "/v1/me/members" :auth :ops-token}
    :assert {:status 200 :body {:items []}}}
   ;; The detail is asserted because the status and the type alone do
   ;; not say which branch refused. A principal carrying no `:org` at

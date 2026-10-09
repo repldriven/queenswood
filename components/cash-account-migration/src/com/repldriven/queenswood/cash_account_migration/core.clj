@@ -45,11 +45,9 @@
                    target-version-id idempotency-key]}
            data]
        (let-nom>
-         [existing (if idempotency-key
-                     (store/find-by-idempotency-key txn
-                                                    bank-id
-                                                    idempotency-key)
-                     nil)]
+         [existing (store/find-by-idempotency-key txn
+                                                  bank-id
+                                                  idempotency-key)]
          (if existing
            existing
            (let-nom>
@@ -105,7 +103,7 @@
             (update :moved inc))))
 
 (defn- apply-entry
-  "One account inside the chunk's transaction: moved if this is a commit
+  "One account inside the chunk's transaction: moved if this is a run
   and it was found eligible, then its verdict written. Returns the
   verdict actually recorded.
 
@@ -125,7 +123,7 @@
                                                            policies)]
                   (if (error/anomaly? moved)
                     (domain/failed-verdict moved)
-                    (domain/moved-verdict target))))
+                    domain/moved-verdict)))
         verdict (domain/account-verdict run account final)
         saved (store/save-account-run txn verdict)]
     (if (error/anomaly? saved) saved final)))
@@ -152,7 +150,7 @@
 
 (defn- flush-chunk
   "Applies a chunk in one transaction — every eligible account moved, on
-  a commit, and every verdict written — then clears it and advances the
+  a run, and every verdict written — then clears it and advances the
   tally by what the chunk actually decided."
   [config ctx state]
   (let [{:keys [chunk]} state]
@@ -191,7 +189,7 @@
   whole cohort, and policy was resolved once for the run. That is what
   makes the pass linear in transactions rather than in accounts.
 
-  A dry run and a commit differ only in whether an eligible verdict is
+  A preview and a run differ only in whether an eligible verdict is
   carried out. The streaming, the cohort test and the eligibility order
   are the same code, because a preview that ran different logic would be
   evidence of nothing."
@@ -239,7 +237,7 @@
             0
             version-ids)))
 
-(defn- check-commit-limit
+(defn- check-run-limit
   "Refuses a migration pointed at more accounts than its tier allows,
   before a single one moves. A limit discovered part-way through would
   leave a half-migrated cohort, which is worse than not starting."
@@ -250,7 +248,7 @@
                            :cash-account-migration
                            {:aggregate :count
                             :window :time-window-instant
-                            :action :cash-account-migration-action-commit
+                            :action :cash-account-migration-action-run
                             :value size})]
     size))
 
@@ -287,15 +285,15 @@
          [_ (when dry-run? (check-no-preview-running txn bank-id migration-id))
           _ (if dry-run?
               (check-preview-limit txn bank-id business-day policies)
-              (check-commit-limit txn bank-id migration policies))
+              (check-run-limit txn bank-id migration policies))
           run (domain/new-run migration business-day dry-run?)
           _ (store/save-run txn run)]
          run))
      :cash-account-migration/open-run
      "Failed to open cash-account migration run")))
 
-(defn- run-migration
-  "One pass over a migration's cohort, previewing or committing. Opens a
+(defn- pass
+  "One pass over a migration's cohort, as a preview or a run. Opens a
   run, evaluates every account, and closes the run with what it decided.
 
   A run is closed as failed only when the pass itself could not finish.
@@ -332,34 +330,34 @@
 
   Previews may be re-run as often as wanted, including after approval:
   accounts open and close and balances move, so a preview is a forecast
-  of what a commit would do rather than a promise, and being able to
+  of what a run would do rather than a promise, and being able to
   look again is what makes that drift visible."
   [txn bank-id migration-id business-day]
-  (run-migration txn bank-id migration-id business-day true))
+  (pass txn bank-id migration-id business-day true))
 
 (defn approve-migration
-  [txn bank-id migration-id]
+  [txn bank-id migration-id actor]
   (store/transact
    txn
    (fn [txn]
      (let-nom>
        [migration (get-migration txn bank-id migration-id)
-        approved (domain/approve-migration migration)
+        approved (domain/approve-migration migration actor)
         _ (store/save-migration txn approved)]
        approved))))
 
 (defn cancel-migration
-  [txn bank-id migration-id]
+  [txn bank-id migration-id actor]
   (store/transact
    txn
    (fn [txn]
      (let-nom>
        [migration (get-migration txn bank-id migration-id)
-        cancelled (domain/cancel-migration migration)
+        cancelled (domain/cancel-migration migration actor)
         _ (store/save-migration txn cancelled)]
        cancelled))))
 
-(defn commit-migration
+(defn run-migration
   "Run a migration for real, then close it. Returns the run.
 
   The migration completes only when the pass finished. A pass that could
@@ -368,8 +366,8 @@
   [txn bank-id migration-id business-day]
   (let-nom>
     [migration (get-migration txn bank-id migration-id)
-     _ (domain/ensure-committable migration)
-     run (run-migration txn bank-id migration-id business-day false)
+     _ (domain/ensure-runnable migration)
+     run (pass txn bank-id migration-id business-day false)
      completed (domain/complete-migration migration)
      _ (store/save-migration txn completed)]
     run))
@@ -400,7 +398,7 @@
           migrations)))
 
 (defn run-due-migrations
-  "Commit every migration the bank has that is due on `business-day`.
+  "Run every migration the bank has that is due on `business-day`.
 
   One migration failing does not stop the others — each is its own unit
   of work, and the summary says which ones ran and what they moved.
@@ -417,10 +415,10 @@
     (let [totals
           (reduce
            (fn [summary migration]
-             (let [run (commit-migration txn
-                                         bank-id
-                                         (:migration-id migration)
-                                         business-day)]
+             (let [run (run-migration txn
+                                      bank-id
+                                      (:migration-id migration)
+                                      business-day)]
                (if (error/anomaly? run)
                  (-> summary
                      (update :migrations inc)

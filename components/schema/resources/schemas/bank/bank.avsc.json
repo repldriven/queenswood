@@ -1,0 +1,67 @@
+{
+  "type": "record",
+  "name": "Bank",
+  "namespace": "com.repldriven.queenswood.schema.bank",
+  "fields": [
+    {"name": "bank_id", "type": "string"},
+    {"name": "name",    "type": "string"},
+    {"name": "status",  "type": {"type": "enum",
+                                  "name": "BankStatus",
+                                  "symbols": ["BANK_STATUS_UNKNOWN",
+                                              "BANK_STATUS_TEST",
+                                              "BANK_STATUS_LIVE"]}},
+    {"name": "tier",    "type": "string"},
+    {"name": "providers", "type": {"type": "array", "items": {
+      "type": "record",
+      "name": "BankProvider",
+      "fields": [
+        {"name": "kind",     "type": "string"},
+        {"name": "provider", "type": "string"}
+      ]
+    }}, "default": []},
+    {"name": "company_binding", "type": ["null", {
+      "type": "record",
+      "name": "CompanyBinding",
+      "fields": [
+        {"name": "registry", "type": {"type": "enum",
+                                      "name": "CompanyRegistry",
+                                      "symbols": ["COMPANY_REGISTRY_UNKNOWN",
+                                                  "COMPANY_REGISTRY_UK_COMPANIES_HOUSE"]}},
+        {"name": "company_number",  "type": "string"},
+        {"name": "name",            "type": "string"},
+        {"name": "status",          "type": "string"},
+        {"name": "company_type",    "type": "string"},
+        {"name": "jurisdiction",    "type": ["null", "string"], "default": null},
+        {"name": "incorporated_on", "type": ["null", "long"], "default": null},
+        {"name": "registered_office_address", "type": ["null", {
+          "type": "record",
+          "name": "RegisteredOfficeAddress",
+          "fields": [
+            {"name": "address_line_1", "type": ["null", "string"], "default": null},
+            {"name": "locality",       "type": ["null", "string"], "default": null},
+            {"name": "postal_code",    "type": ["null", "string"], "default": null},
+            {"name": "country",        "type": ["null", "string"], "default": null}
+          ]
+        }], "default": null}
+      ]
+    }], "default": null},
+    {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "updated_at", "type": ["null", {"type": "long", "logicalType": "timestamp-millis"}], "default": null},
+    {"name": "member", "type": ["null", {
+      "type": "record",
+      "name": "Member",
+      "doc": "The owner member created with the bank",
+      "fields": [
+        {"name": "member_id", "type": "string"},
+        {"name": "user_id",       "type": "string"},
+        {"name": "bank_id",       "type": "string"},
+        {"name": "role", "type": {"type": "enum",
+                                  "name": "Role",
+                                  "symbols": ["ROLE_UNKNOWN", "ROLE_OWNER"]}},
+        {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+        {"name": "updated_at", "type": ["null", {"type": "long", "logicalType": "timestamp-millis"}], "default": null}
+      ]
+    }], "default": null},
+    {"name": "owner_invitation_id", "type": ["null", "string"], "default": null}
+  ]
+}

@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.onfido-adapter.publisher
   "Maps a finished Onfido workflow run, read back with its reports, to an
-  `idv-evidence` bus-event descriptor `{:event-name :dedup-key :data}`.
+  `idv-evidence-received` bus-event descriptor `{:event-name :dedup-key :data}`.
   The document report reports the document, its extracted name graded
   against the applicant's and then left behind, the facial similarity
   report liveness, the proof-of-address report the
@@ -91,7 +91,7 @@
   [{:keys [run run-name bank-id verification-id reports]}]
   (let [reported (evidence run run-name reports)]
     (when (and reported bank-id verification-id)
-      {:event-name "idv-evidence"
+      {:event-name "idv-evidence-received"
        :dedup-key (str (:id run) ":completed")
        :data (merge {:bank-id bank-id
                      :verification-id verification-id

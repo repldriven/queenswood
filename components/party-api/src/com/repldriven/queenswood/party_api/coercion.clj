@@ -22,7 +22,7 @@
                            "in-review" :idv-status-in-review
                            "accepted" :idv-status-accepted
                            "rejected" :idv-status-rejected
-                           "failed" :idv-status-failed}
+                           "cancelled" :idv-status-cancelled}
                           :idv-status-unknown))
 
 (def ^:private verification-channel-enum
@@ -39,15 +39,15 @@
                           :idv-session-status-unknown))
 
 (def ^:private hand-off-type-enum
-  (coercion/enum-coercion {"url" :idv-hand-off-type-url}
-                          :idv-hand-off-type-unknown))
+  (coercion/enum-coercion {"url" :idv-hand-off-kind-url}
+                          :idv-hand-off-kind-unknown))
 
 (def ^:private criterion-state-enum
-  (coercion/enum-coercion {"outstanding" :idv-criterion-state-outstanding
-                           "established" :idv-criterion-state-established
-                           "in-review" :idv-criterion-state-review
-                           "failed" :idv-criterion-state-failed}
-                          :idv-criterion-state-unknown))
+  (coercion/enum-coercion {"outstanding" :idv-criterion-status-outstanding
+                           "established" :idv-criterion-status-established
+                           "in-review" :idv-criterion-status-review
+                           "failed" :idv-criterion-status-failed}
+                          :idv-criterion-status-unknown))
 
 (def decode-party-type (:decode party-type-enum))
 (def party-type-json-schema (:json-schema party-type-enum))

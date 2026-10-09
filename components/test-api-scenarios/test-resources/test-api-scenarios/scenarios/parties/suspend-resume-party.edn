@@ -6,8 +6,7 @@
           :as :party-0
           :with {:token [:ref :org-0 :token]
                  :display-name "Suspending Party"
-                 :given-name "Suspending"
-                 :family-name "Party"}}]
+                 :legal-name "Suspending Party"}}]
  :when
  [{:command :api/request
    :request {:method :post

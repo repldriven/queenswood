@@ -88,27 +88,28 @@
    [sys "classpath:registrar/application-test.yml"]
    (let [config (registrar-config sys)
          breaker (fn []
-                   (:state (circuit-breaker/breaker config
-                                                    "adapter:registrar-test")))]
+                   (:status
+                    (circuit-breaker/breaker config "adapter:registrar-test")))]
      (reset! provider {:up? false :held #{}})
      (let [{:keys [stop]} (SUT/start :registrar-test config)]
-       (try (testing "a provider down at start-up opens the adapter's breaker"
-              (is (eventually (fn [] (= "open" (breaker)))))
-              (is (false? @(:readiness config))))
-            (testing
-              "once it answers, it is subscribed to and the breaker closes"
-              (swap! provider assoc :up? true)
-              (is (eventually (fn [] @(:readiness config))))
-              (is (eventually (fn [] (= "closed" (breaker)))))
-              (is (= #{:opened :closed} (:held @provider))))
-            (finally (stop)))))))
+       (try
+         (testing "a provider down at start-up opens the adapter's breaker"
+           (is (eventually (fn [] (= :circuit-breaker-status-open (breaker)))))
+           (is (false? @(:readiness config))))
+         (testing "once it answers, it is subscribed to and the breaker closes"
+           (swap! provider assoc :up? true)
+           (is (eventually (fn [] @(:readiness config))))
+           (is (eventually (fn []
+                             (= :circuit-breaker-status-closed (breaker)))))
+           (is (= #{:opened :closed} (:held @provider))))
+         (finally (stop)))))))
 
 (deftest registrar-checks-on-its-interval-test
   (with-test-system
    [sys "classpath:registrar/application-test.yml"]
    (let [config (assoc (registrar-config sys) :check-ms 600000)
          destination "adapter:registrar-test"
-         breaker (fn [] (:state (circuit-breaker/breaker config destination)))]
+         breaker (fn [] (:status (circuit-breaker/breaker config destination)))]
      (reset! provider {:up? true :held #{}})
      (let [{:keys [stop]} (SUT/start :registrar-test config)]
        (try
@@ -128,5 +129,6 @@
                                    :failed
                                    (utility/now))
            (is (eventually (fn [] (= #{:opened :closed} (:held @provider)))))
-           (is (eventually (fn [] (= "closed" (breaker))))))
+           (is (eventually (fn []
+                             (= :circuit-breaker-status-closed (breaker))))))
          (finally (stop)))))))

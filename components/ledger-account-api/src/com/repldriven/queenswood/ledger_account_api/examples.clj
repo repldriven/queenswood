@@ -13,19 +13,18 @@
 
 (def LedgerAccount
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :account-id "led.01kprbmgcj35ptc8npmybhh4sa"
-   :gl-code "2100"
+   :ledger-account-id "led.01kprbmgcj35ptc8npmybhh4sa"
+   :code "2100"
    :name "Customer deposits - current"
    :currency "GBP"
-   :gl-account-type :liability
-   :gl-account-class :control
-   :required :mandatory
+   :account-class :liability
+   :account-type :control
    :status :open
    :posted-balance {:value 90000 :currency "GBP"}
    :created-at "2025-01-01T00:00:00Z"
    :updated-at "2025-01-01T00:00:00Z"})
 
-(def LedgerAccountId (:account-id LedgerAccount))
+(def LedgerAccountId (:ledger-account-id LedgerAccount))
 
 (def LedgerAccountList
   {:items [LedgerAccount]

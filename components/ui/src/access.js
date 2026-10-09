@@ -21,7 +21,7 @@ export const ROLE_BLURB = {
 export function accessEnum(x) {
   return String(x ?? "")
     .replace(/^:/, "")
-    .replace(/^(role|invitation-status|access-event-kind|actor-kind)-/, "");
+    .replace(/^(role|invitation-status|audit-event-kind|actor-kind)-/, "");
 }
 
 export function grantableBy(role) {

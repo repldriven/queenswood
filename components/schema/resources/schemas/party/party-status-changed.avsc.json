@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "PartyStatusChanged",
-  "namespace": "com.repldriven.mono.party",
+  "namespace": "com.repldriven.queenswood.schema.party",
   "fields": [
     {"name": "bank_id",  "type": "string"},
     {"name": "party_id", "type": "string"},
@@ -16,6 +16,6 @@
                                     "PARTY_STATUS_REJECTED",
                                     "PARTY_STATUS_MERGED"]}],
      "default": null},
-    {"name": "status_after", "type": "com.repldriven.mono.party.PartyStatus"}
+    {"name": "status_after", "type": "com.repldriven.queenswood.schema.party.PartyStatus"}
   ]
 }

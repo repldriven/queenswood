@@ -48,6 +48,24 @@
       (errors/anomaly->response result)
       {:status 200 :body (webhook/->body result)})))
 
+(defn list-attempts
+  [request]
+  (let [{:keys [auth parameters]} request
+        {:keys [bank-id]} auth
+        {:keys [endpoint-id delivery-id]} (:path parameters)
+        {:keys [page]} (:query parameters)
+        result (webhook/get-attempts (config request)
+                                     bank-id
+                                     endpoint-id
+                                     delivery-id)]
+    (if (error/anomaly? result)
+      (errors/anomaly->response result)
+      (listing (:attempts result)
+               :attempt-id
+               webhook/->attempt-body
+               (cursor/request-path request)
+               page))))
+
 (defn list-deliveries
   [request]
   (let [{:keys [auth parameters]} request

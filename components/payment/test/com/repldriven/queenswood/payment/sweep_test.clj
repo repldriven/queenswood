@@ -15,18 +15,19 @@
 (def ^:private bank-id "bnk.sweep")
 
 (defn- outbound-payment
-  [payment-id payment-status created-at]
+  [payment-id status created-at]
   {:payment-id payment-id
    :idempotency-key (str "idem-" payment-id)
-   :scheme "fps"
+   :scheme-type :scheme-type-fps
    :debtor-account-id "acc.sweep-debtor"
    :creditor-bban "20000087654321"
    :creditor-name "Acme Ltd"
    :currency "GBP"
    :amount 2500
-   :payment-status payment-status
+   :status status
    :transaction-id (str "txn." payment-id)
    :created-at created-at
+   :created-by {:kind :actor-kind-member :principal-id "usr.payer"}
    :updated-at created-at
    :bank-id bank-id
    :business-day 20260101})

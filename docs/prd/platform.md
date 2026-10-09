@@ -97,8 +97,8 @@ Each capability is covered by its own PRD.
 
 - **Onboarding**: creating an organisation for a customer, with
   everything it needs to start. [onboarding](onboarding.md).
-- **Memberships**: the people who operate an organisation, and what
-  each may do. [memberships](memberships.md).
+- **Members**: the people who operate an organisation, and what
+  each may do. [members](members.md).
 - **Parties**: the people and businesses a customer holds accounts for,
   and the verification of who they are. [parties](parties.md).
 - **Cash account products**: the terms a customer offers its accounts

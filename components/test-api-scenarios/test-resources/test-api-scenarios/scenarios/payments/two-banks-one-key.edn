@@ -59,8 +59,7 @@
    :as :party-b
    :with {:token [:ref :bank-b :token]
           :display-name "Marvin Android"
-          :given-name "Marvin"
-          :family-name "Android"}}
+          :legal-name "Marvin Android"}}
   {:fixture :account
    :as :debtor-b
    :with {:token [:ref :bank-b :token]

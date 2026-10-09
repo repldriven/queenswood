@@ -12,6 +12,15 @@
 
 (def cash-account-status-enum-schema (:enum-schema cash-account-status-enum))
 
+(def ^:private address-rotation-status-enum
+  (coercion/enum-coercion {"pending" :address-rotation-status-pending
+                           "completed" :address-rotation-status-completed
+                           "failed" :address-rotation-status-failed}
+                          :address-rotation-status-unknown))
+
+(def address-rotation-status-enum-schema
+  (:enum-schema address-rotation-status-enum))
+
 (def ^:private account-type-enum
   (coercion/enum-coercion {"personal" :account-type-personal
                            "business" :account-type-business}

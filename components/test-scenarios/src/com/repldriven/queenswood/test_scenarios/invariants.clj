@@ -20,6 +20,11 @@
   1200 pending-outbound mirrors every customer's `default /
   pending-outgoing` bucket, the sides swapped, per currency.
 
+  Every leg is in its account's currency. A balance carries no currency
+  of its own, so a leg in another currency would be summed into the
+  account and filed under the wrong currency's control, while each
+  currency's trial balance still ties.
+
   The first two read `default / posted` only, so in-flight buckets
   (held, pending, interest-accrued sub-ledger) don't perturb them. A balance
   read that fails is never treated as zero: it is a failure naming the
@@ -35,8 +40,9 @@
     ;; nosemgrep: fdb-outside-store — asserts against raw stored state
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
+    [com.repldriven.queenswood.schema.interface :as schema]
 
-    [com.repldriven.mono.error.interface :as error]))
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
 (def
   ^{:private true
@@ -45,6 +51,10 @@
   read, not the walk — the walk follows the cursor to the end."}
   page-size
   100)
+
+(def ^:private legs-store-name "transaction-legs")
+
+(def ^:private legs-page-size 1000)
 
 (defn- net
   "Credit-positive net (credit − debit) of one balance bucket."
@@ -96,7 +106,7 @@
 (defn- add-control-totals
   "Add one cash account's `default / posted` buckets to the running
   totals, keyed by the control role its product type rolls into and the
-  bucket's currency, and its `default / pending-outgoing` buckets,
+  account's currency, and its `default / pending-outgoing` buckets,
   sides swapped, under 1200 pending-outbound, which mirrors them. An
   account whose product type rolls into no control contributes nothing."
   [totals account]
@@ -105,11 +115,12 @@
     (reduce (fn [acc balance]
               (cond
                (default-posted? balance)
-               (update acc [code (:currency balance)] (fnil + 0) (net balance))
+               (update acc [code (:currency account)] (fnil + 0) (net balance))
 
                (default-pending-outgoing? balance)
                (update acc
-                       [:gl-account-code-pending-outbound (:currency balance)]
+                       [:ledger-account-code-pending-outbound
+                        (:currency account)]
                        (fnil + 0)
                        (- (net balance)))
 
@@ -137,19 +148,48 @@
 
 (defn- chart-entry
   "One chart row, as both a trial-balance entry and a reconciliation
-  target: `:normal-side` and `:value` for the tie, `:gl-account-code`
+  target: `:normal-side` and `:value` for the tie, `:code`
   and `:currency` for resolving a control."
   [txn bank-id account]
   (let [{:keys [posted pending-outgoing]} (nets txn bank-id account)]
     {:ledger-account-id (:ledger-account-id account)
-     :gl-account-code (:gl-account-code account)
+     :code (:code account)
      :currency (:currency account)
-     :normal-side (if (ledger-accounts/debit-normal?
-                       (:gl-account-type account))
+     :normal-side (if (ledger-accounts/debit-normal? account)
                     :debit
                     :credit)
      :value posted
      :pending-outgoing pending-outgoing}))
+
+(defn- account-legs
+  "Every leg recorded against `account-id` in `bank-id`, following the
+  cursor to the last page."
+  [txn bank-id account-id]
+  (let [store (fdb/open txn legs-store-name)]
+    (loop [after nil
+           legs []]
+      (let [page (fdb/scan-records store
+                                   (cond-> {:prefix [bank-id account-id]
+                                            :limit legs-page-size}
+                                           after
+                                           (assoc :after after)))
+            legs (into legs (map schema/pb->TransactionLeg) (:records page))]
+        (if-some [after (:after page)]
+          (recur after legs)
+          legs)))))
+
+(defn- foreign-legs
+  "The legs of each of `bank-id`'s accounts in `currencies`, a map of
+  account id to its currency, recorded in another currency, as
+  `[account-id currency leg]`."
+  [txn bank-id currencies]
+  (into []
+        (mapcat (fn [[account-id currency]]
+                  (keep (fn [leg]
+                          (when (not= currency (:currency leg))
+                            [account-id currency leg]))
+                        (account-legs txn bank-id account-id))))
+        currencies))
 
 (defn- books-snapshot
   "Both sides of every invariant for one bank, read in a single FDB
@@ -158,7 +198,8 @@
   so an async settlement commit landing mid-read (e.g. `settle-outbound`
   posting its 1100/2100 legs on a webhook thread while this runs on the
   scenario thread) can't tear the two sides apart. Returns
-  `{:chart :sub-ledger}`, or the anomaly a read failed with."
+  `{:chart :sub-ledger :foreign-legs}`, or the anomaly a read failed
+  with."
   [config bank-id]
   (fdb/transact
    config
@@ -166,16 +207,33 @@
      (let [accounts (ledger-accounts/list-accounts txn bank-id)]
        (if (error/anomaly? accounts)
          accounts
-         (let [sub-ledger (reduce-cash-accounts txn
-                                                bank-id
+         (let-nom>
+           [walked
+            (reduce-cash-accounts txn
+                                  bank-id
+                                  (fn [acc account]
+                                    (-> acc
+                                        (update :sub-ledger
                                                 add-control-totals
-                                                {})]
-           (if (error/anomaly? sub-ledger)
-             sub-ledger
+                                                account)
+                                        (assoc-in [:currencies
+                                                   (:account-id account)]
+                                                  (:currency account))))
+                                  {:sub-ledger {} :currencies {}})]
+           (let [{:keys [sub-ledger currencies]} walked
+                 foreign (foreign-legs txn
+                                       bank-id
+                                       (into currencies
+                                             (map (fn [account]
+                                                    [(:ledger-account-id
+                                                      account)
+                                                     (:currency account)]))
+                                             accounts))]
              {:chart (mapv (fn [account]
                              (chart-entry txn bank-id account))
                            accounts)
-              :sub-ledger sub-ledger})))))
+              :sub-ledger sub-ledger
+              :foreign-legs foreign})))))
    :scenario/books-snapshot
    "Failed to read the books snapshot"))
 
@@ -225,8 +283,8 @@
   unnoticed."
   [bank-id {:keys [chart sub-ledger]}]
   (let [control (into {}
-                      (map (fn [{:keys [gl-account-code currency value]}]
-                             [[gl-account-code currency] value]))
+                      (map (fn [{:keys [code currency value]}]
+                             [[code currency] value]))
                       chart)]
     (for [code (distinct (vals ledger-accounts/product-type->control-code))
           currency (distinct (map :currency chart))
@@ -250,10 +308,10 @@
   `default / pending-outgoing` buckets, for each currency the bank's
   chart carries 1200 in."
   [bank-id {:keys [chart sub-ledger]}]
-  (for [{:keys [gl-account-code currency pending-outgoing]} chart
-        :when (= :gl-account-code-pending-outbound gl-account-code)
+  (for [{:keys [code currency pending-outgoing]} chart
+        :when (= :ledger-account-code-pending-outbound code)
         :let [expected (get sub-ledger
-                            [:gl-account-code-pending-outbound currency]
+                            [:ledger-account-code-pending-outbound currency]
                             0)]
         :when (not= expected pending-outgoing)]
     (str "1200 must mirror the customers' pending-outgoing — bank "
@@ -265,6 +323,22 @@
          " / 1200 "
          pending-outgoing
          ")")))
+
+(defn- foreign-leg-failures
+  "Why a leg is not in its account's currency, one message per leg."
+  [bank-id {:keys [foreign-legs]}]
+  (for [[account-id currency leg] foreign-legs]
+    (str "a leg must be in its account's currency — bank "
+         bank-id
+         " account "
+         account-id
+         " leg "
+         (:leg-id leg)
+         " ("
+         (:currency leg)
+         " on a "
+         currency
+         " account)")))
 
 (defn- books-failures
   "The standing invariants for one bank, off a single snapshot of its
@@ -297,7 +371,8 @@
      :else
      (-> (vec (trial-balance-failures bank-id (:chart snapshot)))
          (into (control-failures bank-id snapshot))
-         (into (pending-outbound-failures bank-id snapshot))))))
+         (into (pending-outbound-failures bank-id snapshot))
+         (into (foreign-leg-failures bank-id snapshot))))))
 
 (defn check
   "The standing invariants against every bank created so far in the run,

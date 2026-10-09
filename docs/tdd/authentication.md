@@ -142,37 +142,37 @@ the `admin` realm role, so it holds an operator's levels and its
 **User principal.** The user path **upserts a `user` row**
 keyed on `(iss, sub)` on every request (idempotent; refreshes
 email / name / avatar from the OIDC profile claims), looks up the
-user's active memberships, and builds:
+user's active members, and builds:
 
 ```clojure
 {:principal-type :user
  :principal-id   (:user-id user)
  :issuer (:iss claims) :sub (:sub claims)
- :user user :claims claims :memberships memberships
- :membership membership                        ; when one resolves
+ :user user :claims claims :members members
+ :member member                        ; when one resolves
  :roles (cond-> (into #{:user} levels)
                 admin? (conj :admin))
- :bank-id (if admin? requested (:bank-id membership))
+ :bank-id (if admin? requested (:bank-id member))
  :token-jti (:jti claims)}
 ```
 
-`membership` is the active membership in the bank the `Bank-Id`
-header names or, with no header, the person's only active membership.
+`member` is the active member of the bank the `Bank-Id`
+header names or, with no header, the person's only active member.
 None resolves when the header names a bank the person holds no active
-membership in, which also marks the principal `:bank-refused`, or when
+member in, which also marks the principal `:bank-refused`, or when
 there is no header and the person holds several or none. `levels` is
-the levels that membership's role carries, or an operator's when the
+the levels that member's role carries, or an operator's when the
 realm roles include `admin`. An operator's `:bank-id` is `requested`,
 the bank the header names, or none.
 
-A brand-new human with no memberships still authenticates as
+A brand-new human with no members still authenticates as
 `:user` (reaching `/me`, the companies routes and bank creation) and
 holds no level
-until a membership exists.
+until a member exists.
 
 **The store write is on every user request, so its failure is a
 failure mode of authentication itself.** An anomaly from the upsert or
-from the membership lookup is not absence: it is logged at warning
+from the member lookup is not absence: it is logged at warning
 level naming the issuer and the subject, and answered through the
 API's own anomaly mapping — **503** for a store that cannot be
 reached, 500 for anything else — with no principal placed on the
@@ -183,7 +183,7 @@ with no identity.
 
 The role vocabulary is `:user`, `:admin` and four organisation
 levels, lowest first: `org:viewer`, `org:developer`, `org:admin` and
-`org:owner`. A membership's role carries its own level and every level
+`org:owner`. A member's role carries its own level and every level
 below it: a viewer `org:viewer`, a developer that and `org:developer`,
 an admin those and `org:admin`, an owner all four. A service principal
 carries `org:viewer` and `org:developer`, and an operator `:admin` and
@@ -200,7 +200,7 @@ route reading or writing one tenant's data takes a level. The bank's
 own record, and what describes it under `/v1/bank` — its policies, its
 effective policy and its audit log — takes `org:viewer` or `admin`.
 `org:owner` gates no route; the rules only an owner satisfies are
-described in [memberships.md](memberships.md).
+described in [members.md](members.md).
 
 **Every route names its roles.** A route or a method declares them in
 its OpenAPI security, `:security [{"bearerAuth" ["org:viewer"]}]`, and
@@ -230,7 +230,7 @@ and is public by design — the OAuth routes are the only ones.
 - the guard returns **403** (`auth/forbidden`) if the gate names a level
   and the principal is `:bank-refused`, or if the gate names only levels
   and a principal with no `:bank-id` holds more than one active
-  membership, with a detail saying to name the bank in `Bank-Id`;
+  member, with a detail saying to name the bank in `Bank-Id`;
 - the gate returns **401** (`auth/unauthenticated`) if no token
   verified, and **403** (`auth/forbidden`) if the scopes the principal
   holds miss the operation's.
@@ -253,7 +253,7 @@ The exceptions, each deliberate:
   route, and like every other it acts on the bank the header names.
 - The **companies** routes are `user`, and so is `POST /v1/banks`
   beside `admin`, because a person creating their first bank uses them
-  before any membership exists.
+  before any member exists.
 
 ### Service-account lifecycle
 
@@ -430,7 +430,7 @@ minted *by* it are admin principals at this API's edge.
   Queenswood operators sign in through `queenswood-app` and do carry
   per-user identity.
 - **A person's request costs two FDB transactions.** Resolving the
-  principal upserts the user in one and reads its memberships in
+  principal upserts the user in one and reads its members in
   another, before the route runs.
 
 ## References

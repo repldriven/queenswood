@@ -6,19 +6,18 @@
 (defn- normalise-status
   [status]
   (case status
-    :cash-account-product-status-draft :draft
-    :cash-account-product-status-published :published
-    :cash-account-product-status-discarded :discarded))
+    :version-status-draft :draft
+    :version-status-published :published
+    :version-status-discarded :discarded))
 
 (defn- versions-from-aggregate
   [aggregate]
   (mapv (fn [v]
-          ;; A version stores one currency in `:allowed-currencies`,
-          ;; and drops `:effective-to` when it has none — the model
-          ;; carries both as scalars, nil included.
+          ;; A version drops `:effective-to` when it has none — the
+          ;; model carries it as a scalar, nil included.
           {:status (normalise-status (:status v))
            :number (:version-number v)
-           :currency (first (:allowed-currencies v))
+           :currency (:currency v)
            :effective-from (:effective-from v)
            :effective-to (:effective-to v)})
         (:versions aggregate)))

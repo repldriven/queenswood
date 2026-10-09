@@ -10,7 +10,7 @@
   "One policy with a single `kind` amount max limit of `value` minor
   units in `currency` over `window`."
   [kind value currency window]
-  [{:enabled true
+  [{:status :policy-status-active
     :limits [{:kind {kind {}}
               :bound {:kind {:max {:aggregate
                                    {:kind {:amount
@@ -60,10 +60,10 @@
   and a daily cap on previews. One kind, told apart by action — the
   same shape interest uses for accrue and capitalize."
   [commit-cap preview-cap]
-  [{:enabled true
+  [{:status :policy-status-active
     :limits
     [{:kind {:cash-account-migration
-             {:filters [{:action :cash-account-migration-action-commit}]}}
+             {:filters [{:action :cash-account-migration-action-run}]}}
       :bound {:kind {:max {:aggregate {:kind {:count
                                               {:value commit-cap
                                                :window
@@ -81,7 +81,7 @@
   [value]
   {:aggregate :count
    :window :time-window-instant
-   :action :cash-account-migration-action-commit
+   :action :cash-account-migration-action-run
    :value value})
 
 (defn- preview-request
@@ -122,10 +122,10 @@
   the store: proto2 has filled the two terms the seed left unset with
   their zero values."
   []
-  [{:enabled true
+  [{:status :policy-status-active
     :limits [{:kind {:cash-account
                      {:filters [{:product-type
-                                 :product-type-sub-ledger-term-deposit
+                                 :account-product-type-sub-ledger-term-deposit
                                  :account-type :account-type-unknown
                                  :currency ""}]}}
               :bound {:kind {:max {:aggregate
@@ -150,23 +150,24 @@
       (let [result (SUT/check policies
                               :cash-account
                               (cash-account-count-request
-                               :product-type-sub-ledger-term-deposit
+                               :account-product-type-sub-ledger-term-deposit
                                :account-type-business
                                "GBP" 11))]
         (is (error/rejection? result))
         (is (= :policy/limit-exceeded (error/kind result)))))
     (testing "and matches a second currency the same way"
-      (is (error/rejection? (SUT/check policies
-                                       :cash-account
-                                       (cash-account-count-request
-                                        :product-type-sub-ledger-term-deposit
-                                        :account-type-personal
-                                        "EUR" 11)))))
+      (is (error/rejection? (SUT/check
+                             policies
+                             :cash-account
+                             (cash-account-count-request
+                              :account-product-type-sub-ledger-term-deposit
+                              :account-type-personal
+                              "EUR" 11)))))
     (testing "while the set term still narrows the limit"
       (is (true? (SUT/check policies
                             :cash-account
                             (cash-account-count-request
-                             :product-type-sub-ledger-current
+                             :account-product-type-sub-ledger-current
                              :account-type-business
                              "GBP" 11)))))
     (testing "and a request with no product-type reaches no filter"
@@ -179,7 +180,7 @@
 (def ^:private available-floor
   "The platform's floor on available balance, for the transfers it
   names."
-  [{:enabled true
+  [{:status :policy-status-active
     :limits
     [{:kind {:balance {:filters [{:kind {:computed {:name "available"}}
                                   :transaction-type
@@ -209,7 +210,7 @@
            (SUT/sides-in-force available-floor
                                :balance
                                (available-request
-                                :transaction-type-interest-capital)))))
+                                :transaction-type-interest-capitalization)))))
   (testing "a cap bounds the maximum side, in its own currency only"
     (let [policies (amount-max-policy :outbound-payment 1000000
                                       "GBP" :time-window-instant)]

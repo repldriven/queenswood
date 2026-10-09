@@ -1,0 +1,194 @@
+{
+  "run": {
+    "scenario": "mixed",
+    "profile": "challenger",
+    "accounts": 200,
+    "steps": [
+      {
+        "rate": 50,
+        "seconds": 60
+      },
+      {
+        "rate": 50,
+        "seconds": 60
+      },
+      {
+        "rate": 50,
+        "seconds": 60
+      },
+      {
+        "rate": 50,
+        "seconds": 60
+      },
+      {
+        "rate": 50,
+        "seconds": 60
+      },
+      {
+        "rate": 50,
+        "seconds": 60
+      },
+      {
+        "rate": 50,
+        "seconds": 60
+      },
+      {
+        "rate": 50,
+        "seconds": 60
+      },
+      {
+        "rate": 50,
+        "seconds": 60
+      },
+      {
+        "rate": 50,
+        "seconds": 60
+      }
+    ],
+    "follow": 20,
+    "outboundShare": 0.5
+  },
+  "headline": {
+    "payments": 29999,
+    "rejected": {},
+    "dropped": 0,
+    "vus": 100,
+    "settlement": {
+      "followed": 756,
+      "unsettled": {
+        "failed": 0,
+        "returned": 0,
+        "timeout": 0
+      },
+      "avg": 202.78,
+      "p50": 155,
+      "p95": 268,
+      "p99": 279.35,
+      "max": 468
+    },
+    "books": {
+      "injected": 6644000,
+      "in": 0,
+      "out": 754368,
+      "expected": 5889632,
+      "cash": 5889632,
+      "controls": 5889632,
+      "provider": 5889632,
+      "trialBalanceTied": true,
+      "settleS": 10.06,
+      "held": true
+    },
+    "steps": [
+      {
+        "asked": 50,
+        "achieved": 49.98,
+        "payments": 2999,
+        "failed": 0,
+        "avg": 15.53,
+        "p50": 14.7,
+        "p95": 22.35,
+        "p99": 30.59,
+        "max": 91.74
+      },
+      {
+        "asked": 50,
+        "achieved": 50,
+        "payments": 3000,
+        "failed": 0,
+        "avg": 15.21,
+        "p50": 14.72,
+        "p95": 21.88,
+        "p99": 26.73,
+        "max": 43.96
+      },
+      {
+        "asked": 50,
+        "achieved": 50,
+        "payments": 3000,
+        "failed": 0,
+        "avg": 15.24,
+        "p50": 14.76,
+        "p95": 21.57,
+        "p99": 26.53,
+        "max": 36.77
+      },
+      {
+        "asked": 50,
+        "achieved": 50,
+        "payments": 3000,
+        "failed": 0,
+        "avg": 15.17,
+        "p50": 14.64,
+        "p95": 21.77,
+        "p99": 27.21,
+        "max": 38.6
+      },
+      {
+        "asked": 50,
+        "achieved": 50,
+        "payments": 3000,
+        "failed": 0,
+        "avg": 14.85,
+        "p50": 13.91,
+        "p95": 21.66,
+        "p99": 27.89,
+        "max": 47.99
+      },
+      {
+        "asked": 50,
+        "achieved": 50,
+        "payments": 3000,
+        "failed": 0,
+        "avg": 16.88,
+        "p50": 14.83,
+        "p95": 26.57,
+        "p99": 64.23,
+        "max": 126.82
+      },
+      {
+        "asked": 50,
+        "achieved": 50,
+        "payments": 3000,
+        "failed": 0,
+        "avg": 14.95,
+        "p50": 14.12,
+        "p95": 21.5,
+        "p99": 26.26,
+        "max": 37.91
+      },
+      {
+        "asked": 50,
+        "achieved": 50,
+        "payments": 3000,
+        "failed": 0,
+        "avg": 15.13,
+        "p50": 14.29,
+        "p95": 21.4,
+        "p99": 27.1,
+        "max": 39.67
+      },
+      {
+        "asked": 50,
+        "achieved": 50,
+        "payments": 3000,
+        "failed": 0,
+        "avg": 14.93,
+        "p50": 14.11,
+        "p95": 21.14,
+        "p99": 25.42,
+        "max": 59.56
+      },
+      {
+        "asked": 50,
+        "achieved": 50,
+        "payments": 3000,
+        "failed": 0,
+        "avg": 14.93,
+        "p50": 14.09,
+        "p95": 21.35,
+        "p99": 24.84,
+        "max": 55.2
+      }
+    ]
+  }
+}

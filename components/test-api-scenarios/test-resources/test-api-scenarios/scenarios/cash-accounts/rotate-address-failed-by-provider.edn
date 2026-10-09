@@ -34,8 +34,8 @@
                                         :account-id]}
              :auth [:ref :bank-0 :token]}
    :until {:status 200
-           :body {:account-status "opened"
-                  :refusal-reason [:m/regex ".+"]
+           :body {:status "opened"
+                  :rotation {:status "failed" :failed-reason [:m/regex ".+"]}
                   :payment-addresses [:ref :funded :opened :account
                                       :payment-addresses]}}
    :timeout-ms 45000}
@@ -49,7 +49,7 @@
                     :creditor-name "Marvin"
                     :currency "GBP"
                     :amount 4200
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "After the reissue"}}
    :as :payment
    :assert {:status 201}}
@@ -58,7 +58,7 @@
              :path "/v1/payments/outbound/{payment-id}"
              :path-params {:payment-id [:ref :payment :payment-id]}
              :auth [:ref :bank-0 :token]}
-   :until {:status 200 :body {:payment-status "completed"}}}]
+   :until {:status 200 :body {:status "completed"}}}]
  :then
  [{:command :api/request
    :request {:method :get

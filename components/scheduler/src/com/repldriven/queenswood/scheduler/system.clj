@@ -4,7 +4,7 @@
 
     [com.repldriven.mono.system.interface :as system]))
 
-;; Reconciles a cronut trigger per enabled job to the job rows, at
+;; Reconciles a cronut trigger per active job to the job rows, at
 ;; start and every minute after. The `:scheduler/scheduler` component
 ;; owns the Quartz lifecycle; this runner only wires triggers against
 ;; it. The resolved config map (record-db / record-store / schemas /

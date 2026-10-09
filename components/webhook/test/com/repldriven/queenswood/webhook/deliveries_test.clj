@@ -28,10 +28,12 @@
 (def ^:private config-file "classpath:webhook/application-test.yml")
 
 (def ^:private allow-manage
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:effect :effect-allow :kind {:webhook-endpoint {}}}]}])
 
 (def ^:private opts {:policies allow-manage})
+
+(def ^:private actor {:kind :actor-kind-member :principal-id "usr.1"})
 
 (def ^:private tenant-address
   "A public address written as a literal, so registration's own
@@ -60,16 +62,19 @@
    [sys config-file]
    (let [config (fdb-config sys)
          bank-id "bnk.backfill"]
-     (nom-test> [registered
-                 (SUT/register config bank-id (endpoint-data "ik-bf") opts)
+     (nom-test> [registered (SUT/register config
+                                          bank-id
+                                          (endpoint-data "ik-bf")
+                                          actor
+                                          opts)
                  id (:endpoint-id registered)
-                 delivered (SUT/test-notification config bank-id id opts)
-                 missed (SUT/test-notification config bank-id id opts)
+                 delivered (SUT/test-notification config bank-id id actor opts)
+                 missed (SUT/test-notification config bank-id id actor opts)
                  _ (mark-delivered config delivered)
-                 _ (SUT/disable config bank-id id opts)
+                 _ (SUT/disable config bank-id id actor opts)
                  since (min (:created-at delivered) (:created-at missed))
                  resumed
-                 (SUT/enable config bank-id id (assoc opts :since since))
+                 (SUT/enable config bank-id id actor (assoc opts :since since))
                  _ (testing "the endpoint is enabled again"
                      (is (= :webhook-endpoint-status-enabled
                             (:status resumed))))
@@ -93,12 +98,15 @@
    [sys config-file]
    (let [config (fdb-config sys)
          bank-id "bnk.no.backfill"]
-     (nom-test> [registered
-                 (SUT/register config bank-id (endpoint-data "ik-no-bf") opts)
+     (nom-test> [registered (SUT/register config
+                                          bank-id
+                                          (endpoint-data "ik-no-bf")
+                                          actor
+                                          opts)
                  id (:endpoint-id registered)
-                 sent (SUT/test-notification config bank-id id opts)
-                 _ (SUT/disable config bank-id id opts)
-                 _ (SUT/enable config bank-id id opts)
+                 sent (SUT/test-notification config bank-id id actor opts)
+                 _ (SUT/disable config bank-id id actor opts)
+                 _ (SUT/enable config bank-id id actor opts)
                  _ (testing
                      "resuming without a since asks for nothing behind it"
                      (is (= 1
@@ -112,13 +120,17 @@
    [sys config-file]
    (let [config (fdb-config sys)
          bank-id "bnk.resend.window"]
-     (nom-test> [registered
-                 (SUT/register config bank-id (endpoint-data "ik-window") opts)
+     (nom-test> [registered (SUT/register config
+                                          bank-id
+                                          (endpoint-data "ik-window")
+                                          actor
+                                          opts)
                  id (:endpoint-id registered)
-                 delivered (SUT/test-notification config bank-id id opts)
-                 missed (SUT/test-notification config bank-id id opts)
+                 delivered (SUT/test-notification config bank-id id actor opts)
+                 missed (SUT/test-notification config bank-id id actor opts)
                  _ (mark-delivered config delivered)
-                 covering (SUT/resend-window config bank-id id {:from 0} opts)
+                 covering
+                 (SUT/resend-window config bank-id id {:from 0} actor opts)
                  _ (testing "a window re-sends what was delivered as well"
                      (is (= 2 (count (:deliveries covering))))
                      (is (= 2
@@ -133,6 +145,7 @@
                                          {:from (inc (max
                                                       (:created-at delivered)
                                                       (:created-at missed)))}
+                                         actor
                                          opts)
                  _ (testing "and a window covering nothing re-sends nothing"
                      (is (empty? (:deliveries past))))]))))

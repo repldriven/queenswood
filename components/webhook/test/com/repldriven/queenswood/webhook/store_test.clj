@@ -36,19 +36,19 @@
    :secret "whsec_round_trip"
    :idempotency-key idempotency-key
    :created-at 1700000000000
-   :updated-at 1700000000000})
+   :created-by {:kind :actor-kind-member :principal-id "usr.1"}})
 
 (defn- notification
-  [bank-id notification-id changelog-event-id created-at]
+  [bank-id notification-id idempotency-key created-at]
   {:bank-id bank-id
    :notification-id notification-id
    :kind "cash-account.opened"
    :change-kind "open"
    :resource-type "CashAccount"
    :resource-id "acc.1"
-   :occurred-at 1700000000000
+   :correlation-id "c0ffee00-0000-4000-8000-000000000001"
    :body (.getBytes "{\"id\":\"acc.1\"}" "UTF-8")
-   :changelog-event-id changelog-event-id
+   :idempotency-key idempotency-key
    :created-at created-at})
 
 (defn- delivery
@@ -62,18 +62,19 @@
            :endpoint-id endpoint-id
            :status status
            :kind "cash-account.opened"
-           :created-at created-at}
+           :created-at created-at
+           :attempt-count 0}
           next-attempt-at
           (assoc :next-attempt-at next-attempt-at)))
 
 (defn- attempt
-  [bank-id attempt-id delivery-id attempted-at]
+  [bank-id attempt-id delivery-id created-at]
   {:bank-id bank-id
-   :attempt-id attempt-id
    :delivery-id delivery-id
-   :attempted-at attempted-at
+   :attempt-id attempt-id
    :response-status 200
-   :duration-ms 42})
+   :duration-ms 42
+   :created-at created-at})
 
 (deftest endpoint-round-trips-and-answers-every-index-test
   (with-test-system
@@ -148,16 +149,17 @@
                      (is (= "CashAccount" (:resource-type loaded)))
                      (is (= "{\"id\":\"acc.1\"}"
                             (String. ^bytes (:body loaded) "UTF-8"))))
-                 by-event (SUT/find-notification-by-changelog-event-id config
-                                                                       "evt-2")
-                 _ (testing "the unique changelog-event-id index finds it"
+                 by-event (SUT/find-notification-by-idempotency-key config
+                                                                    bank-id
+                                                                    "evt-2")
+                 _ (testing "the unique idempotency-key index finds it"
                      (is (= "whn.2" (:notification-id by-event))))
                  by-bank (SUT/find-notifications-by-bank config bank-id)
                  _ (testing "the bank-and-created index lists them in order"
                      (is (= ["whn.1" "whn.2"]
                             (mapv :notification-id by-bank))))]))))
 
-(deftest a-taken-changelog-event-id-refuses-the-second-write-test
+(deftest a-taken-idempotency-key-refuses-the-second-write-test
   (with-test-system
    [sys config-file]
    (let [config (fdb-config sys)
@@ -215,7 +217,8 @@
                             :webhook-delivery-status-delivered)
                  _ (testing "and separates the statuses"
                      (is (= ["whd.3"] (mapv :delivery-id delivered))))
-                 by-endpoint (SUT/find-deliveries-by-endpoint config "whe.1")
+                 by-endpoint
+                 (SUT/find-deliveries-by-endpoint config bank-id "whe.1")
                  _ (testing "the endpoint-and-time index answers the history"
                      (is (= ["whd.1" "whd.2"] (mapv :delivery-id by-endpoint))))
                  _ (SUT/save-attempt
@@ -227,13 +230,13 @@
                  _ (SUT/save-attempt
                     config
                     (attempt bank-id "wha.3" "whd.2" 1700000000002))
-                 one-attempt (SUT/find-attempt config bank-id "wha.1")
+                 one-attempt (SUT/find-attempt config bank-id "whd.1" "wha.1")
                  _ (testing "the attempt round-trips what the call answered"
                      (is (= "whd.1" (:delivery-id one-attempt)))
                      (is (= 200 (:response-status one-attempt)))
                      (is (= 42 (:duration-ms one-attempt))))
-                 attempts (SUT/find-attempts-by-delivery config "whd.1")
-                 _ (testing "the delivery index holds every attempt, in order"
+                 attempts (SUT/find-attempts-by-delivery config bank-id "whd.1")
+                 _ (testing "a delivery's attempts are read in order"
                      (is (= ["wha.1" "wha.2"] (mapv :attempt-id attempts))))]))))
 
 (deftest a-pending-backlog-does-not-starve-the-reclaim-test
@@ -242,13 +245,12 @@
    (let [config (fdb-config sys)
          bank-id "bnk.store.claim"
          now 1700000000100
-         stranded (assoc (delivery bank-id
-                                   "whd.stranded"
-                                   "whe.stranded"
-                                   :webhook-delivery-status-in-flight
-                                   1700000000000 1700000000000)
-                         :claim-lease-expires-at (dec now)
-                         :claimed-by "runner.died")]
+         stranded (delivery bank-id
+                            "whd.stranded"
+                            "whe.stranded"
+                            :webhook-delivery-status-in-flight
+                            (dec now)
+                            1700000000000)]
      (nom-test> [_ (SUT/save-delivery config stranded)
                  _ (SUT/save-delivery config
                                       (delivery bank-id
@@ -262,14 +264,12 @@
                                                 "whe.2"
                                                 :webhook-delivery-status-pending
                                                 1700000000002 1700000000002))
-                 claimed (SUT/claim-due-deliveries config
-                                                   {:now now
-                                                    :claimed-by "runner.live"
-                                                    :lease-ms 60000
-                                                    :limit 2
-                                                    :per-endpoint-limit 1})
+                 claimed
+                 (SUT/claim-due-deliveries
+                  config
+                  {:now now :lease-ms 60000 :limit 2 :per-endpoint-limit 1})
                  _ (testing "a batch the pending rows could fill on their own"
                      (is (= 2 (count claimed))))
-                 _ (testing "still carries the row whose lease expired"
+                 _ (testing "still carries the row whose claim lapsed"
                      (is (contains? (set (mapv :delivery-id claimed))
                                     "whd.stranded")))]))))

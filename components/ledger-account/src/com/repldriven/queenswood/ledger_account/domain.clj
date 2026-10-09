@@ -7,20 +7,23 @@
     [com.repldriven.mono.utility.interface :as utility]))
 
 (def product-type->control-code
-  "Maps a cash-account product type to the `:gl-account-code` of the control
+  "Maps a cash-account product type to the `:code` of the control
   ledger account its *default* balance rolls up into. The control holds
   no balance of its own: its balance is the sum of its sub-ledger's,
   read from the balances store's indexes. Customer deposits roll into
   the 2100/2200/2300 deposit controls; the bank's own funding account
   rolls into own funds (3100)."
-  {:product-type-sub-ledger-current :gl-account-code-customer-deposits-current
-   :product-type-sub-ledger-savings :gl-account-code-customer-deposits-savings
-   :product-type-sub-ledger-term-deposit :gl-account-code-customer-deposits-term
-   :product-type-sub-ledger-own-funds :gl-account-code-own-funds})
+  {:account-product-type-sub-ledger-current
+   :ledger-account-code-customer-deposits-current
+   :account-product-type-sub-ledger-savings
+   :ledger-account-code-customer-deposits-savings
+   :account-product-type-sub-ledger-term-deposit
+   :ledger-account-code-customer-deposits-term
+   :account-product-type-sub-ledger-own-funds :ledger-account-code-own-funds})
 
 (def derived
   "How each ledger account holding no balance row of its own reads one,
-  by `:gl-account-code`. A deposit or own-funds control sums its
+  by `:code`. A deposit or own-funds control sums its
   sub-ledger's posted balances from the legs' indexes, by
   `:product-types` and `:balance-status`; 2400 interest-payable does the
   same with every customer's `:balance-type` interest-accrued bucket;
@@ -36,17 +39,17 @@
                                                 :balance-status
                                                 :balance-status-posted}]))
                product-type->control-code)
-         :gl-account-code-interest-payable
+         :ledger-account-code-interest-payable
          {:product-types (vec (keys product-type->control-code))
           :balance-type :balance-type-interest-accrued
           :balance-status :balance-status-posted}
-         :gl-account-code-pending-outbound
+         :ledger-account-code-pending-outbound
          {:product-types (vec (keys product-type->control-code))
           :balance-status :balance-status-pending-outgoing
           :mirror? true}
-         :gl-account-code-cash-at-correspondent
+         :ledger-account-code-cash-at-correspondent
          {:balance-status :balance-status-posted :journal? true}
-         :gl-account-code-interest-expense
+         :ledger-account-code-interest-expense
          {:balance-status :balance-status-posted :journal? true}))
 
 (defn posted-to?
@@ -61,27 +64,54 @@
   `{:credit :debit}` of the balances it is derived from, in place of a
   stored row."
   [account {:keys [balance-status mirror?]} {:keys [credit debit]}]
-  (let [{:keys [bank-id ledger-account-id currency created-at updated-at]}
-        account]
+  (let [{:keys [bank-id ledger-account-id created-at]} account]
     {:bank-id bank-id
      :account-id ledger-account-id
-     :product-type :product-type-general-ledger
+     :product-type :account-product-type-general-ledger
      :balance-type :balance-type-default
      :balance-status balance-status
-     :currency currency
      :credit (if mirror? debit credit)
      :debit (if mirror? credit debit)
-     :credit-carry 0
-     :created-at created-at
-     :updated-at updated-at}))
+     :created-at created-at}))
 
-(defn gl-account-code->gl-code
-  "The chart number, as a string, for a `gl-account-code` role — the
-  enum's own integer value (e.g. `:gl-account-code-suspense` -> `\"2500\"`).
+(defn chart-number
+  "The chart number, as a string, for a `code` role — the
+  enum's own integer value (e.g. `:ledger-account-code-suspense` -> `\"2500\"`).
   The number is a display/reporting concern; code resolves accounts by
   role, so this is only reconstituted at the API edge."
-  [gl-account-code]
-  (str (schema/gl-account-code->int gl-account-code)))
+  [code]
+  (str (schema/ledger-account-code->int code)))
+
+(def ^:private class-by-thousand
+  "An account's class by the thousand of its chart number."
+  {1 :ledger-account-class-asset
+   2 :ledger-account-class-liability
+   3 :ledger-account-class-equity
+   4 :ledger-account-class-income
+   5 :ledger-account-class-expense})
+
+(defn account-class
+  "The class of the account in a `code` role, from the thousand
+  of its chart number: `:ledger-account-class-asset`, `-liability`,
+  `-equity`, `-income` or `-expense`."
+  [code]
+  (class-by-thousand (quot (schema/ledger-account-code->int code)
+                           1000)))
+
+(def ^:private control-codes
+  "The codes whose account stands for a sub-ledger: the deposit and
+  own-funds controls, and 2400 interest-payable."
+  (conj (set (vals product-type->control-code))
+        :ledger-account-code-interest-payable))
+
+(defn account-type
+  "The type of the account in a `code` role: `:ledger-account-type-control`
+  for one standing for a sub-ledger, `:ledger-account-type-detail`
+  otherwise."
+  [code]
+  (if (contains? control-codes code)
+    :ledger-account-type-control
+    :ledger-account-type-detail))
 
 (defn new-ledger-account
   "Build a `LedgerAccount` map for one template `row` in `currency`,
@@ -96,31 +126,26 @@
                                 :ledger-account
                                 {:action :ledger-account-action-open})]
     (let [now (utility/now)]
-      (assoc (select-keys row
-                          [:gl-account-code :name :gl-account-type
-                           :gl-account-class :required])
+      (assoc (select-keys row [:code :name])
              :bank-id bank-id
              :currency currency
              :ledger-account-id (utility/generate-id "led")
              :status :ledger-account-status-open
-             :created-at now
-             :updated-at now))))
+             :created-at now))))
 
 (defn opening-balance
   "The single default-posted balance bucket a ledger account other than
-  a control opens with, tagged `:product-type-general-ledger` so read sites can tell the
+  a control opens with, tagged `:account-product-type-general-ledger` so read sites can tell the
   bank's own books from a customer instrument without inferring it from
   an absent product-type."
   [ledger-account]
-  (let [{:keys [ledger-account-id :currency]} ledger-account]
-    {:account-id ledger-account-id
-     :product-type :product-type-general-ledger
-     :balance-type :balance-type-default
-     :balance-status :balance-status-posted
-     :currency currency}))
+  {:account-id (:ledger-account-id ledger-account)
+   :product-type :account-product-type-general-ledger
+   :balance-type :balance-type-default
+   :balance-status :balance-status-posted})
 
 (defn control-code
-  "The `:gl-account-code` of the control a posted customer leg rolls up
+  "The `:code` of the control a posted customer leg rolls up
   into: its product type's (2100/2200/2300/3100) for the default
   bucket, 2400 for the interest-accrued one. Nil for every other bucket
   and status, which are sub-ledger-only."
@@ -133,25 +158,23 @@
 
         :balance-type-interest-accrued
         (when (product-type->control-code product-type)
-          :gl-account-code-interest-payable)
+          :ledger-account-code-interest-payable)
 
         nil))))
 
 (defn debit-normal?
-  "True for the debit-normal account families (asset, expense); false
-  for the credit-normal ones (liability, equity, income). A trial
+  "True for an account whose class is debit-normal (asset, expense);
+  false for a credit-normal one (liability, equity, income). A trial
   balance places a debit-normal account's balance in the debit column
   and a credit-normal account's in the credit column."
-  [gl-account-type]
-  (contains? #{:gl-account-type-asset :gl-account-type-expense}
-             gl-account-type))
+  [account]
+  (contains? #{:ledger-account-class-asset :ledger-account-class-expense}
+             (account-class (:code account))))
 
 (defn open?
-  "True unless `account` has been closed. An absent or unset `:status`
-  (pre-existing seeded rows, the proto2 zero-default sentinel) counts
-  as open, so no backfill is needed."
+  "True unless `account` has been closed."
   [account]
-  (not= :ledger-account-status-closed (:status account)))
+  (= :ledger-account-status-open (:status account)))
 
 (defn ensure-open
   "Return `account` unchanged if open, or `:ledger-account/closed`
@@ -167,17 +190,17 @@
 
 (defn missing-currency-account
   "`:gl/missing-currency-account` — the bank holds no ledger account for
-  the `gl-account-code` role in `currency`, so a by-role resolution has
-  no row to return. Carries `:bank-id`, `:gl-account-code` and
+  the `code` role in `currency`, so a by-role resolution has
+  no row to return. Carries `:bank-id`, `:code` and
   `:currency`, the triple that found nothing."
-  [bank-id gl-account-code currency]
+  [bank-id code currency]
   (error/reject :gl/missing-currency-account
                 {:message (str "Bank has no "
-                               (name gl-account-code)
+                               (name code)
                                " ledger account in "
                                currency)
                  :bank-id bank-id
-                 :gl-account-code gl-account-code
+                 :code code
                  :currency currency}))
 
 (defn close

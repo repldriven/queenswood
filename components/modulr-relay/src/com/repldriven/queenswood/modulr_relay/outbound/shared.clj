@@ -6,9 +6,8 @@
     [com.repldriven.queenswood.modulr-webhook.interface :as modulr-webhook]
 
     [com.repldriven.mono.error.interface :as error]
-    [com.repldriven.mono.utility.interface :as utility]
-
-    [clojure.edn :as edn]))
+    [com.repldriven.mono.transit.interface :as transit]
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (defn reconcile-at
   [config now]
@@ -17,7 +16,7 @@
 (defn context
   [intent]
   (or (some-> (not-empty (:context intent))
-              edn/read-string)
+              transit/read-str)
       {}))
 
 (defn held-at
@@ -33,10 +32,10 @@
   sends the nonce the first attempt was signed with, and `x-mod-retry`."
   [config intent request]
   (let [{:keys [post-fn]} config
-        {:keys [nonce attempts]} intent
+        {:keys [nonce attempt-count]} intent
         request (assoc request
                        :nonce (not-empty nonce)
-                       :retry? (pos? (or attempts 0)))]
+                       :retry? (pos? attempt-count))]
     (modulr/classify ((or post-fn modulr/request) config request))))
 
 (defn answer
@@ -70,11 +69,12 @@
   "Sent, as the provider's payment `result`, to be reconciled if no
   webhook settles it first."
   [config now result]
-  {:status "sent"
+  {:status :outbound-intent-status-sent
    :changes (utility/assoc-some {:next-attempt-at (reconcile-at config now)}
                                 :provider-payment-id
                                 (:id result))})
 
 (defn wait
   [config now]
-  {:status "sent" :changes {:next-attempt-at (reconcile-at config now)}})
+  {:status :outbound-intent-status-sent
+   :changes {:next-attempt-at (reconcile-at config now)}})

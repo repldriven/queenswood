@@ -102,12 +102,12 @@ system:
           topic: topic-invitations-event-dlq
           acks: all
           linger.ms: 0
-      memberships-command:
+      members-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-memberships-command
+          topic: topic-members-command
           acks: all
           linger.ms: 0
       payments-command:
@@ -228,17 +228,17 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: email-service-invitations-event
-      memberships-command-response:
+      members-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
-        topics: [topic-memberships-command-response]
+        topics: [topic-members-command-response]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           # A reply matters only to the request waiting on it, so each process
           # reads replies in a group of its own from the newest one on: a restart
           # does not wade through replies to requests that died with the last
           # process, and every replica hears its own replies.
-          group.id: !join ["email-service-memberships-command-response-", !random-uuid ""]
+          group.id: !join ["email-service-members-command-response-", !random-uuid ""]
           auto.offset.reset: latest
       payments-command-response:
         schemas: !system/local-ref schemas
@@ -260,8 +260,8 @@ system:
         producer: !system/local-ref producers.idv-event
       companies-command-response:
         producer: !system/local-ref producers.companies-command-response
-      memberships-command:
-        producer: !system/local-ref producers.memberships-command
+      members-command:
+        producer: !system/local-ref producers.members-command
       payments-command:
         producer: !system/local-ref producers.payments-command
     message-bus-consumers: !system/component
@@ -316,8 +316,8 @@ system:
       invitations-event:
         consumer: !system/local-ref consumers.invitations-event
         timeout: 500
-      memberships-command-response:
-        consumer: !system/local-ref consumers.memberships-command-response
+      members-command-response:
+        consumer: !system/local-ref consumers.members-command-response
         timeout: 500
       payments-command-response:
         consumer: !system/local-ref consumers.payments-command-response
@@ -341,6 +341,6 @@ system:
   uk-companies-house-adapter: !include system/uk-companies-house-adapter.yml
   webhook: !include system/webhook.yml
   email: !include system/email.yml
-  memberships-dispatcher: !include system/membership-dispatcher.yml
+  members-dispatcher: !include system/member-dispatcher.yml
   payments-dispatcher: !include system/payment-dispatcher.yml
   smtp: !include system/smtp.yml

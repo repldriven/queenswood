@@ -1,0 +1,32 @@
+{
+  "type": "record",
+  "name": "MemberCommandReply",
+  "namespace": "com.repldriven.queenswood.schema.member",
+  "doc": "The records an access command wrote, by id",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "member_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "invitation_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

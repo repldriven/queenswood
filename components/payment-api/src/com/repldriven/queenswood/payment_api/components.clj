@@ -8,14 +8,11 @@
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]
     [com.repldriven.queenswood.transaction-api.interface :as
-     transaction-api]
-
-    [com.repldriven.mono.utility.interface :as utility]))
+     transaction-api]))
 
 (def PaymentId (schema/id-schema "PaymentId" "pmt" examples/PaymentId))
 
-(def PaymentScheme
-  (coercion/payment-scheme-enum-schema {:json-schema/example "fps"}))
+(def SchemeType (coercion/scheme-type-enum-schema {:json-schema/example "fps"}))
 
 (def SubmitInternalPaymentRequest
   [:map
@@ -44,20 +41,9 @@
   (coercion/outbound-payment-status-enum-schema {:json-schema/example
                                                  "pending"}))
 
-(def OutboundPaymentFailureKind
-  (coercion/outbound-payment-failure-kind-enum-schema {:json-schema/example
-                                                       "declined"}))
-
-(def OutboundPaymentFailure
-  [:map {:json-schema/example examples/OutboundPaymentFailure}
-   [:kind [:ref "OutboundPaymentFailureKind"]]
-   [:reason-code string?]
-   [:reason {:optional true} [:maybe string?]]])
-
-(def OutboundPaymentReturn
-  [:map {:json-schema/example examples/OutboundPaymentReturn}
-   [:reason-code string?]
-   [:reason {:optional true} [:maybe string?]]])
+(def OutboundPaymentFailedKind
+  (coercion/outbound-payment-failed-kind-enum-schema {:json-schema/example
+                                                      "declined"}))
 
 (def SubmitOutboundPaymentRequest
   [:map
@@ -67,27 +53,30 @@
    [:creditor-name [:ref "Name"]]
    [:currency [:ref "Currency"]]
    [:amount [:ref "PaymentMinorUnits"]]
-   [:scheme [:ref "PaymentScheme"]]
+   [:scheme-type [:ref "SchemeType"]]
    [:reference {:optional true} [:maybe string?]]])
 
 (def OutboundPayment
   [:map {:json-schema/example examples/OutboundPayment}
    [:payment-id [:ref "PaymentId"]]
    [:bank-id [:ref "BankId"]]
-   [:scheme [:ref "PaymentScheme"]]
+   [:status [:ref "OutboundPaymentStatus"]]
+   [:scheme-type [:ref "SchemeType"]]
    [:debtor-account-id [:ref "CashAccountId"]]
-   [:creditor-bban [:ref "Bban"]]
    [:creditor-name [:ref "Name"]]
-   [:currency [:ref "Currency"]]
+   [:creditor-bban [:ref "Bban"]]
    [:amount [:ref "MinorUnits"]]
-   [:payment-status [:ref "OutboundPaymentStatus"]]
+   [:currency [:ref "Currency"]]
+   [:reference {:optional true} string?]
    [:transaction-id [:ref "TransactionId"]]
-   [:reference {:optional true} [:maybe string?]]
-   [:failure {:optional true} [:ref "OutboundPaymentFailure"]]
-   [:return {:optional true} [:ref "OutboundPaymentReturn"]]
    [:business-day [:ref "BusinessDay"]]
-   [:created-at {:optional true} [:maybe [:ref "Timestamp"]]]
-   [:updated-at {:optional true} [:maybe [:ref "Timestamp"]]]])
+   [:failed-kind {:optional true} [:ref "OutboundPaymentFailedKind"]]
+   [:failed-reason-code {:optional true} string?]
+   [:failed-reason {:optional true} string?]
+   [:returned-reason-code {:optional true} string?]
+   [:returned-reason {:optional true} string?]
+   [:created-at [:ref "Timestamp"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def InboundPaymentStatus
   (coercion/inbound-payment-status-enum-schema {:json-schema/example
@@ -97,29 +86,30 @@
   [:map {:json-schema/example examples/InboundPayment}
    [:payment-id [:ref "PaymentId"]]
    [:bank-id [:ref "BankId"]]
-   [:scheme string?]
-   [:scheme-transaction-id string?]
-   [:end-to-end-id string?]
-   [:creditor-account-id {:optional true} [:maybe [:ref "CashAccountId"]]]
-   [:currency [:ref "Currency"]]
+   [:status [:ref "InboundPaymentStatus"]]
+   [:scheme-type [:ref "SchemeType"]]
+   [:creditor-account-id {:optional true} [:ref "CashAccountId"]]
+   [:debtor-name {:optional true} string?]
    [:amount [:ref "MinorUnits"]]
-   [:payment-status [:ref "InboundPaymentStatus"]]
-   [:transaction-id {:optional true} [:maybe [:ref "TransactionId"]]]
-   [:debtor-name {:optional true} [:maybe string?]]
-   [:reference {:optional true} [:maybe string?]]
-   [:return-failure-reason {:optional true} [:maybe string?]]
+   [:currency [:ref "Currency"]]
+   [:reference {:optional true} string?]
+   [:end-to-end-id string?]
+   [:scheme-transaction-id string?]
+   [:transaction-id {:optional true} [:ref "TransactionId"]]
    [:business-day [:ref "BusinessDay"]]
+   [:suspended-reason-code {:optional true} string?]
+   [:suspended-reason {:optional true} string?]
+   [:return-failed-reason {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def InboundPaymentList
   (schema/list-schema "InboundPayment" (:value examples/InboundPaymentList)))
 
 (def registry
   (components-registry
-   [#'PaymentId #'PaymentScheme #'SubmitInternalPaymentRequest #'InternalPayment
-    #'OutboundPaymentStatus #'OutboundPaymentFailureKind
-    #'OutboundPaymentFailure #'OutboundPaymentReturn
+   [#'PaymentId #'SchemeType #'SubmitInternalPaymentRequest #'InternalPayment
+    #'OutboundPaymentStatus #'OutboundPaymentFailedKind
     #'SubmitOutboundPaymentRequest #'OutboundPayment #'InboundPaymentStatus
     #'InboundPayment #'InboundPaymentList]))
 
@@ -133,30 +123,9 @@
 
 (def ^:private internal-payment-keys (declared-keys InternalPayment))
 
-(defn- failure
-  [payment]
-  (let [{:keys [failure-kind failure-reason-code failure-reason]} payment]
-    (when failure-kind
-      (utility/assoc-some {:kind failure-kind
-                           :reason-code (or failure-reason-code "NARR")}
-                          :reason
-                          failure-reason))))
-
-(defn- return
-  [payment]
-  (let [{:keys [return-reason-code return-reason]} payment]
-    (when return-reason-code
-      (utility/assoc-some {:reason-code return-reason-code}
-                          :reason
-                          return-reason))))
-
 (defn ->outbound-body
   [payment]
-  (utility/assoc-some (select-keys payment outbound-payment-keys)
-                      :failure
-                      (failure payment)
-                      :return
-                      (return payment)))
+  (select-keys payment outbound-payment-keys))
 
 (defn ->inbound-body
   [payment]

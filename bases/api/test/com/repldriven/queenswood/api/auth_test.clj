@@ -3,7 +3,7 @@
     [com.repldriven.queenswood.api.auth :as SUT]
     [com.repldriven.queenswood.api.errors :as errors]
 
-    [com.repldriven.queenswood.membership-query.interface :as memberships]
+    [com.repldriven.queenswood.member-query.interface :as members]
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.error.interface :as error]
@@ -128,11 +128,8 @@
    :email "ada@example.test"
    :name "Ada Lovelace"})
 
-(def ^:private membership-row
-  {:membership-id "mem.abc"
-   :user-id "usr-1"
-   :bank-id "bank-abc"
-   :role :role-owner})
+(def ^:private member-row
+  {:member-id "mem.abc" :user-id "usr-1" :bank-id "bank-abc" :role :role-owner})
 
 (def ^:private user-claims
   {:azp console-client-id
@@ -144,11 +141,11 @@
 (def ^:private operator-claims
   (assoc user-claims :realm_access {:roles ["admin"]}))
 
-(defmacro ^:private with-memberships
+(defmacro ^:private with-members
   "Run `body` as `user-row` holding the active `rows`."
   [rows & body]
   `(with-redefs [users/upsert-by-sub (fn [_txn# _claims#] user-row)
-                 memberships/list-active-by-user (fn [_txn# _user-id#] ~rows)]
+                 members/list-active-by-user (fn [_txn# _user-id#] ~rows)]
      ~@body))
 
 (deftest levels-test
@@ -159,9 +156,9 @@
                                            SUT/org-admin}
                              :role-owner all-levels}]
       (testing (name role)
-        (with-memberships [(assoc membership-row :role role)]
-                          (is (= (into #{:user} expected)
-                                 (:roles (authenticated-auth user-claims))))))))
+        (with-members [(assoc member-row :role role)]
+                      (is (= (into #{:user} expected)
+                             (:roles (authenticated-auth user-claims))))))))
   (testing "a service principal carries viewer and developer only"
     (is (= #{SUT/org-viewer SUT/org-developer}
            (into #{}
@@ -170,12 +167,12 @@
                                               :sub "bank-abc"
                                               :aud [audience]}))))))
   (testing "an operator with a header carries all four"
-    (with-memberships []
-                      (is (= all-levels
-                             (into #{}
-                                   (filter all-levels)
-                                   (:roles (authenticated-auth operator-claims
-                                                               "bank-xyz")))))))
+    (with-members []
+                  (is (= all-levels
+                         (into #{}
+                               (filter all-levels)
+                               (:roles (authenticated-auth operator-claims
+                                                           "bank-xyz")))))))
   (testing "a level passes a gate at or below it and is refused one above"
     (let [developer #{:user SUT/org-viewer SUT/org-developer}]
       (is (nil? (:response (authorize developer viewer-gate))))
@@ -233,8 +230,8 @@
                                          (error/fail :fdb/timeout
                                                      {:message
                                                       "Transaction timed out"}))
-                   memberships/list-active-by-user (fn [_txn _user-id]
-                                                     [membership-row])]
+                   members/list-active-by-user (fn [_txn _user-id]
+                                                 [member-row])]
        (let [ctx (authenticate (sign-token user-claims))]
          (is (= 503 (get-in ctx [:response :status])))
          (is (nil? (get-in ctx [:request :auth])))
@@ -242,11 +239,11 @@
              (str "expected a warning naming the issuer and subject, got: "
                   (pr-str (logged-messages))))))))
   (testing
-    "a membership read that fails after a successful upsert is
+    "a member read that fails after a successful upsert is
            reported the same way"
     (log-test/with-log
      (with-redefs [users/upsert-by-sub (fn [_txn _claims] user-row)
-                   memberships/list-active-by-user
+                   members/list-active-by-user
                    (fn [_txn _user-id]
                      (error/fail :fdb/timeout
                                  {:message "Transaction timed out"}))]

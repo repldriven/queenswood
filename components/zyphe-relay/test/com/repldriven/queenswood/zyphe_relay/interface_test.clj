@@ -9,6 +9,7 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.test :refer [deftest is testing]]))
@@ -17,7 +18,7 @@
   [outbox-id dedup-key]
   {:outbox-id outbox-id
    :dedup-key dedup-key
-   :event-name "idv-evidence"
+   :event-name "idv-evidence-received"
    :payload (.getBytes "avro-payload-bytes")
    :correlation-id "corr-1"
    :causation-id "caus-1"
@@ -26,14 +27,13 @@
 (defn- intent-of
   [intent-id dedup-key]
   {:intent-id intent-id
-   :dedup-key dedup-key
-   :request (pr-str {:bank-id "bnk.1"
-                     :verification-id dedup-key
-                     :party-id "pty.1"
-                     :first-name "Ada"
-                     :last-name "Lovelace"})
-   :status "pending"
-   :attempts 0
+   :idempotency-key dedup-key
+   :kind :zyphe-outbound-intent-kind-check
+   :request (transit/write-str {:bank-id "bnk.1"
+                                :verification-id dedup-key
+                                :party-id "pty.1"})
+   :status :outbound-intent-status-pending
+   :attempt-count 0
    :created-at (utility/now)})
 
 (def ^:private unreachable
@@ -72,9 +72,11 @@
        (nom-test> [_ (SUT/save-intent config (intent-of "int.3" "iv-B"))])
        (outbound/drain-once (merge config unreachable) (utility/now))
        (let [i3 (first (filter #(= "int.3" (:intent-id %))
-                               (store/intents-with-status config "pending")))]
+                               (store/intents-with-status
+                                config
+                                :outbound-intent-status-pending)))]
          (is (some? i3) "still pending after an unreachable submit")
-         (is (= 1 (:attempts i3)) "attempt count bumped")))
+         (is (= 1 (:attempt-count i3)) "attempt count bumped")))
      (testing "a verification's later intent waits behind an earlier one"
        (nom-test> [_ (SUT/save-intent
                       config
@@ -84,7 +86,9 @@
                       (assoc (intent-of "int.5" "ses-C2") :subjects ["ver-C"]))])
        (outbound/drain-once (merge config unreachable) (utility/now))
        (let [attempts (into {}
-                            (map (juxt :intent-id :attempts))
-                            (store/intents-with-status config "pending"))]
+                            (map (juxt :intent-id :attempt-count))
+                            (store/intents-with-status
+                             config
+                             :outbound-intent-status-pending))]
          (is (= 1 (get attempts "int.4")) "the earlier intent is tried")
          (is (= 0 (get attempts "int.5")) "the later one is held"))))))

@@ -46,9 +46,9 @@
     (let-nom> [schemes (domain/address-schemes product-version)]
       (bank-activity/record txn
                             {:bank-id bank-id
-                             :event-name "account-opening"
+                             :event-name "cash-account-open-requested"
                              :data {:account-id account-id
-                                    :holder-name (:display-name party)
+                                    :holder-name (:legal-name party)
                                     :currency currency
                                     :address-schemes schemes}
                              :causation-id account-id
@@ -60,7 +60,7 @@
     (when provider-account-id
       (bank-activity/record txn
                             {:bank-id bank-id
-                             :event-name "account-closing"
+                             :event-name "cash-account-close-requested"
                              :data {:account-id account-id
                                     :provider-account-id provider-account-id}
                              :causation-id account-id
@@ -68,20 +68,20 @@
 
 (defn- record-rotation
   [txn account]
-  (let [{:keys [bank-id account-id provider-account-id pending-rotation-key]}
-        account]
+  (let [{:keys [bank-id account-id provider-account-id rotation]} account
+        rotation-key (:idempotency-key rotation)]
     (bank-activity/record txn
                           {:bank-id bank-id
-                           :event-name "account-address-rotation-requested"
+                           :event-name "cash-account-address-rotation-requested"
                            :data (utility/assoc-some
                                   {:account-id account-id
-                                   :rotation-key pending-rotation-key}
+                                   :rotation-key rotation-key}
                                   :provider-account-id
                                   provider-account-id)
                            :causation-id account-id
                            :dedup-key (str account-id
                                            ":"
-                                           pending-rotation-key)})))
+                                           rotation-key)})))
 
 (defn- or-already-opened
   "On a uniqueness violation — a redelivered or retried
@@ -145,14 +145,14 @@
                  (balances/new-balances
                   txn
                   bank-id
-                  (domain/opening-balances account currency product-version)
+                  (domain/opening-balances account product-version)
                   {:policies (policy/platform-policies policies)}))
               _ (telemetry/with-span ["cash-account-save"]
                                      (store/save-account
                                       txn
                                       account
                                       {:account-id (:account-id account)
-                                       :status-after (:account-status account)
+                                       :status-after (:status account)
                                        :change-kind
                                        :cash-account-change-kind-open}))
               _ (telemetry/with-span
@@ -174,12 +174,15 @@
           [policies (get-policies txn bank-id account-id opts)
            account (q/get-account txn bank-id account-id)
            balances (balances-q/list-balances txn bank-id account-id)
-           updated (domain/close-account account balances policies)
+           updated (domain/close-account account
+                                         balances
+                                         (:actor data)
+                                         policies)
            _ (store/save-account txn
                                  updated
                                  {:account-id account-id
-                                  :status-before (:account-status account)
-                                  :status-after (:account-status updated)
+                                  :status-before (:status account)
+                                  :status-after (:status updated)
                                   :change-kind
                                   :cash-account-change-kind-close})
            _ (record-closing txn updated)]
@@ -213,14 +216,14 @@
        (let-nom>
          [account (q/find-account txn bank-id account-id)]
          (when (and account
-                    (= status-after (:account-status account))
+                    (= status-after (:status account))
                     (ready? account))
            (let [transitioned (transition-fn account)]
              (store/save-account txn
                                  transitioned
                                  {:account-id account-id
                                   :status-before status-after
-                                  :status-after (:account-status
+                                  :status-after (:status
                                                  transitioned)
                                   :change-kind change-kind})))))
      :cash-account/complete-transition
@@ -237,12 +240,12 @@
         (let-nom>
           [policies (get-policies txn bank-id account-id opts)
            account (q/get-account txn bank-id account-id)
-           updated (domain/suspend-account account policies)
+           updated (domain/suspend-account account (:actor data) policies)
            _ (store/save-account txn
                                  updated
                                  {:account-id account-id
-                                  :status-before (:account-status account)
-                                  :status-after (:account-status updated)
+                                  :status-before (:status account)
+                                  :status-after (:status updated)
                                   :change-kind
                                   :cash-account-change-kind-suspend})]
           updated)))
@@ -260,12 +263,12 @@
         (let-nom>
           [policies (get-policies txn bank-id account-id opts)
            account (q/get-account txn bank-id account-id)
-           updated (domain/resume-account account policies)
+           updated (domain/resume-account account (:actor data) policies)
            _ (store/save-account txn
                                  updated
                                  {:account-id account-id
-                                  :status-before (:account-status account)
-                                  :status-after (:account-status updated)
+                                  :status-before (:status account)
+                                  :status-after (:status updated)
                                   :change-kind
                                   :cash-account-change-kind-resume})]
           updated)))
@@ -280,7 +283,7 @@
   [account idempotency-key]
   (boolean (and idempotency-key
                 (= idempotency-key
-                   (:last-rotation-idempotency-key account)))))
+                   (get-in account [:rotation :idempotency-key])))))
 
 (defn rotate-address
   ([txn data]
@@ -301,8 +304,8 @@
                   txn
                   updated
                   {:account-id account-id
-                   :status-before (:account-status account)
-                   :status-after (:account-status updated)
+                   :status-before (:status account)
+                   :status-after (:status updated)
                    :change-kind
                    :cash-account-change-kind-rotate-requested})
                _ (record-rotation txn updated)]
@@ -323,8 +326,8 @@
              [_ (store/save-account txn
                                     updated
                                     {:account-id account-id
-                                     :status-before (:account-status account)
-                                     :status-after (:account-status updated)
+                                     :status-before (:status account)
+                                     :status-after (:status updated)
                                      :change-kind change-kind})]
              updated)))))
    :cash-account/provider-transition
@@ -332,7 +335,7 @@
 
 (defn- status?
   [status]
-  (fn [account] (= status (:account-status account))))
+  (fn [account] (= status (:status account))))
 
 (defn provider-opened
   [txn {:keys [bank-id account-id] :as event}]
@@ -363,13 +366,12 @@
                        :cash-account-change-kind-close))
 
 (defn provider-close-refused
-  [txn {:keys [bank-id account-id reason]}]
+  [txn {:keys [bank-id account-id]}]
   (provider-transition txn
                        bank-id
                        account-id
                        (status? :cash-account-status-closing)
-                       (fn [account]
-                         (domain/close-refused-account account reason))
+                       domain/close-refused-account
                        :cash-account-change-kind-close-refused))
 
 (defn provider-reissue-failed
@@ -378,7 +380,11 @@
                        bank-id
                        account-id
                        (fn [account]
-                         (= rotation-key (:pending-rotation-key account)))
+                         (and (= :address-rotation-status-pending
+                                 (get-in account [:rotation :status]))
+                              (= rotation-key
+                                 (get-in account
+                                         [:rotation :idempotency-key]))))
                        (fn [account]
                          (domain/reissue-failed-account account reason))
                        :cash-account-change-kind-rotate-failed))
@@ -389,7 +395,11 @@
                        bank-id
                        account-id
                        (fn [account]
-                         (= rotation-key (:pending-rotation-key account)))
+                         (and (= :address-rotation-status-pending
+                                 (get-in account [:rotation :status]))
+                              (= rotation-key
+                                 (get-in account
+                                         [:rotation :idempotency-key]))))
                        (fn [account] (domain/reissued-account account event))
                        :cash-account-change-kind-rotate-address))
 
@@ -411,12 +421,15 @@
   as it needs to see a status flip."
   [txn account target-version policies]
   (let-nom>
-    [updated (domain/migrate-product account target-version policies)
+    [updated (domain/migrate-product account
+                                     target-version
+                                     (utility/today)
+                                     policies)
      _ (store/save-account txn
                            updated
                            {:account-id (:account-id account)
-                            :status-before (:account-status account)
-                            :status-after (:account-status updated)
+                            :status-before (:status account)
+                            :status-after (:status updated)
                             :change-kind
                             :cash-account-change-kind-migrate})]
     updated))

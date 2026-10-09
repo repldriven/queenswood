@@ -35,7 +35,7 @@
 (defn ->body
   "Project a stored account onto the keys `CashAccount` declares, in
   the shape a read route returns. A record field the component does not
-  declare — `:idempotency-key`, `:last-rotation-idempotency-key` —
+  declare — `:idempotency-key`, `:rotation` —
   cannot reach a body through it.
 
   Args:

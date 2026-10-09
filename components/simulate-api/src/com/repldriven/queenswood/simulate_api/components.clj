@@ -30,12 +30,10 @@
   [:map {:json-schema/example examples/SimulateInboundTransferResponse}
    [:account-id [:ref "CashAccountId"]]
    [:transaction-id [:ref "TransactionId"]]
-   [:status [:ref "TransactionStatus"]]
    [:transaction-type [:ref "TransactionType"]]
    [:currency [:ref "Currency"]]
    [:reference {:optional true} [:maybe string?]]
    [:created-at {:optional true} [:maybe [:ref "Timestamp"]]]
-   [:updated-at {:optional true} [:maybe [:ref "Timestamp"]]]
    [:legs [:vector [:ref "TransactionLeg"]]]])
 
 (def registry

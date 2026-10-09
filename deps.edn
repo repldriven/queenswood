@@ -72,15 +72,12 @@
     components/form3-relay {:local/root "components/form3-relay"}
     components/interest {:local/root "components/interest"}
     components/ledger-account {:local/root "components/ledger-account"}
-    components/membership {:local/root "components/membership"}
-    components/membership-query {:local/root "components/membership-query"}
+    components/member {:local/root "components/member"}
+    components/member-query {:local/root "components/member-query"}
     components/bank {:local/root "components/bank"}
     components/bank-query {:local/root "components/bank-query"}
     components/party {:local/root "components/party"}
     components/party-query {:local/root "components/party-query"}
-    components/person-identification {:local/root
-                                      "components/person-identification"}
-    components/personal-data {:local/root "components/personal-data"}
     components/policy {:local/root "components/policy"}
     components/resources {:local/root "components/resources"}
     components/reward {:local/root "components/reward"}
@@ -161,12 +158,11 @@
                        "components/interest/test"
                        "components/ledger-account/test"
                        "components/ledger-account/test-resources"
-                       "components/membership/test"
-                       "components/membership/test-resources"
-                       "components/membership-query/test"
+                       "components/member/test"
+                       "components/member/test-resources"
+                       "components/member-query/test"
                        "components/party/test"
                        "components/party/test-resources"
-                       "components/personal-data/test"
                        "components/policy/test"
                        "components/policy/test-resources"
                        "components/reward/test"

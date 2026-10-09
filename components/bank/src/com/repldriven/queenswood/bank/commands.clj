@@ -26,18 +26,18 @@
   (if (error/anomaly? result)
     result
     (let [{:keys [schemas]} config
-          {:keys [bank membership owner-invitation-id]} result]
+          {:keys [bank member owner-invitation-id]} result]
       {:status "ACCEPTED"
        :payload (avro/serialize (schemas "bank")
                                 (assoc bank
-                                       :membership membership
+                                       :member member
                                        :owner-invitation-id
                                        owner-invitation-id))})))
 
 (defn- create-bank
   [config data]
   (let [{:keys [name status tier currencies audience company-binding
-                membership owner-invitation actor idempotency-key]}
+                member owner-invitation actor idempotency-key]}
         data]
     (->response config
                 (let-nom> [chosen (core/choose-providers
@@ -56,33 +56,35 @@
                                   :providers chosen
                                   :audience audience
                                   :company-binding company-binding
-                                  :membership membership
+                                  :member member
                                   :owner-invitation owner-invitation
                                   :actor actor
                                   :idempotency-key idempotency-key})))))
 
 (defn- change-bank-tier
   [config data]
-  (let [{:keys [bank-id tier]} data
+  (let [{:keys [bank-id tier actor]} data
         result (core/change-tier config
                                  bank-id
                                  tier
                                  {:idv-providers (get-in config
                                                          [:providers
-                                                          :idv])})]
+                                                          :idv])
+                                  :actor actor})]
     (if (error/anomaly? result)
       result
       (->response config {:bank result}))))
 
 (defn- change-bank-status
   [config data]
-  (let [{:keys [bank-id status audience]} data
+  (let [{:keys [bank-id status audience actor]} data
         result (core/change-status config
                                    bank-id
                                    status
                                    {:identity-provider (:identity-provider
                                                         config)
-                                    :audience audience})]
+                                    :audience audience
+                                    :actor actor})]
     (if (error/anomaly? result)
       result
       (->response config {:bank result}))))

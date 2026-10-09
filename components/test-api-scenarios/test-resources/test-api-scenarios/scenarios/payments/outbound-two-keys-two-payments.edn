@@ -13,8 +13,7 @@
    :as :zaphod
    :with {:token [:ref :bank-0 :token]
           :display-name "Zaphod Beeblebrox"
-          :given-name "Zaphod"
-          :family-name "Beeblebrox"}}
+          :legal-name "Zaphod Beeblebrox"}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts"
@@ -30,7 +29,7 @@
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :debtor :account-id]}
              :auth [:ref :bank-0 :token]}
-   :until {:status 200 :body {:account-status "opened"}}
+   :until {:status 200 :body {:status "opened"}}
    :as :debtor}
   {:command :api/request
    :request {:method :post
@@ -61,7 +60,7 @@
                     :creditor-name "Ford Prefect"
                     :currency "GBP"
                     :amount 2500
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Two keys"}}
    :as :payment-a
    :assert {:status 201}}
@@ -74,7 +73,7 @@
                     :creditor-name "Ford Prefect"
                     :currency "GBP"
                     :amount 2500
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Two keys"}}
    :as :payment-b
    :assert {:status 201
@@ -88,7 +87,7 @@
              :auth [:ref :bank-0 :token]}
    :until {:status 200
            :body {:payment-id [:ref :payment-a :payment-id]
-                  :payment-status "completed"}}
+                  :status "completed"}}
    :timeout-ms 10000}
   {:command :api/poll
    :request {:method :get
@@ -97,7 +96,7 @@
              :auth [:ref :bank-0 :token]}
    :until {:status 200
            :body {:payment-id [:ref :payment-b :payment-id]
-                  :payment-status "completed"}}
+                  :status "completed"}}
    :timeout-ms 10000}
   {:command :api/poll
    :request {:method :get

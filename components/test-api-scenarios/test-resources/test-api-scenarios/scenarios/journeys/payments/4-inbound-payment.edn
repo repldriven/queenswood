@@ -44,7 +44,7 @@
                     :creditor-account-id [:ref :creditor :account :account-id]
                     :amount 2500
                     :reference "Rent"
-                    :payment-status "settled"}]}}
+                    :status "settled"}]}}
    :as :settled}
   {:command :webhook/await-delivery
    :address [:ref :hook :receiver :address]

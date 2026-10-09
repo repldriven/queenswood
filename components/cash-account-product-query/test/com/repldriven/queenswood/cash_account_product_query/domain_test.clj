@@ -11,7 +11,7 @@
   [vn from to]
   (cond-> {:version-id (str "prv." vn)
            :version-number vn
-           :status :cash-account-product-status-published
+           :status :version-status-published
            :effective-from from}
           to
           (assoc :effective-to to)))
@@ -30,8 +30,7 @@
     (testing "no version effective on the day yields nil"
       (is (nil? (SUT/active-version {:versions [(pub 1 100 200)]} 250))))
     (testing "drafts are never active"
-      (is (nil? (SUT/active-version
-                 {:versions [(assoc (pub 1 100 nil)
-                                    :status
-                                    :cash-account-product-status-draft)]}
-                 250))))))
+      (is (nil? (SUT/active-version {:versions [(assoc (pub 1 100 nil)
+                                                       :status
+                                                       :version-status-draft)]}
+                                    250))))))

@@ -400,10 +400,10 @@ sequenceDiagram
     MC->>MA: open-payment-account
     critical transact
     MA->>DB: save ModulrOutboundIntent open-account, pending
-    alt the dedup key is new
+    alt the idempotency key is new
     Note over MA,DB: the transaction commits
     else the intent is recorded, a redelivery
-    Note over MA,DB: the unique index on the dedup key refuses the save,<br/>and the intent is taken as recorded
+    Note over MA,DB: the unique index on the idempotency key refuses the save,<br/>and the intent is taken as recorded
     end
     end
     MA->>SR: ACCEPTED
@@ -432,7 +432,7 @@ sequenceDiagram
     IP->>DB: read the outbox for the event's dedup key
     IP->>DB: save ModulrOutboxEvent payment-account-opened
     IP->>DB: write it to the modulr-outbox changelog
-    IP->>DB: read the opening intent by its dedup key
+    IP->>DB: read the opening intent by its idempotency key
     IP->>DB: save it, with the provider account
     end
     else failed, to be tried again

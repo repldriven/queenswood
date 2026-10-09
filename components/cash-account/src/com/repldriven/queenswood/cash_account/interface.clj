@@ -174,8 +174,8 @@
      saved (store/save-account txn
                                opened
                                {:account-id account-id
-                                :status-before (:account-status account)
-                                :status-after (:account-status opened)
+                                :status-before (:status account)
+                                :status-after (:status opened)
                                 :change-kind
                                 :cash-account-change-kind-open})]
     saved))
@@ -197,8 +197,8 @@
      saved (store/save-account txn
                                closed
                                {:account-id account-id
-                                :status-before (:account-status account)
-                                :status-after (:account-status closed)
+                                :status-before (:status account)
+                                :status-after (:status closed)
                                 :change-kind
                                 :cash-account-change-kind-close})]
     saved))

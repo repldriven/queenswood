@@ -21,7 +21,7 @@
      :client-id [:m/regex "^bnk\\."]
      :client-secret [:m/non-empty]
      :party {:party-id [:m/regex "^pty\\."]
-             :type "organization"
+             :party-type "organization"
              :display-name "Onboarding Journey Bank"}
      ;; One own-funds account per currency, held by the bank's own party.
      :accounts [:m/in-any-order
@@ -55,9 +55,9 @@
    :request {:method :get :path "/v1/cash-accounts" :auth :bank-token}
    :until {:status 200
            :body {:items [:m/in-any-order
-                          [{:currency "EUR" :account-status "opened"}
-                           {:currency "GBP" :account-status "opened"}
-                           {:currency "USD" :account-status "opened"}]]}}}
+                          [{:currency "EUR" :status "opened"}
+                           {:currency "GBP" :status "opened"}
+                           {:currency "USD" :status "opened"}]]}}}
   {:command :api/request
    :request {:method :get :path "/v1/bank/policies" :auth :bank-token}
    :assert {:status 200

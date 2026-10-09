@@ -11,8 +11,8 @@
 (defmethod posted? :default [_] false)
 
 (defmulti ^:private available?
-  (fn [b] [(= :product-type-general-ledger (:product-type b)) (:balance-type b)
-           (:balance-status b)]))
+  (fn [b] [(= :account-product-type-general-ledger (:product-type b))
+           (:balance-type b) (:balance-status b)]))
 
 (defmethod available? [false :balance-type-default :balance-status-posted]
   [_]
@@ -33,7 +33,7 @@
   (let [{:keys [balance-type product-type]} balance]
     (and (contains? derived-types balance-type)
          (some? product-type)
-         (not= :product-type-general-ledger product-type))))
+         (not= :account-product-type-general-ledger product-type))))
 
 (defn available-delta
   [legs]

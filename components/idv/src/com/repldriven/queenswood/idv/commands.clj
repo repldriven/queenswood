@@ -10,7 +10,9 @@
   [idv]
   (-> idv
       (dissoc :evidence :criteria)
-      (update :completed-at (fn [t] (when (and t (pos? t)) t)))))
+      (update :accepted-at (fn [t] (when (and t (pos? t)) t)))
+      (update :rejected-at (fn [t] (when (and t (pos? t)) t)))
+      (update :cancelled-at (fn [t] (when (and t (pos? t)) t)))))
 
 (defn- ->response
   [config result]

@@ -21,61 +21,61 @@
    :assert
    {:status 200
     :body {:items [:m/in-any-order
-                   [{:gl-code "1100" :currency "EUR"}
-                    {:gl-code "1200" :currency "EUR"}
-                    {:gl-code "2100" :currency "EUR"}
-                    {:gl-code "2200" :currency "EUR"}
-                    {:gl-code "2300" :currency "EUR"}
-                    {:gl-code "2400"
+                   [{:code "1100" :currency "EUR"}
+                    {:code "1200" :currency "EUR"}
+                    {:code "2100" :currency "EUR"}
+                    {:code "2200" :currency "EUR"}
+                    {:code "2300" :currency "EUR"}
+                    {:code "2400"
                      :currency "EUR"
-                     :gl-account-class "control"
-                     :gl-account-type "liability"}
-                    {:gl-code "2500" :currency "EUR"}
-                    {:gl-code "3100" :currency "EUR"}
-                    {:gl-code "5100"
+                     :account-type "control"
+                     :account-class "liability"}
+                    {:code "2500" :currency "EUR"}
+                    {:code "3100" :currency "EUR"}
+                    {:code "5100"
                      :currency "EUR"
-                     :gl-account-class "detail"
-                     :gl-account-type "expense"}
-                    {:gl-code "1100"
+                     :account-type "detail"
+                     :account-class "expense"}
+                    {:code "1100"
                      :currency "GBP"
-                     :gl-account-class "detail"
-                     :gl-account-type "asset"}
-                    {:gl-code "1200" :currency "GBP"}
-                    {:gl-code "2100"
+                     :account-type "detail"
+                     :account-class "asset"}
+                    {:code "1200" :currency "GBP"}
+                    {:code "2100"
                      :currency "GBP"
-                     :gl-account-class "control"
-                     :gl-account-type "liability"
+                     :account-type "control"
+                     :account-class "liability"
                      :posted-balance {:currency "GBP"}}
-                    {:gl-code "2200" :currency "GBP"}
-                    {:gl-code "2300" :currency "GBP"}
-                    {:gl-code "2400"
+                    {:code "2200" :currency "GBP"}
+                    {:code "2300" :currency "GBP"}
+                    {:code "2400"
                      :currency "GBP"
-                     :gl-account-class "control"
-                     :gl-account-type "liability"}
-                    {:gl-code "2500" :currency "GBP"}
-                    {:gl-code "3100"
+                     :account-type "control"
+                     :account-class "liability"}
+                    {:code "2500" :currency "GBP"}
+                    {:code "3100"
                      :currency "GBP"
-                     :gl-account-class "control"
-                     :gl-account-type "equity"}
-                    {:gl-code "5100"
+                     :account-type "control"
+                     :account-class "equity"}
+                    {:code "5100"
                      :currency "GBP"
-                     :gl-account-class "detail"
-                     :gl-account-type "expense"}
-                    {:gl-code "1100" :currency "USD"}
-                    {:gl-code "1200" :currency "USD"}
-                    {:gl-code "2100" :currency "USD"}
-                    {:gl-code "2200" :currency "USD"}
-                    {:gl-code "2300" :currency "USD"}
-                    {:gl-code "2400"
+                     :account-type "detail"
+                     :account-class "expense"}
+                    {:code "1100" :currency "USD"}
+                    {:code "1200" :currency "USD"}
+                    {:code "2100" :currency "USD"}
+                    {:code "2200" :currency "USD"}
+                    {:code "2300" :currency "USD"}
+                    {:code "2400"
                      :currency "USD"
-                     :gl-account-class "control"
-                     :gl-account-type "liability"}
-                    {:gl-code "2500" :currency "USD"}
-                    {:gl-code "3100" :currency "USD"}
-                    {:gl-code "5100"
+                     :account-type "control"
+                     :account-class "liability"}
+                    {:code "2500" :currency "USD"}
+                    {:code "3100" :currency "USD"}
+                    {:code "5100"
                      :currency "USD"
-                     :gl-account-class "detail"
-                     :gl-account-type "expense"}]]
+                     :account-type "detail"
+                     :account-class "expense"}]]
            ;; A freshly provisioned bank has no funded balances, so every
            ;; currency ties at zero on its own.
            :trial-balance [:m/embeds

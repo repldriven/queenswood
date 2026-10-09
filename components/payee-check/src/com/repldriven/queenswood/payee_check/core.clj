@@ -50,16 +50,16 @@
          :reason reason}))))
 
 (defn check-payee
-  [config bank-id request result]
-  (let [check (domain/new-check bank-id request result)]
+  [config bank-id request result actor]
+  (let [check (domain/new-check bank-id request result actor)]
     (let-nom> [_ (store/save-check config check)]
       check)))
 
 (defn check-and-save
   [config data]
   (let [{:keys [payment-providers adapter-urls]} config
-        {:keys [bank-id account-id]} data
-        request (dissoc data :bank-id :account-id)]
+        {:keys [bank-id account-id actor]} data
+        request (dissoc data :bank-id :account-id :actor)]
     (let-nom> [_ (when account-id
                    (cash-accounts/get-account config bank-id account-id))
                bank (bank-query/find-bank config bank-id)
@@ -73,7 +73,8 @@
                    (perform-cop-check
                     (get adapter-urls (keyword provider))
                     bank-id
-                    (assoc request :account-id account-id))))))
+                    (assoc request :account-id account-id))
+                   actor))))
 
 (defn get-check
   [txn bank-id check-id]
@@ -88,3 +89,7 @@
    (store/get-checks txn bank-id))
   ([txn bank-id opts]
    (store/get-checks txn bank-id opts)))
+
+(defn expires-at
+  [check]
+  (domain/expires-at check))

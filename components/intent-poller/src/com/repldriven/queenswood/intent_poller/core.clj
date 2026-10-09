@@ -53,12 +53,22 @@
                           :ordering-key
                           (ordering-key data)))))
 
+(defn- failing
+  "`outcome` with `reason` as the intent's `:failure-reason` where it
+  moves the intent to failed."
+  [outcome reason]
+  (cond-> outcome
+          (= :outbound-intent-status-failed (:status outcome))
+          (assoc-in [:changes :failure-reason]
+           ;; nosemgrep: no-edn-serialization — text for a failure reason
+           (if (string? reason) reason (pr-str reason)))))
+
 (defn- record
   "Leave `intent`, read at `from`, as `outcome` says: kept pending with
   its next step's context, or moved to its status with its event."
   [config now intent from outcome]
   (let [{:keys [store]} config
-        {:keys [intent-id attempts]} intent
+        {:keys [intent-id attempt-count]} intent
         {:keys [advance status event changes also]} outcome]
     (if advance
       (store/update-intent config
@@ -72,13 +82,14 @@
                              store
                              intent-id
                              from
-                             (fn [i] (store/moved i status attempts changes))
+                             (fn [i]
+                               (store/moved i status attempt-count changes))
                              e
                              also)))))
 
 (defn- operation-of
-  [config intent]
-  (or (not-empty (:kind intent)) (:default-operation config)))
+  [_config intent]
+  (:kind intent))
 
 (defn- retry-policy
   [config intent]
@@ -93,10 +104,6 @@
 (defn- destination
   [config]
   (str "adapter:" (name (:adapter config))))
-
-(defn- claimant
-  [config]
-  (or (:runner-id config) "intent-poller"))
 
 (defn- breaker-policy
   [config]
@@ -120,30 +127,31 @@
        (log/error "Circuit breaker not recorded"
                   {:destination (destination config) :anomaly breaker})
 
-       (= "open" (:state breaker))
+       (= :circuit-breaker-status-open (:status breaker))
        (do (log/warn "Circuit breaker open; calls held"
                      {:destination (destination config)
-                      :retry-at (:retry-at breaker)})
+                      :next-probe-at (:next-probe-at breaker)})
            (swap! pass assoc :budget 0))))))
 
 (defn- retry
-  [config now intent attempts reason]
+  [config now intent attempt-count reason]
   (let [{:keys [adapter store]} config
         {:keys [intent-id]} intent]
     (log/warn "External API call failed; will retry"
               {:adapter adapter
                :intent-id intent-id
                :operation (operation-of config intent)
-               :attempt attempts
+               :attempt attempt-count
                :reason reason})
     (store/mark-attempt config
                         store
                         intent-id
-                        attempts
+                        attempt-count
                         (+ now
                            (circuit-breaker/backoff-ms (retry-policy config
                                                                      intent)
-                                                       (max 1 attempts))))))
+                                                       (max 1
+                                                            attempt-count))))))
 
 (defn- attempt
   [config now pass intent]
@@ -154,8 +162,8 @@
                res ((:call operation) config now intent)]
       (let [{:keys [answered failed]} operation
             [outcome result] res
-            attempts (inc (or (:attempts intent) 0))
-            intent (assoc intent :attempts attempts)]
+            attempt-count (inc (:attempt-count intent))
+            intent (assoc intent :attempt-count attempt-count)]
         (when-not (= :wait outcome)
           (record-call config
                        now
@@ -166,7 +174,7 @@
           (record config
                   now
                   intent
-                  "pending"
+                  :outbound-intent-status-pending
                   (answered config now intent result))
 
           :refused
@@ -178,12 +186,13 @@
               (record config
                       now
                       intent
-                      "pending"
-                      (failed config now intent :refused result)))
+                      :outbound-intent-status-pending
+                      (failing (failed config now intent :refused result)
+                               result)))
 
           (:retry :wait)
           (if (circuit-breaker/give-up? (retry-policy config intent)
-                                        (if (= :wait outcome) 0 attempts)
+                                        (if (= :wait outcome) 0 attempt-count)
                                         (age-ms now intent))
             (do (log/error "External API call giving up after max attempts"
                            {:adapter adapter
@@ -193,12 +202,13 @@
                 (record config
                         now
                         intent
-                        "pending"
-                        (failed config now intent :undelivered result)))
+                        :outbound-intent-status-pending
+                        (failing (failed config now intent :undelivered result)
+                                 result)))
             (retry config
                    now
                    intent
-                   (if (= :wait outcome) (dec attempts) attempts)
+                   (if (= :wait outcome) (dec attempt-count) attempt-count)
                    result)))))))
 
 (defn- reconciler
@@ -216,7 +226,8 @@
                                                   "intent.id"
                                                   (:intent-id intent)
                                                   "intent.kind"
-                                                  (not-empty (:kind intent)))
+                                                  (some-> (:kind intent)
+                                                          name))
                               f))
 
 (defn- checked
@@ -227,14 +238,21 @@
                               (f intent))]
     (if (error/anomaly? res)
       (let [{:keys [adapter store]} config
-            {:keys [intent-id status attempts]} intent]
+            {:keys [intent-id status attempt-count]} intent]
         (log/error "Intent could not be relayed; failing it"
                    {:adapter adapter
                     :intent-id intent-id
                     :operation (operation-of config intent)
                     :anomaly res})
-        (store/finish config store intent-id status "failed" attempts nil)
-        (assoc intent :status "failed"))
+        (store/finish config
+                      store
+                      intent-id
+                      status
+                      :outbound-intent-status-failed
+                      attempt-count
+                      nil
+                      {:failure-reason (:message (error/payload res))})
+        (assoc intent :status :outbound-intent-status-failed))
       res)))
 
 (defn intents-with-status
@@ -258,8 +276,10 @@
     (record config
             now
             intent
-            "pending"
-            ((:failed operation) config now intent :undelivered expired))))
+            :outbound-intent-status-pending
+            (failing
+             ((:failed operation) config now intent :undelivered expired)
+             expired))))
 
 (defn- expire-aged
   "Fail each pending intent past its maximum age, which a breaker open
@@ -284,8 +304,7 @@
   (let [decision (circuit-breaker/allow config
                                         (breaker-policy config)
                                         (destination config)
-                                        now
-                                        (claimant config))]
+                                        now)]
     (if (error/anomaly? decision)
       (do (log/error "Circuit breaker not read; calling as though closed"
                      {:destination (destination config) :anomaly decision})
@@ -299,8 +318,8 @@
   (let [breaker (circuit-breaker/breaker config (destination config))]
     (and (not (error/anomaly? breaker))
          (or (nil? breaker)
-             (and (= "closed" (:state breaker))
-                  (zero? (or (:consecutive-failures breaker) 0)))))))
+             (and (= :circuit-breaker-status-closed (:status breaker))
+                  (zero? (:failure-count breaker)))))))
 
 (defn- run-intent
   [config now pass intent]
@@ -346,8 +365,10 @@
                         status (when-not (error/anomaly? result)
                                  (:status result))]
                     (case status
-                      "sent" result
-                      ("settled" "failed") nil
+                      :outbound-intent-status-sent result
+                      (:outbound-intent-status-settled
+                       :outbound-intent-status-failed)
+                      nil
                       (assoc intent :next-attempt-at Long/MAX_VALUE))))))
         intents))
 
@@ -393,7 +414,11 @@
                                    now
                                    pass
                                    (if (= :retry outcome) :failed :answered)))
-                    (record config now i "sent" (dissoc result :outcome)))))))))
+                    (record config
+                            now
+                            i
+                            :outbound-intent-status-sent
+                            (dissoc result :outcome)))))))))
 
 (defn- reconcile
   "Reconcile each due sent intent whose operation has a `:reconcile`, at
@@ -460,8 +485,14 @@
   [config now]
   (let [{:keys [store]} config
         limit (:pass-limit config default-pass-limit)
-        pending (store/intents-with-status config store "pending" limit)
-        sent (store/intents-with-status config store "sent" limit)
+        pending (store/intents-with-status config
+                                           store
+                                           :outbound-intent-status-pending
+                                           limit)
+        sent (store/intents-with-status config
+                                        store
+                                        :outbound-intent-status-sent
+                                        limit)
         pending (if (or (error/anomaly? pending) (error/anomaly? sent))
                   pending
                   (before-unread-sent pending
@@ -509,11 +540,7 @@
   [config]
   (let [{:keys [adapter poll-ms concurrency]} config
         executor (worker-pool adapter concurrency)
-        config (utility/assoc-some (assoc config
-                                          :runner-id
-                                          (str (utility/uuidv7)))
-                                   :executor
-                                   executor)
+        config (utility/assoc-some config :executor executor)
         running (atom true)
         store-name (get-in config [:store :intents])
         wake (LinkedBlockingQueue.)

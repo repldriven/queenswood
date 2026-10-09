@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "IdvStatusChanged",
-  "namespace": "com.repldriven.mono.idv",
+  "namespace": "com.repldriven.queenswood.schema.idv",
   "fields": [
     {"name": "bank_id",         "type": "string"},
     {"name": "verification_id", "type": "string"},
@@ -14,8 +14,8 @@
                                     "IDV_STATUS_IN_REVIEW",
                                     "IDV_STATUS_ACCEPTED",
                                     "IDV_STATUS_REJECTED",
-                                    "IDV_STATUS_FAILED"]}],
+                                    "IDV_STATUS_CANCELLED"]}],
      "default": null},
-    {"name": "status_after", "type": "com.repldriven.mono.idv.IdvStatus"}
+    {"name": "status_after", "type": "com.repldriven.queenswood.schema.idv.IdvStatus"}
   ]
 }

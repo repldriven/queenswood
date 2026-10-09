@@ -45,7 +45,7 @@
                             :properties {:document_type "utility_bill"})
                     (aml "clear" "clear")]))]
     (testing "it names the verification, deduplicated on the run"
-      (is (= "idv-evidence" (:event-name evidence)))
+      (is (= "idv-evidence-received" (:event-name evidence)))
       (is (= "run-1:completed" (:dedup-key evidence))))
     (testing "every report is evidence, the document graded on its name"
       (is (= {:bank-id "bnk.1"

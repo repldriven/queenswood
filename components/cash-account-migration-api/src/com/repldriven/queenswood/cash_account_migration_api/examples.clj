@@ -111,12 +111,12 @@
    :status :completed
    :dry-run true
    :business-day "2026-06-01"
-   :started-at "2025-01-02T02:00:00Z"
-   :finished-at "2025-01-02T02:00:30Z"
    :accounts-seen 9588
    :accounts-moved 9176
    :accounts-ineligible 412
-   :accounts-failed 0})
+   :accounts-failed 0
+   :completed-at "2025-01-02T02:00:30Z"
+   :created-at "2025-01-02T02:00:00Z"})
 
 (def MigrationRunList {:items [MigrationRun]})
 
@@ -126,7 +126,7 @@
    :migration-id MigrationId
    :account-id "acc.01kz3wyzcjhkab9ch91x9ngedr"
    :outcome :ineligible
-   :from-version-id "prv.01kz3wyz91pf6z2zgfv9pxpm49"
+   :source-version-id "prv.01kz3wyz91pf6z2zgfv9pxpm49"
    :ineligibility :currency-not-allowed
    :created-at "2025-01-02T02:00:10Z"})
 

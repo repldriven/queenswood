@@ -88,7 +88,7 @@
                                               (fixtures/account "acc.1" "GBP")
                                               "1100")]
     (testing "an admission is recorded admitted, with nothing posted"
-      (is (= :inbound-payment-status-admitted (:payment-status admitted)))
+      (is (= :inbound-payment-status-admitted (:status admitted)))
       (is (not (contains? admitted :transaction-id))))
     (testing "its settlement credits the account from 1100"
       (is (= "acc.1" (:account-id (fixtures/side tx :leg-side-credit))))
@@ -98,7 +98,7 @@
 
 (defn- inbound-count-capped
   [cap]
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:effect :effect-allow
                     :kind {:inbound-payment
                            {:action :inbound-payment-action-receive}}}]
@@ -192,19 +192,19 @@
   (let [held {:payment-id "pmt-held"
               :creditor-account-id "creditor"
               :scheme-transaction-id "held-placeholder"
-              :payment-status :inbound-payment-status-held
+              :status :inbound-payment-status-held
               :updated-at 1700000000000}
         suspended (SUT/suspended-from-held held
                                            "stx-9"
                                            "txn-9"
                                            {:reason-code "AC04"
                                             :reason "The account is closed"})]
-    (is (= :inbound-payment-status-suspended (:payment-status suspended)))
+    (is (= :inbound-payment-status-suspended (:status suspended)))
     (is (= "stx-9" (:scheme-transaction-id suspended)))
     (is (= "txn-9" (:transaction-id suspended)))
     (is (= "creditor" (:creditor-account-id suspended)))
-    (is (= "AC04" (:suspense-reason-code suspended)))
-    (is (= "The account is closed" (:suspense-reason suspended)))
+    (is (= "AC04" (:suspended-reason-code suspended)))
+    (is (= "The account is closed" (:suspended-reason suspended)))
     (is (>= (:updated-at suspended) (:updated-at held)))))
 
 (deftest suspended-inbound-payment-test
@@ -217,9 +217,9 @@
                                                  "txn-3" {:reason-code "AG01"
                                                           :reason "Refused"})]
     (testing "carries the reason it was parked for"
-      (is (= :inbound-payment-status-suspended (:payment-status suspended)))
-      (is (= "AG01" (:suspense-reason-code suspended)))
-      (is (= "Refused" (:suspense-reason suspended))))))
+      (is (= :inbound-payment-status-suspended (:status suspended)))
+      (is (= "AG01" (:suspended-reason-code suspended)))
+      (is (= "Refused" (:suspended-reason suspended))))))
 
 (def ^:private suspended
   {:payment-id "pmt-s"
@@ -230,9 +230,9 @@
    :currency "GBP"
    :amount 700
    :reference "Rent"
-   :payment-status :inbound-payment-status-suspended
-   :suspense-reason-code "AC04"
-   :suspense-reason "The account is closed"})
+   :status :inbound-payment-status-suspended
+   :suspended-reason-code "AC04"
+   :suspended-reason "The account is closed"})
 
 (deftest returns-inbound?-test
   (testing "an inbound is returned where the provider returns"

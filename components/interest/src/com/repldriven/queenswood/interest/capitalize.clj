@@ -57,7 +57,7 @@
            (balances/apply-legs txn
                                 bank-id
                                 legs
-                                :transaction-type-interest-capital
+                                :transaction-type-interest-capitalization
                                 {:policies (policy/platform-policies
                                             policies)}))]
       (into {}
@@ -68,6 +68,6 @@
   "Everything a run of this kind does differently from the other."
   {:policy-kind :capitalize
    :run-kind :interest-run-kind-capitalize
-   :account-kind :interest-account-run-kind-capitalize
+   :account-kind :interest-run-kind-capitalize
    :chunk-fn capitalize-chunk
    :gl-fn chart/capitalization-accounts})

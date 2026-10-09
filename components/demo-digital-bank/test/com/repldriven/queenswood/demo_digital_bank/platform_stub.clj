@@ -118,8 +118,8 @@
               now (util/now-rfc3339)
               party-id (util/generate-id "pty")
               party (assoc (select-keys body-params
-                                        [:type :display-name :given-name
-                                         :family-name :external-reference])
+                                        [:party-type :legal-name
+                                         :display-name :external-reference])
                            :bank-id "bnk.00000000000000000000000001"
                            :party-id party-id
                            :status "pending"
@@ -132,7 +132,7 @@
   [party]
   (assoc party
          :status
-         (if (str/includes? (str/lower-case (:given-name party "")) "reject")
+         (if (str/includes? (str/lower-case (:legal-name party "")) "reject")
            "rejected"
            "active")))
 
@@ -206,7 +206,7 @@
      :version-id (:version-id version)
      :product-type (:product-type version)
      :account-type "personal"
-     :account-status "opening"
+     :status "opening"
      :payment-addresses [{:scheme "scan"
                           :scan {:sort-code sort-code
                                  :account-number (str number)}}]
@@ -257,7 +257,7 @@
   (when (get-in @state [:accounts account-id])
     (get-in (swap! state
               assoc-in
-              [:accounts account-id :account-status]
+              [:accounts account-id :status]
               "opened")
             [:accounts account-id])))
 
@@ -353,11 +353,11 @@
     (cond (nil? account)
           (problem 404 "REJECTED" ":cash-account/not-found" "no such account")
 
-          (not= "opened" (:account-status account))
+          (not= "opened" (:status account))
           (problem 409
                    "REJECTED"
                    ":cash-account/invalid-status"
-                   (str "the account is " (:account-status account)))
+                   (str "the account is " (:status account)))
 
           :else
           account)))
@@ -381,10 +381,10 @@
            body-params
            debtor (operable state debtor-account-id)
            creditor (operable state creditor-account-id)]
-       (cond (:status debtor)
+       (cond (:body debtor)
              debtor
 
-             (:status creditor)
+             (:body creditor)
              creditor
 
              (covered debtor amount)
@@ -438,10 +438,10 @@
     (or (replay state request)
         (let [{:keys [body-params]} request
               {:keys [debtor-account-id creditor-bban creditor-name amount
-                      currency reference scheme]}
+                      currency reference scheme-type]}
               body-params
               debtor (operable state debtor-account-id)]
-          (cond (:status debtor)
+          (cond (:body debtor)
                 debtor
 
                 (covered debtor amount)
@@ -453,13 +453,13 @@
                       now (util/now-rfc3339)
                       payment {:payment-id payment-id
                                :bank-id "bnk.00000000000000000000000001"
-                               :scheme scheme
+                               :status "pending"
+                               :scheme-type scheme-type
                                :debtor-account-id debtor-account-id
                                :creditor-bban creditor-bban
                                :creditor-name creditor-name
                                :currency currency
                                :amount amount
-                               :payment-status "pending"
                                :transaction-id transaction-id
                                :reference reference
                                :business-day (subs now 0 10)
@@ -577,7 +577,7 @@
                   reference)])
     (get-in (swap! state
               assoc-in
-              [:payments payment-id :payment-status]
+              [:payments payment-id :status]
               "completed")
             [:payments payment-id])))
 
@@ -604,7 +604,9 @@
               :payments
               (fn [payments]
                 (-> payments
-                    (assoc-in [payment-id :payment-status] "failed")
-                    (assoc-in [payment-id :failure]
-                              {:kind "declined" :reason-code "NARR"}))))
+                    (update payment-id
+                            assoc
+                            :status "failed"
+                            :failed-kind "declined"
+                            :failed-reason-code "NARR"))))
             [:payments payment-id])))

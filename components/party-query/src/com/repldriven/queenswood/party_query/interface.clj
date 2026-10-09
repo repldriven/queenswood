@@ -7,9 +7,10 @@
   transactions.
 
   `find-party-by-idempotency-key` is a read primitive for the write
-  sibling's create-party idempotency read-back; the public reads for
-  API consumers are `get-party`, `get-party-detail` and
-  `get-parties`."
+  sibling's create-party idempotency read-back, and `get-party-by-id`
+  serves an identity provider's webhook, which names no bank; the
+  public reads for API consumers are `get-party`, `get-party-detail`
+  and `get-parties`."
   (:require
     [com.repldriven.queenswood.party-query.core :as core]
     [com.repldriven.queenswood.party-query.domain :as domain]
@@ -26,6 +27,17 @@
   Returns the party map or a `:party/not-found` anomaly."
   [txn bank-id party-id]
   (core/get-party txn bank-id party-id))
+
+(defn get-party-by-id
+  "Load a party by its id alone, for a reader that holds no bank, as an
+  identity provider's webhook naming only the party. Returns the party
+  map, nil where none has the id, or an anomaly.
+
+  Args:
+  - txn: FDB handle or open transaction.
+  - party-id: party id."
+  [txn party-id]
+  (store/get-party-by-id txn party-id))
 
 (defn find-party-by-idempotency-key
   "Return the party previously written under `idempotency-key`, or
@@ -49,14 +61,10 @@
   - txn: FDB handle or open transaction.
   - bank-id: bank id.
   - party-id: party id.
-  - opts: embed flags — `:person-identification`, the given, middle
-    and family names. Truthy, it opts the names into the result; omit
-    it for just the summary.
+  - opts: embed flags — `:legal-name`, truthy to keep the party's
+    legal name in the result; omit it for just the summary.
 
-  Returns the (possibly enriched) party map, or a `:party/not-found`
-  anomaly. Enrichment is best-effort — a sub-record read failure is
-  skipped, never propagated. Internal and organisation parties carry no
-  person identification, so the embed is a no-op for them."
+  Returns the party map, or a `:party/not-found` anomaly."
   [txn bank-id party-id opts]
   (core/get-party-detail txn bank-id party-id opts))
 

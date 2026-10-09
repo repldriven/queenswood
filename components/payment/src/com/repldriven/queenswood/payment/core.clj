@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.payment.domain.checks :as checks]
     [com.repldriven.queenswood.payment.domain.internal :as internal]
     [com.repldriven.queenswood.payment.domain.outbound :as outbound]
+    [com.repldriven.queenswood.payment.domain.scheme :as scheme]
     [com.repldriven.queenswood.payment.provider :as provider]
     [com.repldriven.queenswood.payment.store :as store]
 
@@ -117,7 +118,7 @@
 (defn- record-submitted
   [txn payment debtor-account]
   (let [{:keys [payment-id bank-id debtor-account-id creditor-bban
-                creditor-name currency amount reference scheme]}
+                creditor-name currency amount reference scheme-type]}
         payment
         {:keys [bban provider-account-id]} debtor-account]
     (bank-activity/record txn
@@ -136,7 +137,7 @@
                                   :reference
                                   reference
                                   :scheme
-                                  scheme)
+                                  (scheme/scheme-name scheme-type))
                            :causation-id payment-id
                            :dedup-key payment-id})))
 
@@ -159,7 +160,9 @@
                    [declaration (telemetry/with-span
                                  ["payment-declaration"]
                                  (provider/declaration config txn bank-id))
-                    _ (outbound/check-scheme (:scheme data) declaration)
+                    _ (outbound/check-scheme (scheme/scheme-name (:scheme-type
+                                                                  data))
+                                             declaration)
                     debtor-account (telemetry/with-span
                                     ["payment-debtor-account"]
                                     (cash-accounts/get-account
@@ -172,7 +175,7 @@
                                          (ledger-accounts/find-by-code
                                           txn
                                           bank-id
-                                          :gl-account-code-pending-outbound
+                                          :ledger-account-code-pending-outbound
                                           currency))
                     today (telemetry/with-span
                            ["payment-daily-totals"]

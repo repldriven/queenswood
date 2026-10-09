@@ -21,47 +21,44 @@
     [com.repldriven.queenswood.balance-query.store :as store]))
 
 (defn get-balance
-  "Look up a single balance by its composite primary key. Returns
-  the balance map or a `:balance/not-found` rejection anomaly.
+  "Look up a single balance by its composite primary key. Returns the
+  balance map or a `:balance/not-found` rejection anomaly.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id, which heads the key.
   - account-id: owning account id.
   - balance-type: balance-type keyword.
-  - currency: ISO 4217 currency string.
   - balance-status: balance-status keyword."
-  [txn bank-id account-id balance-type currency balance-status]
-  (store/get-balance txn
-                     bank-id
-                     account-id
-                     balance-type
-                     currency
-                     balance-status))
+  [txn bank-id account-id balance-type balance-status]
+  (store/get-balance txn bank-id account-id balance-type balance-status))
 
 (defn get-balances
   "List all balances for an account, enriched with derived
   posted-balance and available-balance totals. Returns
-  `{:balances [...] :posted-balance {...} :available-balance {...}}`
-  or an anomaly.
+  `{:balances [...] :posted-balance {...} :available-balance {...}}`,
+  the totals in the account's `currency`, or an anomaly.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id, which heads the key.
-  - account-id: owning account id."
-  [txn bank-id account-id]
-  (core/get-balances txn bank-id account-id))
+  - account-id: owning account id.
+  - currency: the account's ISO 4217 currency."
+  [txn bank-id account-id currency]
+  (core/get-balances txn bank-id account-id currency))
 
 (defn totals
   "Derive an account's posted-balance and available-balance totals from
   its balance buckets, as `get-balances` does after its read: returns
-  `{:balances [...] :posted-balance {...} :available-balance {...}}`.
-  Pure, for a caller that already holds the buckets.
+  `{:balances [...] :posted-balance {...} :available-balance {...}}`,
+  the totals in the account's `currency`. Pure, for a caller that
+  already holds the buckets.
 
   Args:
-  - balances: the account's balance maps, all in one currency."
-  [balances]
-  (core/totals balances))
+  - balances: the account's balance maps.
+  - currency: the account's ISO 4217 currency."
+  [balances currency]
+  (core/totals balances currency))
 
 (defn list-balances
   "List an account's raw balance buckets (a vector, unenriched). A read
@@ -123,15 +120,9 @@
   - bank-id: owning bank id, which heads the key.
   - account-id: owning account id.
   - balance-type: balance-type keyword.
-  - currency: ISO 4217 currency string.
   - balance-status: balance-status keyword."
-  [txn bank-id account-id balance-type currency balance-status]
-  (store/find-balance txn
-                      bank-id
-                      account-id
-                      balance-type
-                      currency
-                      balance-status))
+  [txn bank-id account-id balance-type balance-status]
+  (store/find-balance txn bank-id account-id balance-type balance-status))
 
 (defn sub-ledger-balance
   "The summed `{:credit :debit}` of one bucket, default and posted

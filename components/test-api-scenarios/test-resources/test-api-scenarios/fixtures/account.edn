@@ -11,11 +11,11 @@
                     :currency [:param :currency]
                     :product-id [:param :product-id]}}
    :as :account
-   :assert {:status 201 :body {:account-status "opening"}}}
+   :assert {:status 201 :body {:status "opening"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :account :account-id]}
              :auth [:param :token]}
-   :until {:status 200 :body {:account-status "opened"}}
+   :until {:status 200 :body {:status "opened"}}
    :as :account}]}

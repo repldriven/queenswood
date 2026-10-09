@@ -42,7 +42,7 @@ export function statusLabel(status) {
 }
 
 export function isActive(company) {
-  return company?.["company-status"] === "active";
+  return company?.status === "active";
 }
 
 // ISO "1947-11-27" → "27 November 1947".

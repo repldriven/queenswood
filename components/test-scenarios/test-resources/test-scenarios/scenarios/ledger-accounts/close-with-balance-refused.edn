@@ -6,7 +6,7 @@
  :given [{:command :create-bank :args []}
          {:command :inbound-transfer :args [:acct-0 1000]}]
  :when [{:command :close-ledger-account
-         :args [:bank-0 :gl-account-code-customer-deposits-current]}
+         :args [:bank-0 :ledger-account-code-customer-deposits-current]}
         {:command :assert-rejection-kind :args [:gl/non-zero-on-close]}
         {:command :inbound-transfer :args [:acct-0 500]}]
  :then [{:command :assert-outcome :args [:succeeded]}

@@ -33,23 +33,23 @@
      (testing "a duplicate dedup-key is rejected by the unique index"
        (nom-test> [_ (SUT/save-event
                       config
-                      (event "obx.1" "P1:settled" "transaction-settled"))])
+                      (event "obx.1" "P1:settled" "provider-payment-settled"))])
        (is (SUT/uniqueness-violation?
             (SUT/save-event
              config
-             (event "obx.2" "P1:settled" "transaction-settled"))))))))
+             (event "obx.2" "P1:settled" "provider-payment-settled"))))))))
 
 (deftest intent-dedup-test
   (with-test-system
    [sys "classpath:modulr-relay/application-test.yml"]
    (let [config (config sys)
          intent {:intent-id "int.1"
-                 :dedup-key "pmt.1"
-                 :kind "payment"
+                 :idempotency-key "pmt.1"
+                 :kind :modulr-outbound-intent-kind-payment
                  :request "{}"
                  :nonce "n-1"
-                 :status "pending"
-                 :attempts 0
+                 :status :outbound-intent-status-pending
+                 :attempt-count 0
                  :created-at (utility/now)}]
      (nom-test> [_ (SUT/save-intent config intent)])
      (testing "a redelivered command is a duplicate"
@@ -66,7 +66,7 @@
 
 (deftest outcomes-test
   (testing "a processed payment settles, keyed on the payment id"
-    (is (= {:event-name "transaction-settled" :dedup-key "P1:settled"}
+    (is (= {:event-name "provider-payment-settled" :dedup-key "P1:settled"}
            (select-keys (SUT/payment-outcome {:provider-payment-id "P1"
                                               :end-to-end-id "pmt.1"
                                               :amount 100
@@ -80,7 +80,7 @@
                                                           :end-to-end-id "pmt.1"
                                                           :status "ER_EXPIRED"
                                                           :at 0})]
-      (is (= "transaction-rejected" event-name))
+      (is (= "provider-payment-rejected" event-name))
       (is (= :failure-kind-declined (:failure-kind data)))
       (is (= "NARR" (:reason-code data)))))
   (testing "a status that is not final reports nothing"

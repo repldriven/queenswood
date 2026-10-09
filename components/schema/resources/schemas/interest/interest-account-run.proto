@@ -1,0 +1,36 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.interest;
+
+import "record_metadata_options.proto";
+import "schemas/interest/types.proto";
+
+option java_outer_classname = "InterestAccountRunProto";
+
+enum InterestAccountRunStatus {
+  INTEREST_ACCOUNT_RUN_STATUS_UNKNOWN = 0;
+  INTEREST_ACCOUNT_RUN_STATUS_PENDING = 1;
+  INTEREST_ACCOUNT_RUN_STATUS_COMPLETED = 2;
+  INTEREST_ACCOUNT_RUN_STATUS_FAILED = 3;
+}
+
+// One account's part in an interest run.
+message InterestAccountRun {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required int64 business_day = 2; // epoch day
+  required InterestRunKind kind = 3;
+  required string account_id = 4;
+
+  required InterestAccountRunStatus status = 5;
+  optional int64 principal = 6; // minor units
+  optional int64 opening_carry = 7; // millionths of a minor unit
+  optional int64 amount = 8; // minor units
+  optional int64 carry_delta = 9; // closing less opening carry, millionths of a minor unit
+
+  required int64 created_at = 101;
+  optional int64 updated_at = 103;
+
+  optional string failure_reason = 200;
+}

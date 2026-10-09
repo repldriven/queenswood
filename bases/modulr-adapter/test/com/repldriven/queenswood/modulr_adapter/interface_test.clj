@@ -19,9 +19,9 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.edn :as edn]
     [clojure.test :refer [deftest is testing]])
   (:import
     (com.sun.net.httpserver HttpExchange HttpHandler HttpServer)
@@ -137,8 +137,8 @@
                      (merge {:intent-id (str (utility/uuidv7))
                              :request "{}"
                              :nonce "n"
-                             :status "sent"
-                             :attempts 1
+                             :status :outbound-intent-status-sent
+                             :attempt-count 1
                              :created-at 0}
                             intent)))
 
@@ -176,8 +176,10 @@
 (deftest own-payins-are-not-inbound-payments-test
   (with-adapter
    "http://modulr.invalid"
-   (nom-test> [_ (save-intent {:dedup-key "ptr.1" :kind "transfer"})
-               _ (save-intent {:dedup-key "ptr.2" :kind "credit"})])
+   (nom-test> [_ (save-intent {:idempotency-key "ptr.1"
+                               :kind :modulr-outbound-intent-kind-transfer})
+               _ (save-intent {:idempotency-key "ptr.2"
+                               :kind :modulr-outbound-intent-kind-credit})])
    (testing "the far side of a transfer between accounts"
      (notify "/webhooks/payin"
              (payin {:PaymentId "P110"
@@ -196,12 +198,14 @@
 (deftest payout-test
   (with-adapter
    "http://modulr.invalid"
-   (nom-test> [_ (save-intent {:dedup-key "pmt.1"
-                               :kind "payment"
-                               :context (pr-str {:amount 500 :currency "GBP"})})
-               _ (save-intent {:dedup-key "ptr.3"
-                               :kind "transfer"
-                               :context (pr-str {:bank-id "bnk.1"})})])
+   (nom-test> [_ (save-intent {:idempotency-key "pmt.1"
+                               :kind :modulr-outbound-intent-kind-payment
+                               :context (transit/write-str {:amount 500
+                                                            :currency "GBP"})})
+               _ (save-intent {:idempotency-key "ptr.3"
+                               :kind :modulr-outbound-intent-kind-transfer
+                               :context (transit/write-str {:bank-id
+                                                            "bnk.1"})})])
    (testing "a processed payment settles and settles its intent"
      (is (= 200
             (:status (notify "/webhooks/payout"
@@ -211,7 +215,8 @@
              :amount 500}
             (select-keys (decoded (outbox-event "P200:settled"))
                          [:end-to-end-id :debit-credit-code :amount])))
-     (is (= "settled" (:status (relay/find-intent (config) "pmt.1")))))
+     (is (= :outbound-intent-status-settled
+            (:status (relay/find-intent (config) "pmt.1")))))
    (testing "a failed one is declined"
      (notify "/webhooks/payout"
              (payout {:PaymentId "P201"
@@ -274,7 +279,7 @@
                      :AccountBid "A1"
                      :PaymentBid "P300"
                      :ComplianceStatus "DECLINED"})
-            (is (= "transaction-rejected"
+            (is (= "provider-payment-rejected"
                    (:event-name (outbox-event "P300:rejected"))))))
          (finally (.stop modulr 0)))))
 
@@ -289,7 +294,7 @@
   [dedup-key]
   (let [i (relay/find-intent (config) dedup-key)]
     (assoc i
-           :context (edn/read-string (:context i))
+           :context (transit/read-str (:context i))
            :request (json/read-str (:request i) :key-fn keyword))))
 
 (deftest commands-become-intents-test
@@ -313,7 +318,7 @@
                                            :reference "Towel"
                                            :scheme "fps"}))))
        (let [{:keys [kind request context]} (intent-for "pmt.5")]
-         (is (= "payment" kind))
+         (is (= :modulr-outbound-intent-kind-payment kind))
          (is (= {:sourceAccountId "A1"
                  :destination {:type "SCAN"
                                :sortCode "203002"
@@ -342,7 +347,7 @@
        ;; the adapter's own command processor making its intent
        ;; nosemgrep: brick-test-drives-pipeline
        (processor/process p
-                          (command "transfer-between-accounts"
+                          (command "transfer-between-provider-accounts"
                                    {:transfer-id "ptr.5"
                                     :bank-id "bnk.1"
                                     :transaction-id "txn.1"
@@ -351,7 +356,7 @@
                                     :amount 100
                                     :currency "GBP"}))
        (let [{:keys [kind context]} (intent-for "ptr.5")]
-         (is (= "transfer" kind))
+         (is (= :modulr-outbound-intent-kind-transfer kind))
          (is (= {:debtor-account-id "acc.1" :creditor-account-id "acc.2"}
                 (select-keys context
                              [:debtor-account-id :creditor-account-id])))))
@@ -359,7 +364,7 @@
        ;; the adapter's own command processor making its intent
        ;; nosemgrep: brick-test-drives-pipeline
        (processor/process p
-                          (command "transfer-between-accounts"
+                          (command "transfer-between-provider-accounts"
                                    {:transfer-id "ptr.6"
                                     :bank-id "bnk.1"
                                     :transaction-id "txn.2"
@@ -367,7 +372,7 @@
                                     :amount 100
                                     :currency "GBP"}))
        (let [{:keys [kind context]} (intent-for "ptr.6")]
-         (is (= "credit" kind))
+         (is (= :modulr-outbound-intent-kind-credit kind))
          (is (= "acc.2" (:creditor-account-id context)))))
      (testing "an account opening"
        ;; the adapter's own command processor making its intent

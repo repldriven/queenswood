@@ -8,13 +8,10 @@
 
 (def UserId (schema/id-schema "UserId" "usr" examples/UserId))
 
-(def MembershipId (schema/id-schema "MembershipId" "mem" examples/MembershipId))
+(def MemberId (schema/id-schema "MemberId" "mem" examples/MemberId))
 
 (def IdentityProvider
   (coercion/identity-provider-enum-schema {:json-schema/example "google"}))
-
-(def UserStatus
-  (coercion/user-status-enum-schema {:json-schema/example "active"}))
 
 (def Role (coercion/role-enum-schema {:json-schema/example "owner"}))
 
@@ -23,7 +20,7 @@
    {:json-schema/example examples/Me
     :description
     "The signed-in person: their user record, and whether they are an
-    operator. Their memberships are at `/v1/me/memberships`."}
+    operator. Their members are at `/v1/me/members`."}
    [:user-id [:ref "UserId"]]
    [:issuer string?]
    [:sub string?]
@@ -31,11 +28,9 @@
    [:name [:ref "Name"]]
    [:avatar-url {:optional true} string?]
    [:identity-provider [:ref "IdentityProvider"]]
-   [:status [:ref "UserStatus"]]
    [:operator boolean?]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def registry
-  (components-registry [#'UserId #'MembershipId #'IdentityProvider #'UserStatus
-                        #'Role #'Me]))
+  (components-registry [#'UserId #'MemberId #'IdentityProvider #'Role #'Me]))

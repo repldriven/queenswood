@@ -18,7 +18,7 @@
   permits a high daily count, so the leg-shape assertions don't get
   short-circuited by a capability denial or a limit breach."
   []
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities
     [{:effect :effect-allow
       :kind {:internal-payment
@@ -60,4 +60,4 @@
   ([account-id currency account-status]
    {:account-id account-id
     :currency currency
-    :account-status account-status}))
+    :status account-status}))

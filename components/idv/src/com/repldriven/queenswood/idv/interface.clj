@@ -4,7 +4,7 @@
   verification session; opening one publishes a `submit-idv-check`
   command to the IDV-provider adapter, whose `idv-session-opened` event
   makes the session ready with a hand-off for the person. The adapter
-  reports what the provider established as `idv-evidence`, and each
+  reports what the provider established as `idv-evidence-received`, and each
   report is merged into the IDV and decided against the bank's
   policies: rejected, failed, in review, accepted, or still pending.
   In-review is non-terminal, so an acceptance or a rejection may still
@@ -47,8 +47,8 @@
     `:idv-providers`, whose default provider's declaration the session
     is checked against and whose command channel reaches its adapter,
     and `:bus` and `:schemas`.
-  - data: `{:bank-id :party-id :channel :return-url :email}`, the
-    channel `\"web\"` or `\"mobile\"`."
+  - data: `{:bank-id :party-id :channel :return-url :email :actor}`,
+    the channel `\"web\"` or `\"mobile\"` and the actor who opens it."
   [config data]
   (core/open-session config data))
 
@@ -74,14 +74,3 @@
   does not. Arguments as `unmet-criteria`."
   [policies declaration]
   (domain/check-criteria policies declaration))
-
-(defn clear-read-evidence
-  "Clear the names and date of birth a provider read off a document from
-  every stored IDV's evidence, which nothing writes any longer
-  (ADR-0045). Returns how many it cleared — none on a rerun — or an
-  anomaly.
-
-  Args:
-  - config: `{:record-db :record-store}`."
-  [config]
-  (core/clear-read-evidence config))

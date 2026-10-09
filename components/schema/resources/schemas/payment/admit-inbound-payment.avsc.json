@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "AdmitInboundPayment",
+  "namespace": "com.repldriven.queenswood.schema.payment",
+  "fields": [
+    {"name": "end_to_end_id", "type": "string"},
+    {"name": "scheme",        "type": "string"},
+    {"name": "creditor_bban", "type": "string"},
+    {"name": "amount",        "type": "long"},
+    {"name": "currency",      "type": "string"},
+    {"name": "debtor_name",   "type": ["null", "string"], "default": null},
+    {"name": "reference",     "type": ["null", "string"], "default": null}
+  ]
+}

@@ -93,10 +93,10 @@
   provider holds one for it, or will once it opens it, and otherwise the
   bank's own funds."
   [account own-funds]
-  (let [{:keys [account-id provider-account-id account-status]} account]
+  (let [{:keys [account-id provider-account-id status]} account]
     (if (or provider-account-id
             (= account-id own-funds)
-            (= :cash-account-status-opening account-status))
+            (= :cash-account-status-opening status))
       account-id
       own-funds)))
 
@@ -104,24 +104,33 @@
   [posted {:keys [debtor creditor amount]}]
   (let [{:keys [bank-id transaction-id currency]} posted
         now (utility/now)]
-    (utility/assoc-some {:transfer-id (utility/generate-id "ptr")
-                         :bank-id bank-id
+    (utility/assoc-some {:bank-id bank-id
+                         :transfer-id (utility/generate-id "ptr")
+                         :status :payment-provider-transfer-status-pending
                          :transaction-id transaction-id
                          :creditor-account-id creditor
                          :amount amount
                          :currency currency
-                         :status :provider-transfer-status-pending
-                         :created-at now
-                         :updated-at now}
+                         :created-at now}
                         :debtor-account-id
                         debtor)))
 
+(def ^:private outcome-at
+  {:payment-provider-transfer-status-completed :completed-at
+   :payment-provider-transfer-status-failed :failed-at})
+
 (defn transfer-outcome
-  "The transfer as its outcome leaves it, or nil where it is no longer
-  pending."
+  "The transfer as its outcome leaves it, recording when, or nil where it
+  is no longer pending."
   [transfer status reason]
-  (when (= :provider-transfer-status-pending (:status transfer))
-    (utility/assoc-some
-     (assoc transfer :status status :updated-at (utility/now))
-     :failure-reason
-     reason)))
+  (when (= :payment-provider-transfer-status-pending (:status transfer))
+    (let [now (utility/now)]
+      (utility/assoc-some (assoc transfer
+                                 :status
+                                 status
+                                 (outcome-at status)
+                                 now
+                                 :updated-at
+                                 now)
+                          :failed-reason
+                          reason))))

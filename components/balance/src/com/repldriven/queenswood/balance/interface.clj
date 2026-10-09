@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.balance.interface
   "Balance write side: create an account's balance buckets, and apply
   transaction legs to them (with policy-gated capability and limit
-  checks). Buckets are keyed by `(account-id, balance-type, currency,
+  checks). Buckets are keyed by `(account-id, balance-type,
   balance-status)`.
 
   Reads (lookup, listing with posted/available totals, trial-balance)
@@ -20,7 +20,7 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id, which heads each balance's key.
   - data: collection of balance creation maps, each with `:account-id`,
-    `:product-type`, `:balance-type`, `:balance-status`, `:currency`.
+    `:product-type`, `:balance-type`, `:balance-status`.
   - opts (optional): map; `:policies` overrides policy resolution."
   ([txn bank-id data]
    (core/new-balances txn bank-id data))

@@ -5,31 +5,12 @@
 
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.party-query.interface :as q]
-    [com.repldriven.queenswood.person-identification.interface :as person-id]
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
-(defn- create-person
-  [txn data]
-  (store/transact
-   txn
-   (fn [txn]
-     (let [party (domain/new-party data)
-           {:keys [bank-id party-id status]} party
-           pi (person-id/new-person-identification data party-id)]
-       (let-nom>
-         [_ (person-id/save-person-identification txn pi)
-          result (store/save-party
-                  txn
-                  party
-                  {:bank-id bank-id
-                   :party-id party-id
-                   :status-after status})]
-         result)))))
-
-(defn- create-internal
+(defn- create
   [txn data]
   (store/transact
    txn
@@ -81,13 +62,11 @@
       _ (policy/check-capability policies
                                  :party
                                  {:action :party-action-create
-                                  :type (:type data)})]
+                                  :type (:party-type data)})]
      (let [result (or-already-created
                    txn
                    data
-                   (if (= :party-type-person (:type data))
-                     (create-person txn data)
-                     (create-internal txn data)))]
+                   (create txn data))]
        (if (store/uniqueness-violation? result)
          (error/reject :party/external-reference-taken
                        {:message "A party already has this external reference"
@@ -131,7 +110,7 @@
          (let-nom>
            [policies (get-policies txn bank-id opts cache)
             party (q/get-party txn bank-id party-id)
-            updated (f party policies)
+            updated (f party (:actor data) policies)
             result (store/save-party txn
                                      updated
                                      {:bank-id bank-id
@@ -158,7 +137,7 @@
              (cash-accounts/find-accounts-by-party txn bank-id party-id)]
     (boolean
      (some (fn [account]
-             (not= :cash-account-status-closed (:account-status account)))
+             (not= :cash-account-status-closed (:status account)))
            accounts))))
 
 (defn close-party
@@ -174,7 +153,10 @@
             [policies (get-policies txn bank-id opts cache)
              party (q/get-party txn bank-id party-id)
              open-accounts? (has-open-accounts? txn bank-id party-id)
-             updated (domain/close-party party open-accounts? policies)
+             updated (domain/close-party party
+                                         (:actor data)
+                                         open-accounts?
+                                         policies)
              result (store/save-party txn
                                       updated
                                       {:bank-id bank-id
@@ -199,6 +181,7 @@
              open-accounts? (has-open-accounts? txn bank-id party-id)
              updated (domain/merge-party survivor
                                          merged-away
+                                         (:actor data)
                                          open-accounts?
                                          policies)
              result (store/save-party txn
@@ -208,7 +191,3 @@
                                        :status-before (:status merged-away)
                                        :status-after (:status updated)})]
             result)))))))
-
-(defn delete-national-identifiers
-  [config]
-  (store/delete-national-identifiers config))

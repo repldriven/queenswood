@@ -41,9 +41,10 @@
 
   Args:
   - txn: FDB handle or open transaction.
-  - data: party submission map (bank-id, type, display-name, the
-    person's names, an optional external-reference, and on the command
-    path the envelope's `:idempotency-key`).
+  - data: party submission map (bank-id, party-type, display-name, the
+    `:actor` creating it, the person's names, an optional
+    external-reference, and on the command path the envelope's
+    `:idempotency-key`).
   - opts: optional map; `:policies` overrides policy resolution.
 
   Returns the party map or an anomaly."
@@ -60,7 +61,7 @@
 
   Args:
   - txn: FDB transaction or db handle.
-  - data: map with `:bank-id` and `:party-id`.
+  - data: map with `:bank-id`, `:party-id` and the `:actor` acting.
   - opts (optional): map; `:policies` overrides policy resolution
     for the capability check."
   ([txn data]
@@ -77,7 +78,7 @@
 
   Args:
   - txn: FDB transaction or db handle.
-  - data: map with `:bank-id` and `:party-id`.
+  - data: map with `:bank-id`, `:party-id` and the `:actor` acting.
   - opts (optional): map; `:policies` overrides policy resolution
     for the capability check."
   ([txn data]
@@ -94,7 +95,7 @@
 
   Args:
   - txn: FDB transaction or db handle.
-  - data: map with `:bank-id` and `:party-id`.
+  - data: map with `:bank-id`, `:party-id` and the `:actor` acting.
   - opts (optional): map; `:policies` overrides policy resolution
     for the capability check."
   ([txn data]
@@ -114,8 +115,8 @@
 
   Args:
   - txn: FDB transaction or db handle.
-  - data: map with `:bank-id`, `:party-id` (the merged-away party)
-    and `:into-party-id` (the survivor).
+  - data: map with `:bank-id`, `:party-id` (the merged-away party),
+    `:into-party-id` (the survivor) and the `:actor` acting.
   - opts (optional): map; `:policies` overrides policy resolution
     for the capability check."
   ([txn data]
@@ -147,13 +148,3 @@
                               :status-before (:status party)
                               :status-after (:status activated)})]
     saved))
-
-(defn delete-national-identifiers
-  "Delete every stored national identifier, which nothing writes any
-  longer (ADR-0045). Returns how many it deleted — none on a rerun — or
-  an anomaly.
-
-  Args:
-  - config: `{:record-db :record-store}`."
-  [config]
-  (core/delete-national-identifiers config))

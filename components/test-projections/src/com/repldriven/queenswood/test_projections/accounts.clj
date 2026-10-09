@@ -34,7 +34,7 @@
                    {:bank (bank-real->model (:bank-id account))
                     :product (prod-real->model (:product-id account))
                     :party (party-real->model (:party-id account))
-                    :status (normalise-status (:account-status account))}])))
+                    :status (normalise-status (:status account))}])))
          (into {}))))
 
 (defn project-model-accounts

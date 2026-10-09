@@ -19,12 +19,13 @@
   (examples-registry [#'CompanyNotFound #'CompanyRegistryUnavailable]))
 
 (def Company
-  {:company-number "SC998137"
-   :company-name "SIRIUS CYBERNETICS CORPORATION LTD"
-   :company-status "active"
-   :type "ltd"
+  {:registry :uk-companies-house
+   :company-number "SC998137"
+   :name "SIRIUS CYBERNETICS CORPORATION LTD"
+   :status "active"
+   :company-type "ltd"
    :jurisdiction "england-wales"
-   :date-of-creation "2009-02-11"
+   :incorporated-on "2009-02-11"
    :registered-office-address {:address-line-1 "42 Improbability Way"
                                :locality "London"
                                :postal-code "QZ1 9ZX"

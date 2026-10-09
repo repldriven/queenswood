@@ -59,7 +59,7 @@
                           "the installation does not offer is refused with "
                           "422. The response "
                           "carries the bank's client secret, returned only "
-                          "here, the person's owner membership, and with "
+                          "here, the person's owner member, and with "
                           "`owner-email` the owner invitation emailed to that "
                           "address.")
         :requestBody {:required true}

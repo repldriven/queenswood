@@ -27,7 +27,7 @@
         cash (ledger-accounts/find-by-code
               {:record-db record-db :record-store record-store}
               bank-id
-              :gl-account-code-cash-at-correspondent
+              :ledger-account-code-cash-at-correspondent
               currency)]
     ;; The lookup's own rejection travels: a bank with no 1100 in the
     ;; body's currency answers `:gl/missing-currency-account` 409
@@ -70,4 +70,4 @@
             ;; names the one credited.
             (cond-> response
                     (= 200 (:status response))
-                    (assoc-in [:body :account-id] (:account-id house)))))))))
+                    (update :body assoc :account-id (:account-id house)))))))))

@@ -17,8 +17,7 @@
           :as :party-0
           :with {:token [:ref :bank-0 :token]
                  :display-name "Tricia McMillan"
-                 :given-name "Tricia"
-                 :family-name "McMillan"}}
+                 :legal-name "Tricia McMillan"}}
          {:fixture :product :as :draft :with {:token [:ref :bank-0 :token]}}]
  :when
  [{:command :api/request

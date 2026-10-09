@@ -74,8 +74,8 @@
   component/idv-query {:local/root "../../components/idv-query"}
   component/interest {:local/root "../../components/interest"}
   component/ledger-account {:local/root "../../components/ledger-account"}
-  component/membership {:local/root "../../components/membership"}
-  component/membership-query {:local/root "../../components/membership-query"}
+  component/member {:local/root "../../components/member"}
+  component/member-query {:local/root "../../components/member-query"}
   component/onfido-relay {:local/root "../../components/onfido-relay"}
   component/onfido-webhook {:local/root "../../components/onfido-webhook"}
   component/party {:local/root "../../components/party"}
@@ -84,8 +84,6 @@
   component/payment {:local/root "../../components/payment"}
   component/payment-query {:local/root "../../components/payment-query"}
   component/reward-query {:local/root "../../components/reward-query"}
-  component/person-identification {:local/root
-                                   "../../components/person-identification"}
   component/policy {:local/root "../../components/policy"}
   component/resources {:local/root "../../components/resources"}
   component/reward {:local/root "../../components/reward"}

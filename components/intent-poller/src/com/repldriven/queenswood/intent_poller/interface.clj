@@ -17,7 +17,6 @@
   - `:event-type` — the outbox event's record type, its dedup key index
     named `<event-type>_by_dedup_key`.
   - `:event->java`, `:event->pb`, `:intent->java`, `:pb->intent`.
-  - `:pb->event`, optionally, for `clear-payloads`.
   - `:redact`, optionally — a function of an intent's encoded `request`
     returning only what may be kept once the external API no longer
     needs it, applied in the transaction that settles or fails the
@@ -25,8 +24,7 @@
 
   A poller config carries the FDB `:record-db` and `:record-store`, the
   `:schemas` events are serialised with, `:adapter`, the store spec as
-  `:store`, the `:default-operation` of an intent whose `:kind` names
-  none, the `:delivery-policy` its retries, giving up and breaker take
+  `:store`, the `:delivery-policy` its retries, giving up and breaker take
   (ADR-0034), `:poll-ms`, and optionally `:settles-first?` and
   `:concurrency`. Each pass asks the breaker on `adapter:<adapter>`
   first: open, it calls nothing and fails the intents past their maximum
@@ -55,8 +53,8 @@
 
 (defmacro defoperations
   "Register each operation `adapter` carries out, keyed by the `:kind` its
-  intents name. Each value is a map of three functions, and optionally a
-  fourth:
+  intents name, a keyword of the adapter's own intent kind enum. Each
+  value is a map of three functions, and optionally a fourth:
   - `:call` — `(fn [config now intent])`, calls the external API and
     returns `[:answered result]`, `[:refused reason]` or
     `[:retry reason]`, or `[:wait reason]` where it made no call and the
@@ -64,11 +62,13 @@
     its failure to answer are recorded on the adapter's breaker; a wait
     is not.
   - `:answered` — `(fn [config now intent result])`, returns
-    `{:status status :event descriptor}`, the status the intent ends at
-    and the event it reports, or nil for none.
+    `{:status status :event descriptor}`, the
+    `:outbound-intent-status-*` the intent ends at and the event it
+    reports, or nil for none.
   - `:failed` — `(fn [config now intent failure reason])`, the event
     descriptor a failed intent reports, or nil; `failure` is `:refused`
-    or `:undelivered`.
+    or `:undelivered`. An intent it fails keeps `reason` as its
+    `:failure-reason`.
   - `:reconcile` — `(fn [config now intent])`, looks a sent intent up at
     the external API once due, and returns `{:status status :event
     descriptor :changes changes}` as `:answered` does, with `:outcome`,
@@ -79,7 +79,9 @@
   serialised with the config's schema for `:event-name`.
 
   Usage:
-    (defoperations :adapter {\"check\" {:call check :answered checked :failed failed}})"
+    (defoperations :adapter
+                   {:adapter-outbound-intent-kind-check
+                    {:call check :answered checked :failed failed}})"
   [adapter operation-map]
   `(operations/defoperations ~adapter ~operation-map))
 
@@ -145,8 +147,8 @@
   (store/advance txn spec intent-id ctx changes))
 
 (defn finish
-  "Move an intent still at `status` to `outcome`, with `attempts` where
-  given, writing `event` in the same transaction where given and not
+  "Move an intent still at `status` to `outcome`, with `attempt-count`
+  where given, writing `event` in the same transaction where given and not
   already recorded under its dedup key, as a webhook may have. An intent
   that has moved on is returned unchanged with nothing written. A `sent`
   outcome records when it was sent.
@@ -155,10 +157,10 @@
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
   - spec: the store spec.
   - intent-id, status, outcome: the intent and the move.
-  - attempts: the attempt count, or nil to leave it.
+  - attempt-count: the attempt count, or nil to leave it.
   - event: an outbox event, or nil."
-  [txn spec intent-id status outcome attempts event]
-  (store/finish txn spec intent-id status outcome attempts event))
+  [txn spec intent-id status outcome attempt-count event]
+  (store/finish txn spec intent-id status outcome attempt-count event))
 
 ;; ---------------------------------------------------------------------------
 ;; Poller
@@ -202,28 +204,3 @@
   - data: the event's data, before it is serialised."
   [data]
   (core/ordering-key data))
-
-
-(defn redact-done
-  "Apply the store spec's `:redact` to every settled or failed intent
-  whose request it would change. Returns how many it rewrote — none on
-  a rerun, or where the spec has no `:redact` — or an anomaly.
-
-  Args:
-  - config: `{:record-db :record-store}`.
-  - spec: the store spec."
-  [config spec]
-  (store/redact-done config spec))
-
-(defn clear-payloads
-  "Replace the payload of every outbox entry named `event-name` with the
-  bytes of `cleared`. The outbox changelog carries what is relayed, so
-  an entry is read again only through its dedup key. Returns how many it blanked — none on a
-  rerun — or an anomaly.
-
-  Args:
-  - config: `{:record-db :record-store}`.
-  - spec: the store spec, carrying `:pb->event`.
-  - event-name: the outbox event to blank."
-  [config spec event-name]
-  (store/clear-payloads config spec event-name))

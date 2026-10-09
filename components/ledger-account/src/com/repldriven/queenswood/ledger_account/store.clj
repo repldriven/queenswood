@@ -1,6 +1,5 @@
 (ns com.repldriven.queenswood.ledger-account.store
   (:require
-    [com.repldriven.queenswood.balance-query.interface :as balance-query]
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]))
 
@@ -31,7 +30,7 @@
    "Failed to load ledger account"))
 
 (defn find-by-code
-  [txn bank-id gl-account-code currency]
+  [txn bank-id code currency]
   (fdb/transact
    txn
    (fn [txn]
@@ -39,14 +38,14 @@
               (fdb/open txn store-name)
               "LedgerAccount"
               [["bank_id" bank-id]
-               ["gl_account_code"
-                (schema/gl-account-code->pb-enum
-                 gl-account-code)]
+               ["code"
+                (schema/ledger-account-code->pb-enum
+                 code)]
                ["currency" currency]]
-              {:index "LedgerAccount_by_bank_gl_account_code"})
+              {:index "LedgerAccount_by_bank_code"})
              schema/pb->LedgerAccount))
    :ledger-account/find-by-code
-   "Failed to find ledger account by gl-account-code"))
+   "Failed to find ledger account by code"))
 
 (defn cache
   [txn]
@@ -78,11 +77,11 @@
                 "Failed to preload ledger accounts"))
 
 (defn find-by-codes
-  [txn bank-id gl-account-codes currency]
+  [txn bank-id codes currency]
   (fdb/transact
    txn
    (fn [txn]
-     (zipmap gl-account-codes
+     (zipmap codes
              (map (fn [record]
                     (some-> record
                             schema/pb->LedgerAccount))
@@ -91,13 +90,13 @@
                    "LedgerAccount"
                    (mapv (fn [code]
                            [["bank_id" bank-id]
-                            ["gl_account_code"
-                             (schema/gl-account-code->pb-enum code)]
+                            ["code"
+                             (schema/ledger-account-code->pb-enum code)]
                             ["currency" currency]])
-                         gl-account-codes)
-                   {:index "LedgerAccount_by_bank_gl_account_code"}))))
+                         codes)
+                   {:index "LedgerAccount_by_bank_code"}))))
    :ledger-account/find-by-code
-   "Failed to find ledger accounts by gl-account-code"))
+   "Failed to find ledger accounts by code"))
 
 (defn list-by-bank
   [txn bank-id]
@@ -109,22 +108,3 @@
                                        {:prefix [bank-id] :limit 1000}))))
    :ledger-account/list
    "Failed to list ledger accounts"))
-
-(defn list-by-bank-with-balances
-  "The bank's chart paired with each account's balances, in account-id
-  order. One merged scan of the two stores rather than a balance read
-  per account: both are keyed `[bank_id, account_id, ...]`, so the
-  cursors advance in step. A cash account's balances share the bank
-  prefix and pair with no chart row, so they are skipped."
-  [config bank-id]
-  (fdb/merge-scan
-   config
-   {:left {:store store-name :prefix [bank-id] :limit 1000}
-    :right {:store balance-query/store-name :prefix [bank-id] :limit 5000}}
-   (fn [acc {:keys [left right]}]
-     (if-let [record (first left)]
-       (conj acc
-             {:account (schema/pb->LedgerAccount record)
-              :balances (mapv schema/pb->Balance right)})
-       acc))
-   []))

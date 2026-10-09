@@ -56,7 +56,7 @@
     update_job_schedule,
   } from "./api.mjs";
 
-  let { user, memberships } = $props();
+  let { user, myMembers } = $props();
 
   let loading = $state(true);
   let error = $state(null);
@@ -81,7 +81,7 @@
   let saving = $state(false);
   let saveError = $state(null);
 
-  const kicker = $derived(memberships?.[0]?.["bank-name"]);
+  const kicker = $derived(myMembers?.[0]?.["bank-name"]);
   const menuJob = $derived(jobs.find((j) => j.id === menuFor) ?? null);
 
   const draftJob = $derived({
@@ -91,7 +91,7 @@
   });
 
   function nextRun(job) {
-    if (!job.enabled) return null;
+    if (job.status !== "active") return null;
     return job["next-run-at"] ?? nextRunAt(job, now);
   }
 
@@ -110,12 +110,12 @@
       monthlyDay: job["monthly-day"] ?? "first",
       allowedPeriodicities: job["allowed-periodicities"] ?? [job.periodicity],
       runTimeMinutes: job["run-time-minutes"],
-      enabled: job.enabled,
+      enabled: job.status === "active",
       outcome: lastOutcome(latest),
       running: latest?.status === "running",
       latest,
       runs,
-      lastAt: latest?.["started-at"] ?? job["last-run-at"] ?? null,
+      lastAt: latest?.["created-at"] ?? job["last-run-at"] ?? null,
       nextAt: nextRun(job),
     };
   }
@@ -206,7 +206,7 @@
   async function pauseResume(job) {
     busy[job.id] = true;
     try {
-      const res = await update_job_schedule(job.id, { enabled: !job.enabled });
+      const res = await update_job_schedule(job.id, { status: job.enabled ? "paused" : "active" });
       await load();
       if (res.status < 200 || res.status >= 300) {
         error = res.body?.detail ?? `HTTP ${res.status}`;
@@ -410,15 +410,15 @@
                           class="run"
                           class:current={run.status === "running"}
                           role="group"
-                          aria-label="Run started {fmtAbs(run['started-at'])}"
+                          aria-label="Run started {fmtAbs(run['created-at'])}"
                           tabindex="0"
                         >
                           <div class="run-row">
-                            <span class="r-when mono">{fmtAbs(run["started-at"])}</span>
+                            <span class="r-when mono">{fmtAbs(run["created-at"])}</span>
                             <span class="r-dur mono">
                               {run.status === "running"
-                                ? fmtRel(run["started-at"], now)
-                                : (fmtElapsed(run["started-at"], run["finished-at"]) ?? "—")}
+                                ? fmtRel(run["created-at"], now)
+                                : (fmtElapsed(run["created-at"], run["completed-at"] ?? run["failed-at"]) ?? "—")}
                             </span>
                             <span class="r-status">
                               <JobStatusBadge outcome={run.status} />

@@ -24,10 +24,9 @@
    :request {:method :post
              :path "/v1/parties"
              :auth :first-token
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Arthur Dent"
-                    :given-name "Arthur"
-                    :family-name "Dent"}}
+                    :legal-name "Arthur Dent"}}
    :as :first-party
    :assert {:status 201}}
   {:command :api/request
@@ -50,10 +49,9 @@
    :request {:method :post
              :path "/v1/parties"
              :auth :second-token
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Arthur Dent"
-                    :given-name "Arthur"
-                    :family-name "Dent"}}
+                    :legal-name "Arthur Dent"}}
    :as :second-party
    :assert {:status 201}}
   {:command :api/request

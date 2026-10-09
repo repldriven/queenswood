@@ -51,7 +51,11 @@
                                              currency
                                              balances
                                              (get carries account-id 0)
-                                             (:interest-rate-bps version)))]
+                                             (or (get-in version
+                                                         [:interest-terms :steps
+                                                          0
+                                                          :bands 0 :rate-bps])
+                                                 0)))]
                 (cond (error/anomaly? result)
                       (reduced result)
 
@@ -118,6 +122,6 @@
   "Everything a run of this kind does differently from the other."
   {:policy-kind :accrual
    :run-kind :interest-run-kind-accrue
-   :account-kind :interest-account-run-kind-accrue
+   :account-kind :interest-run-kind-accrue
    :chunk-fn accrue-chunk
    :gl-fn chart/accrual-accounts})

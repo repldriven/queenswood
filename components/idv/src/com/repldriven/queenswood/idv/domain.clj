@@ -60,8 +60,7 @@
      :party-id party-id
      :verification-id (utility/generate-id "idv")
      :status :idv-status-pending
-     :created-at now
-     :updated-at now}))
+     :created-at now}))
 
 (defn in-review-idv
   [idv]
@@ -81,7 +80,7 @@
                             #{:idv-status-pending :idv-status-in-review})]
     (assoc idv
            :status :idv-status-accepted
-           :completed-at (utility/now)
+           :accepted-at (utility/now)
            :updated-at (utility/now))))
 
 (defn rejected-idv
@@ -92,18 +91,18 @@
                             #{:idv-status-pending :idv-status-in-review})]
     (assoc idv
            :status :idv-status-rejected
-           :completed-at (utility/now)
+           :rejected-at (utility/now)
            :updated-at (utility/now))))
 
-(defn failed-idv
+(defn cancelled-idv
   [idv]
   (let-nom>
     [_ (guard-source-status idv
-                            "IDV is not in a status that can fail"
+                            "IDV is not in a status that can be cancelled"
                             #{:idv-status-pending :idv-status-in-review})]
     (assoc idv
-           :status :idv-status-failed
-           :completed-at (utility/now)
+           :status :idv-status-cancelled
+           :cancelled-at (utility/now)
            :updated-at (utility/now))))
 
 (def ^:private evidence-sections [:document :liveness :address :screening])
@@ -120,54 +119,54 @@
             (:cancelled reported)
             (assoc :cancelled true))))
 
-(def ^:private outcome->state
-  {:idv-evidence-outcome-passed :idv-criterion-state-established
-   :idv-evidence-outcome-review :idv-criterion-state-review
-   :idv-evidence-outcome-failed :idv-criterion-state-failed})
+(def ^:private outcome->status
+  {:idv-evidence-outcome-passed :idv-criterion-status-established
+   :idv-evidence-outcome-review :idv-criterion-status-review
+   :idv-evidence-outcome-failed :idv-criterion-status-failed})
 
-(def ^:private sanctions->state
-  {:idv-sanctions-outcome-clear :idv-criterion-state-established
-   :idv-sanctions-outcome-possible-match :idv-criterion-state-review
-   :idv-sanctions-outcome-hit :idv-criterion-state-failed})
+(def ^:private sanctions->status
+  {:idv-sanctions-outcome-clear :idv-criterion-status-established
+   :idv-sanctions-outcome-possible-match :idv-criterion-status-review
+   :idv-sanctions-outcome-hit :idv-criterion-status-failed})
 
-(def ^:private name-match->state
-  {:idv-name-match-match :idv-criterion-state-established
-   :idv-name-match-close-match :idv-criterion-state-review
-   :idv-name-match-no-match :idv-criterion-state-failed})
+(def ^:private name-match->status
+  {:idv-name-match-match :idv-criterion-status-established
+   :idv-name-match-close-match :idv-criterion-status-review
+   :idv-name-match-no-match :idv-criterion-status-failed})
 
 (defn- settle
   [evidence criterion]
   (let [{:keys [document liveness address screening]} evidence]
     (or (case (or (:verification criterion) (:screening criterion))
           :idv-verification-identity
-          (outcome->state (:outcome document))
+          (outcome->status (:outcome document))
 
           :idv-verification-liveness
-          (outcome->state (:outcome liveness))
+          (outcome->status (:outcome liveness))
 
           :idv-verification-claimed-identity
-          (name-match->state (:name-match document))
+          (name-match->status (:name-match document))
 
           :idv-verification-address
-          (outcome->state (:outcome address))
+          (outcome->status (:outcome address))
 
           :idv-screening-sanctions
-          (sanctions->state (:sanctions screening))
+          (sanctions->status (:sanctions screening))
 
           :idv-screening-pep
           (when screening
             (if (:pep screening)
-              :idv-criterion-state-review
-              :idv-criterion-state-established)))
-        :idv-criterion-state-outstanding)))
+              :idv-criterion-status-review
+              :idv-criterion-status-established)))
+        :idv-criterion-status-outstanding)))
 
 (defn- accepted?
   [policies criteria]
   (let [outstanding (filter (fn [c]
-                              (= :idv-criterion-state-outstanding (:state c)))
+                              (= :idv-criterion-status-outstanding (:status c)))
                             criteria)
         requests (if (seq outstanding)
-                   (map (fn [c] (idv-query/accept-request (dissoc c :state)))
+                   (map (fn [c] (idv-query/accept-request (dissoc c :status)))
                         outstanding)
                    [(idv-query/accept-request {})])]
     (every? (fn [request]
@@ -179,19 +178,19 @@
   (let [{:keys [evidence]} idv
         criteria (mapv (fn [criterion]
                          (assoc criterion
-                                :state
+                                :status
                                 (settle evidence criterion)))
                        idv-query/criteria)
-        states (set (map :state criteria))]
+        statuses (set (map :status criteria))]
     {:criteria criteria
      :status (cond
-              (contains? states :idv-criterion-state-failed)
+              (contains? statuses :idv-criterion-status-failed)
               :idv-status-rejected
 
               (:cancelled evidence)
-              :idv-status-failed
+              :idv-status-cancelled
 
-              (contains? states :idv-criterion-state-review)
+              (contains? statuses :idv-criterion-status-review)
               :idv-status-in-review
 
               (accepted? policies criteria)
@@ -204,7 +203,7 @@
   {:idv-status-in-review in-review-idv
    :idv-status-accepted accepted-idv
    :idv-status-rejected rejected-idv
-   :idv-status-failed failed-idv})
+   :idv-status-cancelled cancelled-idv})
 
 (defn apply-evidence
   [idv reported policies]
@@ -255,18 +254,18 @@
 (defn new-session
   [idv data]
   (let [{:keys [bank-id verification-id party-id]} idv
-        {:keys [channel return-url]} data
+        {:keys [channel return-url actor]} data
         now (utility/now)]
     {:bank-id bank-id
      :session-id (utility/generate-id "ses")
      :verification-id verification-id
      :party-id party-id
+     :status :idv-session-status-opening
      :channel (channels channel)
      :return-url return-url
-     :status :idv-session-status-opening
-     :opened-day (utility/today)
+     :opened-on (utility/today)
      :created-at now
-     :updated-at now}))
+     :created-by actor}))
 
 (defn ready-session
   [session url expires-at]
@@ -276,7 +275,7 @@
                    (select-keys (:hand-off session) [:url :expires-at])))
     (assoc session
            :status :idv-session-status-ready
-           :hand-off {:type :idv-hand-off-type-url
+           :hand-off {:kind :idv-hand-off-kind-url
                       :url url
                       :expires-at expires-at}
            :updated-at (utility/now))))

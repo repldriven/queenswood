@@ -9,18 +9,11 @@
 (def LedgerAccountId
   (schema/id-schema "LedgerAccountId" "led" examples/LedgerAccountId))
 
-(def GlAccountType
-  (coercion/gl-account-type-enum-schema {:json-schema/example "liability"}))
+(def LedgerAccountClass
+  (coercion/account-class-enum-schema {:json-schema/example "liability"}))
 
-(def GlAccountClass
-  (coercion/gl-account-class-enum-schema {:json-schema/example "control"}))
-
-(def Required
-  (coercion/required-enum-schema {:json-schema/example "mandatory"}))
-
-(def SubLedgerKind
-  (coercion/sub-ledger-kind-enum-schema {:json-schema/example
-                                         "cash-account-current"}))
+(def LedgerAccountType
+  (coercion/account-type-enum-schema {:json-schema/example "control"}))
 
 (def LedgerAccountStatus
   (coercion/ledger-account-status-enum-schema {:json-schema/example "open"}))
@@ -28,19 +21,17 @@
 (def LedgerAccount
   [:map {:json-schema/example examples/LedgerAccount}
    [:bank-id [:ref "BankId"]]
-   [:account-id [:ref "LedgerAccountId"]]
-   [:gl-code string?]
+   [:ledger-account-id [:ref "LedgerAccountId"]]
+   [:code string?]
    [:name [:ref "Name"]]
    [:currency [:ref "CurrencyCode"]]
-   [:gl-account-type [:ref "GlAccountType"]]
-   [:gl-account-class [:ref "GlAccountClass"]]
-   [:required [:ref "Required"]]
-   [:sub-ledger-kind {:optional true} [:ref "SubLedgerKind"]]
+   [:account-class [:ref "LedgerAccountClass"]]
+   [:account-type [:ref "LedgerAccountType"]]
    [:status [:ref "LedgerAccountStatus"]]
    ;; Present on the list (derived server-side); absent on the single-get.
    [:posted-balance {:optional true} [:ref "SignedAmount"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def TrialBalanceEntry
   "One currency's trial balance — total debits against total credits
@@ -62,11 +53,10 @@
    [:account-id [:ref "LedgerAccountId"]]
    [:balance-type [:ref "BalanceType"]]
    [:balance-status [:ref "BalanceStatus"]]
-   [:currency [:ref "CurrencyCode"]]
    [:credit nat-int?]
    [:debit nat-int?]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def LedgerBalanceList
   [:map
@@ -75,7 +65,7 @@
    [:available-balance [:ref "SignedAmount"]]])
 
 (def registry
-  (components-registry [#'LedgerAccountId #'GlAccountType #'GlAccountClass
-                        #'Required #'SubLedgerKind #'LedgerAccountStatus
+  (components-registry [#'LedgerAccountId #'LedgerAccountClass
+                        #'LedgerAccountType #'LedgerAccountStatus
                         #'LedgerAccount #'TrialBalanceEntry #'LedgerAccountList
                         #'LedgerBalance #'LedgerBalanceList]))

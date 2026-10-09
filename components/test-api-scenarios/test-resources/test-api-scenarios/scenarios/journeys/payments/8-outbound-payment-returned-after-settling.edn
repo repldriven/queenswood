@@ -23,7 +23,7 @@
                     :creditor-name "Marvin"
                     :currency "GBP"
                     :amount 4200
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Sent back"}}
    :as :payment
    :assert {:status 201}}
@@ -32,7 +32,7 @@
              :path "/v1/payments/outbound/{payment-id}"
              :path-params {:payment-id [:ref :payment :payment-id]}
              :auth [:ref :bank-0 :token]}
-   :until {:status 200 :body {:payment-status "completed"}}}
+   :until {:status 200 :body {:status "completed"}}}
   ;; The beneficiary's bank cannot apply it.
   {:command :api/request
    :request {:method :post
@@ -48,7 +48,7 @@
              :path-params {:payment-id [:ref :payment :payment-id]}
              :auth [:ref :bank-0 :token]}
    :until {:status 200
-           :body {:payment-status "returned" :return {:reason-code "AC01"}}}}
+           :body {:status "returned" :returned-reason-code "AC01"}}}
   ;; The amount is credited back.
   {:command :api/poll
    :request {:method :get

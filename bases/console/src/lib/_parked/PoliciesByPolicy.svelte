@@ -26,7 +26,7 @@
   import { list_my_policies } from "../api.mjs";
   import { adaptPolicies } from "../policy-adapter.mjs";
 
-  let { user, memberships } = $props();
+  let { user, members } = $props();
 
   let loading = $state(true);
   let error = $state(null);
@@ -36,7 +36,7 @@
   let query = $state("");
   let showUngoverned = $state(false);
 
-  const kicker = $derived(memberships?.[0]?.["bank-name"]);
+  const kicker = $derived(members?.[0]?.["bank-name"]);
   const policy = $derived(policies[selected] ?? null);
 
   function categoryTone(category) {

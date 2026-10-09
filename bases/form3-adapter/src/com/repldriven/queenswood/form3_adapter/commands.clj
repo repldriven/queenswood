@@ -7,6 +7,7 @@
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.processor.interface :as processor]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- save-intent
@@ -14,8 +15,8 @@
   (let [res (relay/save-intent (select-keys config [:record-store :record-db])
                                (assoc intent
                                       :intent-id (str (utility/uuidv7))
-                                      :status "pending"
-                                      :attempts 0
+                                      :status :outbound-intent-status-pending
+                                      :attempt-count 0
                                       :created-at (utility/now)))]
     (if (or (not (error/anomaly? res)) (relay/uniqueness-violation? res))
       {:status "ACCEPTED"}
@@ -34,8 +35,8 @@
   (let [{:keys [end-to-end-id debtor-bban creditor-bban creditor-name amount
                 currency reference]}
         data]
-    {:dedup-key end-to-end-id
-     :kind "payment"
+    {:idempotency-key end-to-end-id
+     :kind :form3-outbound-intent-kind-payment
      :provider-payment-id (str (utility/uuidv7))
      :request (json/write-str
                (utility/assoc-some
@@ -48,60 +49,60 @@
                  :beneficiary_party (party creditor-bban creditor-name)}
                 :reference
                 (not-empty reference)))
-     :context (pr-str {:amount amount
-                       :currency currency
-                       :submission-id (str (utility/uuidv7))})}))
+     :context (transit/write-str {:amount amount
+                                  :currency currency
+                                  :submission-id (str (utility/uuidv7))})}))
 
 (defn- return-intent
   [data]
   (let [{:keys [payment-id end-to-end-id scheme-transaction-id amount currency
                 reason-code reason]}
         data]
-    {:dedup-key (str "return:" payment-id)
-     :kind "return"
+    {:idempotency-key (str "return:" payment-id)
+     :kind :form3-outbound-intent-kind-return
      :provider-payment-id scheme-transaction-id
      :request (json/write-str {:amount (relay/->major-units amount)
                                :currency currency
                                :return_code reason-code})
-     :context (pr-str {:return-id (str (utility/uuidv7))
-                       :submission-id (str (utility/uuidv7))
-                       :end-to-end-id end-to-end-id
-                       :amount amount
-                       :currency currency
-                       :reason-code reason-code
-                       :reason reason})}))
+     :context (transit/write-str {:return-id (str (utility/uuidv7))
+                                  :submission-id (str (utility/uuidv7))
+                                  :end-to-end-id end-to-end-id
+                                  :amount amount
+                                  :currency currency
+                                  :reason-code reason-code
+                                  :reason reason})}))
 
 (defn- open-intent
   [data]
   (let [{:keys [bank-id account-id holder-name currency]} data]
-    {:dedup-key (str "open:" account-id)
-     :kind "open-account"
+    {:idempotency-key (str "open:" account-id)
+     :kind :form3-outbound-intent-kind-open-account
      :request "{}"
-     :context (pr-str {:bank-id bank-id
-                       :account-id account-id
-                       :holder-name holder-name
-                       :currency currency})}))
+     :context (transit/write-str {:bank-id bank-id
+                                  :account-id account-id
+                                  :holder-name holder-name
+                                  :currency currency})}))
 
 (defn- close-intent
   [data]
   (let [{:keys [bank-id account-id provider-account-id]} data]
-    {:dedup-key (str "close:" account-id)
-     :kind "close-account"
+    {:idempotency-key (str "close:" account-id)
+     :kind :form3-outbound-intent-kind-close-account
      :request "{}"
-     :context (pr-str {:bank-id bank-id
-                       :account-id account-id
-                       :provider-account-id provider-account-id})}))
+     :context (transit/write-str {:bank-id bank-id
+                                  :account-id account-id
+                                  :provider-account-id provider-account-id})}))
 
 (defn- reissue-intent
   [data]
   (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
-    {:dedup-key (str "reissue:" account-id ":" rotation-key)
-     :kind "reissue-address"
+    {:idempotency-key (str "reissue:" account-id ":" rotation-key)
+     :kind :form3-outbound-intent-kind-reissue-address
      :request "{}"
-     :context (pr-str {:bank-id bank-id
-                       :account-id account-id
-                       :provider-account-id provider-account-id
-                       :rotation-key rotation-key})}))
+     :context (transit/write-str {:bank-id bank-id
+                                  :account-id account-id
+                                  :provider-account-id provider-account-id
+                                  :rotation-key rotation-key})}))
 
 (defn- subjects
   [data]

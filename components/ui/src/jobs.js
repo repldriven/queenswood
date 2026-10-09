@@ -1,6 +1,6 @@
 // Scheduler view-model helpers — pure, presentation-only. The wire
 // shape is the bank-api `/v1/jobs` Job: { periodicity, run-time-minutes,
-// enabled, last-run-at, next-run-at, ... } where run-time-minutes is
+// status, last-run-at, next-run-at, ... } where run-time-minutes is
 // minutes past midnight (UTC) and periodicity is daily/monthly/yearly.
 // The backend fixes the day for non-daily cadences (monthly → the 1st,
 // yearly → 1 Jan), so the phrasing and cron below mirror that, not a
@@ -163,7 +163,7 @@ export function fmtRel(targetMs, nowMs) {
 // The badge state for a job: `running` while a run is in progress, else
 // the latest run's outcome, else `scheduled` (never run yet). `run` is
 // the newest run from `/v1/jobs/{id}/runs` (status one of
-// running/succeeded/failed), or null when there are none.
+// running/completed/failed), or null when there are none.
 export function lastOutcome(run) {
   if (!run) return "scheduled";
   if (run.status === "running") return "running";
@@ -194,7 +194,7 @@ export function pipelineSteps(taskKinds, run) {
 }
 
 const TASK_STATUS = {
-  succeeded: "ok",
+  completed: "ok",
   failed: "failed",
   running: "running",
   skipped: "skipped",
@@ -207,8 +207,8 @@ function taskDetail(task) {
   if (task.status === "skipped") return "never ran";
   if (task.status === "running") return "running…";
   const parts = [];
-  if (task["records-processed"] != null) {
-    parts.push(`${Number(task["records-processed"]).toLocaleString()} processed`);
+  if (task["processed-count"] != null) {
+    parts.push(`${Number(task["processed-count"]).toLocaleString()} processed`);
   }
   const elapsed = fmtElapsed(task["started-at"], task["finished-at"]);
   if (elapsed) parts.push(elapsed);
@@ -225,14 +225,14 @@ function taskDetail(task) {
 // an operator needs to see when everything else says the run was fine.
 export function runPipelineSteps(run) {
   return (run?.tasks ?? []).map((task) => {
-    const failed = task["records-failed"] ?? 0;
+    const failed = task["failed-count"] ?? 0;
     const step = {
       name: task.label,
       status: TASK_STATUS[task.status] ?? "pending",
       detail: taskDetail(task),
     };
     if (failed > 0) step.alert = `${Number(failed).toLocaleString()} failed`;
-    if (task.error) step.alert = task.error;
+    if (task["failure-reason"]) step.alert = task["failure-reason"];
     return step;
   });
 }

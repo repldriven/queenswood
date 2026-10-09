@@ -79,43 +79,35 @@
    :creditor-name "Arthur Dent"
    :currency "GBP"
    :amount 500
-   :scheme "fps"
+   :scheme-type "fps"
    :reference "Invoice 123"})
 
 (def OutboundPayment
   {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4s6"
    :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :scheme "fps"
+   :status :pending
+   :scheme-type "fps"
    :debtor-account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
    :creditor-bban "04000412345678"
    :creditor-name "Arthur Dent"
    :currency "GBP"
    :amount 500
-   :payment-status :pending
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
    :reference "Invoice 123"
    :business-day "2025-01-01"
    :created-at "2025-01-01T00:00:00Z"
    :updated-at "2025-01-01T00:00:00Z"})
 
-(def OutboundPaymentFailure
-  {:kind "declined"
-   :reason-code "AC04"
-   :reason "The beneficiary's account is closed"})
-
-(def OutboundPaymentReturn
-  {:reason-code "AC04" :reason "The beneficiary's account is closed"})
-
 (def InboundPayment
   {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4t0"
    :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :scheme "fps"
+   :status "settled"
+   :scheme-type "fps"
    :scheme-transaction-id "8f3e2a1c-6b4d-4e7f-9a2b-1c3d5e7f9a0b"
    :end-to-end-id "E2E-20250101-0001"
    :creditor-account-id "acc.01kprbmgcj35ptc8npmybhh4s9"
    :currency "GBP"
    :amount 2500
-   :payment-status "settled"
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4t1"
    :debtor-name "Ford Prefect"
    :reference "Rent"
@@ -134,7 +126,7 @@
                      :scheme-transaction-id
                      "3c9d7b2e-1a4f-4c6d-8e0b-2f4a6c8e0d1b"
                      :end-to-end-id "E2E-20250101-0002"
-                     :payment-status "suspended"
+                     :status "suspended"
                      :transaction-id "txn.01kprbmgcj35ptc8npmybhh4t3"))})
 
 (def HeldInboundPayment
@@ -145,12 +137,12 @@
                      :scheme-transaction-id
                      "held-01943b6e-7a2c-7f3d-9c1e-5b2a4d6e8f10"
                      :end-to-end-id "E2E-20250101-0003"
-                     :payment-status "held"))})
+                     :status "held"))})
 
 (def ReturnedInboundPayment
   {:summary "Declined while held and returned to the remitter"
    :value (assoc (:value HeldInboundPayment)
-                 :payment-status "returned"
+                 :status "returned"
                  :updated-at "2025-01-01T00:05:00Z")})
 
 (def InboundPaymentList

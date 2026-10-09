@@ -51,7 +51,7 @@
              :path "/v1/me/invitations/{invitation-id}/accept"
              :path-params {:invitation-id [:ref :invitation :invitation-id]}
              :auth :founder-token}
-   :as :founder-membership
+   :as :founder-member
    :assert {:status 201 :body {:role "owner"}}}]
  :then
  [{:command :api/request
@@ -65,7 +65,7 @@
     :body
     {:items [{:kind "invitation-accepted"
               :actor {:kind "member"
-                      :principal-id [:ref :founder-membership :user-id]}}
+                      :principal-id [:ref :founder-member :user-id]}}
              {:kind "invitation-created"
               :actor {:kind "operator"
                       :principal-id [:ref :ops-me :user-id]

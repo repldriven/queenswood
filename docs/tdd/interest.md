@@ -130,9 +130,9 @@ Interest uses two balance-type buckets on the customer:
 
 Both are sums of the account's legs. The sub-minor-unit
 remainder between days is not a balance: it is the sum of the
-`carry_change` on the account's accrual `InterestAccountRun`
+`carry_delta` on the account's accrual `InterestAccountRun`
 rows, read from
-`InterestAccountRun_sum_carry_change_by_bank_kind_account`.
+`InterestAccountRun_sum_carry_delta_by_bank_kind_account`.
 
 The bank's side lives in the chart of accounts: 5100 interest
 expense, the sum of its own legs as 1100 is, 2400 interest
@@ -268,7 +268,7 @@ sequenceDiagram
     R->>DB: read the job's SchedulerRuns
     R->>DB: save the SchedulerRun, running
     end
-    Note over R: refused :scheduler/period-already-run<br/>where a run of the period is running or succeeded
+    Note over R: refused :scheduler/period-already-run<br/>where a run of the period is running or completed
     Note over R: accrue runs first, then capitalize
     critical transact
     R->>DB: read the bank's LedgerAccounts, resolving the chart per currency
@@ -315,7 +315,7 @@ sequenceDiagram
     R->>DB: save the SchedulerRun's progress, capitalize finished
     end
     critical transact
-    R->>DB: save the SchedulerRun, succeeded
+    R->>DB: save the SchedulerRun, completed
     end
     critical transact
     R->>DB: save the SchedulerJob, its last and next run
@@ -353,7 +353,7 @@ sequenceDiagram
     R->>DB: write transaction-posted to the bank's activity log
     end
     loop each remaining account
-    R->>DB: save its InterestAccountRun, DONE, with its carry change
+    R->>DB: save its InterestAccountRun, DONE, with its carry delta
     end
     end
 ```
@@ -402,7 +402,9 @@ deposit control, summed from the default ones, rises.
 `capitalize-accrued` is **not constrained to any cadence**. It
 sweeps accrued interest into default whenever it is called. The
 operator (or whoever schedules the run) chooses the cadence,
-and the choice has real customer-facing consequences.
+and the choice has real customer-facing consequences. Once a
+version's interest terms land, the version chooses it for each
+account; see "A version's interest terms".
 
 The compounding behaviour falls out of the cadence:
 
@@ -564,6 +566,125 @@ two accounts in different chunks while a run is between them; then the
 run's date. The scheduler's two limitations on a late day and on a
 run before the day ends go when it lands.
 
+### A version's interest terms
+
+Not built yet. A version states its rate as a schedule of steps, each
+a set of balance bands, and says when interest is paid, as
+[cash-account-products](cash-account-products.md#interest-terms) lays
+out. This section is how the passes read the terms, and the order to
+build it in.
+
+**A day's rate is a step's bands.** The pass takes the step in force on
+the business day and splits the principal across its bands, summing
+each part times its rate, where a whole-balance step has one part, the
+whole principal at its band's rate:
+
+```clojure
+(let [days         (year-days day-count business-day) ; 365, or 366
+      annual-micro (reduce + (map (fn [{:keys [portion rate-bps]}]
+                                    (* portion rate-bps bps-factor))
+                                  (band-portions banding principal bands)))
+      total-micro  (+ annual-micro (* credit-carry days))
+      daily-micro  (quot total-micro days)]
+  ...)
+```
+
+The carry is a day's residue whatever the year's length, so dividing by
+366 on a leap-year day keeps it exact. The remainder is unchanged, and
+a flat rate at actual/365, one step of one band, computes what it does
+today.
+
+**A principal at or below zero accrues nothing.** The bands start at
+zero, so no band covers an overdrawn balance, and the account is left
+out of the chunk as one at a zero rate is. The charge an overdrawn
+principal accrues today goes with it.
+
+**The account carries the day it came onto its version.** `version_from_on`,
+an epoch day on `CashAccount`, is written with `version_id`: when the
+account opens and when a migration moves it. A relative step counts
+from it, and so does a payment on the account's own day, so a migration
+starts a relative schedule afresh. Interest accrued before a migration
+stays in the bucket and is paid on the new version's schedule.
+
+**Capitalisation reads only the accounts due.** An `InterestAccount`
+record per account, in a store of the `interest` brick's own, holds the
+account's version, its `version_from_on` and its `next_payment_on`, indexed by
+`[bank_id, next_payment_on, account_id]`. The brick writes it from the
+cash-accounts changelog, in an event processor of its own, when an
+account opens and when a migration moves it, as
+[ADR-0021](../adr/0021-changelog-relay.md) has a brick react to another's
+records rather than read them. Capitalisation scans that index for
+`next_payment_on` on or before the business day instead of streaming
+every account, sweeps each, and advances `next_payment_on` in the
+chunk's transaction. A day the job missed is paid by the next run, so
+capitalisation no longer needs a run every day. An account paid daily
+is due every day, and one paid at close, or on a version with no terms,
+has no `next_payment_on` and is never read. The sweep's reference names
+the frequency rather than saying monthly whatever the cadence.
+
+**Closing pays what has accrued first.** Closing refuses an account
+with any balance, `:cash-account/non-zero-on-close`, and under any
+payment but daily the interest-accrued bucket holds what is not yet
+paid, under one paid at close all of it. `interest/pay-accrued` sweeps
+one account's bucket at once, as capitalisation does, keyed
+`pay-accrued-<account-id>-<as-of-date>`, and the API takes it as
+`POST /v1/cash-accounts/{account-id}/interest-payments`. A tenant pays
+the accrued interest, moves the balance out and closes the account; a
+second call that day finds the bucket empty and pays nothing, and the
+carry, under a minor unit, is forfeited at close.
+
+**A fixed-term account matures.** A version with a `term_months`, as
+[cash-account-products](cash-account-products.md#term) lays out, is
+opened with a `payout_account_id` on `CashAccount`: an opened account
+of the same party, bank and currency whose own version has no term,
+which `cash-account` checks at opening, refusing
+`:cash-account/payout-account-required` where the version has a term
+and none is named, and `:cash-account/invalid-payout-account` where the
+one named does not qualify. `InterestAccount` carries `matures_on`,
+`version_from_on` plus the term's months, a day the month lacks moving to its
+last, indexed by `[bank_id, matures_on, account_id]`. The account
+accrues nothing on or after it.
+
+**Maturity never waits on the payout account.** The `daily-interest`
+job runs a third pass, after capitalisation, reading the `matures_on`
+index for days on or before the business day, and takes each account
+through two steps, each in one transaction:
+
+- **Matured.** It pays the accrued interest, as `pay-accrued` does, and
+  calls `cash-account/mature-account`, which takes the account from
+  opened to a new `matured` status: it accrues nothing, refuses
+  credits and allows debits. A suspended account is left until it is
+  resumed, and accrues nothing meanwhile.
+- **Paid out.** Where the account has no pending amount and its payout
+  account is still opened, it records a transaction of type `maturity`
+  moving the whole default balance to the payout account's, writing
+  `transaction-posted` to the bank's activity log as every posting
+  does, so a provider holding balances per account moves the money
+  too, and takes the account from matured to closing; the close then
+  finishes as any other does.
+
+Where the second step cannot run, because a payment is in flight or
+the payout account has closed or been suspended since the account
+opened, the account stays matured, its `InterestAccount` recording why
+as its `last_error`, and the pass reads it again the next day. The money
+is never sent anywhere the customer did not name: the tenant names
+another payout account with
+`PUT /v1/cash-accounts/{account-id}/payout-account`, and the next run
+pays out, or the customer moves the balance out and the tenant closes
+the account from matured, as from opened. `matured` is a lifecycle
+state, so it takes the ten points of
+[lifecycle-transitions](../recipes/code/lifecycle-transitions.md).
+
+First, the terms on the version, with their validation and API, every
+existing caller passing a flat rate paid daily; then `version_from_on`, in
+the cash-accounts pass of the clean-slate schema reset; then steps and
+bands in accrual, with the model's accrual beside it; then the
+`InterestAccount` record, its event processor and capitalisation from
+its index, with the model's payment days; then `pay-accrued` and its
+route; then the term, the payout account and the maturity pass; and
+last the console's product drawer and the migration preview, which
+compares two schedules rather than two rates.
+
 ## Alternatives Considered
 
 - **Floating-point arithmetic.** Compute interest in doubles
@@ -640,19 +761,14 @@ run before the day ends go when it lands.
   between accounts in different chunks during a run is earned on twice
   or not at all; see "Reading balances at the cut-off".
 - **Single day-count convention (actual/365).** Other
-  conventions (actual/360, 30/360) aren't supported. Most
-  retail UK products use actual/365, so this is fine for
-  the current product set, but new products may need
-  configurable day-count.
-- **Single-currency at the rate level.** The product carries
-  one `:interest-rate-bps`. Multi-currency products that
-  earn different rates per currency would need rate-per-
-  currency on the product version.
-- **No mid-period rate changes.** A rate change between
-  product-version applies to all accruals against that
-  version, not to a "rate effective from date X" within a
-  version. Rate changes happen at version boundary; the
-  account's `:version-id` records which version was active.
+  conventions (actual/360, 30/360) aren't supported. A
+  version's interest terms add actual/actual, dividing by
+  366 in a leap year, which some UK providers state; nothing
+  is planned for the others.
+- **One flat rate per version.** A version carries one
+  `:interest-rate-bps`, so a tiered rate, a bonus period or a
+  change on a date is a new version and a migration. See "A
+  version's interest terms".
 - **Interest is simple, not compounding within a period.**
   The accrued bucket does not itself earn interest — the
   principal is the available balance, which the accrued
@@ -667,9 +783,33 @@ run before the day ends go when it lands.
   sequences.
 - **Accrual and capitalisation share one cadence.** They are
   separate tasks, run one after the other by the seeded
-  `daily-interest` job, which allows a daily cadence only. A
-  capitalisation cadence of the operator's choosing waits on
-  each task taking a cadence of its own.
+  `daily-interest` job, which allows a daily cadence only,
+  until a version's payment terms decide which accounts a
+  day's capitalisation pays.
+- **Interest is paid into the account itself.** A version's
+  terms cannot send it to a nominated account, which fixed-rate
+  bonds and monthly-income savings commonly do and some require.
+- **Payment days are calendar days.** Nothing holds a
+  calendar of UK bank holidays, so a payment on the first or
+  last working day, or moved to the next working day, cannot be
+  stated; the scheduler's days are UTC days.
+- **A rate cannot follow a reference rate.** A rate tracking
+  Bank Rate, or a bonus as a margin over a variable rate, is a
+  new version each time the reference moves, and a migration to
+  move the accounts on it.
+- **A rate cannot depend on what the customer does.** A rate
+  that drops in a month with more than so many withdrawals, or
+  holds only while so much is paid in each month, needs a
+  condition the terms do not carry, the same question the
+  rewards brief asks of a reward; see
+  [product-terms](../plan/product-terms.md).
+- **A relative schedule counts from the pin, not the first
+  deposit.** Notice accounts that pay on the anniversary of the
+  first deposit cannot say so.
+- **A matured balance stays at the bank.** The payout account is
+  the same customer's account at the same bank; a nominated account
+  elsewhere, and a choice to renew into a new term, are not
+  offered.
 - **No reversal helper.** A wrongly-accrued day or a
   wrongly-capitalised period requires a manual reversing
   transaction. The patterns are simple but not packaged.
@@ -678,8 +818,8 @@ run before the day ends go when it lands.
   finished, and written closed — which is what lets a crashed
   run retry without tripping the daily-count limit, but means
   an in-flight run has no record and `run-progress` reports a
-  nil run state throughout. The state exists in the enum and
-  nothing writes it.
+  nil run status throughout. `RUNNING` exists in
+  `InterestRunStatus` and nothing writes it.
 - **A missing accrued bucket is logged, not enforced.** Every
   product type the pass admits declares the bucket, and
   `balance-products` is copied from a seeded template rather

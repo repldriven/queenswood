@@ -39,7 +39,7 @@ failed count.
 
 ### 1. The type and the task kind, in the schema
 
-- [ ] `components/schema/resources/schemas/transactions/transaction.proto`:
+- [ ] `components/schema/resources/schemas/transaction/transaction.proto`:
       `TRANSACTION_TYPE_REWARD = 7`.
 - [ ] `components/schema/resources/schemas/scheduler/scheduler-job.proto`:
       `SCHEDULER_TASK_KIND_REWARD = 4`.

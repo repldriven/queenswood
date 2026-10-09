@@ -24,24 +24,24 @@
                  :record-store (system/instance sys [:fdb :store])}
          destination "adapter:test"]
      (testing "a destination with no record is closed and has none"
-       (nom-test> [decision (SUT/allow config policy destination 0 "r1")
+       (nom-test> [decision (SUT/allow config policy destination 0)
                    _ (is (= :closed decision))
                    b (SUT/breaker config destination)
                    _ (is (nil? b))]))
      (testing "failures to the threshold open it, held in the store"
        (nom-test> [_ (SUT/record config policy destination :failed 10)
                    b (SUT/record config policy destination :failed 20)
-                   _ (is (= "open" (:state b)))
-                   decision (SUT/allow config policy destination 500 "r1")
+                   _ (is (= :circuit-breaker-status-open (:status b)))
+                   decision (SUT/allow config policy destination 500)
                    _ (is (= :open decision))]))
-     (testing "past the cool-down one of two claimants probes"
-       (nom-test> [first-claim (SUT/allow config policy destination 1020 "r1")
-                   second-claim (SUT/allow config policy destination 1021 "r2")
+     (testing "past the cool-down one of two callers probes"
+       (nom-test> [first-claim (SUT/allow config policy destination 1020)
+                   second-claim (SUT/allow config policy destination 1021)
                    _ (is (= [:probe :open] [first-claim second-claim]))]))
      (testing "the probe's answer closes it"
        (nom-test> [b (SUT/record config policy destination :answered 1100)
-                   _ (is (= "closed" (:state b)))
-                   _ (is (= 0 (:consecutive-failures b)))])))))
+                   _ (is (= :circuit-breaker-status-closed (:status b)))
+                   _ (is (= 0 (:failure-count b)))])))))
 
 (deftest guard-test
   (with-test-system
@@ -59,7 +59,8 @@
      (testing "failed calls to the threshold open it"
        (SUT/guard config policy destination outcome-of (call :down))
        (SUT/guard config policy destination outcome-of (call :down))
-       (is (= "open" (:state (SUT/breaker config destination)))))
+       (is (= :circuit-breaker-status-open
+              (:status (SUT/breaker config destination)))))
      (testing "an open breaker answers at once, without calling"
        (let [res (SUT/guard config policy destination outcome-of (call :up))]
          (is (= :circuit-breaker/open (error/kind res)))
@@ -70,7 +71,7 @@
   (loop [n 0]
     (let [b (SUT/breaker config destination)]
       (cond
-       (= state (:state b))
+       (= state (:status b))
        true
 
        (< n 200)
@@ -95,10 +96,10 @@
                           :outcome-of (fn [res]
                                         (if (= :down res) :failed :answered))
                           :interval-ms (constantly 20)})]
-     (try (testing "a destination that does not answer its probe opens"
-            (is (await-state config destination "open")))
-          (testing
-            "once it answers, the next probe past the cool-down closes it"
-            (reset! answer :up)
-            (is (await-state config destination "closed")))
-          (finally (stop))))))
+     (try
+       (testing "a destination that does not answer its probe opens"
+         (is (await-state config destination :circuit-breaker-status-open)))
+       (testing "once it answers, the next probe past the cool-down closes it"
+         (reset! answer :up)
+         (is (await-state config destination :circuit-breaker-status-closed)))
+       (finally (stop))))))

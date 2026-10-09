@@ -26,4 +26,4 @@
          :args [:e2e-over-cap :inbound-payment-status-suspended]}
         {:command :assert-balance :args [:acct-0 200]}
         {:command :assert-gl-balance
-         :args [:bank-0 :gl-account-code-suspense "GBP" 100]}]}
+         :args [:bank-0 :ledger-account-code-suspense "GBP" 100]}]}

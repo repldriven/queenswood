@@ -6,8 +6,7 @@
    :as :party-0
    :with {:token [:ref :org-0 :token]
           :display-name "Non Zero Customer"
-          :given-name "Non"
-          :family-name "Zero"}}
+          :legal-name "Non Zero"}}
   ;; Published product
   {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
   ;; Open the cash-account and wait for opened

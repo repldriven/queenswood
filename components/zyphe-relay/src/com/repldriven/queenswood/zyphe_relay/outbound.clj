@@ -16,9 +16,9 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.edn :as edn]
     [clojure.set :as set]
     [clojure.string :as str])
   (:import
@@ -200,7 +200,7 @@
 
 (defn- request
   [intent]
-  (edn/read-string (:request intent)))
+  (transit/read-str (:request intent)))
 
 (defn- check
   [config _now intent]
@@ -228,13 +228,13 @@
   session."
   [config now intent reply]
   (let [data (request intent)]
-    {:status "settled"
+    {:status :outbound-intent-status-settled
      :event (when (:session-id data) (session-opened config now data reply))}))
 
 (defn- check-failed
   [_config _now intent failure reason]
   (let [data (request intent)]
-    {:status "failed"
+    {:status :outbound-intent-status-failed
      :event (when (:session-id data)
               (session-failed data
                               (if (= :undelivered failure)
@@ -243,14 +243,14 @@
 
 (intent-poller/defoperations
  :zyphe
- {"check" {:call check :answered checked :failed check-failed}})
+ {:zyphe-outbound-intent-kind-check
+  {:call check :answered checked :failed check-failed}})
 
 (defn- runner-config
   [config]
   (assoc config
          :adapter :zyphe
-         :store store/spec
-         :default-operation "check"))
+         :store store/spec))
 
 (defn drain-once
   "Relay each pending intent once, oldest first, holding one for a

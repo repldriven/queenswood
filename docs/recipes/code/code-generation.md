@@ -153,6 +153,12 @@ artefact still looks like the old version, you forgot
   can reuse it) before customising it in a brick's
   `build.clj`.
 
+**MAY:**
+
+- Declare a proto2 field `required` whatever value it holds:
+  `gen-proto` writes a required field whenever it is set, a
+  zero, `false` or empty string included.
+
 ## Discussion
 
 `:deps/prep-lib` is the standard Clojure tooling for code
@@ -166,6 +172,24 @@ need to fix a bug in proto generation, we fix it in
 `bases/build` once and every brick picks it up. The shim in
 each brick is small enough that it can be rewritten by hand
 if needed.
+
+`gen-proto` rewrites what protoc-gen-clojure emits in two
+ways. It strips the requires the plugin emits for the Record
+Layer's options proto, which has no Clojure counterpart. And it
+changes how a required field is written: the plugin writes every
+field the proto3 way, leaving a value equal to its type's
+default off the wire, so a proto2 `required` field holding a
+zero, `false` or an empty string reached the Java parse missing
+and was refused. The plugin takes no option for this. The build
+reads the required field numbers from the descriptor set protoc
+writes beside the code, writes each required field whenever it
+is non-nil, and drops its default from the message's defaults
+map, so a required field the caller left out stays nil, is not
+written, and is still refused by the Java parse, by name.
+Optional fields keep the plugin's behaviour: a protojure record
+holds a default rather than whether a field was set, so writing
+an unset optional field would store a value, and a unique index
+would see every unset one collide.
 
 The gitignored `gen/` convention keeps git diffs clean. A
 change to a `.proto` file should show as a one-file diff,

@@ -9,3 +9,11 @@
                           :policy-category-unknown))
 
 (def policy-category-enum-schema (:enum-schema policy-category-enum))
+
+(def ^:private policy-status-enum
+  (coercion/enum-coercion {"active" :policy-status-active
+                           "disabled" :policy-status-disabled
+                           "archived" :policy-status-archived}
+                          :policy-status-unknown))
+
+(def policy-status-enum-schema (:enum-schema policy-status-enum))

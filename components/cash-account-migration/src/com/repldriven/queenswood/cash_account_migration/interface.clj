@@ -32,7 +32,8 @@
     `:target-product-id`, `:target-version-id`; optionally
     `:source-version-ids` to narrow the cohort to accounts on those
     versions (every version of the source product when absent),
-    `:notified-on` and `:due-on` (epoch-day), and `:idempotency-key`.
+    `:notified-on` and `:due-on` (epoch-day); `:idempotency-key` and
+    `:created-by`, the actor authoring it, are required.
 
   Returns the migration map or an anomaly."
   [txn data]
@@ -69,7 +70,7 @@
   account in its cohort. Returns the closed run.
 
   A preview is a forecast, not a promise. Accounts open and close and
-  balances move between one and the commit, so previews may be re-run as
+  balances move between one and the run, so previews may be re-run as
   often as wanted — approval attaches to the migration, never to a
   particular preview's numbers.
 
@@ -96,13 +97,14 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - migration-id: the migration to approve.
+  - actor: who approves it, recorded as `:approved-by`.
 
   Returns the approved migration, a
   `:cash-account-migration/invalid-status` rejection when it is not a
   draft, or `:cash-account-migration/notice-required` when either date
   is missing."
-  [txn bank-id migration-id]
-  (core/approve-migration txn bank-id migration-id))
+  [txn bank-id migration-id actor]
+  (core/approve-migration txn bank-id migration-id actor))
 
 (defn cancel-migration
   "Cancel a draft or an approved migration, taking it off the work list.
@@ -116,19 +118,20 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - migration-id: the migration to cancel.
+  - actor: who cancels it, recorded as `:cancelled-by`.
 
   Returns the cancelled migration or a
   `:cash-account-migration/invalid-status` rejection."
-  [txn bank-id migration-id]
-  (core/cancel-migration txn bank-id migration-id))
+  [txn bank-id migration-id actor]
+  (core/cancel-migration txn bank-id migration-id actor))
 
-(defn commit-migration
+(defn run-migration
   "Run an approved migration for real, moving every eligible account onto
   the target version, then complete it. Returns the closed run.
 
   The decisions are the preview's decisions — same streaming, same cohort
   test, same eligibility order — so what a preview reported is what a
-  commit acts on, allowing for the population having moved underneath
+  run acts on, allowing for the population having moved underneath
   both. An account that fails is recorded against its own row and the
   pass carries on.
 
@@ -141,10 +144,10 @@
   - migration-id: the migration to run.
   - business-day: epoch-day the run is recorded against."
   [txn bank-id migration-id business-day]
-  (core/commit-migration txn bank-id migration-id business-day))
+  (core/run-migration txn bank-id migration-id business-day))
 
 (defn run-due-migrations
-  "Commit every migration of the bank that is due on `business-day` — the
+  "Run every migration of the bank that is due on `business-day` — the
   scheduler's migration task.
 
   Due is derived, not recorded: a migration is due when it is approved,
@@ -167,7 +170,7 @@
   (core/run-due-migrations txn bank-id business-day))
 
 (defn get-run
-  "One run of a migration, preview or commit, or a
+  "One run of a migration, a preview or not, or a
   `:cash-account-migration/run-not-found` rejection.
 
   Args:

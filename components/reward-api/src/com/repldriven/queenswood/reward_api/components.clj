@@ -20,21 +20,21 @@
 
 (def Reward
   [:map {:json-schema/example examples/Reward}
-   [:reward-id [:ref "RewardId"]]
    [:bank-id [:ref "BankId"]]
+   [:reward-id [:ref "RewardId"]]
+   [:status [:ref "RewardStatus"]]
+   [:kind [:ref "RewardKind"]]
    [:account-id [:ref "CashAccountId"]]
-   [:party-id [:ref "PartyId"]]
    [:product-id [:ref "ProductId"]]
    [:version-id [:ref "VersionId"]]
-   [:kind [:ref "RewardKind"]]
    [:amount [:ref "MinorUnits"]]
    [:currency [:ref "Currency"]]
-   [:status [:ref "RewardStatus"]]
-   [:transaction-id {:optional true} [:maybe [:ref "TransactionId"]]]
-   [:error {:optional true} [:maybe string?]]
-   [:paid-at {:optional true} [:maybe [:ref "Timestamp"]]]
+   [:transaction-id {:optional true} [:ref "TransactionId"]]
+   [:deferred-reason {:optional true} string?]
+   [:deferred-at {:optional true} [:ref "Timestamp"]]
+   [:paid-at {:optional true} [:ref "Timestamp"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def RewardList
   [:map {:json-schema/example (:value examples/RewardList)}

@@ -146,15 +146,15 @@
   (assoc submission :response answer))
 
 (defn party-registration
-  "The platform's registration of a person: their names, and the sign-up
-  as the bank's own reference for them. What proves who they are the
-  person gives the identity provider (ADR-0045)."
+  "The platform's registration of a person: their legal name, and the
+  sign-up as the bank's own reference for them. What proves who they are
+  the person gives the identity provider (ADR-0045)."
   [sign-up-id details]
-  (let [{:keys [given-name family-name]} details]
-    {:type "person"
-     :display-name (str given-name " " family-name)
-     :given-name given-name
-     :family-name family-name
+  (let [{:keys [given-name family-name]} details
+        name (str given-name " " family-name)]
+    {:party-type "person"
+     :legal-name name
+     :display-name name
      :external-reference sign-up-id}))
 
 (defn verification-session-request
@@ -325,7 +325,7 @@
                    :creditor-name (:name payee)
                    :currency currency
                    :amount amount
-                   :scheme "fps"}
+                   :scheme-type "fps"}
                   reference))
 
 (defn internal-payment-request
@@ -397,7 +397,7 @@
   "An outbound payment as the app shows it once sent."
   [platform-payment payee]
   {:id (:payment-id platform-payment)
-   :status (some-> (:payment-status platform-payment)
+   :status (some-> (:status platform-payment)
                    name)
    :from (:debtor-account-id platform-payment)
    :payee payee
@@ -495,7 +495,7 @@
    "inbound-transfer" "Received"
    "internal-transfer" "Saved"
    "interest-accrual" "Interest earned"
-   "interest-capital" "Interest earned"
+   "interest-capitalization" "Interest earned"
    "reward" "Rewards"
    "fee" "Fees"})
 
@@ -600,7 +600,7 @@
      :kind kind
      :name account-name
      :type (account-label kind account-name rate)
-     :status (some-> (:account-status platform-account)
+     :status (some-> (:status platform-account)
                      name)
      :balance available
      :posted posted

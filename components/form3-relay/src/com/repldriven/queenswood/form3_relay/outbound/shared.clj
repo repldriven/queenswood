@@ -2,9 +2,8 @@
   (:require
     [com.repldriven.queenswood.form3-relay.form3 :as form3]
 
-    [com.repldriven.mono.utility.interface :as utility]
-
-    [clojure.edn :as edn]))
+    [com.repldriven.mono.transit.interface :as transit]
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (defn reconcile-at
   [config now]
@@ -13,7 +12,7 @@
 (defn context
   [intent]
   (or (some-> (not-empty (:context intent))
-              edn/read-string)
+              transit/read-str)
       {}))
 
 (defn call
@@ -48,14 +47,15 @@
 (defn sent
   "Submitted, to be reconciled if no notification settles it first."
   [config now intent]
-  {:status "sent"
+  {:status :outbound-intent-status-sent
    :changes (utility/assoc-some {:next-attempt-at (reconcile-at config now)}
                                 :provider-payment-id
                                 (:provider-payment-id intent))})
 
 (defn wait
   [config now]
-  {:status "sent" :changes {:next-attempt-at (reconcile-at config now)}})
+  {:status :outbound-intent-status-sent
+   :changes {:next-attempt-at (reconcile-at config now)}})
 
 (defn payment-path
   [payment-id]
@@ -64,5 +64,5 @@
 (defn account-event
   [intent event-name data]
   {:event-name event-name
-   :dedup-key (str (:dedup-key intent) ":" event-name)
+   :dedup-key (str (:idempotency-key intent) ":" event-name)
    :data data})

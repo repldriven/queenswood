@@ -13,7 +13,7 @@
                   (merge {:message "A balance must carry a product-type"}
                          (select-keys data
                                       [:account-id :balance-type
-                                       :currency :balance-status])))))
+                                       :balance-status])))))
 
 (defn- ensure-new-balance
   [data exists?]
@@ -22,7 +22,7 @@
                   (merge {:message "Balance already exists"}
                          (select-keys data
                                       [:account-id :balance-type
-                                       :currency :balance-status])))))
+                                       :balance-status])))))
 
 (defn- check-capability
   [action balance-type balance-status policies]
@@ -79,15 +79,12 @@
      :account-id (:account-id leg)
      :product-type (or (:product-type leg)
                        (some :product-type balances)
-                       :product-type-general-ledger)
+                       :account-product-type-general-ledger)
      :balance-type (:balance-type leg)
      :balance-status (:balance-status leg)
-     :currency (:currency leg)
      :credit 0
      :debit 0
-     :credit-carry 0
-     :created-at now
-     :updated-at now}))
+     :created-at now}))
 
 (defn- apply-leg-to-balances
   [bank-id balances leg policies]
@@ -113,9 +110,8 @@
           legs))
 
 (defn- check-available
-  [pre post transaction-type policies]
-  (let [{:keys [currency]} (first post)
-        pre-amount (q/available-balance pre currency)
+  [pre post currency transaction-type policies]
+  (let [pre-amount (q/available-balance pre currency)
         post-amount (q/available-balance post currency)]
     (policy/check-limit policies
                         :balance
@@ -182,7 +178,11 @@
                                                     pre
                                                     account-legs
                                                     policies)
-                   _ (check-available pre balances transaction-type policies)]
+                   _ (check-available pre
+                                      balances
+                                      (:currency (first account-legs))
+                                      transaction-type
+                                      policies)]
                   balances)]
        (if (error/anomaly? post)
          (reduced post)
@@ -199,8 +199,7 @@
                          policies)
      _ (ensure-product-type data)
      _ (ensure-new-balance data exists?)]
-    (let [{:keys [bank-id account-id product-type balance-type balance-status
-                  currency]}
+    (let [{:keys [bank-id account-id product-type balance-type balance-status]}
           data
           now (utility/now)]
       {:bank-id bank-id
@@ -208,9 +207,6 @@
        :product-type product-type
        :balance-type balance-type
        :balance-status balance-status
-       :currency currency
        :credit 0
        :debit 0
-       :credit-carry 0
-       :created-at now
-       :updated-at now})))
+       :created-at now})))

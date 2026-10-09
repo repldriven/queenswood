@@ -14,19 +14,19 @@
              :status :idv-status-pending
              :criteria [{:verification :idv-verification-identity
                          :screening :idv-screening-unknown
-                         :state :idv-criterion-state-established}
+                         :status :idv-criterion-status-established}
                         {:verification :idv-verification-address
                          :screening :idv-screening-unknown
-                         :state :idv-criterion-state-outstanding}]}
+                         :status :idv-criterion-status-outstanding}]}
         view (SUT/verification idv [platform])
         by-name
         (into {} (map (fn [c] [(SUT/criterion-name c) c])) (:criteria view))]
     (testing "a settled criterion reads as it was settled"
-      (is (= :idv-criterion-state-established
-             (get-in by-name ["identity" :state]))))
+      (is (= :idv-criterion-status-established
+             (get-in by-name ["identity" :status]))))
     (testing "an outstanding criterion carries the reason its deny gives"
-      (is (= :idv-criterion-state-outstanding
-             (get-in by-name ["address" :state])))
+      (is (= :idv-criterion-status-outstanding
+             (get-in by-name ["address" :status])))
       (is (= "A person's address must be verified"
              (get-in by-name ["address" :reason]))))
     (testing "every criterion the platform requires is listed"
@@ -34,7 +34,7 @@
                "pep"}
              (set (keys by-name)))))
     (testing "a criterion nothing requires and nothing settled is left out"
-      (let [allow-only [{:enabled true
+      (let [allow-only [{:status :policy-status-active
                          :capabilities [{:effect :effect-allow
                                          :kind {:idv {:action
                                                       :idv-action-accept}}}]}]]
@@ -44,7 +44,7 @@
 
 (deftest session-test
   (let [ready {:status :idv-session-status-ready
-               :hand-off {:type :idv-hand-off-type-url
+               :hand-off {:kind :idv-hand-off-kind-url
                           :url "https://verify.example/x"
                           :expires-at 1000}}]
     (testing "a ready session carries its hand-off until it expires"

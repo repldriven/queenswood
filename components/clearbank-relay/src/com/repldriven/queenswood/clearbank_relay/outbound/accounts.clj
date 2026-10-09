@@ -42,7 +42,7 @@
 (defn- opened
   [_config _now intent body]
   (let [{:keys! [bank-id account-id]} (shared/context intent)]
-    {:status "settled"
+    {:status :outbound-intent-status-settled
      :event (shared/account-event intent
                                   "payment-account-opened"
                                   {:bank-id bank-id
@@ -53,9 +53,9 @@
 (defn- open-failed
   [_config _now intent failure reason]
   (let [{:keys! [bank-id account-id]} (shared/context intent)]
-    {:status "failed"
+    {:status :outbound-intent-status-failed
      :event (shared/account-event intent
-                                  "payment-account-refused"
+                                  "payment-account-open-refused"
                                   {:bank-id bank-id
                                    :account-id account-id
                                    :reason (shared/undelivered failure
@@ -72,7 +72,7 @@
 (defn- closed
   [_config _now intent _body]
   (let [{:keys! [bank-id account-id]} (shared/context intent)]
-    {:status "settled"
+    {:status :outbound-intent-status-settled
      :event (shared/account-event intent
                                   "payment-account-closed"
                                   {:bank-id bank-id :account-id account-id})}))
@@ -80,7 +80,7 @@
 (defn- close-failed
   [_config _now intent failure reason]
   (let [{:keys! [bank-id account-id]} (shared/context intent)]
-    {:status "failed"
+    {:status :outbound-intent-status-failed
      :event (shared/account-event intent
                                   "payment-account-close-refused"
                                   {:bank-id bank-id
@@ -100,7 +100,7 @@
 (defn- reissued
   [_config _now intent body]
   (let [{:keys! [bank-id account-id rotation-key]} (shared/context intent)]
-    {:status "settled"
+    {:status :outbound-intent-status-settled
      :event (shared/account-event intent
                                   "payment-address-reissued"
                                   {:bank-id bank-id
@@ -112,7 +112,7 @@
 (defn- reissue-failed
   [_config _now intent failure reason]
   (let [{:keys! [bank-id account-id rotation-key]} (shared/context intent)]
-    {:status "failed"
+    {:status :outbound-intent-status-failed
      :event (shared/account-event intent
                                   "payment-address-reissue-failed"
                                   {:bank-id bank-id
@@ -123,6 +123,9 @@
 
 (intent-poller/defoperations
  :clearbank
- {"open-account" {:call open :answered opened :failed open-failed}
-  "close-account" {:call close :answered closed :failed close-failed}
-  "reissue-address" {:call reissue :answered reissued :failed reissue-failed}})
+ {:clearbank-outbound-intent-kind-open-account
+  {:call open :answered opened :failed open-failed}
+  :clearbank-outbound-intent-kind-close-account
+  {:call close :answered closed :failed close-failed}
+  :clearbank-outbound-intent-kind-reissue-address
+  {:call reissue :answered reissued :failed reissue-failed}})

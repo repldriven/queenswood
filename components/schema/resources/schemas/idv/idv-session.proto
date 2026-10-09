@@ -1,0 +1,56 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.idv;
+
+import "record_metadata_options.proto";
+import "schemas/actor/actor.proto";
+
+option java_outer_classname = "IdvSessionProto";
+
+enum IdvSessionChannel {
+  IDV_SESSION_CHANNEL_UNKNOWN = 0;
+  IDV_SESSION_CHANNEL_WEB = 1;
+  IDV_SESSION_CHANNEL_MOBILE = 2;
+}
+
+enum IdvSessionStatus {
+  IDV_SESSION_STATUS_UNKNOWN = 0;
+  IDV_SESSION_STATUS_OPENING = 1;
+  IDV_SESSION_STATUS_READY = 2;
+  IDV_SESSION_STATUS_COMPLETED = 3;
+  IDV_SESSION_STATUS_FAILED = 4;
+}
+
+enum IdvHandOffKind {
+  IDV_HAND_OFF_KIND_UNKNOWN = 0;
+  IDV_HAND_OFF_KIND_URL = 1;
+}
+
+// Where the person is sent to run the provider's flow.
+message IdvHandOff {
+  required IdvHandOffKind kind = 1;
+  required string url = 2;
+  required int64 expires_at = 3;
+}
+
+// A run of the provider's flow a person is handed off to.
+message IdvSession {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string session_id = 2;
+
+  required string verification_id = 3;
+  required string party_id = 4;
+  required IdvSessionStatus status = 5;
+  required IdvSessionChannel channel = 6;
+  required string return_url = 7;
+  optional IdvHandOff hand_off = 8;
+  required int64 opened_on = 9; // epoch day
+
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+  optional int64 updated_at = 103;
+
+  optional string failure_reason = 200;
+}

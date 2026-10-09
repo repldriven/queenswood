@@ -1,6 +1,6 @@
 # Scheduled runs
 
-> **Status: proposal.** The scheduler, its jobs API, the four task kinds
+> **Status: proposal.** The scheduler, its jobs API, the three task kinds
 > and the resumable interest pass, which closes only when complete,
 > exist. The Proposed Solution is the build list, and
 > [First slice](#first-slice) says what comes first.
@@ -29,24 +29,25 @@ progress route for an interest run in flight.
   [jobs.edn](/components/resources/resources/scheduler/jobs.edn). The
   `bank-scheduler/runner` in the
   [scheduler](/components/scheduler/src/com/repldriven/queenswood/scheduler/core.clj)
-  brick registers an in-memory Quartz trigger per enabled job and
+  brick registers an in-memory Quartz trigger per active job and
   reconciles the triggers against the rows every minute. It runs in
   `exclusive-dispatchers-service` at one replica, and in the monolith.
 - **A run takes today's date when it fires.** `run-job` reads
   `utility/today` and passes it to every task. `SchedulerRun` records
   status, per-task counts and timings, but not the date the run was
   for.
-- **A job runs once a period.** A run belongs to the hour, day, month or
-  year of the job's periodicity it starts in, in UTC. `run-job` reads
-  the job's runs and writes the new one `running` in one transaction,
-  and refuses with `:scheduler/period-already-run`, a 409, where a run
-  in that period is `running` or `succeeded`. A `failed` run leaves its
-  period open, so an operator may force it again. A fire and a
-  force-start meet the same check.
+- **A job runs once a fire.** A job's schedule is a Quartz cron in UTC,
+  and a run answers the schedule's last fire before it starts. `run-job`
+  reads the job's runs and writes the new one `running` in one
+  transaction, and refuses with `:scheduler/period-already-run`, a 409,
+  where a run answering that fire is `running` or `completed`. A
+  `failed` run leaves its fire open, so an operator may force it again.
+  A fire and a force-start meet the same check.
 - **A crashed run stays running.** `run-job` writes the run `running`,
-  then writes it again after each task. A process that dies between
-  those writes leaves a `running` row that nothing reads again, and it
-  holds its period, so the job runs again only in the next one.
+  then writes it again as each task starts and when the run ends. A
+  process that dies between those writes leaves a `running` row that
+  nothing reads again, and it holds its fire, so the job runs again
+  only at the next one.
 - **A missed fire is lost.** Quartz holds its triggers in memory, so a
   process that is down when a trigger falls due never fires it, and
   nothing compares `next_run_at` with the clock.
@@ -63,7 +64,7 @@ progress route for an interest run in flight.
   accounts FAILED, and the pass returns `:interest/run-incomplete`
   without posting the bank's side or writing the `InterestRun` record.
   A second pass for the date posts the FAILED accounts and closes. The
-  run records the task failed with `records_failed`, and its period
+  run records the task failed with `failed_count`, and its period
   stays open for an operator to force it again.
 - **Migrations are a work list.** `run-due-migrations` commits every
   approved migration that is due. It owes nothing per date, so the next
@@ -90,7 +91,7 @@ A task's contract, which all three meet:
 
 - Running a task twice for one bank and as-of date posts once.
 - A task returns an anomaly while any of its work is outstanding, so the
-  run is retried rather than recorded `succeeded`.
+  run is retried rather than recorded `completed`.
 
 ### The run as a queued row
 
@@ -117,7 +118,7 @@ executes a run it did not queue and claim through the row.
 
 The per-job Quartz triggers go, and with them `register!`, the
 `:triggers` atom and the trigger ids. The runner's one-minute sweep
-reads every enabled job whose `next_run_at` is at or before now and, in
+reads every active job whose `next_run_at` is at or before now and, in
 one transaction per job:
 
 - writes a `queued` run for each slot the job owes — every slot from
@@ -147,7 +148,7 @@ A heartbeat renews the lease every `scheduler.runner.lease-renew-ms`
 renewing, and its run becomes claimable once the lease expires. That
 is the crash recovery.
 
-A claimed run executes from the first task not `succeeded`, with the
+A claimed run executes from the first task not `completed`, with the
 run's `as_of_date`. A task anomaly writes the run back to `queued`
 until `attempts` reaches `scheduler.runner.max-attempts` (default 5),
 then `failed`, leaving an operator to force it again.
@@ -166,7 +167,7 @@ date, to re-run a past day:
 
 - A future date is refused with 422, `:scheduler/invalid-as-of-date`.
 - A date before `catch-up-days` is refused the same way.
-- A run of the job queued, running or succeeded for that date's period
+- A run of the job queued, running or completed for that date's period
   is refused with 409, `:scheduler/period-already-run`, as today; a
   failed one is not.
 

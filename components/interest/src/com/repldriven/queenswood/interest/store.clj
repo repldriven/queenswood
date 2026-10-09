@@ -49,13 +49,13 @@
     :business-day business-day}))
 
 (def ^:private carry-index
-  "InterestAccountRun_sum_carry_change_by_bank_kind_account")
+  "InterestAccountRun_sum_carry_delta_by_bank_kind_account")
 
 (defn load-account-runs
   "Reads the rows of `account-ids` for a run in one round trip, as a map
   of account id to row, an account with none absent."
   [txn bank-id business-day kind account-ids]
-  (let [kind (schema/interest-account-run-kind->int kind)
+  (let [kind (schema/interest-run-kind->int kind)
         records (fdb/load-records
                  (fdb/open txn interest-account-runs-store-name)
                  (mapv (fn [id] [bank-id business-day kind id]) account-ids))]
@@ -82,8 +82,8 @@
   writes them."
   [txn bank-id account-ids]
   (let [store (fdb/open txn interest-account-runs-store-name)
-        kind (schema/interest-account-run-kind->int
-              :interest-account-run-kind-accrue)
+        kind (schema/interest-run-kind->int
+              :interest-run-kind-accrue)
         scans (mapv (fn [id]
                       (fdb/sum-groups-later store
                                             carry-index
@@ -104,28 +104,28 @@
      (fdb/count-records-snapshot
       (fdb/open txn interest-account-runs-store-name)
       "InterestAccountRun_count_by_bank_day_kind"
-      [bank-id business-day (schema/interest-account-run-kind->int kind)]))
+      [bank-id business-day (schema/interest-run-kind->int kind)]))
    :interest/count-account-runs
    {:message "Failed to count interest account runs"
     :bank-id bank-id
     :business-day business-day}))
 
-(defn count-account-runs-by-state
-  "Rows in one state for a run — progress when `state` is DONE, residue
-  when FAILED, outstanding work when PENDING. SNAPSHOT for the same
-  reason as `count-account-runs`."
-  [txn bank-id business-day kind state]
+(defn count-account-runs-by-status
+  "Rows at one status for a run — progress when `status` is DONE,
+  residue when FAILED, outstanding work when PENDING. SNAPSHOT for the
+  same reason as `count-account-runs`."
+  [txn bank-id business-day kind status]
   (fdb/transact
    txn
    (fn [txn]
      (fdb/count-records-snapshot
       (fdb/open txn interest-account-runs-store-name)
-      "InterestAccountRun_count_by_bank_day_kind_state"
+      "InterestAccountRun_count_by_bank_day_kind_status"
       [bank-id
        business-day
-       (schema/interest-account-run-kind->int kind)
-       (schema/interest-account-run-state->int state)]))
-   :interest/count-account-runs-by-state
-   {:message "Failed to count interest account runs by state"
+       (schema/interest-run-kind->int kind)
+       (schema/interest-account-run-status->int status)]))
+   :interest/count-account-runs-by-status
+   {:message "Failed to count interest account runs by status"
     :bank-id bank-id
     :business-day business-day}))

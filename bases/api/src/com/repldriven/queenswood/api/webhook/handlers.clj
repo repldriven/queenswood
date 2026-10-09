@@ -12,6 +12,7 @@
   See [ADR-0018](../../../../../../../docs/adr/0018-command-writes-are-earned.md)."
   (:require
     [com.repldriven.queenswood.api.errors :as errors]
+    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
     [com.repldriven.queenswood.webhook.interface :as webhook]
 
@@ -93,6 +94,7 @@
     (respond (webhook/register (config request)
                                bank-id
                                (with-idempotency-key body request)
+                               (shared.actor/actor auth)
                                (address-opts request))
              registered)))
 
@@ -105,6 +107,7 @@
                                       bank-id
                                       (:endpoint-id path)
                                       body
+                                      (shared.actor/actor auth)
                                       (address-opts request))
              ok)))
 
@@ -116,6 +119,7 @@
     (respond (webhook/enable (config request)
                              bank-id
                              (:endpoint-id path)
+                             (shared.actor/actor auth)
                              (utility/assoc-some {} :since (:since body)))
              ok)))
 
@@ -124,7 +128,10 @@
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [path]} parameters]
-    (respond (webhook/disable (config request) bank-id (:endpoint-id path))
+    (respond (webhook/disable (config request)
+                              bank-id
+                              (:endpoint-id path)
+                              (shared.actor/actor auth))
              ok)))
 
 (defn remove-endpoint
@@ -134,7 +141,8 @@
         {:keys [path]} parameters]
     (respond (webhook/remove-endpoint (config request)
                                       bank-id
-                                      (:endpoint-id path))
+                                      (:endpoint-id path)
+                                      (shared.actor/actor auth))
              no-content)))
 
 (defn rotate-secret
@@ -145,7 +153,8 @@
     (respond (webhook/rotate-secret (config request)
                                     bank-id
                                     (:endpoint-id path)
-                                    (with-idempotency-key {} request))
+                                    (with-idempotency-key {} request)
+                                    (shared.actor/actor auth))
              rotated)))
 
 (defn test-notification
@@ -155,7 +164,8 @@
         {:keys [path]} parameters]
     (respond (webhook/test-notification (config request)
                                         bank-id
-                                        (:endpoint-id path))
+                                        (:endpoint-id path)
+                                        (shared.actor/actor auth))
              created-delivery)))
 
 (defn resend
@@ -166,7 +176,8 @@
     (respond (webhook/resend (config request)
                              bank-id
                              (:endpoint-id path)
-                             (:delivery-id path))
+                             (:delivery-id path)
+                             (shared.actor/actor auth))
              created-delivery)))
 
 (defn resend-window
@@ -177,5 +188,6 @@
     (respond (webhook/resend-window (config request)
                                     bank-id
                                     (:endpoint-id path)
-                                    body)
+                                    body
+                                    (shared.actor/actor auth))
              resent)))

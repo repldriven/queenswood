@@ -104,14 +104,15 @@
   (is (empty? (SUT/uncovered [full] {:verifies ["address"] :screens ["pep"]}))))
 
 (deftest applicant-test
-  (testing "the applicant is the person's names and email, nothing else"
+  (testing "the applicant is the legal name split at its last space"
     (is (= {:first_name "Arthur Philip"
             :last_name "Dent"
             :email "arthur@example.test"}
-           (SUT/applicant {:first-name "Arthur"
-                           :middle-names "Philip"
-                           :last-name "Dent"
-                           :email "arthur@example.test"})))))
+           (SUT/applicant {:legal-name "Arthur Philip Dent"
+                           :email "arthur@example.test"}))))
+  (testing "a one-word name is both"
+    (is (= {:first_name "Teller" :last_name "Teller"}
+           (SUT/applicant {:legal-name "Teller"})))))
 
 (deftest workflow-run-test
   (let [run (SUT/workflow-run {:hand-off-ttl-ms 60000}

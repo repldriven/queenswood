@@ -46,28 +46,28 @@
 (defn save-intent
   "Persist a pending intent in one FDB transaction. Returns the intent or
   a `:form3-outbound/save` anomaly, a uniqueness violation when the
-  `dedup-key` was already enqueued.
+  `idempotency-key` was already enqueued.
 
   Args:
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
-  - intent: a map with `:intent-id`, `:dedup-key`, `:kind` (`payment`,
+  - intent: a map with `:intent-id`, `:idempotency-key`, `:kind` (`payment`,
     `return`, `open-account`, `close-account` or `reissue-address`),
     `:request` (a payment's or a return's attributes as JSON),
     `:provider-payment-id` (the id the payment is created under, or the
-    inbound a return sends back), `:status` (\"pending\"), `:attempts`,
+    inbound a return sends back), `:status` (\"pending\"), `:attempt-count`,
     `:created-at` and `:context`, EDN of what the runner needs to make
     the call and report its outcome."
   [txn intent]
   (store/save-intent txn intent))
 
 (defn find-intent
-  "The intent enqueued under `dedup-key`, or nil.
+  "The intent enqueued under `idempotency-key`, or nil.
 
   Args:
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
-  - dedup-key: the end-to-end id or account call key."
-  [txn dedup-key]
-  (store/find-intent txn dedup-key))
+  - idempotency-key: the end-to-end id or account call key."
+  [txn idempotency-key]
+  (store/find-intent txn idempotency-key))
 
 (defn request
   "Make one call to Form3, signed with the adapter's key. Returns the

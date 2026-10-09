@@ -12,7 +12,7 @@
                       (str "The signed-in person's user record, and whether "
                            "they are an operator. The record is created on "
                            "the person's first signed-in request. Their "
-                           "memberships are listed at `/v1/me/memberships`.")}
+                           "members are listed at `/v1/me/members`.")}
             :responses {200 {:description (str "The person, and the operator "
                                                "flag.")
                              :body [:ref "Me"]}}

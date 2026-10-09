@@ -18,7 +18,7 @@
 
 (def ^:private run-status-enum
   (coercion/enum-coercion {"running" :scheduler-run-status-running
-                           "succeeded" :scheduler-run-status-succeeded
+                           "completed" :scheduler-run-status-completed
                            "failed" :scheduler-run-status-failed}
                           :scheduler-run-status-unknown))
 
@@ -29,7 +29,7 @@
 
 (def ^:private task-status-enum
   (coercion/enum-coercion {"running" :scheduler-task-status-running
-                           "succeeded" :scheduler-task-status-succeeded
+                           "completed" :scheduler-task-status-completed
                            "failed" :scheduler-task-status-failed
                            "skipped" :scheduler-task-status-skipped}
                           :scheduler-task-status-unknown))
@@ -38,6 +38,11 @@
   (coercion/enum-coercion {"first" :scheduler-monthly-day-first
                            "last" :scheduler-monthly-day-last}
                           :scheduler-monthly-day-unknown))
+
+(def ^:private job-status-enum
+  (coercion/enum-coercion {"active" :scheduler-job-status-active
+                           "paused" :scheduler-job-status-paused}
+                          :scheduler-job-status-unknown))
 
 (def ^:private kind-enum
   (coercion/enum-coercion {"user" :scheduler-job-kind-user
@@ -50,4 +55,5 @@
 (def trigger-source-enum-schema (:enum-schema trigger-source-enum))
 (def task-status-enum-schema (:enum-schema task-status-enum))
 (def monthly-day-enum-schema (:enum-schema monthly-day-enum))
+(def job-status-enum-schema (:enum-schema job-status-enum))
 (def kind-enum-schema (:enum-schema kind-enum))

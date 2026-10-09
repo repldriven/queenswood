@@ -70,7 +70,7 @@
   (core/submit-outbound config data))
 
 (defn settle-inbound
-  "Process an inbound `transaction-settled` event. Looks up the
+  "Process an inbound `provider-payment-settled` event. Looks up the
   creditor account by BBAN, dedupes by scheme-transaction-id,
   records the transaction (DEBIT the bank's 1100 cash-at-correspondent
   GL account / CREDIT the creditor's customer account), posts balance
@@ -99,7 +99,7 @@
   (inbound/settle-inbound config data))
 
 (defn settle-outbound
-  "Process an outbound `transaction-settled` event by flipping the
+  "Process an outbound `provider-payment-settled` event by flipping the
   matching OutboundPayment from pending or held to completed. Already-
   completed settlements are no-ops returning the existing record. A
   payment in any other status, such as failed, is logged at ERROR and
@@ -115,7 +115,7 @@
   (outbound/settle-outbound config data))
 
 (defn hold-outbound
-  "Process an outbound `transaction-held` event by flipping the matching
+  "Process an outbound `provider-payment-held` event by flipping the matching
   OutboundPayment from pending to held. No balance move — the money stays
   in the 1200 pending-outbound bucket while the scheme screens it. A
   payment that is not pending is left untouched.
@@ -129,7 +129,7 @@
   (outbound/hold-outbound config data))
 
 (defn reject-outbound
-  "Process an outbound `transaction-rejected` event. Reverses the
+  "Process an outbound `provider-payment-rejected` event. Reverses the
   in-flight payment (DEBIT the bank's 1200 pending-outbound GL account /
   CREDIT the debtor's customer account) and flips the OutboundPayment to
   failed with the failure the event reports — its kind and ISO 20022
@@ -146,7 +146,7 @@
   (outbound/reject-outbound config data))
 
 (defn return-outbound
-  "Process a `transaction-returned` event, which the scheme sends when the
+  "Process a `provider-payment-returned` event, which the scheme sends when the
   beneficiary's bank returns a completed outbound. Credits the debtor's
   customer account by the returned amount (DEBIT the bank's 1100
   cash-at-correspondent GL account) as an `outbound-return` transaction
@@ -168,7 +168,7 @@
   the platform to admit each inbound before it settles sends through its
   adapter. Admits where the BBAN names an opened account and the checks
   a settlement runs pass, recording the `InboundPayment` `admitted` with
-  nothing posted; the `transaction-settled` that follows posts it
+  nothing posted; the `provider-payment-settled` that follows posts it
   without checking again. Rejects otherwise, recording nothing, with the
   ISO 20022 reason: `AC01` for no account, `AC04` for one closed, `AC06`
   for one not opened, `AM03` for another currency, `AG01` for a payment a
@@ -186,7 +186,7 @@
   (inbound/admit-inbound config data))
 
 (defn hold-inbound
-  "Process an inbound `transaction-held` event. Records the inbound `held`
+  "Process an inbound `provider-payment-held` event. Records the inbound `held`
   (creditor resolved by BBAN) with no balance move — the funds are held at
   ClearBank until released or returned. Idempotent on an open hold for the
   same end-to-end id, creditor and amount.
@@ -200,7 +200,7 @@
   (inbound/hold-inbound config data))
 
 (defn return-inbound
-  "Process an inbound `transaction-rejected` event. Transitions the matching
+  "Process an inbound `provider-payment-rejected` event. Transitions the matching
   held InboundPayment to `returned` — the funds went back to the remitter,
   so nothing posts. With a creditor BBAN, the hold matched on end-to-end id
   and that creditor is returned; without one, the only open hold for the
@@ -219,7 +219,7 @@
   "Process a `transaction-posted` event where the payment provider holds
   a balance for each account: record, pending, the provider transfers
   that make the provider accounts hold what the transaction left in the
-  ledger, and send each as `transfer-between-accounts`. A redelivery
+  ledger, and send each as `transfer-between-provider-accounts`. A redelivery
   sends again those still pending. Does nothing where the provider pools
   its balance, and fails `:payment/own-funds-unopened` while a transfer
   needs the bank's own funds and the provider has not opened them.

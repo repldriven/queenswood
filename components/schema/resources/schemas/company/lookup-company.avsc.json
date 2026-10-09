@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "LookupCompany",
-  "namespace": "com.repldriven.mono.company",
+  "namespace": "com.repldriven.queenswood.schema.company",
   "fields": [
     {"name": "company_number", "type": "string"}
   ]

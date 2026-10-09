@@ -37,6 +37,7 @@
   hashes the path and the bank alone."
   [request]
   (let [{:keys [uri body-params auth]} request
+        ;; nosemgrep: no-edn-serialization — hashed, never read back
         material (pr-str (cond-> [uri (canonical body-params)]
                                  (:bank-id auth)
                                  (conj (:bank-id auth))))

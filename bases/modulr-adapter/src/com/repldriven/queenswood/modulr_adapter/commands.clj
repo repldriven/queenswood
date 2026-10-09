@@ -8,6 +8,7 @@
     [com.repldriven.mono.json.interface :as json]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.processor.interface :as processor]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- save-intent
@@ -16,8 +17,8 @@
                                (assoc intent
                                       :intent-id (str (utility/uuidv7))
                                       :nonce (modulr-webhook/nonce)
-                                      :status "pending"
-                                      :attempts 0
+                                      :status :outbound-intent-status-pending
+                                      :attempt-count 0
                                       :created-at (utility/now)))]
     (if (or (not (error/anomaly? res)) (relay/uniqueness-violation? res))
       {:status "ACCEPTED"}
@@ -35,8 +36,8 @@
   (let [{:keys [end-to-end-id debtor-account-id debtor-provider-account-id
                 creditor-bban creditor-name amount currency reference]}
         data]
-    {:dedup-key end-to-end-id
-     :kind "payment"
+    {:idempotency-key end-to-end-id
+     :kind :modulr-outbound-intent-kind-payment
      :subjects (vec (keep identity [debtor-account-id]))
      :request (json/write-str
                (utility/assoc-some
@@ -47,9 +48,10 @@
                  :externalReference (relay/->reference end-to-end-id)}
                 :reference
                 (not-empty reference)))
-     :context (pr-str (utility/assoc-some {:amount amount :currency currency}
-                                          :debtor-account-id
-                                          debtor-account-id))}))
+     :context (transit/write-str (utility/assoc-some {:amount amount
+                                                      :currency currency}
+                                                     :debtor-account-id
+                                                     debtor-account-id))}))
 
 (defn- transfer-intent
   [data]
@@ -57,29 +59,30 @@
                 debtor-provider-account-id creditor-provider-account-id amount
                 currency]}
         data]
-    {:dedup-key transfer-id
+    {:idempotency-key transfer-id
      :subjects (vec (keep identity [debtor-account-id creditor-account-id]))
      :kind (if (or debtor-account-id debtor-provider-account-id)
-             "transfer"
-             "credit")
+             :modulr-outbound-intent-kind-transfer
+             :modulr-outbound-intent-kind-credit)
      :request "{}"
-     :context (pr-str (utility/assoc-some {:bank-id bank-id
-                                           :amount amount
-                                           :currency currency}
-                                          :debtor-account-id
-                                          debtor-account-id
-                                          :creditor-account-id
-                                          creditor-account-id
-                                          :debtor-provider-account-id
-                                          debtor-provider-account-id
-                                          :creditor-provider-account-id
-                                          creditor-provider-account-id))}))
+     :context (transit/write-str (utility/assoc-some
+                                  {:bank-id bank-id
+                                   :amount amount
+                                   :currency currency}
+                                  :debtor-account-id
+                                  debtor-account-id
+                                  :creditor-account-id
+                                  creditor-account-id
+                                  :debtor-provider-account-id
+                                  debtor-provider-account-id
+                                  :creditor-provider-account-id
+                                  creditor-provider-account-id))}))
 
 (defn- open-intent
   [config data]
   (let [{:keys [bank-id account-id currency]} data]
-    {:dedup-key (str "open:" account-id)
-     :kind "open-account"
+    {:idempotency-key (str "open:" account-id)
+     :kind :modulr-outbound-intent-kind-open-account
      :subjects [account-id]
      :request (json/write-str
                (utility/assoc-some {:currency currency
@@ -87,33 +90,34 @@
                                                         account-id)}
                                    :productCode
                                    (:product-code config)))
-     :context (pr-str {:bank-id bank-id :account-id account-id})}))
+     :context (transit/write-str {:bank-id bank-id :account-id account-id})}))
 
 (defn- close-intent
   [data]
   (let [{:keys [bank-id account-id provider-account-id]} data]
-    {:dedup-key (str "close:" account-id)
-     :kind "close-account"
+    {:idempotency-key (str "close:" account-id)
+     :kind :modulr-outbound-intent-kind-close-account
      :subjects [account-id]
      :request "{}"
-     :context (pr-str {:bank-id bank-id
-                       :account-id account-id
-                       :provider-account-id provider-account-id})}))
+     :context (transit/write-str {:bank-id bank-id
+                                  :account-id account-id
+                                  :provider-account-id provider-account-id})}))
 
 (defn- reissue-intent
   [config data]
   (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
-    {:dedup-key (str "reissue:" account-id ":" rotation-key)
-     :kind "reissue-address"
+    {:idempotency-key (str "reissue:" account-id ":" rotation-key)
+     :kind :modulr-outbound-intent-kind-reissue-address
      :subjects [account-id]
      :request (json/write-str (utility/assoc-some {}
                                                   :productCode
                                                   (:product-code config)))
-     :context (pr-str (utility/assoc-some {:bank-id bank-id
-                                           :account-id account-id
-                                           :rotation-key rotation-key}
-                                          :provider-account-id
-                                          provider-account-id))}))
+     :context (transit/write-str (utility/assoc-some {:bank-id bank-id
+                                                      :account-id account-id
+                                                      :rotation-key
+                                                      rotation-key}
+                                                     :provider-account-id
+                                                     provider-account-id))}))
 
 (defn- dispatch
   [config message]
@@ -124,8 +128,9 @@
       (let-nom> [data (avro/deserialize-same schema payload)]
         (case command
           "submit-payment" (save-intent config (payment-intent data))
-          "transfer-between-accounts" (save-intent config
-                                                   (transfer-intent data))
+          "transfer-between-provider-accounts" (save-intent config
+                                                            (transfer-intent
+                                                             data))
           "open-payment-account" (save-intent config (open-intent config data))
           "close-payment-account" (save-intent config (close-intent data))
           "reissue-payment-address" (save-intent config

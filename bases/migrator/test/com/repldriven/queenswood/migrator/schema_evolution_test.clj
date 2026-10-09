@@ -122,6 +122,12 @@
 
 (defn- declaration [file] (env/config (str file) :default))
 
+(defn- reset?
+  "Whether `new` starts the meta-data again at version 1 below `old`,
+  which only a store emptied before it is deployed can take."
+  [old new]
+  (and (= 1 (get new "version")) (< 1 (get old "version"))))
+
 (defn- meta-data
   [root include-path]
   (let [built (fdb/build-meta-data
@@ -140,15 +146,25 @@
         include-path (record-layer-protos dir)]
     (materialise root tag dir)
     (testing (str "the working tree's record meta-data evolves from " tag)
-      (if-not (contains? (declaration (io/file dir declaration-path)) "version")
-        (println tag
-                 "declares no meta-data version, so there is nothing to"
-                 "evolve from")
-        (let [old (meta-data (str dir) include-path)
-              new (meta-data root include-path)]
-          (when-not (or (error/anomaly? old) (error/anomaly? new))
-            (let [result (fdb/validate-meta-data-save old new)]
-              (is (nil? result)
-                  (pr-str (dissoc (error/payload result)
-                           :exception
-                           :stack-trace))))))))))
+      (cond
+       (not (contains? (declaration (io/file dir declaration-path)) "version"))
+       (println tag
+                "declares no meta-data version, so there is nothing to"
+                "evolve from")
+
+       (reset? (declaration (io/file dir declaration-path))
+               (declaration (io/file root declaration-path)))
+       (do (println "the working tree resets the meta-data to version 1 from"
+                    tag
+                    "so there is nothing to evolve from")
+           (meta-data root include-path))
+
+       :else
+       (let [old (meta-data (str dir) include-path)
+             new (meta-data root include-path)]
+         (when-not (or (error/anomaly? old) (error/anomaly? new))
+           (let [result (fdb/validate-meta-data-save old new)]
+             (is (nil? result)
+                 (pr-str (dissoc (error/payload result)
+                          :exception
+                          :stack-trace))))))))))

@@ -8,14 +8,13 @@
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn allow
-  [config policy destination now claimant]
+  [config policy destination now]
   (store/transact
    config
    (fn [txn]
      (let-nom> [breaker (store/load-breaker txn destination)
                 [decision changed] (domain/allow breaker
                                                  now
-                                                 claimant
                                                  (:probe-lease-ms policy))
                 _ (when changed (store/save-breaker txn changed))]
        decision))
@@ -40,11 +39,7 @@
 
 (defn guard
   [config policy destination outcome-of f]
-  (let [decision (allow config
-                        policy
-                        destination
-                        (utility/now)
-                        (str (utility/uuidv7)))]
+  (let [decision (allow config policy destination (utility/now))]
     (if (= :open decision)
       (error/fail :circuit-breaker/open
                   {:message "The destination's circuit breaker is open"

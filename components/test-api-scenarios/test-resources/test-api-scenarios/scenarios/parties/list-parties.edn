@@ -7,10 +7,9 @@
    :request {:method :post
              :path "/v1/parties"
              :auth [:ref :org-0 :token]
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Zaphod Beeblebrox"
-                    :given-name "Zaphod"
-                    :family-name "Beeblebrox"}}
+                    :legal-name "Zaphod Beeblebrox"}}
    :as :party-1
    :assert {:status 201}}
   {:command :idv/verify
@@ -20,10 +19,9 @@
    :request {:method :post
              :path "/v1/parties"
              :auth [:ref :org-0 :token]
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Trillian Astra"
-                    :given-name "Trillian"
-                    :family-name "Astra"}}
+                    :legal-name "Trillian Astra"}}
    :as :party-2
    :assert {:status 201}}
   {:command :idv/verify

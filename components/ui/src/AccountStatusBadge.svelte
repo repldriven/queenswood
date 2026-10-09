@@ -2,7 +2,7 @@
   /* AccountStatusBadge — maps a cash-account status to the matching
      Badge tone, mirroring JobStatusBadge. The lifecycle enum is
      opening | opened | closing | closed (a watcher drives the
-     transitions); tolerate a `:account-status-…` keyword spelling too.
+     transitions); tolerate a `:cash-account-status-…` keyword spelling too.
 
        opened   → published (live)
        opening  → pending   (awaiting the open watcher)
@@ -16,7 +16,7 @@
   const label = $derived(
     String(status)
       .replace(/^:/, "")
-      .replace(/^account-status-/, ""),
+      .replace(/^cash-account-status-/, ""),
   );
 
   const TONE = {

@@ -54,11 +54,11 @@
    :idv/invalid-status 409
    :ledger-account/invalid-status 409
    :ledger-account/closed 409
-   :membership/invalid-status 409
-   :membership/last-owner 409
-   ;; The `membership` processor sends its unauthorized refusal back as a
+   :member/invalid-status 409
+   :member/last-owner 409
+   ;; The `member` processor sends its unauthorized refusal back as a
    ;; rejection, which a command response can carry.
-   :membership/role-not-granted 403
+   :member/role-not-granted 403
    :party/invalid-status 409
    :party/external-reference-taken 409
    :party/open-accounts 409

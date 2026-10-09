@@ -5,7 +5,6 @@
 (def ^:private endpoint-status-enum
   (coercion/enum-coercion {"enabled" :webhook-endpoint-status-enabled
                            "disabled" :webhook-endpoint-status-disabled
-                           "paused" :webhook-endpoint-status-paused
                            "removed" :webhook-endpoint-status-removed}
                           :webhook-endpoint-status-unknown))
 

@@ -129,7 +129,7 @@ entry's `command-channel`, keyed by bank:
 - **`payment`.** `open-payment-account`, `close-payment-account`,
   `reissue-payment-address`, `submit-payment`, `return-payment` and,
   where the provider holds each account's money,
-  `transfer-between-accounts`.
+  `transfer-between-provider-accounts`.
 - **`idv`.** `submit-idv-check`.
 - **`payee-check`.** It calls the adapter URL its `adapter-urls` names
   for the bank's provider. A provider
@@ -297,7 +297,7 @@ bank's activity is caught the same way (ADR-0033).
   providers, chosen at creation.
 - [prd/platform.md](../prd/platform.md) — providers chosen per
   organisation, as a platform goal.
-- [prd/memberships.md](../prd/memberships.md) — creating an organisation from
+- [prd/members.md](../prd/members.md) — creating an organisation from
   the console.
 - [prd/payments.md](../prd/payments.md) — what a bank and its
   customers need from payments.

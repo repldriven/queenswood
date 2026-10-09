@@ -1,9 +1,11 @@
 (ns com.repldriven.queenswood.intent-poller.store
   (:require
     [com.repldriven.queenswood.fdb.interface :as fdb]
+    [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.telemetry.interface :as telemetry]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility :refer [assoc-some]]))
 
 (def transact fdb/transact)
@@ -64,12 +66,14 @@
               (if limit
                 (fdb/scan-index-records (fdb/open txn intents)
                                         (str intent-type "_by_status")
-                                        [status]
+                                        [(schema/outbound-intent-status->int
+                                          status)]
                                         {:limit limit})
                 (fdb/query-records (fdb/open txn intents)
                                    intent-type
                                    "status"
-                                   status
+                                   (schema/outbound-intent-status->pb-enum
+                                    status)
                                    {:index (str intent-type "_by_status")}))))
       (category spec "outbound" "by-status")
       "Failed to read outbound intents"))))
@@ -86,7 +90,9 @@
 (defn- redacted
   [spec intent]
   (let [{:keys [redact]} spec]
-    (if (and redact (#{"settled" "failed"} (:status intent)))
+    (if (and redact
+             (#{:outbound-intent-status-settled :outbound-intent-status-failed}
+              (:status intent)))
       (update intent :request redact)
       intent)))
 
@@ -115,14 +121,15 @@
       "Failed to update outbound intent"))))
 
 (defn moved
-  "`intent` moved to `outcome`, with `attempts` where given and `changes`
-  merged in. A move to `sent` records when it was sent."
-  [intent outcome attempts changes]
+  "`intent` moved to `outcome`, with `attempt-count` where given and
+  `changes` merged in. A move to `sent` records when it was sent."
+  [intent outcome attempt-count changes]
   (cond-> (merge (assoc-some (assoc intent :status outcome)
-                             :attempts
-                             attempts)
+                             :attempt-count
+                             attempt-count)
                  changes)
-          (and (= "sent" outcome) (not= "sent" (:status intent)))
+          (and (= :outbound-intent-status-sent outcome)
+               (not= :outbound-intent-status-sent (:status intent)))
           (assoc :sent-at (utility/now))))
 
 (defn advanced
@@ -130,7 +137,7 @@
   attempt count, `changes` merged in."
   [intent ctx changes]
   (-> intent
-      (assoc :context (pr-str ctx) :attempts 0)
+      (assoc :context (transit/write-str ctx) :attempt-count 0)
       (dissoc :next-attempt-at)
       (merge changes)))
 
@@ -139,61 +146,28 @@
   (update-intent txn
                  spec
                  intent-id
-                 "pending"
+                 :outbound-intent-status-pending
                  (fn [i] (advanced i ctx changes))
                  nil))
 
 (defn mark-attempt
-  [txn spec intent-id attempts next-attempt-at]
+  [txn spec intent-id attempt-count next-attempt-at]
   (update-intent
    txn
    spec
    intent-id
-   "pending"
+   :outbound-intent-status-pending
    (fn [i]
-     (assoc i :attempts attempts :next-attempt-at next-attempt-at))
+     (assoc i :attempt-count attempt-count :next-attempt-at next-attempt-at))
    nil))
 
 (defn finish
-  [txn spec intent-id status outcome attempts event]
-  (update-intent txn
-                 spec
-                 intent-id
-                 status
-                 (fn [i] (moved i outcome attempts nil))
-                 event))
-
-(defn redact-done
-  [config spec]
-  (let [{:keys [intents redact intent->java pb->intent]} spec]
-    (if-not redact
-      0
-      (fdb/rewrite-store
-       config
-       intents
-       (fn [_txn bytes]
-         (let [intent (pb->intent bytes)
-               redacted (update intent :request redact)]
-           (when (and (#{"settled" "failed"} (:status intent))
-                      (not= (:request intent) (:request redacted)))
-             (intent->java redacted))))
-       {}))))
-
-(def ^:private cleared-payload
-  "What a cleared payload holds: `payload` is a required field, and an
-  empty one is not written at all."
-  (.getBytes "cleared" "UTF-8"))
-
-(defn clear-payloads
-  [config spec event-name]
-  (let [{:keys [outbox event->java pb->event]} spec]
-    (fdb/rewrite-store
-     config
-     outbox
-     (fn [_txn bytes]
-       (let [event (pb->event bytes)]
-         (when (and (= event-name (:event-name event))
-                    (not (java.util.Arrays/equals ^bytes cleared-payload
-                                                  ^bytes (:payload event))))
-           (event->java (assoc event :payload cleared-payload)))))
-     {})))
+  ([txn spec intent-id status outcome attempt-count event]
+   (finish txn spec intent-id status outcome attempt-count event nil))
+  ([txn spec intent-id status outcome attempt-count event changes]
+   (update-intent txn
+                  spec
+                  intent-id
+                  status
+                  (fn [i] (moved i outcome attempt-count changes))
+                  event)))

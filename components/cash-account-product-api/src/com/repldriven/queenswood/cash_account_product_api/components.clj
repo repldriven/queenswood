@@ -51,21 +51,22 @@
    [:version-id [:ref "VersionId"]]
    [:version-number int?]
    [:status [:ref "VersionStatus"]]
-   [:name {:optional true} [:ref "Name"]]
-   [:template-id {:optional true} [:ref "TemplateId"]]
+   [:name [:ref "Name"]]
+   [:template-id [:ref "TemplateId"]]
    [:product-type [:ref "ProductType"]]
    [:balance-sheet-side [:ref "BalanceSheetSide"]]
-   [:allowed-currencies [:unique-vector-lax {:min 1} [:ref "Currency"]]]
+   [:currency [:ref "Currency"]]
    [:balance-products [:unique-vector-lax {:min 1} [:ref "BalanceProduct"]]]
    [:allowed-payment-address-schemes
     [:unique-vector-lax {:min 1} [:ref "PaymentAddressScheme"]]]
-   [:interest-rate-bps {:optional true} [:ref "SignedBasisPoints"]]
+   [:interest-rate-bps [:ref "SignedBasisPoints"]]
    [:opening-reward {:optional true} [:ref "OpeningReward"]]
-   [:effective-from {:optional true} [:maybe [:ref "BusinessDay"]]]
-   [:effective-to {:optional true} [:maybe [:ref "BusinessDay"]]]
+   [:effective-from [:ref "BusinessDay"]]
+   [:effective-to {:optional true} [:ref "BusinessDay"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]
-   [:discarded-at {:optional true} [:maybe [:ref "Timestamp"]]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:published-at {:optional true} [:ref "Timestamp"]]
+   [:discarded-at {:optional true} [:ref "Timestamp"]]])
 
 (def CashAccountProduct
   [:map {:json-schema/example examples/CashAccountProduct}
@@ -77,7 +78,16 @@
 
 (defn ->version-body
   [version]
-  (select-keys version version-keys))
+  (let [opening (some (fn [{:keys [kind] :as terms}]
+                        (when (= :reward-kind-opening kind) terms))
+                      (:reward-terms version))]
+    (cond-> (assoc (select-keys version version-keys)
+                   :interest-rate-bps
+                   (or (get-in version
+                               [:interest-terms :steps 0 :bands 0 :rate-bps])
+                       0))
+            opening
+            (assoc :opening-reward {:amount (:amount opening)}))))
 
 (defn ->product-body
   [product]

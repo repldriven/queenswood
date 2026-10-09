@@ -87,7 +87,7 @@
 
 (def
   ^{:doc
-    "Real-side org-membership projection — for each tracked
+    "Real-side org-member projection — for each tracked
   org, the set of accounts, products and parties that belong to it.
   Returns `{model-bank-id {:accounts #{...} :products #{...}
                           :parties #{...}}}`. Args:
@@ -99,7 +99,7 @@
 
 (def
   ^{:doc
-    "Model-side org-membership projection. Same shape as
+    "Model-side org-member projection. Same shape as
   `project-banks`, normalised to sets. Args:
   - model-state: model state map."}
   project-model-banks
@@ -132,6 +132,8 @@
   legs touching each account via `bank-transaction/get-transactions`.
   Returns `{model-acct-id leg-count}`. Args:
   - bank: FDB config map.
+  - real->bank-id: `{real-acct-id -> real-bank-id}`, as `real->bank`
+    builds it.
   - id-mapping: `{real-id -> model-id}` map."}
   project-transactions
   transactions/project-transactions)

@@ -10,10 +10,9 @@
    :request {:method :post
              :path "/v1/parties"
              :auth [:ref :org-0 :token]
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Reject Party"
-                    :given-name "Reject"
-                    :family-name "Party"}}
+                    :legal-name "Reject Party"}}
    :as :party-0
    :assert {:status 201}}
   {:command :idv/verify

@@ -37,8 +37,8 @@
   import MigrationDetail from "./MigrationDetail.svelte";
   import MigrationDrawer from "./MigrationDrawer.svelte";
 
-  let { user, memberships } = $props();
-  const kicker = $derived(memberships?.[0]?.["bank-name"]);
+  let { user, myMembers } = $props();
+  const kicker = $derived(myMembers?.[0]?.["bank-name"]);
 
   let loading = $state(true);
   let error = $state(null);
@@ -72,7 +72,7 @@
         name: v.name ?? "",
         type: shortEnum(v["product-type"]),
         rateBps: v["interest-rate-bps"],
-        currencies: v["allowed-currencies"] ?? [],
+        currencies: v.currency ? [v.currency] : [],
         effectiveFrom: v["effective-from"] ?? null,
       }))
       .sort((a, b) => a.number - b.number);

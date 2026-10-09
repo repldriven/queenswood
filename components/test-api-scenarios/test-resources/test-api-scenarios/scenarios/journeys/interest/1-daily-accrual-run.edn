@@ -37,10 +37,10 @@
             :body
             {:job-id "daily-interest"
              :trigger-source "forced"
-             :status "succeeded"
+             :status "completed"
              :tasks
-             [{:label "accrue" :status "succeeded" :records-failed 0}
-              {:label "capitalize" :status "succeeded" :records-failed 0}]}}}
+             [{:label "accrue" :status "completed" :failed-count 0}
+              {:label "capitalize" :status "completed" :failed-count 0}]}}}
   ;; The run is daily, so a second one today is refused rather than
   ;; paid twice.
   {:command :api/request

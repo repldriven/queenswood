@@ -12,8 +12,7 @@
    :as :party-0
    :with {:token [:ref :org-0 :token]
           :display-name "Closed Address Holder"
-          :given-name "Closed"
-          :family-name "Holder"}}
+          :legal-name "Closed Holder"}}
   {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
   {:command :api/request
    :request
@@ -41,7 +40,7 @@
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :closed :account-id]}
              :auth [:ref :org-0 :token]}
-   :until {:status 200 :body {:account-status "opened"}}
+   :until {:status 200 :body {:status "opened"}}
    :as :closed}
   {:command :api/request
    :request {:method :post
@@ -54,7 +53,7 @@
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :closed :account-id]}
              :auth [:ref :org-0 :token]}
-   :until {:status 200 :body {:account-status "closed"}}}
+   :until {:status 200 :body {:status "closed"}}}
   ;; Fund the debtor so the outbound can leave.
   {:command :api/request
    :request {:method :post
@@ -95,7 +94,7 @@
                     :creditor-name "Closed Creditor"
                     :currency "GBP"
                     :amount 4200
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Inbound to a closed address"}}
    :as :outbound
    :assert {:status 201}}]
@@ -106,8 +105,8 @@
              :path-params {:payment-id [:ref :outbound :payment-id]}
              :auth [:ref :org-0 :token]}
    :until {:status 200
-           :body {:payment-status "returned"
-                  :return {:reason-code "AC04" :reason "BENACCCLOSED"}}}
+           :body {:status "returned"
+                  :returned-reason-code "AC04" :returned-reason "BENACCCLOSED"}}
    :timeout-ms 10000}
   {:command :api/request
    :request {:method :get
@@ -140,8 +139,8 @@
                    :available-balance {:value 0 :currency "GBP"}}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/ledger-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref-find :ledgers :items
-                                        :gl-code "2500" :account-id]}
+             :path "/v1/ledger-accounts/{ledger-account-id}/balances"
+             :path-params {:ledger-account-id [:ref-find :ledgers :items
+                                        :code "2500" :ledger-account-id]}
              :auth [:ref :org-0 :token]}
    :assert {:status 200 :body {:items [:m/embeds [{:credit 0 :debit 0}]]}}}]}

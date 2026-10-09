@@ -6,6 +6,7 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.processor.interface :as processor]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- submit-idv-check-intent
@@ -19,11 +20,12 @@
         {:keys [verification-id session-id]} data
         res (relay/save-intent fdb-config
                                {:intent-id (str (utility/uuidv7))
-                                :dedup-key (or session-id verification-id)
+                                :idempotency-key (or session-id verification-id)
+                                :kind :zyphe-outbound-intent-kind-check
                                 :subjects [verification-id]
-                                :request (pr-str data)
-                                :status "pending"
-                                :attempts 0
+                                :request (transit/write-str data)
+                                :status :outbound-intent-status-pending
+                                :attempt-count 0
                                 :created-at (utility/now)})]
     (cond
      (not (error/anomaly? res))

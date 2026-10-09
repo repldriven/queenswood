@@ -7,8 +7,7 @@
           :as :party-0
           :with {:token [:ref :org-0 :token]
                  :display-name "Rotating Customer"
-                 :given-name "Rotating"
-                 :family-name "Customer"}}
+                 :legal-name "Rotating Customer"}}
          ;; Published product
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
          ;; Open the cash-account and wait for opened
@@ -28,7 +27,7 @@
              :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:account-id [:ref :account-0 :account :account-id]
-                   :account-status "opened"
+                   :status "opened"
                    :payment-addresses [:ref :account-0 :account
                                        :payment-addresses]}}}]
  :then
@@ -41,7 +40,7 @@
              :auth [:ref :org-0 :token]}
    :until {:status 200
            :body
-           {:account-status "opened"
+           {:status "opened"
             :payment-addresses [:m/mismatch
                                 [:ref :account-0 :account :payment-addresses]]
             :retired-payment-addresses

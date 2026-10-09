@@ -1,0 +1,41 @@
+{
+  "type": "record",
+  "name": "ResumeCashAccount",
+  "namespace": "com.repldriven.queenswood.schema.cash_account",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "actor",
+      "type": {
+        "type": "record",
+        "name": "ActorSpec",
+        "doc": "Who asked",
+        "fields": [
+          {
+            "name": "kind",
+            "type": {
+              "type": "enum",
+              "name": "ActorKind",
+              "symbols": [
+                "ACTOR_KIND_MEMBER",
+                "ACTOR_KIND_OPERATOR",
+                "ACTOR_KIND_BANK"
+              ]
+            }
+          },
+          {
+            "name": "principal_id",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}

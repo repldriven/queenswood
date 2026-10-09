@@ -1,0 +1,18 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.actor;
+
+option java_outer_classname = "ActorProto";
+
+enum ActorKind {
+  ACTOR_KIND_UNKNOWN = 0;
+  ACTOR_KIND_MEMBER = 1;
+  ACTOR_KIND_OPERATOR = 2;
+  ACTOR_KIND_BANK = 3;
+}
+
+// Who did something: a member, the bank through its credential, or an operator.
+message Actor {
+  required ActorKind kind = 1;
+  required string principal_id = 2;
+}

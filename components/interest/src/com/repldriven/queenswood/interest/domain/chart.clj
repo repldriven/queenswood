@@ -5,7 +5,7 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
 (defn- account-id
-  "The id of the bank's ledger account for `gl-account-code` in
+  "The id of the bank's ledger account for `code` in
   `currency`, or a rejection naming the code and the currency it has no
   account for. A chart carries one flat row per role per currency, so a
   role alone does not name an account — a bank booking in two
@@ -13,17 +13,17 @@
   the one its own money is in. A bank whose chart cannot take a posting
   the run has to make is a chart-of-accounts problem the run cannot
   work around."
-  [chart bank-id gl-account-code currency]
+  [chart bank-id code currency]
   (if-some [account (first (filter (fn [a]
-                                     (and (= gl-account-code
-                                             (:gl-account-code a))
+                                     (and (= code
+                                             (:code a))
                                           (= currency (:currency a))))
                                    chart))]
     (:ledger-account-id account)
     (error/reject :interest/missing-gl-account
                   {:message "Bank has no such account in its chart"
                    :bank-id bank-id
-                   :gl-account-code gl-account-code
+                   :code code
                    :currency currency})))
 
 (defn- deposit-controls
@@ -33,8 +33,8 @@
   today, so a product that starts paying tomorrow already has somewhere
   to land."
   [chart bank-id currency]
-  (reduce (fn [acc [product-type gl-account-code]]
-            (let [id (account-id chart bank-id gl-account-code currency)]
+  (reduce (fn [acc [product-type code]]
+            (let [id (account-id chart bank-id code currency)]
               (if (error/anomaly? id)
                 (reduced id)
                 (assoc acc product-type id))))
@@ -50,11 +50,11 @@
   (let-nom>
     [expense (account-id chart
                          bank-id
-                         :gl-account-code-interest-expense
+                         :ledger-account-code-interest-expense
                          currency)
      payable (account-id chart
                          bank-id
-                         :gl-account-code-interest-payable
+                         :ledger-account-code-interest-payable
                          currency)]
     {:expense expense :payable payable}))
 
@@ -67,7 +67,7 @@
   (let-nom>
     [payable (account-id chart
                          bank-id
-                         :gl-account-code-interest-payable
+                         :ledger-account-code-interest-payable
                          currency)
      controls (deposit-controls chart bank-id currency)]
     {:payable payable :controls controls}))

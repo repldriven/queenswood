@@ -16,7 +16,6 @@
    :product-type :current
    :balance-type :default
    :balance-status :posted
-   :currency "GBP"
    :credit 0
    :debit 0
    :created-at "2025-01-01T00:00:00Z"

@@ -1,0 +1,35 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.transaction;
+
+import "record_metadata_options.proto";
+
+option java_outer_classname = "TransactionProto";
+
+enum TransactionType {
+  TRANSACTION_TYPE_UNKNOWN = 0;
+  TRANSACTION_TYPE_INTERNAL_TRANSFER = 1;
+  TRANSACTION_TYPE_INBOUND_TRANSFER = 2;
+  TRANSACTION_TYPE_OUTBOUND_TRANSFER = 3;
+  TRANSACTION_TYPE_FEE = 4;
+  TRANSACTION_TYPE_INTEREST_ACCRUAL = 5;
+  TRANSACTION_TYPE_INTEREST_CAPITALIZATION = 6;
+  TRANSACTION_TYPE_REWARD = 7;
+  TRANSACTION_TYPE_OUTBOUND_RETURN = 8;
+  TRANSACTION_TYPE_INBOUND_RETURN = 9;
+}
+
+// A balanced set of legs posted together.
+message Transaction {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string transaction_id = 2; // txn.<uuidv7>
+
+  required TransactionType transaction_type = 3;
+  required string currency = 4; // ISO 4217
+  optional string reference = 5;
+
+  required string idempotency_key = 100;
+  required int64 created_at = 101;
+}

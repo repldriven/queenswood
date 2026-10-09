@@ -39,15 +39,15 @@
    [:principal-id string?]
    [:name string?]])
 
-(def Membership
+(def Member
   [:map
-   {:json-schema/example me-api/Membership
+   {:json-schema/example me-api/Member
     :description
     "A person's role in a bank, the same record whether the bank or the
-    person reads it. A membership that created the organisation joined by
+    person reads it. A member that created the organisation joined by
     no invitation; any other names the invitation, who sent it and the
     address it was sent to."}
-   [:membership-id [:ref "MembershipId"]]
+   [:member-id [:ref "MemberId"]]
    [:bank-id [:ref "BankId"]]
    [:bank-name {:optional true} [:ref "Name"]]
    [:user-id [:ref "UserId"]]
@@ -59,9 +59,9 @@
    [:invited-by {:optional true} [:ref "Actor"]]
    [:invited-email {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
-(def MembershipList (list-schema "Membership" examples/MembershipList))
+(def MemberList (list-schema "Member" examples/MemberList))
 
 (def Invitation
   [:map
@@ -81,7 +81,7 @@
    [:accepted-by-user-id {:optional true} [:ref "UserId"]]
    [:accepted-email {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def InvitationList (list-schema "Invitation" examples/InvitationList))
 
@@ -124,7 +124,7 @@
     "One entry in the bank's audit log: a change to who may act for the
     bank, who made it and why. An invitation's events name
     the invitation, its address and its role as `role-after`; a
-    membership's name the member, the membership and `role-before`, and a
+    member's name the member, the member and `role-before`, and a
     role change `role-after`. `subject-name` names the member from their
     user record, and is absent when they have none."}
    [:audit-event-id [:ref "AuditEventId"]]
@@ -133,7 +133,7 @@
    [:actor [:ref "Actor"]]
    [:subject-user-id {:optional true} [:ref "UserId"]]
    [:subject-name {:optional true} string?]
-   [:membership-id {:optional true} [:ref "MembershipId"]]
+   [:member-id {:optional true} [:ref "MemberId"]]
    [:invitation-id {:optional true} [:ref "InvitationId"]]
    [:email {:optional true} string?]
    [:role-before {:optional true} [:ref "Role"]]
@@ -148,5 +148,5 @@
                         #'AuditEventList #'ActorKind #'ChangeRoleRequest
                         #'CreateInvitationRequest #'EmailAddress #'Invitation
                         #'InvitationId #'InvitationStatus #'InvitationList
-                        #'Membership #'MembershipList #'ReasonRequest
+                        #'Member #'MemberList #'ReasonRequest
                         #'RecipientInvitation #'RecipientInvitationList]))

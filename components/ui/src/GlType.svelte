@@ -1,6 +1,6 @@
 <script>
   /* GlType — squared mono chip for a ledger account's accounting family
-     (gl-account-type): asset / liability / equity / income / expense.
+     (account-class): asset / liability / equity / income / expense.
      Asset and expense are debit-normal; liability, equity and income are
      credit-normal. Low-chroma tones so the column reads as a
      classification rather than a status.

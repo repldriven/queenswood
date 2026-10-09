@@ -25,8 +25,8 @@
                              "The bank's ledger accounts and its trial balance."
                              :body [:ref "LedgerAccountList"]}}
             :handler queries/list-ledger-accounts}}]
-    ["/{account-id}"
-     {:parameters {:path {:account-id [:ref "LedgerAccountId"]}}}
+    ["/{ledger-account-id}"
+     {:parameters {:path {:ledger-account-id [:ref "LedgerAccountId"]}}}
      [""
       {:get {:summary "Retrieve a ledger account"
              :openapi {:operationId "RetrieveLedgerAccount"

@@ -4,7 +4,8 @@
     [com.repldriven.queenswood.cash-account-api.examples :as examples]
 
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
-     [components-registry]]))
+     [components-registry]]
+    [com.repldriven.queenswood.transaction-api.interface :as transaction-api]))
 
 (def CashAccountId
   (schema/id-schema "CashAccountId" "acc" examples/CashAccountId))
@@ -27,6 +28,17 @@
 (def CashAccountStatus
   (coercion/cash-account-status-enum-schema {:json-schema/example "opened"}))
 
+(def AddressRotationStatus
+  (coercion/address-rotation-status-enum-schema {:json-schema/example
+                                                 "completed"}))
+
+(def AddressRotation
+  "The latest change of the account's payment addresses, and the
+  provider's reason where it refused one."
+  [:map {:closed true}
+   [:status [:ref "AddressRotationStatus"]]
+   [:failed-reason {:optional true} string?]])
+
 (def AccountType
   (coercion/account-type-enum-schema {:json-schema/example "personal"}))
 
@@ -41,18 +53,19 @@
    [:version-id [:ref "VersionId"]]
    [:product-type [:ref "ProductType"]]
    [:account-type [:ref "AccountType"]]
-   [:account-status [:ref "CashAccountStatus"]]
+   [:status [:ref "CashAccountStatus"]]
    [:payment-addresses [:vector [:ref "PaymentAddress"]]]
    [:retired-payment-addresses {:optional true}
     [:vector [:ref "RetiredPaymentAddress"]]]
    [:bban {:optional true} [:ref "Bban"]]
-   [:refusal-reason {:optional true} [:maybe string?]]
+   [:refused-reason {:optional true} string?]
+   [:rotation {:optional true} [:ref "AddressRotation"]]
    [:balances {:optional true} [:vector [:ref "Balance"]]]
    [:posted-balance {:optional true} [:ref "SignedAmount"]]
    [:available-balance {:optional true} [:ref "SignedAmount"]]
    [:transactions {:optional true} [:vector [:ref "Transaction"]]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def RetiredPaymentAddress
   [:map {:closed true}
@@ -64,7 +77,14 @@
 
 (defn ->body
   [account]
-  (select-keys account cash-account-keys))
+  (select-keys (cond-> account
+                       (:rotation account)
+                       (update :rotation select-keys [:status :failed-reason])
+
+                       (:transactions account)
+                       (update :transactions
+                               (partial mapv transaction-api/->body)))
+               cash-account-keys))
 
 (def CreateCashAccountRequest
   [:map {:json-schema/example examples/CreateCashAccountRequest}
@@ -89,10 +109,11 @@
 (def registry
   (components-registry
    [#'CashAccountId #'ScanAddress #'PaymentAddress #'CashAccountStatus
-    #'AccountType #'CashAccount #'RetiredPaymentAddress
-    #'CreateCashAccountRequest #'CreateCashAccountResponse #'CashAccountList
-    #'CloseCashAccountResponse #'SuspendCashAccountResponse
-    #'ResumeCashAccountResponse #'RotateCashAccountAddressResponse]))
+    #'AddressRotationStatus #'AddressRotation #'AccountType #'CashAccount
+    #'RetiredPaymentAddress #'CreateCashAccountRequest
+    #'CreateCashAccountResponse #'CashAccountList #'CloseCashAccountResponse
+    #'SuspendCashAccountResponse #'ResumeCashAccountResponse
+    #'RotateCashAccountAddressResponse]))
 
 (def ^:private embedded-keys
   "The `CashAccount` keys a read route fills only when the caller asks

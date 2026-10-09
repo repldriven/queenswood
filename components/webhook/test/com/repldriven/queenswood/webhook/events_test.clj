@@ -45,7 +45,7 @@
   consumer's loader reads."
   "cash-accounts")
 
-(def ^:private balances-store "balances")
+(def ^:private balances-store "account-balances")
 
 (def ^:private sort-code "040404")
 
@@ -65,10 +65,12 @@
      :party-id "pty.events"
      :product-id "prd.events"
      :version-id "prv.1"
-     :product-type :product-type-sub-ledger-current
+     :version-from-on 20089
+     :created-by {:kind :actor-kind-operator :principal-id "test"}
+     :product-type :account-product-type-sub-ledger-current
      :name account-id
      :currency "GBP"
-     :account-status :cash-account-status-opened
+     :status :cash-account-status-opened
      :payment-addresses [{:scheme :payment-address-scheme-scan
                           :scan {:sort-code sort-code
                                  :account-number account-number}}]
@@ -82,7 +84,7 @@
   (let [now (utility/now)]
     {:bank-id bank-id
      :account-id account-id
-     :product-type :product-type-sub-ledger-current
+     :product-type :account-product-type-sub-ledger-current
      :balance-type :balance-type-default
      :balance-status :balance-status-posted
      :currency "GBP"
@@ -103,7 +105,7 @@
       :secret "whsec_events"
       :idempotency-key endpoint-id
       :created-at now
-      :updated-at now}
+      :created-by {:kind :actor-kind-member :principal-id "usr.1"}}
      :kinds
      (seq kinds))))
 
@@ -118,7 +120,7 @@
                   (fdb/save-record (fdb/open txn accounts-store)
                                    (schema/CashAccount->java acc))
                   (fdb/save-record (fdb/open txn balances-store)
-                                   (schema/Balance->java bal))
+                                   (schema/AccountBalance->java bal))
                   nil)
                 :test/seed
                 "Failed to seed the account"))
@@ -160,8 +162,8 @@
   (store/find-notifications-by-bank config bank-id))
 
 (defn- deliveries
-  [config endpoint-id]
-  (store/find-deliveries-by-endpoint config endpoint-id))
+  [config bank-id endpoint-id]
+  (store/find-deliveries-by-endpoint config bank-id endpoint-id))
 
 (defn- body->map
   [notification]
@@ -214,8 +216,9 @@
         _ (is (= 1 (count written)))
         _
         (testing "and one delivery per enabled endpoint that chose it"
-          (nom-test> [chosen (deliveries config (str "whe.a." suffix))
-                      all-kinds (deliveries config (str "whe.b." suffix))
+          (nom-test> [chosen (deliveries config bank-id (str "whe.a." suffix))
+                      all-kinds
+                      (deliveries config bank-id (str "whe.b." suffix))
                       _ (is (= 1 (count chosen)))
                       _ (is (= 1 (count all-kinds)))
                       _ (is (= #{:webhook-delivery-status-pending}
@@ -251,7 +254,7 @@
                      (is (not (error/anomaly? (consume sys opened))))
                      (is (not (error/anomaly? (consume sys opened)))))
                  written (notifications config bank-id)
-                 sent (deliveries config endpoint-id)
+                 sent (deliveries config bank-id endpoint-id)
                  _ (testing "and the unique index left one of each"
                      (is (= 1 (count written)))
                      (is (= 1 (count sent))))]))))
@@ -287,7 +290,8 @@
                  _ (testing
                      "including the key the open-cash-account request carried"
                      (is (= "ik-envelope" (:idempotency-key body)))
-                     (is (= "ik-envelope" (:idempotency-key notification))))
+                     (is (= "ik-envelope"
+                            (:resource-idempotency-key notification))))
                  _ (testing
                      "the statuses are published as the read route spells them"
                      (is (= "opening" (:status-before body)))
@@ -297,7 +301,7 @@
                      (is (= kind (:kind body))))
                  _ (testing
                      "and the row records which relayed entry produced it"
-                     (is (= event-id (:changelog-event-id notification)))
+                     (is (= event-id (:idempotency-key notification)))
                      (is (= event-id (:correlation-id body))))]))))
 
 (deftest an-endpoint-that-did-not-choose-the-kind-is-not-told-test
@@ -337,8 +341,8 @@
                      "the notification is written even with nobody to tell"
                      (is (= 1 (count written))))
                  _ (testing "but neither endpoint earns a delivery"
-                     (nom-test> [off (deliveries config disabled-id)
-                                 other (deliveries config other-kind-id)
+                     (nom-test> [off (deliveries config bank-id disabled-id)
+                                 other (deliveries config bank-id other-kind-id)
                                  _ (is (= 0 (count off)))
                                  _ (is (= 0 (count other)))]))]))))
 
@@ -433,11 +437,13 @@
   (let [now (utility/now)]
     {:bank-id bank-id
      :party-id party-id
-     :type :party-type-person
+     :party-type :party-type-person
+     :legal-name "Arthur Dent"
      :display-name "Arthur Dent"
      :status status
      :idempotency-key (str "ik-" party-id)
      :created-at now
+     :created-by {:kind :actor-kind-operator :principal-id "queenswood-admin"}
      :updated-at now}))
 
 (defn- seed-party
@@ -515,7 +521,7 @@
               (is (= "Party" (:resource-type (first bodies))))
               (is (nil? (:idempotency-key (:data (first bodies)))))))
         _ (testing "and only the endpoint's chosen kind is delivered"
-            (nom-test> [chosen (deliveries config (str "whe.p." suffix))
+            (nom-test> [chosen (deliveries config bank-id (str "whe.p." suffix))
                         _ (is (= 1 (count chosen)))]))]))))
 
 (def ^:private outbound-event-name "outbound-payment-status-changed")
@@ -534,18 +540,19 @@
   (let [now (utility/now)]
     {:payment-id payment-id
      :idempotency-key (str "ik-" payment-id)
-     :scheme "fps"
+     :scheme-type :scheme-type-fps
      :debtor-account-id "acc.events"
      :creditor-bban "04000412345678"
      :creditor-name "Arthur Dent"
      :currency "GBP"
      :amount 2500
-     :payment-status status
+     :status status
      :transaction-id "txn.events"
      :reference "Towel"
      :bank-id bank-id
      :business-day 20260101
      :created-at now
+     :created-by {:kind :actor-kind-operator :principal-id "queenswood-admin"}
      :updated-at now}))
 
 (defn- seed-outbound
@@ -628,22 +635,23 @@
                      (is (= payment-id (:resource-id body)))
                      (is (= "pending" (:status-before body)))
                      (is (= "completed" (:status-after body)))
-                     (is (= "completed" (get-in body [:data :payment-status])))
-                     (is (= "fps" (get-in body [:data :scheme])))
+                     (is (= "completed" (get-in body [:data :status])))
+                     (is (= "fps" (get-in body [:data :scheme-type])))
                      (is (= (str "ik-" payment-id) (:idempotency-key body)))
                      (is (not (contains? (:data body) :idempotency-key))))
                  _ (testing "and one delivery to the endpoint that chose it"
                      (nom-test> [chosen (deliveries config
+                                                    bank-id
                                                     (str "whe.p." suffix))
                                  _ (is (= 1 (count chosen)))]))]))))
 
-(def ^:private reward-event-name "reward-status-changed")
+(def ^:private reward-event-name "account-reward-status-changed")
 
 (def ^:private reward-kind "reward.paid")
 
 (def ^:private rewards-store
   "Must match `reward.store`'s store name."
-  "rewards")
+  "account-rewards")
 
 (defn- reward
   "A reward as `reward.store` leaves it once paid."
@@ -652,25 +660,22 @@
     {:bank-id bank-id
      :reward-id reward-id
      :account-id "acc.events.rewarded"
-     :party-id "pty.events"
      :product-id "prd.events"
      :version-id "prv.events"
      :kind :reward-kind-opening
      :amount 5000
      :currency "GBP"
-     :status :reward-status-paid
+     :status :account-reward-status-paid
      :transaction-id "txn.events.reward"
-     :run-id "run.events"
      :paid-at now
-     :created-at now
-     :updated-at now}))
+     :created-at now}))
 
 (defn- seed-reward
   [config reward]
   (fdb/transact config
                 (fn [txn]
                   (fdb/save-record (fdb/open txn rewards-store)
-                                   (schema/Reward->java reward))
+                                   (schema/AccountReward->java reward))
                   nil)
                 :test/seed
                 "Failed to seed the reward"))
@@ -716,18 +721,19 @@
                             :reward-id reward-id
                             :change-kind :reward-change-kind-defer
                             :status-before nil
-                            :status-after :reward-status-due})
+                            :status-after :account-reward-status-deferred})
                  _ (is (not (error/anomaly? (consume sys deferred))))
                  none (notifications config bank-id)
                  _ (testing "a defer is acknowledged and writes nothing"
                      (is (empty? none)))
-                 paid (reward-envelope sys
-                                       {:event-id (str "evt.reward.pay." suffix)
-                                        :bank-id bank-id
-                                        :reward-id reward-id
-                                        :change-kind :reward-change-kind-pay
-                                        :status-before :reward-status-due
-                                        :status-after :reward-status-paid})
+                 paid (reward-envelope
+                       sys
+                       {:event-id (str "evt.reward.pay." suffix)
+                        :bank-id bank-id
+                        :reward-id reward-id
+                        :change-kind :reward-change-kind-pay
+                        :status-before :account-reward-status-deferred
+                        :status-after :account-reward-status-paid})
                  _ (is (not (error/anomaly? (consume sys paid))))
                  written (notifications config bank-id)
                  _ (is (= 1 (count written)))
@@ -737,7 +743,7 @@
                      (is (= "pay" (:change-kind body)))
                      (is (= "Reward" (:resource-type body)))
                      (is (= reward-id (:resource-id body)))
-                     (is (= "due" (:status-before body)))
+                     (is (= "deferred" (:status-before body)))
                      (is (= "paid" (:status-after body)))
                      (is (= 5000 (get-in body [:data :amount])))
                      (is (= "acc.events.rewarded"
@@ -748,5 +754,6 @@
                      (is (not (contains? (:data body) :run-id))))
                  _ (testing "and one delivery to the endpoint that chose it"
                      (nom-test> [chosen (deliveries config
+                                                    bank-id
                                                     (str "whe.r." suffix))
                                  _ (is (= 1 (count chosen)))]))]))))

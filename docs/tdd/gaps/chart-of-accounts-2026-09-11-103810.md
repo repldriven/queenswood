@@ -105,7 +105,7 @@ ones that predict runtime behaviour say so.
   own `store/transact`, and the bank brick's rollback test proves a
   failed create leaves no chart behind.
 - Each ledger account opens one `default / posted` balance tagged
-  `:product-type-general-ledger`, which is how read sites tell the
+  `:account-product-type-general-ledger`, which is how read sites tell the
   bank's books from a customer instrument.
 - `product-type->control-code` is the TDD's table: current, savings and
   term-deposit to 2100, 2200 and 2300, own-funds to 3100. The control
@@ -298,7 +298,7 @@ exercise — and `:ledger-account/invalid-status` has no 409 entry in the
 API's status table. Evidence: `close-account` in the ledger-account
 brick's `core.clj`, `close` and `new-ledger-account` in its
 `domain.clj`,
-[ledger-account.proto](/components/schema/resources/schemas/ledger-accounts/ledger-account.proto),
+[ledger-account.proto](/components/schema/resources/schemas/ledger-account/ledger-account.proto),
 [ledger-accounts.yml](/components/resources/resources/policies/micro/restricted/capabilities/ledger-accounts.yml)
 under the micro capabilities, `new-ledger-accounts` in the bank brick's
 `core.clj`, and `rejection-status-overrides` in the api base's
@@ -336,7 +336,7 @@ creation; the `CashAccount` proto has no such field, the open command
 takes no override, and no emitter, adapter or handler reads it. `SACC`
 and `CPAC` are enum values with no writer. Evidence: the
 `IsoCashAccountType` enum and tags 19 and 8 in
-[account-product.proto](/components/schema/resources/schemas/cash-account-products/account-product.proto),
+[cash-account-product.proto](/components/schema/resources/schemas/cash-account-product/cash-account-product.proto),
 the three customer templates under
 `cash-account-product-templates`, and `product-fields` in the
 cash-account-product brick's `domain.clj`.
@@ -376,7 +376,7 @@ throughout". The outbound reservation credits 1200 at
 `default / pending-outgoing`, settlement and reversal debit it there, and
 the balance brick's `new-zero-balance` opens any `(balance-type,
 balance-status)` a leg names, tagging a leg with no product type as
-`:product-type-general-ledger`. So 1200 carries two buckets on any bank
+`:account-product-type-general-ledger`. So 1200 carries two buckets on any bank
 that has sent a payment, and any GL account gains a bucket the first
 time a leg names one. Evidence: `outbound-payment->transaction` and
 `outbound-settlement->transaction` in the payment brick's `domain.clj`,

@@ -14,10 +14,22 @@
   ^{:doc
     "Malli registry of the company schemas, keyed by the name each
   appears under in the document's `components/schemas`:
-  `RegisteredOfficeAddress`, `Company`. Merged into the coercion
+  `CompanyRegistry`, `RegisteredOfficeAddress`, `Company`. Merged into the coercion
   registry in `api.clj`, so `[:ref \"X\"]` resolves them on any route."}
   registry
   components/registry)
+
+;; ---
+;; bodies
+;; ---
+
+(defn ->body
+  "Project a company record onto the keys `Company` declares.
+
+  Args:
+  - company: a company as the registry lookup replies with it."
+  [company]
+  (components/->body company))
 
 ;; ---
 ;; examples

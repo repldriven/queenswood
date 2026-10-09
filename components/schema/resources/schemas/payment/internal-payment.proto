@@ -1,0 +1,28 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.payment;
+
+import "record_metadata_options.proto";
+import "schemas/actor/actor.proto";
+
+option java_outer_classname = "InternalPaymentProto";
+
+// A payment between two accounts of one bank, settled as it is made.
+message InternalPayment {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string payment_id = 2; // pmt.<uuidv7>
+
+  required string debtor_account_id = 3;
+  required string creditor_account_id = 4;
+  required int64 amount = 5; // minor units
+  required string currency = 6; // ISO 4217
+  optional string reference = 7;
+  required string transaction_id = 8;
+  required int64 business_day = 9; // epoch day
+
+  required string idempotency_key = 100;
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+}

@@ -15,15 +15,15 @@
             :body {:job-id "daily-interest"
                    :periodicity "daily"
                    :run-time-minutes 360
-                   :enabled true}}}
-  ;; Pause is just toggling enabled.
+                   :status "active"}}}
+  ;; Pause is setting the status to paused.
   {:command :api/request
    :request {:method :put
              :path "/v1/jobs/{job-id}/schedule"
              :path-params {:job-id "daily-interest"}
              :auth [:ref :org-0 :token]
-             :body {:enabled false}}
-   :assert {:status 200 :body {:run-time-minutes 360 :enabled false}}}
+             :body {:status "paused"}}
+   :assert {:status 200 :body {:run-time-minutes 360 :status "paused"}}}
   ;; Reload to prove the paused state round-trips through FDB — an unset
   ;; optional bool must decode back to false, not vanish.
   {:command :api/request
@@ -31,4 +31,4 @@
              :path "/v1/jobs/{job-id}"
              :path-params {:job-id "daily-interest"}
              :auth [:ref :org-0 :token]}
-   :assert {:status 200 :body {:run-time-minutes 360 :enabled false}}}]}
+   :assert {:status 200 :body {:run-time-minutes 360 :status "paused"}}}]}

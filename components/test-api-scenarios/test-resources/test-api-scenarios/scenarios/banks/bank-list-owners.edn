@@ -33,7 +33,7 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation
                                            :invitation-id]}
              :auth :invitee-token}
-   :as :owner-membership
+   :as :owner-member
    :assert {:status 201 :body {:role "owner"}}}]
  :then
  [{:command :api/request
@@ -44,8 +44,8 @@
     {:items
      [:m/embeds
       [{:bank-id [:ref :bank :bank-id]
-        :owners [{:membership-id [:ref :owner-membership
-                                  :membership-id]
-                  :user-id [:ref :owner-membership
+        :owners [{:member-id [:ref :owner-member
+                                  :member-id]
+                  :user-id [:ref :owner-member
                             :user-id]
                   :email "owners-invitee@queenswood.local"}]}]]}}}]}

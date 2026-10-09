@@ -1,189 +1,209 @@
 (ns com.repldriven.queenswood.schema.interface
   "Bank-specific protobuf schema bridge. Wraps the generated
-  `com.repldriven.queenswood.schemas.*` namespaces with EDN-friendly
+  `com.repldriven.queenswood.schema.*` namespaces with EDN-friendly
   converters: `pb->X` parses bytes into a Clojure map, `X->pb`
   serialises a map to bytes, and `X->java` parses bytes into the
   generated Java class. Also exposes enum-label converters used by
   FDB index queries."
   (:require
-    [com.repldriven.queenswood.schemas.balances :as balances]
-    [com.repldriven.queenswood.schemas.banks :as banks]
-    [com.repldriven.queenswood.schemas.cash_account_migrations :as
-     cash-account-migrations]
-    [com.repldriven.queenswood.schemas.cash_account_products :as
-     cash-account-products]
-    [com.repldriven.queenswood.schemas.cash_accounts :as cash-accounts]
-    [com.repldriven.queenswood.schemas.changelog :as changelog]
-    [com.repldriven.queenswood.schemas.clearbank :as clearbank]
-    [com.repldriven.queenswood.schemas.company :as company]
-    [com.repldriven.queenswood.schemas.emails :as emails]
-    [com.repldriven.queenswood.schemas.idempotency :as idempotency]
-    [com.repldriven.queenswood.schemas.idv :as idv]
-    [com.repldriven.queenswood.schemas.interest :as interest]
-    [com.repldriven.queenswood.schemas.ledger_accounts :as ledger-accounts]
-    [com.repldriven.queenswood.schemas.memberships :as memberships]
-    [com.repldriven.queenswood.schemas.form3 :as form3]
-    [com.repldriven.queenswood.schemas.modulr :as modulr]
-    [com.repldriven.queenswood.schemas.onfido :as onfido]
-    [com.repldriven.queenswood.schemas.outbound :as outbound]
-    [com.repldriven.queenswood.schemas.party :as party]
-    [com.repldriven.queenswood.schemas.payee_check :as payee-check]
-    [com.repldriven.queenswood.schemas.payments :as payments]
-    [com.repldriven.queenswood.schemas.person_identification :as
-     person-identification]
-    [com.repldriven.queenswood.schemas.policies :as policies]
-    [com.repldriven.queenswood.schemas.rewards :as rewards]
-    [com.repldriven.queenswood.schemas.scheduler :as scheduler]
-    [com.repldriven.queenswood.schemas.transactions :as transactions]
-    [com.repldriven.queenswood.schemas.types :as types]
-    [com.repldriven.queenswood.schemas.users :as users]
-    [com.repldriven.queenswood.schemas.webhooks :as webhooks]
-    [com.repldriven.queenswood.schemas.zyphe :as zyphe]
+    [com.repldriven.queenswood.schema.account_product_type :as
+     account-product-type]
+    [com.repldriven.queenswood.schema.actor :as actor]
+    [com.repldriven.queenswood.schema.balance :as balance]
+    [com.repldriven.queenswood.schema.bank :as bank]
+    [com.repldriven.queenswood.schema.cash_account :as cash-account]
+    [com.repldriven.queenswood.schema.cash_account_migration :as
+     cash-account-migration]
+    [com.repldriven.queenswood.schema.cash_account_product :as
+     cash-account-product]
+    [com.repldriven.queenswood.schema.changelog :as changelog]
+    [com.repldriven.queenswood.schema.circuit_breaker :as circuit-breaker]
+    [com.repldriven.queenswood.schema.clearbank :as clearbank]
+    [com.repldriven.queenswood.schema.company :as company]
+    [com.repldriven.queenswood.schema.email :as email]
+    [com.repldriven.queenswood.schema.form3 :as form3]
+    [com.repldriven.queenswood.schema.idempotency :as idempotency]
+    [com.repldriven.queenswood.schema.idv :as idv]
+    [com.repldriven.queenswood.schema.interest :as interest]
+    [com.repldriven.queenswood.schema.ledger_account :as ledger-account]
+    [com.repldriven.queenswood.schema.member :as member]
+    [com.repldriven.queenswood.schema.modulr :as modulr]
+    [com.repldriven.queenswood.schema.onfido :as onfido]
+    [com.repldriven.queenswood.schema.outbound_intent :as outbound-intent]
+    [com.repldriven.queenswood.schema.party :as party]
+    [com.repldriven.queenswood.schema.payee_check :as payee-check]
+    [com.repldriven.queenswood.schema.payment :as payment]
+    [com.repldriven.queenswood.schema.policy :as policy]
+    [com.repldriven.queenswood.schema.reward :as reward]
+    [com.repldriven.queenswood.schema.scheduler :as scheduler]
+    [com.repldriven.queenswood.schema.transaction :as transaction]
+    [com.repldriven.queenswood.schema.user :as user]
+    [com.repldriven.queenswood.schema.webhook :as webhook]
+    [com.repldriven.queenswood.schema.zyphe :as zyphe]
 
     [protojure.protobuf :as proto])
   (:import
-    (com.repldriven.queenswood.schemas.balances BalanceProto$Balance)
-    (com.repldriven.queenswood.schemas.cash_account_migrations
+    (com.repldriven.queenswood.schema.balance
+     AccountBalanceProto$AccountBalance)
+    (com.repldriven.queenswood.schema.cash_account_migration
      CashAccountMigrationProto$CashAccountMigration
      CashAccountMigrationRunProto$CashAccountMigrationRun
-     CashAccountMigrationRunProto$CashAccountMigrationAccountRun)
-    (com.repldriven.queenswood.schemas.cash_account_products
+     CashAccountMigrationAccountRunProto$CashAccountMigrationAccountRun)
+    (com.repldriven.queenswood.schema.cash_account_product
      CashAccountProductProto$CashAccountProduct
-     CashAccountProductProto$CashAccountProductTemplate
-     CashAccountProductProto$IsoCashAccountType)
-    (com.repldriven.queenswood.schemas.cash_accounts
+     CashAccountProductTemplateProto$CashAccountProductTemplate
+     CashAccountProductTypesProto$IsoCashAccountType)
+    (com.repldriven.queenswood.schema.actor ActorProto$ActorKind)
+    (com.repldriven.queenswood.schema.cash_account
      CashAccountProto$CashAccount)
-    (com.repldriven.queenswood.schemas.company CompanyProto$Company)
-    (com.repldriven.queenswood.schemas.emails
+    (com.repldriven.queenswood.schema.company CompanyProto$Company)
+    (com.repldriven.queenswood.schema.email
      EmailDeliveryProto$EmailDelivery)
-    (com.repldriven.queenswood.schemas.idempotency IdempotencyProto$Idempotency)
-    (com.repldriven.queenswood.schemas.idv IdvProto$Idv IdvProto$IdvSession)
-    (com.repldriven.queenswood.schemas.interest
+    (com.repldriven.queenswood.schema.idempotency IdempotencyProto$Idempotency)
+    (com.repldriven.queenswood.schema.idv IdvProto$Idv
+                                          IdvSessionProto$IdvSession)
+    (com.repldriven.queenswood.schema.interest
      InterestRunProto$InterestRun
-     InterestRunProto$InterestAccountRun)
-    (com.repldriven.queenswood.schemas.ledger_accounts
+     InterestAccountRunProto$InterestAccountRun)
+    (com.repldriven.queenswood.schema.ledger_account
      LedgerAccountProto$LedgerAccount
-     LedgerAccountProto$GlAccountCode)
-    (com.repldriven.queenswood.schemas.scheduler
+     LedgerAccountProto$LedgerAccountCode)
+    (com.repldriven.queenswood.schema.scheduler
      SchedulerJobProto$SchedulerJob
      SchedulerRunProto$SchedulerRun)
-    (com.repldriven.queenswood.schemas.banks BankProto$Bank)
-    (com.repldriven.queenswood.schemas.party
-     PartyProto$Party
-     PartyNationalIdentifierProto$PartyNationalIdentifier)
-    (com.repldriven.queenswood.schemas.person_identification
-     PersonIdentificationProto$PersonIdentification
-     PersonNameProto$PersonName)
-    (com.repldriven.queenswood.schemas.payments
+    (com.repldriven.queenswood.schema.bank BankProto$Bank)
+    (com.repldriven.queenswood.schema.party PartyProto$Party)
+    (com.repldriven.queenswood.schema.payment
      InboundPaymentProto$InboundPayment
      InternalPaymentProto$InternalPayment
      OutboundPaymentProto$OutboundPayment
-     ProviderTransferProto$ProviderTransfer)
-    (com.repldriven.queenswood.schemas.payee_check
+     PaymentProviderTransferProto$PaymentProviderTransfer)
+    (com.repldriven.queenswood.schema.payee_check
      PayeeCheckProto$PayeeCheck)
-    (com.repldriven.queenswood.schemas.clearbank
-     ClearbankOutboxProto$ClearbankOutboxEvent
-     ClearbankOutboxProto$ClearbankOutboundIntent)
-    (com.repldriven.queenswood.schemas.onfido
-     OnfidoOutboxProto$OnfidoOutboxEvent
-     OnfidoOutboxProto$OnfidoOutboundIntent)
-    (com.repldriven.queenswood.schemas.policies
+    (com.repldriven.queenswood.schema.clearbank
+     ClearbankOutboxEventProto$ClearbankOutboxEvent
+     ClearbankOutboundIntentProto$ClearbankOutboundIntent)
+    (com.repldriven.queenswood.schema.onfido
+     OnfidoOutboxEventProto$OnfidoOutboxEvent
+     OnfidoOutboundIntentProto$OnfidoOutboundIntent)
+    (com.repldriven.queenswood.schema.policy
      PolicyProto$Policy
-     PolicyProto$PolicyBinding)
-    (com.repldriven.queenswood.schemas.rewards RewardProto$Reward)
-    (com.repldriven.queenswood.schemas.transactions
+     PolicyBindingProto$PolicyBinding)
+    (com.repldriven.queenswood.schema.reward
+     AccountRewardProto$AccountReward)
+    (com.repldriven.queenswood.schema.transaction
+     TransactionLegProto$TransactionLeg
      TransactionProto$Transaction
-     TransactionProto$TransactionLeg
      TransactionProto$TransactionType)
-    (com.repldriven.queenswood.schemas.users
+    (com.repldriven.queenswood.schema.user
      UserProto$User
-     UserProto$IdentityProvider
-     UserProto$UserStatus)
-    (com.repldriven.queenswood.schemas.memberships
-     AccessEventProto$AccessEvent
-     AccessEventProto$AccessEventKind
-     ActorProto$ActorKind
+     UserProto$IdentityProvider)
+    (com.repldriven.queenswood.schema.member
      InvitationProto$Invitation
      InvitationProto$InvitationStatus
-     MembershipProto$Membership
-     MembershipProto$MembershipStatus
-     MembershipProto$Role)
-    (com.repldriven.queenswood.schemas.webhooks
+     MemberProto$Member
+     MemberProto$MemberStatus
+     MemberProto$Role
+     MemberRoleChangeProto$MemberRoleChange)
+    (com.repldriven.queenswood.schema.webhook
      WebhookDeliveryProto$WebhookDelivery
      WebhookDeliveryAttemptProto$WebhookDeliveryAttempt
      WebhookEndpointProto$WebhookEndpoint
      WebhookNotificationProto$WebhookNotification)
-    (com.repldriven.queenswood.schemas.outbound
+    (com.repldriven.queenswood.schema.circuit_breaker
      CircuitBreakerProto$CircuitBreaker)
-    (com.repldriven.queenswood.schemas.zyphe
-     ZypheOutboxProto$ZypheOutboxEvent
-     ZypheOutboxProto$ZypheOutboundIntent)
-    (com.repldriven.queenswood.schemas.form3
-     Form3OutboxProto$Form3OutboundIntent
-     Form3OutboxProto$Form3OutboxEvent)
-    (com.repldriven.queenswood.schemas.modulr
-     ModulrOutboxProto$ModulrOutboxEvent
-     ModulrOutboxProto$ModulrOutboundIntent)))
+    (com.repldriven.queenswood.schema.outbound_intent
+     OutboundIntentStatusProto$OutboundIntentStatus)
+    (com.repldriven.queenswood.schema.zyphe
+     ZypheOutboxEventProto$ZypheOutboxEvent
+     ZypheOutboundIntentProto$ZypheOutboundIntent)
+    (com.repldriven.queenswood.schema.form3
+     Form3OutboundIntentProto$Form3OutboundIntent
+     Form3OutboxEventProto$Form3OutboxEvent)
+    (com.repldriven.queenswood.schema.modulr
+     ModulrOutboxEventProto$ModulrOutboxEvent
+     ModulrOutboundIntentProto$ModulrOutboundIntent)))
 
-(def ^{:doc "Parse Balance protobuf bytes into a Clojure map."} pb->Balance
-  balances/pb->Balance)
+(def ^{:doc "Parse AccountBalance protobuf bytes into a Clojure map."}
+     pb->AccountBalance
+  balance/pb->AccountBalance)
 
-(defn Balance->pb
-  "Serialise a Balance map to protobuf bytes.
-
-  Args:
-  - m: Balance map matching the generated schema."
-  [m]
-  (proto/->pb (balances/new-Balance m)))
-
-(defn Balance->java
-  "Parse a Balance map into the generated Java protobuf class.
+(defn AccountBalance->pb
+  "Serialise an AccountBalance map to protobuf bytes.
 
   Args:
-  - m: Balance map matching the generated schema."
+  - m: AccountBalance map matching the generated schema."
   [m]
-  (BalanceProto$Balance/parseFrom (Balance->pb m)))
+  (proto/->pb (balance/new-AccountBalance m)))
+
+(defn AccountBalance->java
+  "Parse an AccountBalance map into the generated Java protobuf class.
+
+  Args:
+  - m: AccountBalance map matching the generated schema."
+  [m]
+  (AccountBalanceProto$AccountBalance/parseFrom (AccountBalance->pb m)))
 
 (def ^{:doc "Map of Balance type label to protobuf int value."}
      balance-type->int
-  balances/BalanceType-label2val)
+  balance/BalanceType-label2val)
 
 (def ^{:doc "Map of Balance status label to protobuf int value."}
      balance-status->int
-  balances/BalanceStatus-label2val)
+  balance/BalanceStatus-label2val)
 
-(def ^{:doc "Map of ProductType label to protobuf int value."} product-type->int
-  types/ProductType-label2val)
+(def ^{:doc "Map of AccountProductType label to protobuf int value."}
+     product-type->int
+  account-product-type/AccountProductType-label2val)
 
-(def ^{:doc "Map of ProductType protobuf int value to label."} int->product-type
-  types/ProductType-val2label)
+(def ^{:doc "Map of AccountProductType protobuf int value to label."}
+     int->product-type
+  account-product-type/AccountProductType-val2label)
 
 (def ^{:doc "Map of CashAccount AccountType label to protobuf int
   value."}
      account-type->int
-  cash-accounts/AccountType-label2val)
+  cash-account/AccountType-label2val)
 
 (def ^{:doc "Map of IsoCashAccountType label to protobuf int value."}
      iso-cash-account-type->int
-  cash-account-products/IsoCashAccountType-label2val)
+  cash-account-product/IsoCashAccountType-label2val)
+
+(def ^{:doc "Map of CompanyRegistry label to protobuf int value."}
+     company-registry->int
+  company/CompanyRegistry-label2val)
 
 (def
   ^{:doc
-    "Map of GlAccountCode role label to protobuf int value — the
-  chart number itself, e.g. :gl-account-code-suspense -> 2500."}
-  gl-account-code->int
-  ledger-accounts/GlAccountCode-label2val)
+    "Map of LedgerAccountCode role label to protobuf int value — the
+  chart number itself, e.g. :ledger-account-code-suspense -> 2500."}
+  ledger-account-code->int
+  ledger-account/LedgerAccountCode-label2val)
 
-(def ^{:doc "Map of GlAccountCode protobuf int value to role label."}
-     int->gl-account-code
-  ledger-accounts/GlAccountCode-val2label)
+(def ^{:doc "Map of LedgerAccountCode protobuf int value to role label."}
+     int->ledger-account-code
+  ledger-account/LedgerAccountCode-val2label)
 
-(defn gl-account-code->pb-enum
-  "Convert a gl-account-code role keyword to the protobuf enum value, for
+(defn ledger-account-code->pb-enum
+  "Convert a code role keyword to the protobuf enum value, for
   use as the comparand in an FDB enum-field index query."
-  [gl-account-code]
-  (LedgerAccountProto$GlAccountCode/forNumber
-   (gl-account-code->int gl-account-code)))
+  [code]
+  (LedgerAccountProto$LedgerAccountCode/forNumber
+   (ledger-account-code->int code)))
+
+(def ^{:doc "Map of OutboundIntentStatus label to protobuf int value."}
+     outbound-intent-status->int
+  outbound-intent/OutboundIntentStatus-label2val)
+
+(defn outbound-intent-status->pb-enum
+  "Convert an outbound-intent-status keyword to the protobuf enum value,
+  for use as the comparand in an FDB enum-field index query.
+
+  Args:
+  - outbound-intent-status: `:outbound-intent-status-*` keyword."
+  [outbound-intent-status]
+  (OutboundIntentStatusProto$OutboundIntentStatus/forNumber
+   (outbound-intent-status->int outbound-intent-status)))
 
 (defn iso-cash-account-type->pb-enum
   "Convert an iso-cash-account-type keyword to the protobuf enum
@@ -192,13 +212,13 @@
   Args:
   - iso-cash-account-type: `:iso-cash-account-type-*` keyword."
   [iso-cash-account-type]
-  (CashAccountProductProto$IsoCashAccountType/forNumber
+  (CashAccountProductTypesProto$IsoCashAccountType/forNumber
    (iso-cash-account-type->int iso-cash-account-type)))
 
-(def transaction-type->int transactions/TransactionType-label2val)
+(def transaction-type->int transaction/TransactionType-label2val)
 
 (def ^{:doc "Map of LegSide label to protobuf int value."} leg-side->int
-  transactions/LegSide-label2val)
+  transaction/LegSide-label2val)
 
 (defn transaction-type->pb-enum
   "Convert a transaction-type keyword to the protobuf enum value, for
@@ -215,37 +235,79 @@
           (some? (get m k))
           (update k #(into {} %))))
 
+(defn- without-unset
+  [record unset]
+  (reduce-kv (fn [m k v]
+               (cond-> m
+                       (= v (get m k))
+                       (dissoc k)))
+             (into {} record)
+             unset))
+
+(defn- plain-interest
+  "A version's interest terms as plain maps, without a step's start, a
+  band's `up-to` or a payment's day, day of month or month where none
+  was given."
+  [interest]
+  (-> (into {} interest)
+      (update
+       :steps
+       (fn [steps]
+         (mapv (fn [step]
+                 (-> (without-unset step {:starts-on 0 :starts-after-months 0})
+                     (update :bands
+                             (fn [bands]
+                               (mapv (fn [band]
+                                       (without-unset band {:up-to 0}))
+                                     bands)))))
+               steps)))
+      (update :payment
+              without-unset
+              {:day :interest-payment-day-unknown :day-of-month 0 :month 0})))
+
 (defn pb->CashAccountProduct
-  "Parse CashAccountProduct protobuf bytes into a Clojure map, dropping
-  the `0` default proto2 emits for an unset optional `effective_from` /
-  `effective_to` so callers see those keys only when a real epoch-day
-  is set (epoch-day 0 is 1970-01-01, never a real product window), and
-  the `false` default for `internal` so the flag is present only on
-  internal products (which never reach a customer response), and the
-  empty-string default for `idempotency_key` so only new-product
-  versions carry one (others never took a unique-index entry). An
-  `opening-reward` is a plain map, and absent when the version promises
-  none.
+  "Parse CashAccountProduct protobuf bytes into a Clojure map, without the
+  optional fields the version was never given: a zero `effective_to`,
+  `published_at` or `discarded_at`, an empty idempotency key, no interest
+  terms, or no publishing or discarding actor. An embedded message is a
+  plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [version (cash-account-products/pb->CashAccountProduct input)]
-    (cond-> (plain-embedded version :opening-reward)
-            (nil? (:opening-reward version))
-            (dissoc :opening-reward)
+  (let [version (cash-account-product/pb->CashAccountProduct input)]
+    (cond->
+     (reduce
+      plain-embedded
+      (update version :reward-terms (fn [terms] (mapv #(into {} %) terms)))
+      [:created-by :published-by :discarded-by])
 
-            (zero? (:effective-from version 0))
-            (dissoc :effective-from)
+     (nil? (:interest-terms version))
+     (dissoc :interest-terms)
 
-            (zero? (:effective-to version 0))
-            (dissoc :effective-to)
+     (zero? (:updated-at version 0))
+     (dissoc :updated-at)
 
-            (not (:internal version))
-            (dissoc :internal)
+     (some? (:interest-terms version))
+     (update :interest-terms plain-interest)
 
-            (= "" (:idempotency-key version))
-            (dissoc :idempotency-key))))
+     (nil? (:published-by version))
+     (dissoc :published-by)
+
+     (nil? (:discarded-by version))
+     (dissoc :discarded-by)
+
+     (zero? (:effective-to version 0))
+     (dissoc :effective-to)
+
+     (zero? (:published-at version 0))
+     (dissoc :published-at)
+
+     (zero? (:discarded-at version 0))
+     (dissoc :discarded-at)
+
+     (= "" (:idempotency-key version))
+     (dissoc :idempotency-key))))
 
 (defn CashAccountProduct->pb
   "Serialise a CashAccountProduct map to protobuf bytes.
@@ -253,7 +315,7 @@
   Args:
   - m: CashAccountProduct map matching the generated schema."
   [m]
-  (proto/->pb (cash-account-products/new-CashAccountProduct m)))
+  (proto/->pb (cash-account-product/new-CashAccountProduct m)))
 
 (defn CashAccountProduct->java
   "Parse a CashAccountProduct map into the generated Java protobuf
@@ -265,9 +327,15 @@
   (CashAccountProductProto$CashAccountProduct/parseFrom
    (CashAccountProduct->pb m)))
 
-(def ^{:doc "Parse CashAccountProductTemplate protobuf bytes into a map."}
-     pb->CashAccountProductTemplate
-  cash-account-products/pb->CashAccountProductTemplate)
+(defn pb->CashAccountProductTemplate
+  "Parse CashAccountProductTemplate protobuf bytes into a map, an
+  `updated-at` present only when set.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset (cash-account-product/pb->CashAccountProductTemplate input)
+                 {:updated-at 0}))
 
 (defn CashAccountProductTemplate->pb
   "Serialise a CashAccountProductTemplate map to protobuf bytes.
@@ -275,7 +343,7 @@
   Args:
   - m: CashAccountProductTemplate map matching the generated schema."
   [m]
-  (proto/->pb (cash-account-products/new-CashAccountProductTemplate m)))
+  (proto/->pb (cash-account-product/new-CashAccountProductTemplate m)))
 
 (defn CashAccountProductTemplate->java
   "Parse a CashAccountProductTemplate map into the generated Java
@@ -284,11 +352,36 @@
   Args:
   - m: CashAccountProductTemplate map matching the generated schema."
   [m]
-  (CashAccountProductProto$CashAccountProductTemplate/parseFrom
+  (CashAccountProductTemplateProto$CashAccountProductTemplate/parseFrom
    (CashAccountProductTemplate->pb m)))
 
-(def ^{:doc "Parse Company protobuf bytes into a Clojure map."} pb->Company
-  company/pb->Company)
+(def ^:private company-unset
+  {:jurisdiction ""
+   :incorporated-on 0
+   :registered-office-address nil
+   :updated-at 0})
+
+(def ^:private address-unset
+  {:address-line-1 "" :locality "" :postal-code "" :country ""})
+
+(defn- plain-company
+  "A company, or a bank's binding to one, as a plain map without the
+  optional fields and address lines it was never given."
+  [company]
+  (let [company (without-unset company company-unset)]
+    (cond-> company
+            (:registered-office-address company)
+            (update :registered-office-address without-unset address-unset))))
+
+(defn pb->Company
+  "Parse Company protobuf bytes into a Clojure map. Each optional field,
+  and each line of the registered office address, is present only when
+  set. The address is a plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (plain-company (company/pb->Company input)))
 
 (defn Company->pb
   "Serialise a Company map to protobuf bytes.
@@ -306,9 +399,17 @@
   [m]
   (CompanyProto$Company/parseFrom (Company->pb m)))
 
-(def ^{:doc "Parse Idempotency protobuf bytes into a Clojure map."}
-     pb->Idempotency
-  idempotency/pb->Idempotency)
+(defn pb->Idempotency
+  "Parse Idempotency protobuf bytes into a Clojure map. A pending entry
+  carries no `:response` or `:completed-at`; a completed one's response
+  is a plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (idempotency/pb->Idempotency input)
+      (without-unset {:response nil :completed-at 0})
+      (plain-embedded :response)))
 
 (defn Idempotency->pb
   "Serialise an Idempotency map to protobuf bytes."
@@ -320,19 +421,25 @@
   [m]
   (IdempotencyProto$Idempotency/parseFrom (Idempotency->pb m)))
 
-(defn pb->Bank
-  "Parse Bank protobuf bytes into a Clojure map. Strips `created-by`
-  and `idempotency-key` when unset — a bank created before they were
-  recorded leaves both unset, and one created by no command the
-  second."
-  [input]
-  (let [bank (banks/pb->Bank input)]
-    (cond-> bank
-            (nil? (:created-by bank))
-            (dissoc :created-by)
+(def ^:private bank-unset
+  {:updated-at 0
+   :status-changed-at 0
+   :status-changed-by nil
+   :tier-changed-at 0
+   :tier-changed-by nil})
 
-            (= "" (:idempotency-key bank))
-            (dissoc :idempotency-key))))
+(defn pb->Bank
+  "Parse Bank protobuf bytes into a Clojure map, a status or tier
+  change's `_at` and `_by` present only when set, its actors plain maps,
+  and its company binding, where it has one, as a company is."
+  [input]
+  (let [bank (reduce plain-embedded
+                     (without-unset (bank/pb->Bank input)
+                                    (assoc bank-unset :company-binding nil))
+                     [:created-by :status-changed-by :tier-changed-by])]
+    (cond-> bank
+            (:company-binding bank)
+            (update :company-binding plain-company))))
 
 (defn Bank->pb
   "Serialise a Bank map to protobuf bytes.
@@ -340,7 +447,7 @@
   Args:
   - m: Bank map matching the generated schema."
   [m]
-  (proto/->pb (banks/new-Bank m)))
+  (proto/->pb (bank/new-Bank m)))
 
 (defn Bank->java
   "Parse a Bank map into the generated Java protobuf class.
@@ -350,24 +457,33 @@
   [m]
   (BankProto$Bank/parseFrom (Bank->pb m)))
 
+(def ^:private party-unset
+  {:display-name ""
+   :external-reference ""
+   :merged-into-party-id ""
+   :activated-at 0
+   :rejected-at 0
+   :suspended-at 0
+   :suspended-by nil
+   :resumed-at 0
+   :resumed-by nil
+   :closed-at 0
+   :closed-by nil
+   :merged-at 0
+   :merged-by nil
+   :idempotency-key ""
+   :updated-at 0})
+
+(def ^:private party-actors
+  [:created-by :suspended-by :resumed-by :closed-by :merged-by])
+
 (defn pb->Party
-  "Parse Party protobuf bytes into a Clojure map. Strips
-  `merged-into-party-id`, `idempotency-key` and `external-reference`
-  when they deserialise as the proto2 empty-string default — every
-  party except a merged-away one leaves the first unset, every party
-  not created by a client command the second, and every party
-  registered without a reference the third."
+  "Parse Party protobuf bytes into a Clojure map. Each optional field is
+  present only when set, and every `_by` is a plain map."
   [input]
-  (let [party (party/pb->Party input)]
-    (cond-> party
-            (= "" (:merged-into-party-id party))
-            (dissoc :merged-into-party-id)
-
-            (= "" (:idempotency-key party))
-            (dissoc :idempotency-key)
-
-            (= "" (:external-reference party))
-            (dissoc :external-reference))))
+  (reduce plain-embedded
+          (without-unset (party/pb->Party input) party-unset)
+          party-actors))
 
 (defn Party->pb
   "Serialise a Party map to protobuf bytes.
@@ -385,74 +501,15 @@
   [m]
   (PartyProto$Party/parseFrom (Party->pb m)))
 
-(def ^{:doc
-       "Parse PartyNationalIdentifier protobuf bytes into a
-  Clojure map."}
-     pb->PartyNationalIdentifier
-  party/pb->PartyNationalIdentifier)
-
-(defn PartyNationalIdentifier->pb
-  "Serialise a PartyNationalIdentifier map to protobuf bytes.
+(defn pb->Idv
+  "Parse Idv protobuf bytes into a Clojure map, without an outcome's
+  `_at` it was never given.
 
   Args:
-  - m: PartyNationalIdentifier map matching the generated schema."
-  [m]
-  (proto/->pb (party/new-PartyNationalIdentifier m)))
-
-(defn PartyNationalIdentifier->java
-  "Parse a PartyNationalIdentifier map into the generated Java
-  protobuf class.
-
-  Args:
-  - m: PartyNationalIdentifier map matching the generated schema."
-  [m]
-  (PartyNationalIdentifierProto$PartyNationalIdentifier/parseFrom
-   (PartyNationalIdentifier->pb m)))
-
-(def ^{:doc "Parse PersonIdentification protobuf bytes into a
-  Clojure map."}
-     pb->PersonIdentification
-  person-identification/pb->PersonIdentification)
-
-(defn PersonIdentification->pb
-  "Serialise a PersonIdentification map to protobuf bytes.
-
-  Args:
-  - m: PersonIdentification map matching the generated schema."
-  [m]
-  (proto/->pb (person-identification/new-PersonIdentification m)))
-
-(defn PersonIdentification->java
-  "Parse a PersonIdentification map into the generated Java
-  protobuf class.
-
-  Args:
-  - m: PersonIdentification map matching the generated schema."
-  [m]
-  (PersonIdentificationProto$PersonIdentification/parseFrom
-   (PersonIdentification->pb m)))
-
-(def ^{:doc "Parse PersonName protobuf bytes into a Clojure map."}
-     pb->PersonName
-  person-identification/pb->PersonName)
-
-(defn PersonName->pb
-  "Serialise a PersonName map to protobuf bytes.
-
-  Args:
-  - m: PersonName map matching the generated schema."
-  [m]
-  (proto/->pb (person-identification/new-PersonName m)))
-
-(defn PersonName->java
-  "Parse a PersonName map into the generated Java protobuf class.
-
-  Args:
-  - m: PersonName map matching the generated schema."
-  [m]
-  (PersonNameProto$PersonName/parseFrom (PersonName->pb m)))
-
-(def ^{:doc "Parse Idv protobuf bytes into a Clojure map."} pb->Idv idv/pb->Idv)
+  - input: protobuf bytes."
+  [input]
+  (without-unset (idv/pb->Idv input)
+                 {:accepted-at 0 :rejected-at 0 :cancelled-at 0 :updated-at 0}))
 
 (defn Idv->pb
   "Serialise an Idv map to protobuf bytes.
@@ -471,17 +528,17 @@
   (IdvProto$Idv/parseFrom (Idv->pb m)))
 
 (defn pb->IdvSession
-  "Parse IdvSession protobuf bytes into a Clojure map, dropping a
-  `failure-reason` that deserialises as the proto2 empty-string default:
-  only a failed session carries one.
+  "Parse IdvSession protobuf bytes into a Clojure map, without a
+  `:hand-off` or `:failure-reason` it was never given. An embedded
+  message is a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [session (idv/pb->IdvSession input)]
-    (cond-> session
-            (= "" (:failure-reason session))
-            (dissoc :failure-reason))))
+  (reduce plain-embedded
+          (without-unset (idv/pb->IdvSession input)
+                         {:hand-off nil :failure-reason "" :updated-at 0})
+          [:hand-off :created-by]))
 
 (defn IdvSession->pb
   "Serialise an IdvSession map to protobuf bytes.
@@ -497,11 +554,17 @@
   Args:
   - m: IdvSession map matching the generated schema."
   [m]
-  (IdvProto$IdvSession/parseFrom (IdvSession->pb m)))
+  (IdvSessionProto$IdvSession/parseFrom (IdvSession->pb m)))
 
-(def ^{:doc "Parse CashAccountMigration protobuf bytes into a Clojure map."}
-     pb->CashAccountMigration
-  cash-account-migrations/pb->CashAccountMigration)
+(defn pb->CashAccountMigration
+  "Parse CashAccountMigration protobuf bytes into a Clojure map, an
+  `updated-at` present only when set.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset (cash-account-migration/pb->CashAccountMigration input)
+                 {:updated-at 0}))
 
 (defn CashAccountMigration->pb
   "Serialise a CashAccountMigration map to protobuf bytes.
@@ -509,7 +572,7 @@
   Args:
   - m: CashAccountMigration map matching the generated schema."
   [m]
-  (proto/->pb (cash-account-migrations/new-CashAccountMigration m)))
+  (proto/->pb (cash-account-migration/new-CashAccountMigration m)))
 
 (defn CashAccountMigration->java
   "Parse a CashAccountMigration map into the generated Java protobuf
@@ -523,7 +586,7 @@
 
 (def ^{:doc "Parse CashAccountMigrationRun protobuf bytes into a map."}
      pb->CashAccountMigrationRun
-  cash-account-migrations/pb->CashAccountMigrationRun)
+  cash-account-migration/pb->CashAccountMigrationRun)
 
 (defn CashAccountMigrationRun->pb
   "Serialise a CashAccountMigrationRun map to protobuf bytes.
@@ -531,7 +594,7 @@
   Args:
   - m: CashAccountMigrationRun map matching the generated schema."
   [m]
-  (proto/->pb (cash-account-migrations/new-CashAccountMigrationRun m)))
+  (proto/->pb (cash-account-migration/new-CashAccountMigrationRun m)))
 
 (defn CashAccountMigrationRun->java
   "Parse a CashAccountMigrationRun map into the generated Java protobuf
@@ -545,7 +608,7 @@
 
 (def ^{:doc "Parse CashAccountMigrationAccountRun protobuf bytes into a map."}
      pb->CashAccountMigrationAccountRun
-  cash-account-migrations/pb->CashAccountMigrationAccountRun)
+  cash-account-migration/pb->CashAccountMigrationAccountRun)
 
 (defn CashAccountMigrationAccountRun->pb
   "Serialise a CashAccountMigrationAccountRun map to protobuf bytes.
@@ -553,7 +616,7 @@
   Args:
   - m: CashAccountMigrationAccountRun map matching the generated schema."
   [m]
-  (proto/->pb (cash-account-migrations/new-CashAccountMigrationAccountRun m)))
+  (proto/->pb (cash-account-migration/new-CashAccountMigrationAccountRun m)))
 
 (defn CashAccountMigrationAccountRun->java
   "Parse a CashAccountMigrationAccountRun map into the generated Java
@@ -562,40 +625,36 @@
   Args:
   - m: CashAccountMigrationAccountRun map matching the generated schema."
   [m]
-  (CashAccountMigrationRunProto$CashAccountMigrationAccountRun/parseFrom
+  (CashAccountMigrationAccountRunProto$CashAccountMigrationAccountRun/parseFrom
    (CashAccountMigrationAccountRun->pb m)))
 
 (def ^{:doc "Map of CashAccountMigrationStatus label to protobuf int value."}
      cash-account-migration-status->int
-  cash-account-migrations/CashAccountMigrationStatus-label2val)
+  cash-account-migration/CashAccountMigrationStatus-label2val)
 
 (def ^{:doc "Map of CashAccountMigrationOutcome label to protobuf int value."}
      cash-account-migration-outcome->int
-  cash-account-migrations/CashAccountMigrationOutcome-label2val)
+  cash-account-migration/CashAccountMigrationOutcome-label2val)
 
 (def ^{:doc "Map of CashAccountMigrationStatus protobuf int value to label."}
      int->cash-account-migration-status
-  cash-account-migrations/CashAccountMigrationStatus-val2label)
+  cash-account-migration/CashAccountMigrationStatus-val2label)
 
 (def ^{:doc "Map of InterestRunKind label to protobuf int value."}
      interest-run-kind->int
-  interest/InterestRun-InterestRunKind-label2val)
+  interest/InterestRunKind-label2val)
 
 (def ^{:doc "Map of InterestRunKind protobuf int value to label."}
      int->interest-run-kind
-  interest/InterestRun-InterestRunKind-val2label)
+  interest/InterestRunKind-val2label)
 
-(def ^{:doc "Map of InterestRunState label to protobuf int value."}
-     interest-run-state->int
-  interest/InterestRun-InterestRunState-label2val)
+(def ^{:doc "Map of InterestRunStatus label to protobuf int value."}
+     interest-run-status->int
+  interest/InterestRunStatus-label2val)
 
-(def ^{:doc "Map of InterestAccountRunKind label to protobuf int value."}
-     interest-account-run-kind->int
-  interest/InterestAccountRun-InterestAccountRunKind-label2val)
-
-(def ^{:doc "Map of InterestAccountRunState label to protobuf int value."}
-     interest-account-run-state->int
-  interest/InterestAccountRun-InterestAccountRunState-label2val)
+(def ^{:doc "Map of InterestAccountRunStatus label to protobuf int value."}
+     interest-account-run-status->int
+  interest/InterestAccountRunStatus-label2val)
 
 (def ^{:doc "Parse InterestRun protobuf bytes into a Clojure map."}
      pb->InterestRun
@@ -617,9 +676,14 @@
   [m]
   (InterestRunProto$InterestRun/parseFrom (InterestRun->pb m)))
 
-(def ^{:doc "Parse InterestAccountRun protobuf bytes into a Clojure map."}
-     pb->InterestAccountRun
-  interest/pb->InterestAccountRun)
+(defn pb->InterestAccountRun
+  "Parse InterestAccountRun protobuf bytes into a Clojure map, an
+  `updated-at` present only when set.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset (interest/pb->InterestAccountRun input) {:updated-at 0}))
 
 (defn InterestAccountRun->pb
   "Serialise an InterestAccountRun map to protobuf bytes.
@@ -636,12 +700,23 @@
   Args:
   - m: InterestAccountRun map matching the generated schema."
   [m]
-  (InterestRunProto$InterestAccountRun/parseFrom
+  (InterestAccountRunProto$InterestAccountRun/parseFrom
    (InterestAccountRun->pb m)))
 
-(def ^{:doc "Parse SchedulerJob protobuf bytes into a Clojure map."}
-     pb->SchedulerJob
-  scheduler/pb->SchedulerJob)
+(def ^:private scheduler-job-unset
+  {:last-run-at 0 :next-run-at 0 :updated-at 0 :updated-by nil})
+
+(defn pb->SchedulerJob
+  "Parse SchedulerJob protobuf bytes into a Clojure map. A run's
+  `last-run-at` and `next-run-at`, and an edit's `updated-at` and
+  `updated-by`, are present only when set, the actor a plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (scheduler/pb->SchedulerJob input)
+      (without-unset scheduler-job-unset)
+      (plain-embedded :updated-by)))
 
 (defn SchedulerJob->pb
   "Serialise a SchedulerJob map to protobuf bytes.
@@ -659,9 +734,33 @@
   [m]
   (SchedulerJobProto$SchedulerJob/parseFrom (SchedulerJob->pb m)))
 
-(def ^{:doc "Parse SchedulerRun protobuf bytes into a Clojure map."}
-     pb->SchedulerRun
-  scheduler/pb->SchedulerRun)
+(def ^:private scheduler-run-unset
+  {:expected-end-at 0
+   :completed-at 0
+   :failed-at 0
+   :created-by nil
+   :updated-at 0
+   :failure-reason ""})
+
+(def ^:private scheduler-task-run-unset
+  {:started-at 0 :finished-at 0 :failure-reason ""})
+
+(defn pb->SchedulerRun
+  "Parse SchedulerRun protobuf bytes into a Clojure map, each task a
+  plain map. An optional field is present only when set: the expected
+  end, the outcome's `_at`, a forced run's `created-by`, a failed run's
+  `failure-reason`, and a task's timings and failure.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (scheduler/pb->SchedulerRun input)
+      (without-unset scheduler-run-unset)
+      (plain-embedded :created-by)
+      (update :tasks
+              (fn [tasks]
+                (mapv (fn [task] (without-unset task scheduler-task-run-unset))
+                      tasks)))))
 
 (defn SchedulerRun->pb
   "Serialise a SchedulerRun map to protobuf bytes.
@@ -679,29 +778,40 @@
   [m]
   (SchedulerRunProto$SchedulerRun/parseFrom (SchedulerRun->pb m)))
 
+(def ^:private cash-account-unset
+  {:bban ""
+   :rotation nil
+   :refused-reason ""
+   :opened-at 0
+   :refused-at 0
+   :suspended-at 0
+   :suspended-by nil
+   :resumed-at 0
+   :resumed-by nil
+   :close-requested-at 0
+   :close-requested-by nil
+   :closed-at 0
+   :address-rotated-at 0
+   :address-rotated-by nil
+   :updated-at 0})
+
 (defn pb->CashAccount
-  "Parse CashAccount protobuf bytes into a Clojure map. Strips
-  optional string fields that deserialise as the proto2 empty-string
-  default (`bban`, `last-rotation-idempotency-key`) — GL
-  chart-of-accounts rows leave the first unset and an account that has
-  never been rotated leaves the second unset, and downstream read
-  sites use `(when (:bban account) ...)` semantics to distinguish
-  customer instruments from GL rows. Always drops
-  `gl-control-account-id`: the field is deprecated, kept in the
-  descriptor only so stored meta-data can still evolve, and no read
-  site consults it. Drops the `:cash-account-status-unknown` an unset
-  `closing-from` reads as, so it is present only while closing."
+  "Parse CashAccount protobuf bytes into a Clojure map. Strips the
+  optional fields an account was never given, as they deserialise as
+  proto2 defaults: an empty `bban` or `refused-reason`, no `rotation` or
+  a rotation's empty `failed-reason`, and a transition's zero `_at` and
+  absent `_by`. Downstream
+  read sites use `(when (:bban account) ...)` to tell an account with
+  addresses from one without. An embedded message is a plain map."
   [input]
-  (let [account (cash-accounts/pb->CashAccount input)]
-    (cond-> (dissoc account :gl-control-account-id)
-            (= "" (:bban account))
-            (dissoc :bban)
-
-            (= "" (:last-rotation-idempotency-key account))
-            (dissoc :last-rotation-idempotency-key)
-
-            (= :cash-account-status-unknown (:closing-from account))
-            (dissoc :closing-from))))
+  (let [account (reduce plain-embedded
+                        (without-unset (cash-account/pb->CashAccount input)
+                                       cash-account-unset)
+                        [:rotation :created-by :suspended-by :resumed-by
+                         :close-requested-by :address-rotated-by])]
+    (cond-> account
+            (:rotation account)
+            (update :rotation without-unset {:failed-reason ""}))))
 
 (defn CashAccount->pb
   "Serialise a CashAccount map to protobuf bytes.
@@ -709,7 +819,7 @@
   Args:
   - m: CashAccount map matching the generated schema."
   [m]
-  (proto/->pb (cash-accounts/new-CashAccount m)))
+  (proto/->pb (cash-account/new-CashAccount m)))
 
 (defn CashAccount->java
   "Parse a CashAccount map into the generated Java protobuf class.
@@ -720,18 +830,13 @@
   (CashAccountProto$CashAccount/parseFrom (CashAccount->pb m)))
 
 (defn pb->LedgerAccount
-  "Parse LedgerAccount protobuf bytes into a Clojure map, dropping the
-  proto2 default `:sub-ledger-kind-unknown` emitted for an unset
-  optional `sub_ledger_kind` so callers see `:sub-ledger-kind` only on
-  control accounts that carry a real cohort.
+  "Parse LedgerAccount protobuf bytes into a Clojure map, an `updated-at`
+  present only when set.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [account (ledger-accounts/pb->LedgerAccount input)]
-    (cond-> account
-            (= :sub-ledger-kind-unknown (:sub-ledger-kind account))
-            (dissoc :sub-ledger-kind))))
+  (without-unset (ledger-account/pb->LedgerAccount input) {:updated-at 0}))
 
 (defn LedgerAccount->pb
   "Serialise a LedgerAccount map to protobuf bytes.
@@ -739,7 +844,7 @@
   Args:
   - m: LedgerAccount map matching the generated schema."
   [m]
-  (proto/->pb (ledger-accounts/new-LedgerAccount m)))
+  (proto/->pb (ledger-account/new-LedgerAccount m)))
 
 (defn LedgerAccount->java
   "Parse a LedgerAccount map into the generated Java protobuf class.
@@ -749,43 +854,34 @@
   [m]
   (LedgerAccountProto$LedgerAccount/parseFrom (LedgerAccount->pb m)))
 
+(def ^:private inbound-payment-unset
+  {:creditor-account-id ""
+   :debtor-name ""
+   :reference ""
+   :transaction-id ""
+   :suspended-reason-code ""
+   :suspended-reason ""
+   :return-failed-reason ""
+   :admitted-at 0
+   :held-at 0
+   :settled-at 0
+   :suspended-at 0
+   :returned-at 0
+   :return-failed-at 0
+   :updated-at 0})
+
 (defn pb->InboundPayment
-  "Parse InboundPayment protobuf bytes into a Clojure map, stripping
-  every optional string that deserialises as the proto2 empty-string
-  default so each key is present only when the record carries a real
-  value: a suspended inbound credits no account, a held or returned one
-  posts no transaction, the scheme supplies `debtor-name` and
-  `reference` only when the debtor's bank sent them, and only a suspended
-  or returned one carries a `suspense-reason-code` and `suspense-reason`,
-  and only a suspended one the provider did not send back a
-  `return-failure-reason`.
+  "Parse InboundPayment protobuf bytes into a Clojure map. Each optional
+  field is present only when set: a suspended inbound credits no account,
+  a held or admitted one posts no transaction, the scheme supplies
+  `debtor-name` and `reference` only when the debtor's bank sent them,
+  each state's `_at` only once the payment reached it, a suspended one's
+  reason code and reason, and a failed return's reason.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [payment (payments/pb->InboundPayment input)]
-    (cond->
-     payment
-     (= "" (:creditor-account-id payment))
-     (dissoc :creditor-account-id)
-
-     (= "" (:transaction-id payment))
-     (dissoc :transaction-id)
-
-     (= "" (:debtor-name payment))
-     (dissoc :debtor-name)
-
-     (= "" (:reference payment))
-     (dissoc :reference)
-
-     (= "" (:suspense-reason-code payment))
-     (dissoc :suspense-reason-code)
-
-     (= "" (:suspense-reason payment))
-     (dissoc :suspense-reason)
-
-     (= "" (:return-failure-reason payment))
-     (dissoc :return-failure-reason))))
+  (without-unset (payment/pb->InboundPayment input) inbound-payment-unset))
 
 (defn InboundPayment->pb
   "Serialise an InboundPayment map to protobuf bytes.
@@ -793,7 +889,7 @@
   Args:
   - m: InboundPayment map matching the generated schema."
   [m]
-  (proto/->pb (payments/new-InboundPayment m)))
+  (proto/->pb (payment/new-InboundPayment m)))
 
 (defn InboundPayment->java
   "Parse an InboundPayment map into the generated Java protobuf
@@ -807,42 +903,33 @@
 
 (def ^{:doc "Map of InboundPaymentStatus label to protobuf int value."}
      inbound-payment-status->int
-  payments/InboundPaymentStatus-label2val)
+  payment/InboundPaymentStatus-label2val)
+
+(def ^:private outbound-payment-unset
+  {:reference ""
+   :failed-kind :outbound-payment-failed-kind-unknown
+   :failed-reason-code ""
+   :failed-reason ""
+   :returned-reason-code ""
+   :returned-reason ""
+   :held-at 0
+   :completed-at 0
+   :failed-at 0
+   :returned-at 0
+   :updated-at 0})
 
 (defn pb->OutboundPayment
-  "Parse OutboundPayment protobuf bytes into a Clojure map, stripping
-  every optional field that deserialises as its proto2 default so each
-  key is present only when the record carries a real value: a payment
-  the caller sent no `reference` for carries none, and only a failed one
-  carries a `failure-kind`, `failure-reason-code` and `failure-reason`,
-  and only a returned one a `return-reason-code` and `return-reason`.
-  Drops `cancellation-code` and `cancellation-reason`, which are
-  deprecated.
+  "Parse OutboundPayment protobuf bytes into a Clojure map. Each optional
+  field is present only when set: a `reference` the caller gave, an
+  outcome's `_at`, and a failed or returned payment's kind, code and
+  reason. `created-by` is a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [payment (dissoc (payments/pb->OutboundPayment input)
-                 :cancellation-code
-                 :cancellation-reason)]
-    (cond-> payment
-            (= "" (:reference payment))
-            (dissoc :reference)
-
-            (= :outbound-payment-failure-kind-unknown (:failure-kind payment))
-            (dissoc :failure-kind)
-
-            (= "" (:failure-reason-code payment))
-            (dissoc :failure-reason-code)
-
-            (= "" (:failure-reason payment))
-            (dissoc :failure-reason)
-
-            (= "" (:return-reason-code payment))
-            (dissoc :return-reason-code)
-
-            (= "" (:return-reason payment))
-            (dissoc :return-reason))))
+  (-> (payment/pb->OutboundPayment input)
+      (without-unset outbound-payment-unset)
+      (plain-embedded :created-by)))
 
 (defn OutboundPayment->pb
   "Serialise an OutboundPayment map to protobuf bytes.
@@ -850,7 +937,7 @@
   Args:
   - m: OutboundPayment map matching the generated schema."
   [m]
-  (proto/->pb (payments/new-OutboundPayment m)))
+  (proto/->pb (payment/new-OutboundPayment m)))
 
 (defn OutboundPayment->java
   "Parse an OutboundPayment map into the generated Java protobuf
@@ -864,21 +951,19 @@
 
 (def ^{:doc "Map of OutboundPaymentStatus label to protobuf int value."}
      outbound-payment-status->int
-  payments/OutboundPaymentStatus-label2val)
+  payment/OutboundPaymentStatus-label2val)
 
 (defn pb->InternalPayment
-  "Parse InternalPayment protobuf bytes into a Clojure map, stripping
-  the optional `reference` when it deserialises as the proto2
-  empty-string default, so the key is present only on a transfer the
-  caller gave one.
+  "Parse InternalPayment protobuf bytes into a Clojure map, `reference`
+  present only on a transfer the caller gave one and `created-by` a
+  plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [payment (payments/pb->InternalPayment input)]
-    (cond-> payment
-            (= "" (:reference payment))
-            (dissoc :reference))))
+  (-> (payment/pb->InternalPayment input)
+      (without-unset {:reference ""})
+      (plain-embedded :created-by)))
 
 (defn InternalPayment->pb
   "Serialise an InternalPayment map to protobuf bytes.
@@ -886,7 +971,7 @@
   Args:
   - m: InternalPayment map matching the generated schema."
   [m]
-  (proto/->pb (payments/new-InternalPayment m)))
+  (proto/->pb (payment/new-InternalPayment m)))
 
 (defn InternalPayment->java
   "Parse an InternalPayment map into the generated Java protobuf
@@ -899,15 +984,10 @@
    (InternalPayment->pb m)))
 
 (defn pb->Transaction
-  "Parse Transaction protobuf bytes into a Clojure map. Strips
-  `bank-id` when it deserialises as the proto2 empty-string default
-  — records written before the idempotency-key index was scoped by
-  bank carry no bank."
+  "Parse Transaction protobuf bytes into a Clojure map, without an
+  unset `reference`."
   [input]
-  (let [transaction (transactions/pb->Transaction input)]
-    (cond-> transaction
-            (= "" (:bank-id transaction))
-            (dissoc :bank-id))))
+  (without-unset (transaction/pb->Transaction input) {:reference ""}))
 
 (defn Transaction->pb
   "Serialise a Transaction map to protobuf bytes.
@@ -915,7 +995,7 @@
   Args:
   - m: Transaction map matching the generated schema."
   [m]
-  (proto/->pb (transactions/new-Transaction m)))
+  (proto/->pb (transaction/new-Transaction m)))
 
 (defn Transaction->java
   "Parse a Transaction map into the generated Java protobuf class.
@@ -928,7 +1008,7 @@
 (def ^{:doc "Parse TransactionLeg protobuf bytes into a Clojure
   map."}
      pb->TransactionLeg
-  transactions/pb->TransactionLeg)
+  transaction/pb->TransactionLeg)
 
 (defn TransactionLeg->pb
   "Serialise a TransactionLeg map to protobuf bytes.
@@ -936,7 +1016,7 @@
   Args:
   - m: TransactionLeg map matching the generated schema."
   [m]
-  (proto/->pb (transactions/new-TransactionLeg m)))
+  (proto/->pb (transaction/new-TransactionLeg m)))
 
 (defn TransactionLeg->java
   "Parse a TransactionLeg map into the generated Java protobuf
@@ -945,11 +1025,16 @@
   Args:
   - m: TransactionLeg map matching the generated schema."
   [m]
-  (TransactionProto$TransactionLeg/parseFrom (TransactionLeg->pb m)))
+  (TransactionLegProto$TransactionLeg/parseFrom (TransactionLeg->pb m)))
 
-(def ^{:doc "Parse PayeeCheck protobuf bytes into a Clojure map."}
-     pb->PayeeCheck
-  payee-check/pb->PayeeCheck)
+(defn pb->PayeeCheck
+  "Parse PayeeCheck protobuf bytes into a Clojure map, `created-by` a
+  plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (plain-embedded (payee-check/pb->PayeeCheck input) :created-by))
 
 (defn PayeeCheck->pb
   "Serialise a PayeeCheck map to protobuf bytes.
@@ -1003,7 +1088,7 @@
   Args:
   - m: ClearbankOutboxEvent map matching the generated schema."
   [m]
-  (ClearbankOutboxProto$ClearbankOutboxEvent/parseFrom
+  (ClearbankOutboxEventProto$ClearbankOutboxEvent/parseFrom
    (ClearbankOutboxEvent->pb m)))
 
 (def ^{:doc "Parse ClearbankOutboundIntent protobuf bytes into a Clojure map."}
@@ -1024,7 +1109,7 @@
   Args:
   - m: ClearbankOutboundIntent map matching the generated schema."
   [m]
-  (ClearbankOutboxProto$ClearbankOutboundIntent/parseFrom
+  (ClearbankOutboundIntentProto$ClearbankOutboundIntent/parseFrom
    (ClearbankOutboundIntent->pb m)))
 
 (def ^{:doc "Parse OnfidoOutboxEvent protobuf bytes into a Clojure map."}
@@ -1039,7 +1124,8 @@
 (defn OnfidoOutboxEvent->java
   "Parse an OnfidoOutboxEvent map into the generated Java protobuf class."
   [m]
-  (OnfidoOutboxProto$OnfidoOutboxEvent/parseFrom (OnfidoOutboxEvent->pb m)))
+  (OnfidoOutboxEventProto$OnfidoOutboxEvent/parseFrom (OnfidoOutboxEvent->pb
+                                                       m)))
 
 (def ^{:doc "Parse OnfidoOutboundIntent protobuf bytes into a Clojure map."}
      pb->OnfidoOutboundIntent
@@ -1053,7 +1139,7 @@
 (defn OnfidoOutboundIntent->java
   "Parse an OnfidoOutboundIntent map into the generated Java protobuf class."
   [m]
-  (OnfidoOutboxProto$OnfidoOutboundIntent/parseFrom
+  (OnfidoOutboundIntentProto$OnfidoOutboundIntent/parseFrom
    (OnfidoOutboundIntent->pb m)))
 
 (def ^{:doc "Parse ZypheOutboxEvent protobuf bytes into a Clojure map."}
@@ -1068,7 +1154,7 @@
 (defn ZypheOutboxEvent->java
   "Parse a ZypheOutboxEvent map into the generated Java protobuf class."
   [m]
-  (ZypheOutboxProto$ZypheOutboxEvent/parseFrom (ZypheOutboxEvent->pb m)))
+  (ZypheOutboxEventProto$ZypheOutboxEvent/parseFrom (ZypheOutboxEvent->pb m)))
 
 (def ^{:doc "Parse ZypheOutboundIntent protobuf bytes into a Clojure map."}
      pb->ZypheOutboundIntent
@@ -1082,12 +1168,8 @@
 (defn ZypheOutboundIntent->java
   "Parse a ZypheOutboundIntent map into the generated Java protobuf class."
   [m]
-  (ZypheOutboxProto$ZypheOutboundIntent/parseFrom
+  (ZypheOutboundIntentProto$ZypheOutboundIntent/parseFrom
    (ZypheOutboundIntent->pb m)))
-
-(def ^{:doc "Map of ProviderTransferStatus keyword to its proto enum int."}
-     provider-transfer-status->int
-  payments/ProviderTransferStatus-label2val)
 
 (def ^{:doc "Parse ModulrOutboxEvent protobuf bytes into a Clojure map."}
      pb->ModulrOutboxEvent
@@ -1101,7 +1183,8 @@
 (defn ModulrOutboxEvent->java
   "Parse a ModulrOutboxEvent map into the generated Java protobuf class."
   [m]
-  (ModulrOutboxProto$ModulrOutboxEvent/parseFrom (ModulrOutboxEvent->pb m)))
+  (ModulrOutboxEventProto$ModulrOutboxEvent/parseFrom (ModulrOutboxEvent->pb
+                                                       m)))
 
 (def ^{:doc "Parse ModulrOutboundIntent protobuf bytes into a Clojure map."}
      pb->ModulrOutboundIntent
@@ -1115,7 +1198,7 @@
 (defn ModulrOutboundIntent->java
   "Parse a ModulrOutboundIntent map into the generated Java protobuf class."
   [m]
-  (ModulrOutboxProto$ModulrOutboundIntent/parseFrom
+  (ModulrOutboundIntentProto$ModulrOutboundIntent/parseFrom
    (ModulrOutboundIntent->pb m)))
 
 (def ^{:doc "Parse Form3OutboxEvent protobuf bytes into a Clojure map."}
@@ -1130,7 +1213,7 @@
 (defn Form3OutboxEvent->java
   "Parse a Form3OutboxEvent map into the generated Java protobuf class."
   [m]
-  (Form3OutboxProto$Form3OutboxEvent/parseFrom (Form3OutboxEvent->pb m)))
+  (Form3OutboxEventProto$Form3OutboxEvent/parseFrom (Form3OutboxEvent->pb m)))
 
 (def ^{:doc "Parse Form3OutboundIntent protobuf bytes into a Clojure map."}
      pb->Form3OutboundIntent
@@ -1144,43 +1227,60 @@
 (defn Form3OutboundIntent->java
   "Parse a Form3OutboundIntent map into the generated Java protobuf class."
   [m]
-  (Form3OutboxProto$Form3OutboundIntent/parseFrom
+  (Form3OutboundIntentProto$Form3OutboundIntent/parseFrom
    (Form3OutboundIntent->pb m)))
 
-(defn pb->ProviderTransfer
-  "Parse ProviderTransfer protobuf bytes into a Clojure map, stripping
-  the optional `debtor-account-id` and `failure-reason` when they
-  deserialise as the proto2 empty-string default.
+(def ^:private payment-provider-transfer-unset
+  {:debtor-account-id ""
+   :failed-reason ""
+   :completed-at 0
+   :failed-at 0
+   :updated-at 0})
+
+(defn pb->PaymentProviderTransfer
+  "Parse PaymentProviderTransfer protobuf bytes into a Clojure map. Each
+  optional field is present only when set: a debtor where the money came
+  from inside the provider, and an outcome's `_at` and a failed one's
+  reason.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [transfer (payments/pb->ProviderTransfer input)]
-    (cond-> transfer
-            (= "" (:debtor-account-id transfer))
-            (dissoc :debtor-account-id)
+  (without-unset (payment/pb->PaymentProviderTransfer input)
+                 payment-provider-transfer-unset))
 
-            (= "" (:failure-reason transfer))
-            (dissoc :failure-reason))))
-
-(defn ProviderTransfer->pb
-  "Serialise a ProviderTransfer map to protobuf bytes.
+(defn PaymentProviderTransfer->pb
+  "Serialise a PaymentProviderTransfer map to protobuf bytes.
 
   Args:
-  - m: ProviderTransfer map matching the generated schema."
+  - m: PaymentProviderTransfer map matching the generated schema."
   [m]
-  (proto/->pb (payments/new-ProviderTransfer m)))
+  (proto/->pb (payment/new-PaymentProviderTransfer m)))
 
-(defn ProviderTransfer->java
-  "Parse a ProviderTransfer map into the generated Java protobuf class.
+(defn PaymentProviderTransfer->java
+  "Parse a PaymentProviderTransfer map into the generated Java protobuf
+  class.
 
   Args:
-  - m: ProviderTransfer map matching the generated schema."
+  - m: PaymentProviderTransfer map matching the generated schema."
   [m]
-  (ProviderTransferProto$ProviderTransfer/parseFrom (ProviderTransfer->pb m)))
+  (PaymentProviderTransferProto$PaymentProviderTransfer/parseFrom
+   (PaymentProviderTransfer->pb m)))
 
-(def ^{:doc "Parse Policy protobuf bytes into a Clojure map."} pb->Policy
-  policies/pb->Policy)
+(def ^:private policy-unset
+  {:description "" :archived-at 0 :archived-by nil :updated-at 0})
+
+(defn pb->Policy
+  "Parse Policy protobuf bytes into a Clojure map, a `description`,
+  `archived-at`, `archived-by` and `updated-at` present only when set,
+  and `archived-by` a plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (policy/pb->Policy input)
+      (without-unset policy-unset)
+      (plain-embedded :archived-by)))
 
 (defn Policy->pb
   "Serialise a Policy map to protobuf bytes.
@@ -1188,7 +1288,7 @@
   Args:
   - m: Policy map matching the generated schema."
   [m]
-  (proto/->pb (policies/new-Policy m)))
+  (proto/->pb (policy/new-Policy m)))
 
 (defn Policy->java
   "Parse a Policy map into the generated Java protobuf class.
@@ -1198,10 +1298,16 @@
   [m]
   (PolicyProto$Policy/parseFrom (Policy->pb m)))
 
-(def ^{:doc "Parse PolicyBinding protobuf bytes into a Clojure
-  map."}
-     pb->PolicyBinding
-  policies/pb->PolicyBinding)
+(defn pb->PolicyBinding
+  "Parse PolicyBinding protobuf bytes into a Clojure map, a `reason`
+  present only when set and `created-by` a plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (policy/pb->PolicyBinding input)
+      (without-unset {:reason ""})
+      (plain-embedded :created-by)))
 
 (defn PolicyBinding->pb
   "Serialise a PolicyBinding map to protobuf bytes.
@@ -1209,7 +1315,7 @@
   Args:
   - m: PolicyBinding map matching the generated schema."
   [m]
-  (proto/->pb (policies/new-PolicyBinding m)))
+  (proto/->pb (policy/new-PolicyBinding m)))
 
 (defn PolicyBinding->java
   "Parse a PolicyBinding map into the generated Java protobuf
@@ -1218,10 +1324,13 @@
   Args:
   - m: PolicyBinding map matching the generated schema."
   [m]
-  (PolicyProto$PolicyBinding/parseFrom (PolicyBinding->pb m)))
+  (PolicyBindingProto$PolicyBinding/parseFrom (PolicyBinding->pb m)))
 
-(def ^{:doc "Parse User protobuf bytes into a Clojure map."} pb->User
-  users/pb->User)
+(defn pb->User
+  "Parse User protobuf bytes into a Clojure map, without an unset
+  `avatar-url` or `updated-at`."
+  [input]
+  (without-unset (user/pb->User input) {:avatar-url "" :updated-at 0}))
 
 (defn User->pb
   "Serialise a User map to protobuf bytes.
@@ -1229,7 +1338,7 @@
   Args:
   - m: User map matching the generated schema."
   [m]
-  (proto/->pb (users/new-User m)))
+  (proto/->pb (user/new-User m)))
 
 (defn User->java
   "Parse a User map into the generated Java protobuf class.
@@ -1241,7 +1350,7 @@
 
 (def ^{:doc "Map of IdentityProvider label to protobuf int value."}
      identity-provider->int
-  users/IdentityProvider-label2val)
+  user/IdentityProvider-label2val)
 
 (defn identity-provider->pb-enum
   "Convert an identity-provider keyword to the protobuf enum value,
@@ -1253,92 +1362,73 @@
   (UserProto$IdentityProvider/forNumber
    (identity-provider->int identity-provider)))
 
-(def ^{:doc "Map of UserStatus label to protobuf int value."} user-status->int
-  users/UserStatus-label2val)
+(def ^:private member-unset
+  {:removed-at 0
+   :removed-by nil
+   :removed-reason ""
+   :left-at 0
+   :left-by nil
+   :invitation-id ""
+   :updated-at 0})
 
-(defn user-status->pb-enum
-  "Convert a user-status keyword to the protobuf enum value, for
-  use in FDB index queries.
-
-  Args:
-  - user-status: `:user-status-*` keyword."
-  [user-status]
-  (UserProto$UserStatus/forNumber
-   (user-status->int user-status)))
-
-(defn- without-unset
-  [record unset]
-  (reduce-kv (fn [m k v]
-               (cond-> m
-                       (= v (get m k))
-                       (dissoc k)))
-             (into {} record)
-             unset))
-
-(def ^:private membership-unset {:ended-at 0 :ended-by nil :invitation-id ""})
-
-(defn pb->Membership
-  "Parse Membership protobuf bytes into a Clojure map. A row with no
-  status, or `:membership-status-unknown`, reads as
-  `:membership-status-active`: every membership written before one could
-  end is active. `ended-at`, `ended-by` and `invitation-id` are present
-  only when set, and `ended-by` is a plain map.
+(defn pb->Member
+  "Parse Member protobuf bytes into a Clojure map. A removal's or a
+  leave's `_at`, `_by` and reason, and `invitation-id`, are present only
+  when set, and every actor is a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (-> (memberships/pb->Membership input)
-      (without-unset membership-unset)
-      (plain-embedded :ended-by)
-      (update :status
-              #(if (= :membership-status-unknown %)
-                 :membership-status-active
-                 %))))
+  (-> (member/pb->Member input)
+      (without-unset member-unset)
+      (plain-embedded :created-by)
+      (plain-embedded :removed-by)
+      (plain-embedded :left-by)))
 
-(defn Membership->pb
-  "Serialise a Membership map to protobuf bytes.
+(defn Member->pb
+  "Serialise a Member map to protobuf bytes.
 
   Args:
-  - m: Membership map matching the generated schema."
+  - m: Member map matching the generated schema."
   [m]
-  (proto/->pb (memberships/new-Membership m)))
+  (proto/->pb (member/new-Member m)))
 
-(defn Membership->java
-  "Parse a Membership map into the generated Java protobuf class.
+(defn Member->java
+  "Parse a Member map into the generated Java protobuf class.
 
   Args:
-  - m: Membership map matching the generated schema."
+  - m: Member map matching the generated schema."
   [m]
-  (MembershipProto$Membership/parseFrom (Membership->pb m)))
+  (MemberProto$Member/parseFrom (Member->pb m)))
 
-(def ^{:doc "Map of Membership Role label to protobuf int value."} role->int
-  memberships/Role-label2val)
+(def ^{:doc "Map of Member Role label to protobuf int value."} role->int
+  member/Role-label2val)
 
 (defn role->pb-enum
-  "Convert a membership role keyword to the protobuf enum value,
+  "Convert a member role keyword to the protobuf enum value,
   for use in FDB index queries.
 
   Args:
   - role: `:role-*` keyword."
   [role]
-  (MembershipProto$Role/forNumber (role->int role)))
+  (MemberProto$Role/forNumber (role->int role)))
 
-(def ^{:doc "Map of MembershipStatus label to protobuf int value."}
-     membership-status->int
-  memberships/MembershipStatus-label2val)
+(def ^{:doc "Map of MemberStatus label to protobuf int value."}
+     member-status->int
+  member/MemberStatus-label2val)
 
-(defn membership-status->pb-enum
-  "Convert a membership-status keyword to the protobuf enum value, for
+(defn member-status->pb-enum
+  "Convert a member-status keyword to the protobuf enum value, for
   use in FDB index queries.
 
   Args:
-  - membership-status: `:membership-status-*` keyword."
-  [membership-status]
-  (MembershipProto$MembershipStatus/forNumber
-   (membership-status->int membership-status)))
+  - member-status: `:member-status-*` keyword."
+  [member-status]
+  (MemberProto$MemberStatus/forNumber
+   (member-status->int member-status)))
 
 (def ^{:doc "Map of ActorKind label to protobuf int value."} actor-kind->int
-  memberships/ActorKind-label2val)
+  actor/ActorKind-label2val)
 
 (defn actor-kind->pb-enum
   "Convert an actor-kind keyword to the protobuf enum value, for use in
@@ -1349,19 +1439,33 @@
   [actor-kind]
   (ActorProto$ActorKind/forNumber (actor-kind->int actor-kind)))
 
-(def ^:private invitation-unset {:accepted-by-user-id "" :reason ""})
+(def ^:private invitation-unset
+  {:reason ""
+   :withdrawn-reason ""
+   :accepted-at 0
+   :accepted-by nil
+   :declined-at 0
+   :declined-by nil
+   :withdrawn-at 0
+   :withdrawn-by nil
+   :resent-at 0
+   :resent-by nil
+   :updated-at 0})
+
+(def ^:private invitation-actors
+  [:created-by :accepted-by :declined-by :withdrawn-by :resent-by])
 
 (defn pb->Invitation
-  "Parse Invitation protobuf bytes into a Clojure map. `reason` and
-  `accepted-by-user-id` are present only when set, and `invited-by` is a
-  plain map.
+  "Parse Invitation protobuf bytes into a Clojure map. The reasons and
+  each transition's `_at` and `_by` are present only when set, and every
+  `_by` is a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (-> (memberships/pb->Invitation input)
-      (without-unset invitation-unset)
-      (plain-embedded :invited-by)))
+  (reduce plain-embedded
+          (without-unset (member/pb->Invitation input) invitation-unset)
+          invitation-actors))
 
 (defn Invitation->pb
   "Serialise an Invitation map to protobuf bytes.
@@ -1369,7 +1473,7 @@
   Args:
   - m: Invitation map matching the generated schema."
   [m]
-  (proto/->pb (memberships/new-Invitation m)))
+  (proto/->pb (member/new-Invitation m)))
 
 (defn Invitation->java
   "Parse an Invitation map into the generated Java protobuf class.
@@ -1381,7 +1485,7 @@
 
 (def ^{:doc "Map of InvitationStatus label to protobuf int value."}
      invitation-status->int
-  memberships/InvitationStatus-label2val)
+  member/InvitationStatus-label2val)
 
 (defn invitation-status->pb-enum
   "Convert an invitation-status keyword to the protobuf enum value, for
@@ -1393,68 +1497,63 @@
   (InvitationProto$InvitationStatus/forNumber
    (invitation-status->int invitation-status)))
 
-(def ^:private access-event-unset
-  {:email ""
-   :invitation-id ""
-   :membership-id ""
-   :reason ""
-   :role-after :role-unknown
-   :role-before :role-unknown
-   :subject-user-id ""})
-
-(defn pb->AccessEvent
-  "Parse AccessEvent protobuf bytes into a Clojure map. Of the fields a
-  kind sets only where it has one — `subject-user-id`, `membership-id`,
-  `invitation-id`, `email`, `role-before`, `role-after` and `reason` —
-  each is present only when set, and `actor` is a plain map.
+(defn pb->MemberRoleChange
+  "Parse MemberRoleChange protobuf bytes into a Clojure map. `reason`
+  is present only when set, and `created-by` is a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (-> (memberships/pb->AccessEvent input)
-      (without-unset access-event-unset)
-      (plain-embedded :actor)))
+  (-> (member/pb->MemberRoleChange input)
+      (without-unset {:reason ""})
+      (plain-embedded :created-by)))
 
-(defn AccessEvent->pb
-  "Serialise an AccessEvent map to protobuf bytes. `:kind` is required:
-  the generated default for an absent one is not
-  `:access-event-kind-unknown`.
+(defn MemberRoleChange->pb
+  "Serialise a MemberRoleChange map to protobuf bytes.
 
   Args:
-  - m: AccessEvent map matching the generated schema."
+  - m: MemberRoleChange map matching the generated schema."
   [m]
-  (proto/->pb (memberships/new-AccessEvent m)))
+  (proto/->pb (member/new-MemberRoleChange m)))
 
-(defn AccessEvent->java
-  "Parse an AccessEvent map into the generated Java protobuf class.
+(defn MemberRoleChange->java
+  "Parse a MemberRoleChange map into the generated Java protobuf
+  class.
 
   Args:
-  - m: AccessEvent map matching the generated schema."
+  - m: MemberRoleChange map matching the generated schema."
   [m]
-  (AccessEventProto$AccessEvent/parseFrom (AccessEvent->pb m)))
+  (MemberRoleChangeProto$MemberRoleChange/parseFrom
+   (MemberRoleChange->pb m)))
 
-(def ^{:doc "Map of AccessEventKind label to protobuf int value."}
-     access-event-kind->int
-  memberships/AccessEventKind-label2val)
-
-(defn access-event-kind->pb-enum
-  "Convert an access-event-kind keyword to the protobuf enum value, for
-  use in FDB index queries.
-
-  Args:
-  - access-event-kind: `:access-event-kind-*` keyword."
-  [access-event-kind]
-  (AccessEventProto$AccessEventKind/forNumber
-   (access-event-kind->int access-event-kind)))
+(def ^:private webhook-endpoint-unset
+  {:description ""
+   :previous-secret ""
+   :previous-secret-expires-at 0
+   :rotation-idempotency-key ""
+   :disabled-at 0
+   :disabled-by nil
+   :enabled-at 0
+   :enabled-by nil
+   :removed-at 0
+   :removed-by nil
+   :secret-rotated-at 0
+   :secret-rotated-by nil
+   :updated-at 0
+   :updated-by nil})
 
 (defn pb->WebhookEndpoint
-  "Parse WebhookEndpoint protobuf bytes into a Clojure map. Drops
-  `last-success-at`, which is deprecated.
+  "Parse WebhookEndpoint protobuf bytes into a Clojure map, without its
+  unset optional fields, and each actor a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (dissoc (webhooks/pb->WebhookEndpoint input) :last-success-at))
+  (reduce plain-embedded
+          (without-unset (webhook/pb->WebhookEndpoint input)
+                         webhook-endpoint-unset)
+          [:created-by :disabled-by :enabled-by :removed-by :secret-rotated-by
+           :updated-by]))
 
 (defn WebhookEndpoint->pb
   "Serialise a WebhookEndpoint map to protobuf bytes.
@@ -1462,7 +1561,7 @@
   Args:
   - m: WebhookEndpoint map matching the generated schema."
   [m]
-  (proto/->pb (webhooks/new-WebhookEndpoint m)))
+  (proto/->pb (webhook/new-WebhookEndpoint m)))
 
 (defn WebhookEndpoint->java
   "Parse a WebhookEndpoint map into the generated Java protobuf class.
@@ -1472,9 +1571,16 @@
   [m]
   (WebhookEndpointProto$WebhookEndpoint/parseFrom (WebhookEndpoint->pb m)))
 
-(def ^{:doc "Parse WebhookNotification protobuf bytes into a Clojure map."}
-     pb->WebhookNotification
-  webhooks/pb->WebhookNotification)
+(defn pb->WebhookNotification
+  "Parse WebhookNotification protobuf bytes into a Clojure map, without
+  its unset optional fields.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset
+   (webhook/pb->WebhookNotification input)
+   {:status-before "" :status-after "" :resource-idempotency-key ""}))
 
 (defn WebhookNotification->pb
   "Serialise a WebhookNotification map to protobuf bytes.
@@ -1482,7 +1588,7 @@
   Args:
   - m: WebhookNotification map matching the generated schema."
   [m]
-  (proto/->pb (webhooks/new-WebhookNotification m)))
+  (proto/->pb (webhook/new-WebhookNotification m)))
 
 (defn WebhookNotification->java
   "Parse a WebhookNotification map into the generated Java protobuf class.
@@ -1493,9 +1599,20 @@
   (WebhookNotificationProto$WebhookNotification/parseFrom
    (WebhookNotification->pb m)))
 
-(def ^{:doc "Parse WebhookDelivery protobuf bytes into a Clojure map."}
-     pb->WebhookDelivery
-  webhooks/pb->WebhookDelivery)
+(defn pb->WebhookDelivery
+  "Parse WebhookDelivery protobuf bytes into a Clojure map, without its
+  unset optional fields, and `created-by` a plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (webhook/pb->WebhookDelivery input)
+      (without-unset {:delivered-at 0
+                      :failed-at 0
+                      :created-by nil
+                      :next-attempt-at 0
+                      :traceparent ""})
+      (plain-embedded :created-by)))
 
 (defn WebhookDelivery->pb
   "Serialise a WebhookDelivery map to protobuf bytes.
@@ -1503,7 +1620,7 @@
   Args:
   - m: WebhookDelivery map matching the generated schema."
   [m]
-  (proto/->pb (webhooks/new-WebhookDelivery m)))
+  (proto/->pb (webhook/new-WebhookDelivery m)))
 
 (defn WebhookDelivery->java
   "Parse a WebhookDelivery map into the generated Java protobuf class.
@@ -1513,9 +1630,15 @@
   [m]
   (WebhookDeliveryProto$WebhookDelivery/parseFrom (WebhookDelivery->pb m)))
 
-(def ^{:doc "Parse WebhookDeliveryAttempt protobuf bytes into a Clojure map."}
-     pb->WebhookDeliveryAttempt
-  webhooks/pb->WebhookDeliveryAttempt)
+(defn pb->WebhookDeliveryAttempt
+  "Parse WebhookDeliveryAttempt protobuf bytes into a Clojure map,
+  without an unset `response-status` or `failed-reason`.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset (webhook/pb->WebhookDeliveryAttempt input)
+                 {:response-status 0 :failed-reason ""}))
 
 (defn WebhookDeliveryAttempt->pb
   "Serialise a WebhookDeliveryAttempt map to protobuf bytes.
@@ -1523,7 +1646,7 @@
   Args:
   - m: WebhookDeliveryAttempt map matching the generated schema."
   [m]
-  (proto/->pb (webhooks/new-WebhookDeliveryAttempt m)))
+  (proto/->pb (webhook/new-WebhookDeliveryAttempt m)))
 
 (defn WebhookDeliveryAttempt->java
   "Parse a WebhookDeliveryAttempt map into the generated Java protobuf class.
@@ -1536,22 +1659,19 @@
 
 (def ^{:doc "Map of WebhookEndpointStatus label to protobuf int value."}
      webhook-endpoint-status->int
-  webhooks/WebhookEndpointStatus-label2val)
+  webhook/WebhookEndpointStatus-label2val)
 
 (def ^{:doc "Map of WebhookDeliveryStatus label to protobuf int value."}
      webhook-delivery-status->int
-  webhooks/WebhookDeliveryStatus-label2val)
+  webhook/WebhookDeliveryStatus-label2val)
 
 (def ^:private email-delivery-unset
-  {:attempts 0
-   :claim-lease-expires-at 0
-   :claimed-by ""
-   :expires-at 0
-   :invitation-id ""
-   :last-error ""
-   :message-id ""
+  {:message-id ""
+   :sent-at 0
    :next-attempt-at 0
-   :traceparent ""})
+   :traceparent ""
+   :failure-reason ""
+   :updated-at 0})
 
 (defn pb->EmailDelivery
   "Parse EmailDelivery protobuf bytes into a Clojure map. Each optional
@@ -1560,7 +1680,7 @@
   Args:
   - input: protobuf bytes."
   [input]
-  (without-unset (emails/pb->EmailDelivery input) email-delivery-unset))
+  (without-unset (email/pb->EmailDelivery input) email-delivery-unset))
 
 (defn EmailDelivery->pb
   "Serialise an EmailDelivery map to protobuf bytes.
@@ -1568,7 +1688,7 @@
   Args:
   - m: EmailDelivery map matching the generated schema."
   [m]
-  (proto/->pb (emails/new-EmailDelivery m)))
+  (proto/->pb (email/new-EmailDelivery m)))
 
 (defn EmailDelivery->java
   "Parse an EmailDelivery map into the generated Java protobuf class.
@@ -1580,25 +1700,23 @@
 
 (def ^{:doc "Map of EmailDeliveryStatus label to protobuf int value."}
      email-delivery-status->int
-  emails/EmailDeliveryStatus-label2val)
+  email/EmailDeliveryStatus-label2val)
+
+(def ^{:doc "Map of EmailKind label to protobuf int value."} email-kind->int
+  email/EmailKind-label2val)
 
 (def ^:private circuit-breaker-unset
-  {:consecutive-failures 0
-   :opened-at 0
-   :retry-at 0
-   :cool-down-ms 0
-   :probe-claimed-by ""
-   :probe-lease-expires-at 0
-   :updated-at 0})
+  {:next-probe-at 0 :cool-down-ms 0 :opened-at 0 :updated-at 0})
 
 (defn pb->CircuitBreaker
-  "Parse CircuitBreaker protobuf bytes into a Clojure map. Each optional
-  field is present only when set.
+  "Parse CircuitBreaker protobuf bytes into a Clojure map. `next-probe-at`,
+  `cool-down-ms` and `opened-at` are present only when set.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (without-unset (outbound/pb->CircuitBreaker input) circuit-breaker-unset))
+  (without-unset (circuit-breaker/pb->CircuitBreaker input)
+                 circuit-breaker-unset))
 
 (defn CircuitBreaker->pb
   "Serialise a CircuitBreaker map to protobuf bytes.
@@ -1606,7 +1724,7 @@
   Args:
   - m: CircuitBreaker map matching the generated schema."
   [m]
-  (proto/->pb (outbound/new-CircuitBreaker m)))
+  (proto/->pb (circuit-breaker/new-CircuitBreaker m)))
 
 (defn CircuitBreaker->java
   "Parse a CircuitBreaker map into the generated Java protobuf class.
@@ -1616,37 +1734,42 @@
   [m]
   (CircuitBreakerProto$CircuitBreaker/parseFrom (CircuitBreaker->pb m)))
 
-(def ^:private reward-unset
-  {:transaction-id "" :run-id "" :error "" :paid-at 0})
+(def ^:private account-reward-unset
+  {:transaction-id ""
+   :deferred-reason ""
+   :deferred-at 0
+   :paid-at 0
+   :updated-at 0})
 
-(defn pb->Reward
-  "Parse Reward protobuf bytes into a Clojure map. `transaction-id`,
-  `run-id`, `error` and `paid-at` are present only when set.
+(defn pb->AccountReward
+  "Parse AccountReward protobuf bytes into a Clojure map. A paid one's
+  `transaction-id` and `paid-at`, a deferred one's `deferred-reason` and
+  `deferred-at`, and `updated-at` are present only when set.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (without-unset (rewards/pb->Reward input) reward-unset))
+  (without-unset (reward/pb->AccountReward input) account-reward-unset))
 
-(defn Reward->pb
-  "Serialise a Reward map to protobuf bytes.
-
-  Args:
-  - m: Reward map matching the generated schema."
-  [m]
-  (proto/->pb (rewards/new-Reward m)))
-
-(defn Reward->java
-  "Parse a Reward map into the generated Java protobuf class.
+(defn AccountReward->pb
+  "Serialise an AccountReward map to protobuf bytes.
 
   Args:
-  - m: Reward map matching the generated schema."
+  - m: AccountReward map matching the generated schema."
   [m]
-  (RewardProto$Reward/parseFrom (Reward->pb m)))
+  (proto/->pb (reward/new-AccountReward m)))
+
+(defn AccountReward->java
+  "Parse an AccountReward map into the generated Java protobuf class.
+
+  Args:
+  - m: AccountReward map matching the generated schema."
+  [m]
+  (AccountRewardProto$AccountReward/parseFrom (AccountReward->pb m)))
 
 (def ^{:doc "Map of RewardKind label to protobuf int value."} reward-kind->int
-  rewards/RewardKind-label2val)
+  cash-account-product/RewardKind-label2val)
 
-(def ^{:doc "Map of RewardStatus label to protobuf int value."}
-     reward-status->int
-  rewards/RewardStatus-label2val)
+(def ^{:doc "Map of AccountRewardStatus label to protobuf int value."}
+     account-reward-status->int
+  reward/AccountRewardStatus-label2val)

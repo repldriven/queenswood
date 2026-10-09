@@ -14,7 +14,7 @@ target compatible, when a migration may run, the records it writes,
 and where it sits in the API.
 
 In scope: the `cash-account-migration` brick, its lifecycle and its
-per-account rows, the scheduler task that commits a migration, and
+per-account rows, the scheduler task that runs a migration, and
 the API surface. Out of scope: the product and version model itself,
 see [cash-account-products.md](cash-account-products.md); the chunked
 pass this reuses, see [interest.md](interest.md).
@@ -44,14 +44,14 @@ Three properties fall out, and each is load-bearing.
 
 **A preview is the only thing the API can do.** Creating and previewing
 a migration are ordinary API operations. Performing one is not — the
-only thing that commits a migration is the scheduler task, whether it
+only thing that runs a migration is the scheduler task, whether it
 fires on its date or is forced by hand. No request can move a hundred
 thousand accounts. The scheduler already records
 `SchedulerTriggerSource` as `scheduled` or `forced`, so a migration run
 by hand is distinguishable from one that fired on its date without any
 new machinery.
 
-**The preview and the commit are one code path.** A pass that computes
+**The preview and the real run are one code path.** A pass that computes
 per-account decisions, and a single flag deciding whether it writes the
 repin. If the two diverge at all the preview stops being evidence, so
 the selection, the eligibility evaluation and the per-account outcome
@@ -124,7 +124,7 @@ versions), the target (a product and version), its status, the date
 customers were notified, the date it becomes due, and the counts of
 what it moved.
 
-**The run** (`CashAccountMigrationRun`) is one preview or one commit:
+**The run** (`CashAccountMigrationRun`) is one preview or one real run:
 which migration it belongs to, whether it was a dry run, the business
 day it ran on, its status and its totals. A count index over
 `[bank_id, business_day, dry_run]` is what makes the daily preview
@@ -134,9 +134,9 @@ limit one read rather than a scan.
 entry per account the pass considered: the account, the version it was
 on, the version it was moved to, the outcome, and — for an account
 that did not move — the reason. The rows are written by a preview as
-well as a commit, which is what makes a preview inspectable per
+well as a real run, which is what makes a preview inspectable per
 account rather than a summary. A row is keyed by its run, so a
-preview's rows and a commit's rows do not overwrite each other and can
+preview's rows and a real run's rows do not overwrite each other and can
 be compared, and a count index over `[bank_id, run_id, outcome]`
 answers the totals a preview is read for without reading the rows.
 
@@ -148,18 +148,18 @@ failure isolates to its chunk rather than ending the migration.
 
 Accounts close. New accounts open on the source product. Balances move,
 and a balance-dependent eligibility rule moves with them. A preview run
-on Monday and a commit run on Friday will not agree, and no amount of
+on Monday and a real run on Friday will not agree, and no amount of
 care makes them.
 
 The honest design accepts this rather than hiding it. A preview can be
-re-run as often as wanted, right up to the moment of commit, one at a
+re-run as often as wanted, right up to the moment of the real run, one at a
 time: a preview is refused `:cash-account-migration/preview-running`,
 a 409, while another preview of the migration is running. The check
 reads the migration's runs on `CashAccountMigrationRun_by_migration`
 in the transaction that saves the new run, so of two previews opened
 at once one conflicts, retries and is refused. Approval
 attaches to the migration — to its source, target and selection — and
-not to any particular preview's numbers. The commit writes its own rows,
+not to any particular preview's numbers. The real run writes its own rows,
 so the difference between what was expected and what happened is
 readable afterwards rather than assumed away.
 
@@ -213,7 +213,7 @@ transitions of the migration rather than sub-collections, so both are
 actions on the resource that return it in its new status.
 
 What is absent matters more than what is present. There is no
-`POST /v1/cash-account-migrations/{id}/runs`. Committing is
+`POST /v1/cash-account-migrations/{id}/runs`. Running one for real is
 `POST /v1/jobs/{job-id}/runs` against the migration job, so the rule
 that only the scheduler moves accounts is visible in the shape of the
 API rather than being a convention a reader has to be told. Forcing that
@@ -264,7 +264,7 @@ capitalisation rather than new machinery. This half generalised without
 anybody deciding to generalise it, which is the good case.
 
 **The approval envelope is not general, and should not be made so.**
-Preview, notice, approval and scheduler-only commit exist because a
+Preview, notice, approval and a scheduler-only run exist because a
 change is adverse and visible to a customer. Interest accrual wants none
 of it. A balance-layout backfill wants the preview and no notice,
 because nobody outside the bank can see the change. Reissuing addresses
@@ -272,7 +272,7 @@ wants the whole thing.
 
 So: build account migration concretely, on the existing scan, and treat
 the envelope as the thing to watch. If address reissue arrives wanting
-the same preview-notice-approve-commit sequence, that is the moment to
+the same preview-notice-approve-run sequence, that is the moment to
 lift it out — with two real instances to shape it rather than one and a
 guess.
 
@@ -296,14 +296,14 @@ guess.
   agreed. A published version's effective dates cannot be edited
   either, so the window the migration is measured against is fixed with
   it.
-- **A general preview-notice-approve-commit envelope.** Rejected for
+- **A general preview-notice-approve-run envelope.** Rejected for
   now — the bulk pass underneath is already shared with the interest
   accrual and capitalisation passes, but the envelope exists because a
   change is adverse and customer-visible, which is true of this and of
   none of the passes beside it.
-- **Committing a migration through the API.** Rejected — no request
+- **Running a migration through the API.** Rejected — no request
   moves a hundred thousand accounts. The scheduler task is the only
-  thing that commits, whether it fires on its date or an operator
+  thing that runs one, whether it fires on its date or an operator
   forces it.
 
 ## Known Limitations
@@ -315,7 +315,7 @@ guess.
   more useful; an explicit list is easier to defend, because the set
   that moved is the set that was approved. Both are open, and the two
   can be combined — resolve a query at creation and freeze the result —
-  at the cost of a cohort that goes stale between approval and commit.
+  at the cost of a cohort that goes stale between approval and the run.
 - **Notice has no minimum gap.** Approval refuses a migration without
   both a notice date and a due date, and refuses one whose notice falls
   after the move, but whatever gap it is told is what it records. The
@@ -349,7 +349,7 @@ guess.
 - [interest.md](interest.md) — Interest accrual (the chunked-pass and
   per-account-row shape reused here)
 - [policy-evaluation.md](policy-evaluation.md) — Policy evaluation
-  (the commit and preview limits)
+  (the run and preview limits)
 - [ADR-0018](../adr/0018-command-writes-are-earned.md) — command
   writes are earned (why the migration writes stay synchronous)
 - [PRD: cash-account-products](../prd/cash-account-products.md) —

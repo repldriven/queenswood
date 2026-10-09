@@ -1,21 +1,14 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.company;
+package com.repldriven.queenswood.schema.company;
 
 import "record_metadata_options.proto";
 
 option java_outer_classname = "CompanyProto";
 
-message Company {
-  option (com.apple.foundationdb.record.record).usage = RECORD;
-
-  optional string company_number = 1;
-  optional string company_name = 2;
-  optional string company_status = 3;
-  optional string type = 4;
-  optional string jurisdiction = 5;
-  optional string date_of_creation = 6;
-  optional RegisteredOfficeAddress registered_office_address = 7;
+enum CompanyRegistry {
+  COMPANY_REGISTRY_UNKNOWN = 0;
+  COMPANY_REGISTRY_UK_COMPANIES_HOUSE = 1;
 }
 
 message RegisteredOfficeAddress {
@@ -23,4 +16,22 @@ message RegisteredOfficeAddress {
   optional string locality = 2;
   optional string postal_code = 3;
   optional string country = 4;
+}
+
+// A company as its registry holds it.
+message Company {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required CompanyRegistry registry = 1;
+  required string company_number = 2;
+
+  required string name = 3;
+  required string status = 4; // the registry's, e.g. "active"
+  required string company_type = 5; // the registry's, e.g. "ltd"
+  optional string jurisdiction = 6;
+  optional int64 incorporated_on = 7; // epoch day
+  optional RegisteredOfficeAddress registered_office_address = 8;
+
+  required int64 created_at = 101;
+  optional int64 updated_at = 103;
 }

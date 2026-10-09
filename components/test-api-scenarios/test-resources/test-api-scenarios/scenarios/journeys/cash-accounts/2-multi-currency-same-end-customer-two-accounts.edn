@@ -33,7 +33,7 @@
    :assert {:status 200
             :body {:currency "GBP"
                    :party-id [:ref :arthur :party :party-id]
-                   :account-status "opened"
+                   :status "opened"
                    :bban [:ref :gbp-account :account :bban]}}}
   {:command :api/request
    :request {:method :get
@@ -43,5 +43,5 @@
    :assert {:status 200
             :body {:currency "EUR"
                    :party-id [:ref :arthur :party :party-id]
-                   :account-status "opened"
+                   :status "opened"
                    :bban [:m/mismatch [:ref :gbp-account :account :bban]]}}}]}

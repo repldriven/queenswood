@@ -93,7 +93,7 @@ come, which take this one as their pattern.
 - **An organisation's owner.** The operator's create call takes an
   `owner-email`, which writes an owner invitation, and a signed-in user
   whose verified email matches accepts it under `/v1/me/invitations`
-  with no link. See [memberships](memberships.md).
+  with no link. See [members](members.md).
 - **Local secrets.** `pass`, under
   `queenswood/local/dev/auth/clients/`, where `ids/<name>` holds a
   client id and `<name>` its secret, the way the local Google client is

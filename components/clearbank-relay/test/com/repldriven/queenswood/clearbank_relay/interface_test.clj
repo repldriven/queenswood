@@ -15,6 +15,7 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.test :refer [deftest is testing]]))
@@ -23,7 +24,7 @@
   [outbox-id dedup-key]
   {:outbox-id outbox-id
    :dedup-key dedup-key
-   :event-name "transaction-settled"
+   :event-name "provider-payment-settled"
    :payload (.getBytes "avro-payload-bytes")
    :correlation-id "corr-1"
    :causation-id "caus-1"
@@ -43,10 +44,11 @@
 (defn- intent-of
   [intent-id dedup-key]
   {:intent-id intent-id
-   :dedup-key dedup-key
+   :idempotency-key dedup-key
+   :kind :clearbank-outbound-intent-kind-payment
    :request "{\"paymentInstructions\":[]}"
-   :status "pending"
-   :attempts 0
+   :status :outbound-intent-status-pending
+   :attempt-count 0
    :created-at (utility/now)})
 
 (deftest outbound-intent-queue-test
@@ -61,10 +63,13 @@
      (testing "a sent intent leaves the pending work-queue"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.3" "e2e-B"))])
        (is (some #(= "int.3" (:intent-id %))
-                 (store/intents-with-status config "pending")))
+                 (store/intents-with-status config
+                                            :outbound-intent-status-pending)))
        (nom-test> [_ (store/mark-sent config "int.3")])
        (is (not (some #(= "int.3" (:intent-id %))
-                      (store/intents-with-status config "pending")))))
+                      (store/intents-with-status
+                       config
+                       :outbound-intent-status-pending)))))
      (testing "a failed POST keeps the intent pending and bumps its attempt"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.4" "e2e-C"))])
        (outbound/drain-once (assoc config
@@ -82,9 +87,11 @@
                                               :probe-lease-ms 1000}})
                             (utility/now))
        (let [i4 (first (filter #(= "int.4" (:intent-id %))
-                               (store/intents-with-status config "pending")))]
+                               (store/intents-with-status
+                                config
+                                :outbound-intent-status-pending)))]
          (is (some? i4) "still pending after an unreachable POST")
-         (is (= 1 (:attempts i4)) "attempt count bumped"))))))
+         (is (= 1 (:attempt-count i4)) "attempt count bumped"))))))
 
 (defn- relay-config
   [sys post-fn]
@@ -142,7 +149,7 @@
 (defn- decode-rejection
   [config event]
   (let [{:keys [schemas]} config]
-    (avro/deserialize-same (get schemas "transaction-rejected")
+    (avro/deserialize-same (get schemas "provider-payment-rejected")
                            (:payload event))))
 
 (defn- assert-failed
@@ -151,9 +158,9 @@
         events (submission-rejections config dedup-key)
         rejection (some->> (first events)
                            (decode-rejection config))]
-    (is (= "failed" (:status intent)))
+    (is (= :outbound-intent-status-failed (:status intent)))
     (is (= 1 (count events)) "one submission-rejected event")
-    (is (= "transaction-rejected" (:event-name (first events))))
+    (is (= "provider-payment-rejected" (:event-name (first events))))
     (is (= dedup-key (:end-to-end-id rejection)))
     (is (= failure-kind (:failure-kind rejection)))
     (is (= "NARR" (:reason-code rejection)))
@@ -209,7 +216,8 @@
      (testing "a 202 whose transaction is Accepted marks the intent sent"
        (nom-test> [_ (SUT/save-intent config (intent-of "int.9" "e2e-H"))])
        (outbound/drain-once (relay (fps-response 202 "e2e-H" "Accepted")) now)
-       (is (= "sent" (:status (load-intent config "int.9"))))
+       (is (= :outbound-intent-status-sent
+              (:status (load-intent config "int.9"))))
        (is (empty? (submission-rejections config "e2e-H")))))))
 
 (deftest fail-intent-once-test
@@ -219,33 +227,36 @@
          rejected (fn [outbox-id]
                     (assoc (event outbox-id "e2e-J:submission-rejected")
                            :event-name
-                           "transaction-rejected"))]
+                           "provider-payment-rejected"))]
      (nom-test> [_ (SUT/save-intent config (intent-of "int.10" "e2e-J"))])
      (testing "the first call fails the intent and writes the event"
        (nom-test> [failed (store/finish config
                                         "int.10"
-                                        "pending" "failed"
+                                        :outbound-intent-status-pending
+                                        :outbound-intent-status-failed
                                         4 (rejected "obx.10"))
-                   _ (is (= "failed" (:status failed)))]))
+                   _ (is (= :outbound-intent-status-failed (:status failed)))]))
      (testing "a second call writes nothing"
        (nom-test> [again (store/finish config
                                        "int.10"
-                                       "pending" "failed"
+                                       :outbound-intent-status-pending
+                                       :outbound-intent-status-failed
                                        5 (rejected "obx.11"))
-                   _ (is (= 4 (:attempts again)))])
-       (is (= "failed" (:status (load-intent config "int.10"))))
+                   _ (is (= 4 (:attempt-count again)))])
+       (is (= :outbound-intent-status-failed
+              (:status (load-intent config "int.10"))))
        (is (= ["obx.10"]
               (mapv :outbox-id (submission-rejections config "e2e-J"))))))))
 
 (defn- account-intent
   [intent-id kind dedup-key context]
   {:intent-id intent-id
-   :dedup-key dedup-key
+   :idempotency-key dedup-key
    :kind kind
    :request "{}"
-   :context (pr-str context)
-   :status "pending"
-   :attempts 0
+   :context (transit/write-str context)
+   :status :outbound-intent-status-pending
+   :attempt-count 0
    :created-at (utility/now)})
 
 (defn- outbox-event
@@ -285,9 +296,11 @@
          now 1700000000000
          context {:bank-id "bnk.1" :account-id "acc.1"}]
      (testing "an opened account is reported with its address"
-       (nom-test> [_ (SUT/save-intent config
-                                      (account-intent "int.20" "open-account"
-                                                      "open:acc.1" context))])
+       (nom-test> [_ (SUT/save-intent
+                      config
+                      (account-intent
+                       "int.20" :clearbank-outbound-intent-kind-open-account
+                       "open:acc.1" context))])
        (outbound/drain-once
         (relay
          (json-response
@@ -295,7 +308,8 @@
           "{\"id\":\"va-1\",\"sortCode\":\"040004\",\"accountNumber\":\"20000001\"}"))
         now)
        (is (= "http://scheme.invalid/v1/virtual-accounts" (last @urls)))
-       (is (= "settled" (:status (load-intent config "int.20"))))
+       (is (= :outbound-intent-status-settled
+              (:status (load-intent config "int.20"))))
        (let [event (outbox-event config "open:acc.1:payment-account-opened")]
          (is (= "payment-account-opened" (:event-name event)))
          (is (= {:bank-id "bnk.1"
@@ -306,27 +320,28 @@
                               :account-number "20000001"}]}
                 (decoded config event)))))
      (testing "a declined opening is reported refused, with its reason"
-       (nom-test> [_ (SUT/save-intent config
-                                      (account-intent
-                                       "int.21" "open-account"
-                                       "open:acc.2"
-                                       (assoc context :account-id "acc.2")))])
+       (nom-test> [_ (SUT/save-intent
+                      config
+                      (account-intent
+                       "int.21" :clearbank-outbound-intent-kind-open-account
+                       "open:acc.2" (assoc context :account-id "acc.2")))])
        (outbound/drain-once
         (relay (json-response 422 "{\"detail\":\"The account was declined\"}"))
         now)
-       (is (= "failed" (:status (load-intent config "int.21"))))
+       (is (= :outbound-intent-status-failed
+              (:status (load-intent config "int.21"))))
        (is (= "The account was declined"
               (:reason (decoded config
                                 (outbox-event
                                  config
-                                 "open:acc.2:payment-account-refused"))))))
+                                 "open:acc.2:payment-account-open-refused"))))))
      (testing "a closed account is reported closed"
-       (nom-test> [_ (SUT/save-intent config
-                                      (account-intent
-                                       "int.22" "close-account"
-                                       "close:acc.1" (assoc context
-                                                            :provider-account-id
-                                                            "va-1")))])
+       (nom-test> [_ (SUT/save-intent
+                      config
+                      (account-intent
+                       "int.22" :clearbank-outbound-intent-kind-close-account
+                       "close:acc.1"
+                       (assoc context :provider-account-id "va-1")))])
        (outbound/drain-once (relay (json-response 200 "{\"id\":\"va-1\"}")) now)
        (is (= "http://scheme.invalid/v1/virtual-accounts/va-1/close"
               (last @urls)))
@@ -335,24 +350,25 @@
                        (outbox-event config
                                      "close:acc.1:payment-account-closed")))))
      (testing "a close the provider refuses fails with nothing reported"
-       (nom-test> [_ (SUT/save-intent config
-                                      (account-intent
-                                       "int.23" "close-account"
-                                       "close:acc.3" (assoc context
-                                                            :account-id "acc.3"
-                                                            :provider-account-id
-                                                            "va-3")))])
+       (nom-test> [_ (SUT/save-intent
+                      config
+                      (account-intent
+                       "int.23" :clearbank-outbound-intent-kind-close-account
+                       "close:acc.3" (assoc context
+                                            :account-id "acc.3"
+                                            :provider-account-id "va-3")))])
        (outbound/drain-once (relay (json-response 409 "{}")) now)
-       (is (= "failed" (:status (load-intent config "int.23"))))
+       (is (= :outbound-intent-status-failed
+              (:status (load-intent config "int.23"))))
        (is (nil? (outbox-event config "close:acc.3:payment-account-closed"))))
      (testing "a reissued address is reported under its rotation"
-       (nom-test> [_ (SUT/save-intent config
-                                      (account-intent
-                                       "int.24" "reissue-address"
-                                       "reissue:acc.1:rot-1"
-                                       (assoc context
-                                              :provider-account-id "va-1"
-                                              :rotation-key "rot-1")))])
+       (nom-test> [_ (SUT/save-intent
+                      config
+                      (account-intent
+                       "int.24" :clearbank-outbound-intent-kind-reissue-address
+                       "reissue:acc.1:rot-1" (assoc context
+                                                    :provider-account-id "va-1"
+                                                    :rotation-key "rot-1")))])
        (outbound/drain-once
         (relay
          (json-response

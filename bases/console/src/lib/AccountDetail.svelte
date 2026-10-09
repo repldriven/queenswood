@@ -27,7 +27,7 @@
     return String(x ?? "")
       .replace(/^:/, "")
       .replace(
-        /^(balance-type|balance-status|transaction-type|transaction-status|leg-side|side)-/,
+        /^(balance-type|balance-status|transaction-type|leg-side|side)-/,
         "",
       );
   }

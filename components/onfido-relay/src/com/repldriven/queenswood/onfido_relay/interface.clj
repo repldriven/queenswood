@@ -36,13 +36,13 @@
   "Persist a pending submit-idv-check intent — the consume-side outbox
   write — in one FDB transaction. The out-of-transaction runner makes the
   Onfido calls. Returns the intent, or an `:onfido-outbound/save` anomaly
-  (a uniqueness violation when the `dedup-key` was already enqueued).
+  (a uniqueness violation when the `idempotency-key` was already enqueued).
 
   Args:
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
-  - intent: a map with `:intent-id`, `:dedup-key` (the session id),
+  - intent: a map with `:intent-id`, `:idempotency-key` (the session id),
     `:request` (EDN-encoded command data), `:status` (\"pending\"),
-    `:attempts`, `:created-at`."
+    `:attempt-count`, `:created-at`."
   [txn intent]
   (store/save-intent txn intent))
 
@@ -63,15 +63,3 @@
   - run-id: the workflow run's id."
   [config run-id]
   (outbound/read-run config run-id))
-
-(defn clear-personal-data
-  "Reduce every settled or failed intent's request to what the store
-  spec's `:redact` keeps, and clear the payload of every `idv-evidence`
-  outbox entry, which the outbox changelog relays and nothing reads
-  again (ADR-0045). Returns `{:intents :payloads}`, how many of each it
-  cleared — none on a rerun — or an anomaly.
-
-  Args:
-  - config: `{:record-db :record-store}`."
-  [config]
-  (store/clear-personal-data config))

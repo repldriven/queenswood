@@ -17,7 +17,7 @@ outbound-runner: !system/component
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
   schemas: !system/ref avro.serde
-  dispatcher: !system/ref memberships-dispatcher.dispatcher
+  dispatcher: !system/ref members-dispatcher.dispatcher
   smtp: !system/ref smtp.client
   console-url: !profile
     dev: http://localhost:5173

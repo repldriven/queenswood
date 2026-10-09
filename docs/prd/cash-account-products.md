@@ -120,8 +120,15 @@ uses it to create a new product, supplying:
 - The currency (an ISO 4217 string — e.g. `"GBP"`), which
   has to be one the template allows. It is a single
   currency, not a list.
-- The interest rate, expressed in basis points (e.g. `550`
-  for 5.5% APR). Optional.
+- The interest terms: the rate, which can differ by band of
+  balance and change on set dates or a number of months after
+  an account opens; how the year is counted; and how often
+  interest is paid and on which day. Optional; a version that
+  names none pays no interest. See [interest](interest.md).
+- A term, in months, after which each account matures and its
+  balance moves to another account the end customer named.
+  Optional; a version that names none opens accounts that stay
+  open until closed.
 - A welcome reward: an amount in the product's currency,
   which the bank pays an end customer once for opening an
   account under this version. Optional; a version that names

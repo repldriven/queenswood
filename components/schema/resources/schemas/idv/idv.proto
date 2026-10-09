@@ -1,35 +1,19 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.idv;
+package com.repldriven.queenswood.schema.idv;
 
 import "record_metadata_options.proto";
-import "schemas/policies/policy.proto";
+import "schemas/policy/capability.proto";
 
 option java_outer_classname = "IdvProto";
 
-message Idv {
-  option (com.apple.foundationdb.record.record).usage = RECORD;
-
-  required string bank_id = 1;
-  required string verification_id = 2;
-  required string party_id = 3;
-  required IdvStatus status = 4;
-  required int64 created_at = 5;
-  required int64 updated_at = 6;
-  optional int64 completed_at = 7;
-  // The latest evidence the provider reported, one section per kind.
-  optional IdvEvidence evidence = 8;
-  // Each verification and screening as the last decision settled it.
-  repeated IdvCriterion criteria = 9;
-
-  enum IdvStatus {
-    IDV_STATUS_UNKNOWN = 0;
-    IDV_STATUS_PENDING = 1; // initiated, awaiting result
-    IDV_STATUS_IN_REVIEW = 2; // escalated to manual review
-    IDV_STATUS_ACCEPTED = 3;
-    IDV_STATUS_REJECTED = 4; // data doesn't pass checks
-    IDV_STATUS_FAILED = 5; // technical failure — can be retried
-  }
+enum IdvStatus {
+  IDV_STATUS_UNKNOWN = 0;
+  IDV_STATUS_PENDING = 1;
+  IDV_STATUS_IN_REVIEW = 2;
+  IDV_STATUS_ACCEPTED = 3;
+  IDV_STATUS_REJECTED = 4;
+  IDV_STATUS_CANCELLED = 5;
 }
 
 enum IdvEvidenceOutcome {
@@ -46,7 +30,8 @@ enum IdvSanctionsOutcome {
   IDV_SANCTIONS_OUTCOME_HIT = 3;
 }
 
-// What the person's document says, as the provider extracted it.
+// How the name read off a document compares with the name the check was
+// started for.
 enum IdvNameMatch {
   IDV_NAME_MATCH_UNKNOWN = 0;
   IDV_NAME_MATCH_MATCH = 1;
@@ -54,18 +39,19 @@ enum IdvNameMatch {
   IDV_NAME_MATCH_NO_MATCH = 3;
 }
 
+enum IdvCriterionStatus {
+  IDV_CRITERION_STATUS_UNKNOWN = 0;
+  IDV_CRITERION_STATUS_OUTSTANDING = 1;
+  IDV_CRITERION_STATUS_ESTABLISHED = 2;
+  IDV_CRITERION_STATUS_REVIEW = 3;
+  IDV_CRITERION_STATUS_FAILED = 4;
+}
+
 message IdvDocumentEvidence {
   optional IdvEvidenceOutcome outcome = 1;
-  // What the provider read stays with the provider (ADR-0045): the
-  // adapter reports how the read name compares, never the name.
-  optional string given_names = 2 [deprecated = true];
-  optional string family_name = 3 [deprecated = true];
-  optional string date_of_birth = 4 [deprecated = true];
-  optional string document_type = 5;
-  optional string issuing_country = 6;
-  // How the name read off the document compares with the name the run
-  // was started for.
-  optional IdvNameMatch name_match = 7;
+  optional IdvNameMatch name_match = 2;
+  optional string document_type = 3;
+  optional string issuing_country = 4;
 }
 
 message IdvLivenessEvidence {
@@ -82,6 +68,7 @@ message IdvScreeningEvidence {
   optional bool pep = 2;
 }
 
+// What the provider last reported, one section per kind.
 message IdvEvidence {
   optional IdvDocumentEvidence document = 1;
   optional IdvLivenessEvidence liveness = 2;
@@ -90,63 +77,29 @@ message IdvEvidence {
   optional bool cancelled = 5;
 }
 
-enum IdvCriterionState {
-  IDV_CRITERION_STATE_UNKNOWN = 0;
-  IDV_CRITERION_STATE_OUTSTANDING = 1;
-  IDV_CRITERION_STATE_ESTABLISHED = 2;
-  IDV_CRITERION_STATE_REVIEW = 3;
-  IDV_CRITERION_STATE_FAILED = 4;
-}
-
-// One verification or screening, whichever is set, and how it stands.
+// One verification or screening, whichever is set.
 message IdvCriterion {
-  optional com.repldriven.queenswood.schemas.policies.IdvVerification verification = 1;
-  optional com.repldriven.queenswood.schemas.policies.IdvScreening screening = 2;
-  optional IdvCriterionState state = 3;
+  optional com.repldriven.queenswood.schema.policy.IdvVerification verification = 1;
+  optional com.repldriven.queenswood.schema.policy.IdvScreening screening = 2;
+  required IdvCriterionStatus status = 3;
 }
 
-// A run of the provider's flow the tenant opened to hand the person
-// off, and the hand-off once the adapter has one.
-message IdvSession {
+// A party's identity verification.
+message Idv {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string bank_id = 1;
-  required string session_id = 2;
-  required string verification_id = 3;
-  required string party_id = 4;
-  required IdvSessionChannel channel = 5;
-  required string return_url = 6;
-  required IdvSessionStatus status = 7;
-  optional IdvHandOff hand_off = 8;
-  // The epoch day the session opened, for the daily limit.
-  required int64 opened_day = 9;
-  required int64 created_at = 10;
-  required int64 updated_at = 11;
-  // Why the provider could not run the session's check.
-  optional string failure_reason = 12;
+  required string verification_id = 2;
 
-  enum IdvSessionChannel {
-    IDV_SESSION_CHANNEL_UNKNOWN = 0;
-    IDV_SESSION_CHANNEL_WEB = 1;
-    IDV_SESSION_CHANNEL_MOBILE = 2;
-  }
+  required string party_id = 3;
+  required IdvStatus status = 4;
+  repeated IdvCriterion criteria = 5;
+  optional IdvEvidence evidence = 6;
 
-  enum IdvSessionStatus {
-    IDV_SESSION_STATUS_UNKNOWN = 0;
-    IDV_SESSION_STATUS_OPENING = 1;
-    IDV_SESSION_STATUS_READY = 2;
-    IDV_SESSION_STATUS_COMPLETED = 3;
-    IDV_SESSION_STATUS_FAILED = 4;
-  }
-}
+  optional int64 accepted_at = 51;
+  optional int64 rejected_at = 53;
+  optional int64 cancelled_at = 55;
 
-message IdvHandOff {
-  optional IdvHandOffType type = 1;
-  optional string url = 2;
-  optional int64 expires_at = 3;
-
-  enum IdvHandOffType {
-    IDV_HAND_OFF_TYPE_UNKNOWN = 0;
-    IDV_HAND_OFF_TYPE_URL = 1;
-  }
+  required int64 created_at = 101;
+  optional int64 updated_at = 103;
 }

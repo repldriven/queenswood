@@ -27,5 +27,5 @@
              :path "/v1/jobs/{job-id}/schedule"
              :path-params {:job-id "account-migration"}
              :auth [:ref :org-0 :token]
-             :body {:enabled false}}
+             :body {:status "paused"}}
    :assert {:status 422 :problem {:type ":scheduler/system-job-locked"}}}]}

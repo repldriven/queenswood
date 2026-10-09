@@ -8,10 +8,10 @@
                           :balance-sheet-side-unknown))
 
 (def ^:private version-status-enum
-  (coercion/enum-coercion {"draft" :cash-account-product-status-draft
-                           "published" :cash-account-product-status-published
-                           "discarded" :cash-account-product-status-discarded}
-                          :cash-account-product-status-unknown))
+  (coercion/enum-coercion {"draft" :version-status-draft
+                           "published" :version-status-published
+                           "discarded" :version-status-discarded}
+                          :version-status-unknown))
 
 (def balance-sheet-side-enum-schema (:enum-schema balance-sheet-side-enum))
 (def version-status-enum-schema (:enum-schema version-status-enum))

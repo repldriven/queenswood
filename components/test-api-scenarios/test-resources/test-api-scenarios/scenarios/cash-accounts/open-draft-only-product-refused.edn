@@ -8,8 +8,7 @@
           :as :party-0
           :with {:token [:ref :org-0 :token]
                  :display-name "Draft Product Holder"
-                 :given-name "Draft"
-                 :family-name "Holder"}}
+                 :legal-name "Draft Holder"}}
          {:command :api/request
           :request {:method :post
                     :path "/v1/cash-account-products"

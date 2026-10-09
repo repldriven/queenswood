@@ -1,23 +1,78 @@
 {
   "type": "record",
   "name": "CheckPayee",
-  "namespace": "com.repldriven.mono.payee_check",
+  "namespace": "com.repldriven.queenswood.schema.payee_check",
   "fields": [
-    {"name": "bank_id",       "type": "string"},
-    {"name": "creditor_name", "type": "string"},
-    {"name": "account",
-     "type": {"type": "record",
-              "name": "AccountIdentifier",
-              "fields": [
-                {"name": "sort_code",      "type": "string"},
-                {"name": "account_number", "type": "string"}
-              ]}},
-    {"name": "account_type",
-     "type": {"type": "enum",
-              "name": "AccountType",
-              "symbols": ["ACCOUNT_TYPE_UNKNOWN",
-                          "ACCOUNT_TYPE_PERSONAL",
-                          "ACCOUNT_TYPE_BUSINESS"]}},
-    {"name": "account_id", "type": ["null", "string"], "default": null}
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "creditor_name",
+      "type": "string"
+    },
+    {
+      "name": "account",
+      "type": {
+        "type": "record",
+        "name": "AccountIdentifier",
+        "fields": [
+          {
+            "name": "sort_code",
+            "type": "string"
+          },
+          {
+            "name": "account_number",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "account_type",
+      "type": {
+        "type": "enum",
+        "name": "AccountType",
+        "symbols": [
+          "ACCOUNT_TYPE_UNKNOWN",
+          "ACCOUNT_TYPE_PERSONAL",
+          "ACCOUNT_TYPE_BUSINESS"
+        ]
+      }
+    },
+    {
+      "name": "account_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "actor",
+      "type": {
+        "type": "record",
+        "name": "ActorSpec",
+        "doc": "Who asked",
+        "fields": [
+          {
+            "name": "kind",
+            "type": {
+              "type": "enum",
+              "name": "ActorKind",
+              "symbols": [
+                "ACTOR_KIND_MEMBER",
+                "ACTOR_KIND_OPERATOR",
+                "ACTOR_KIND_BANK"
+              ]
+            }
+          },
+          {
+            "name": "principal_id",
+            "type": "string"
+          }
+        ]
+      }
+    }
   ]
 }

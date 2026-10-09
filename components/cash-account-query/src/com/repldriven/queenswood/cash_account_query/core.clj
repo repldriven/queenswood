@@ -11,12 +11,12 @@
 
 (defn- enrich-account
   [txn opts account]
-  (let [{:keys [bank-id account-id]} account]
+  (let [{:keys [bank-id account-id currency]} account]
     (let-nom>
       [balances (when (:embed-balances opts)
-                  (balances/get-balances txn bank-id account-id))
+                  (balances/get-balances txn bank-id account-id currency))
        transactions (when (:embed-transactions opts)
-                      (transactions/get-transactions txn account-id))]
+                      (transactions/get-transactions txn bank-id account-id))]
       (cond-> account
 
               balances
@@ -89,8 +89,8 @@
     [versions (products/find-products-by-type
                txn
                bank-id
-               :product-type-sub-ledger-own-funds)
-     version (or (first (filter #(some #{currency} (:allowed-currencies %))
+               :account-product-type-sub-ledger-own-funds)
+     version (or (first (filter #(= currency (:currency %))
                                 versions))
                  (error/reject :cash-account/house-account-not-found
                                {:message
@@ -111,13 +111,15 @@
   [txn bank-id account-id]
   (store/transact txn
                   (fn [txn]
-                    (let-nom> [_ (get-account txn bank-id account-id)]
-                      (balances/get-balances txn bank-id account-id)))
+                    (let-nom> [{:keys [currency]} (get-account txn
+                                                               bank-id
+                                                               account-id)]
+                      (balances/get-balances txn bank-id account-id currency)))
                   :cash-account/get-balances
                   "Failed to read the account's balances"))
 
 (defn get-account-balance
-  [txn bank-id account-id balance-type currency balance-status]
+  [txn bank-id account-id balance-type balance-status]
   (store/transact txn
                   (fn [txn]
                     (let-nom> [_ (get-account txn bank-id account-id)]
@@ -125,7 +127,6 @@
                                             bank-id
                                             account-id
                                             balance-type
-                                            currency
                                             balance-status)))
                   :cash-account/get-balance
                   "Failed to read the account's balance"))
@@ -135,6 +136,9 @@
   (store/transact txn
                   (fn [txn]
                     (let-nom> [_ (get-account txn bank-id account-id)]
-                      (transactions/page-transactions txn account-id opts)))
+                      (transactions/page-transactions txn
+                                                      bank-id
+                                                      account-id
+                                                      opts)))
                   :cash-account/page-transactions
                   "Failed to page the account's transactions"))

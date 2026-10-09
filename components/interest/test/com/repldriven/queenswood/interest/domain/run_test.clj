@@ -11,38 +11,38 @@
 (deftest eligible-cash-account?-test
   (testing "an open sub-ledger account is in scope"
     (is (true? (SUT/eligible-cash-account?
-                {:product-type :product-type-sub-ledger-current
-                 :account-status :cash-account-status-opened}))))
+                {:product-type :account-product-type-sub-ledger-current
+                 :status :cash-account-status-opened}))))
   (testing "every product type is, not a chosen few"
     ;; Whether an instrument pays is its product's rate. Own funds pays
     ;; nothing today, and the pass must still visit it so that the day
     ;; someone sets a rate it starts accruing without a code change.
     (is (true? (SUT/eligible-cash-account?
-                {:product-type :product-type-sub-ledger-own-funds
-                 :account-status :cash-account-status-opened}))))
+                {:product-type :account-product-type-sub-ledger-own-funds
+                 :status :cash-account-status-opened}))))
   (testing "a suspended account still earns — the bank still holds the money"
     ;; Suspension stops the customer moving their balance, not the bank
     ;; owing them for holding it.
     (is (true? (SUT/eligible-cash-account?
-                {:product-type :product-type-sub-ledger-current
-                 :account-status :cash-account-status-suspended}))))
+                {:product-type :account-product-type-sub-ledger-current
+                 :status :cash-account-status-suspended}))))
   (testing "a ledger account falls out — it has a status, not an account one"
     ;; The bank's own books are not cash accounts and never reach a
     ;; pass, but nothing about this reads their status field either.
     (is (not (SUT/eligible-cash-account? {:status
                                           :ledger-account-status-open}))))
   (testing "a balance not yet settled, or no longer held, earns nothing"
-    (is (not (SUT/eligible-cash-account? {:account-status
+    (is (not (SUT/eligible-cash-account? {:status
                                           :cash-account-status-opening})))
-    (is (not (SUT/eligible-cash-account? {:account-status
+    (is (not (SUT/eligible-cash-account? {:status
                                           :cash-account-status-closing})))
     (is (not (SUT/eligible-cash-account?
-              {:product-type :product-type-sub-ledger-savings
-               :account-status :cash-account-status-closed})))))
+              {:product-type :account-product-type-sub-ledger-savings
+               :status :cash-account-status-closed})))))
 
 (def ^:private accrual-limit-policies
   "One platform policy: at most one accrual run per org per day."
-  [{:enabled true
+  [{:status :policy-status-active
     :limits [{:kind {:interest {:filters [{:action :interest-action-accrue}]}}
               :bound {:kind {:max {:aggregate {:kind {:count
                                                       {:value 1
@@ -72,7 +72,7 @@
 (deftest closed-test
   (testing "a finished pass leaves one closed record, never an open one"
     (let [run (SUT/closed "org.1" 20260501 :interest-run-kind-accrue)]
-      (is (= :interest-run-state-closed (:state run)))
+      (is (= :interest-run-status-closed (:status run)))
       (is (= "org.1" (:bank-id run)))
       (is (= 20260501 (:business-day run)))
       (is (= :interest-run-kind-accrue (:kind run)))

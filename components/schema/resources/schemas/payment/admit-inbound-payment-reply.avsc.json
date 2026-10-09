@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "AdmitInboundPaymentReply",
+  "namespace": "com.repldriven.queenswood.schema.payment",
+  "fields": [
+    {"name": "admitted",    "type": "boolean"},
+    {"name": "payment_id",  "type": ["null", "string"], "default": null},
+    {"name": "reason_code", "type": ["null", "string"], "default": null},
+    {"name": "reason",      "type": ["null", "string"], "default": null}
+  ]
+}

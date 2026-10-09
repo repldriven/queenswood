@@ -10,32 +10,30 @@
     [clojure.set :as set]))
 
 (defn- ->api
-  "Present a stored LedgerAccount over the wire: the internal
-  `:ledger-account-id` is exposed as `:account-id` so the resource speaks
-  the same id key as the path parameter and the balance API, and the
-  `:gl-account-code` role is rendered back to its chart number as the
-  `:gl-code` string clients (and the console's ledger view) expect."
+  "Present a stored LedgerAccount over the wire: its `code` role as its
+  chart number, and the class and type the code determines."
   [account]
-  (-> account
-      (set/rename-keys {:ledger-account-id :account-id})
-      (assoc :gl-code
-             (ledger-accounts/gl-account-code->gl-code
-              (:gl-account-code account)))
-      (dissoc :gl-account-code)))
+  (let [{:keys [code]} account]
+    (assoc account
+           :code (ledger-accounts/chart-number code)
+           :account-class (ledger-accounts/account-class code)
+           :account-type (ledger-accounts/account-type code))))
 
 (defn- with-posted-balance
   "Attach the account's derived `:posted-balance` ({value, currency}),
   the same figure the balances endpoint derives, from the balances the
   chart scan paired it with."
   [{:keys [account balances]}]
-  (assoc account :posted-balance (:posted-balance (balances/totals balances))))
+  (assoc account
+         :posted-balance
+         (:posted-balance (balances/totals balances (:currency account)))))
 
 (defn- trial-balance-entry
   "Project an enriched account into a bank-balance trial-balance entry:
-  its currency, normal side (from the gl-account-type), and posted net."
+  its currency, normal side (from its class), and posted net."
   [account]
   {:currency (:currency account)
-   :normal-side (if (ledger-accounts/debit-normal? (:gl-account-type account))
+   :normal-side (if (ledger-accounts/debit-normal? account)
                   :debit
                   :credit)
    :value (:value (:posted-balance account))})
@@ -61,16 +59,16 @@
   (let [{:keys [record-db record-store auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [path]} parameters
-        {:keys [account-id]} path
+        {:keys [ledger-account-id]} path
         config {:record-db record-db :record-store record-store}
         result (let-nom>
                  [account (ledger-accounts/get-account config
                                                        bank-id
-                                                       account-id)
+                                                       ledger-account-id)
                   _ (when (nil? account)
                       (error/reject :ledger-account/not-found
                                     {:message "Ledger account not found"
-                                     :account-id account-id}))]
+                                     :ledger-account-id ledger-account-id}))]
                  (->api account))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
@@ -81,16 +79,16 @@
   (let [{:keys [record-db record-store auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [path]} parameters
-        {:keys [account-id]} path
+        {:keys [ledger-account-id]} path
         config {:record-db record-db :record-store record-store}
         result (let-nom>
                  [account (ledger-accounts/get-account config
                                                        bank-id
-                                                       account-id)
+                                                       ledger-account-id)
                   _ (when (nil? account)
                       (error/reject :ledger-account/not-found
                                     {:message "Ledger account not found"
-                                     :account-id account-id}))
+                                     :ledger-account-id ledger-account-id}))
                   found (ledger-accounts/get-balances config bank-id account)]
                  (set/rename-keys found {:balances :items}))]
     (if (error/anomaly? result)

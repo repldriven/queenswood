@@ -7,7 +7,7 @@
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]))
 
-(def ^:private store-name "rewards")
+(def ^:private store-name "account-rewards")
 
 (def transact fdb/transact)
 
@@ -21,14 +21,15 @@
    (fn [txn]
      (let-nom>
        [_ (fdb/save-record (fdb/open txn store-name)
-                           (schema/Reward->java reward))
+                           (schema/AccountReward->java reward))
         entry (changelog/status-changed
                (assoc changelog
                       :bank-id (:bank-id reward)
                       :reward-id (:reward-id reward)
                       :account-id (:account-id reward)
                       :status-after (:status reward)
-                      :updated-at (:updated-at reward)))
+                      :updated-at (or (:updated-at reward)
+                                      (:created-at reward))))
         _ (fdb/write-changelog txn store-name (:reward-id reward) entry)]
        reward))
    :reward/save
@@ -42,15 +43,15 @@
      (let [store (fdb/open txn store-name)]
        (some-> (fdb/query-record-compound
                 store
-                "Reward"
+                "AccountReward"
                 [["bank_id" bank-id]
                  ["account_id" account-id]
                  ["kind"
                   (fdb/enum-value store
-                                  "Reward"
+                                  "AccountReward"
                                   "kind"
                                   (schema/reward-kind->int kind))]]
-                {:index "Reward_by_bank_account"})
-               schema/pb->Reward)))
+                {:index "AccountReward_by_bank_account"})
+               schema/pb->AccountReward)))
    :reward/find-by-account
    "Failed to find reward by account"))

@@ -9,6 +9,7 @@
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.test :refer [deftest is testing]]))
@@ -74,7 +75,7 @@
                                    {:principal-id principal
                                     :operation operation
                                     :idempotency-key key
-                                    :state "pending"
+                                    :status :idempotency-status-pending
                                     :fingerprint fingerprint
                                     ;; A second past the 60s timeout.
                                     :created-at (- now minute-ms 1000)
@@ -86,9 +87,11 @@
                                    {:principal-id principal
                                     :operation operation
                                     :idempotency-key key
-                                    :state "completed"
-                                    :status 200
-                                    :body (pr-str {:ok true})
+                                    :status :idempotency-status-completed
+                                    :response {:status 200
+                                               :headers (transit/write-str {})
+                                               :body (transit/write-str {:ok
+                                                                         true})}
                                     :fingerprint fingerprint
                                     :created-at (- now day-ms)
                                     :expires-at (- now 1000)})])
@@ -112,18 +115,5 @@
                                      fingerprint
                                      {:status 200 :body {:ok true}})])
          (is (= ::SUT/completed (:type (claim config key))))
-         (is (= ::SUT/mismatch (:type (claim config key other-fingerprint))))))
-     (testing "an entry written before the field matches anything"
-       (let [key "idem-no-fingerprint-001"
-             now (utility/now)]
-         (nom-test> [_ (store/save config
-                                   {:principal-id principal
-                                    :operation operation
-                                    :idempotency-key key
-                                    :state "completed"
-                                    :status 200
-                                    :body (pr-str {:ok true})
-                                    :created-at now
-                                    :expires-at (+ now day-ms)})])
-         (is (= ::SUT/completed
+         (is (= ::SUT/mismatch
                 (:type (claim config key other-fingerprint)))))))))

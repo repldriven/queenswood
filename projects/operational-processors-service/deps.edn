@@ -36,13 +36,11 @@
   component/idv-query {:local/root "../../components/idv-query"}
   component/interest {:local/root "../../components/interest"}
   component/ledger-account {:local/root "../../components/ledger-account"}
-  component/membership {:local/root "../../components/membership"}
-  component/membership-query {:local/root "../../components/membership-query"}
+  component/member {:local/root "../../components/member"}
+  component/member-query {:local/root "../../components/member-query"}
   component/party {:local/root "../../components/party"}
   component/payment-provider {:local/root "../../components/payment-provider"}
   component/party-query {:local/root "../../components/party-query"}
-  component/person-identification {:local/root
-                                   "../../components/person-identification"}
   component/policy {:local/root "../../components/policy"}
   component/resources {:local/root "../../components/resources"}
   component/scheduler {:local/root "../../components/scheduler"}

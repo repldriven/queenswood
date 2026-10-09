@@ -96,7 +96,7 @@
         {:keys [OwnerName]} CounterpartAccount]
     (let-nom>
       [amount (amount->minor-units Amount {:transaction-id TransactionId})]
-      [{:event-name "transaction-settled"
+      [{:event-name "provider-payment-settled"
         :dedup-key (str TransactionId ":settled")
         :data {:scheme-transaction-id TransactionId
                :end-to-end-id EndToEndTransactionId
@@ -116,7 +116,7 @@
         payload]
     (let-nom>
       [amount (amount->minor-units Amount {:transaction-id TransactionId})]
-      [{:event-name "transaction-settled"
+      [{:event-name "provider-payment-settled"
         :dedup-key (str EndToEndTransactionId ":settled")
         :data {:scheme-transaction-id TransactionId
                :end-to-end-id EndToEndTransactionId
@@ -138,7 +138,7 @@
                 CancellationReason IsReturn TimestampModified Account]}
         payload
         {:keys [BBAN]} Account]
-    [{:event-name "transaction-rejected"
+    [{:event-name "provider-payment-rejected"
       :dedup-key (str TransactionId ":rejected")
       :data (utility/assoc-some
              {:end-to-end-id EndToEndTransactionId
@@ -157,7 +157,7 @@
   (let [{:keys [EndToEndTransactionId Scheme CancellationCode
                 CancellationReason IsReturn TimestampModified]}
         payload]
-    [{:event-name "transaction-rejected"
+    [{:event-name "provider-payment-rejected"
       :dedup-key (str EndToEndTransactionId ":rejected")
       :data {:end-to-end-id EndToEndTransactionId
              :scheme (scheme Scheme)
@@ -172,7 +172,7 @@
 (defn outbound-payment-assessment-failed
   "ClearBank assessed the message and rejected it before settlement. One
   webhook can carry several failed instructions; each `EndToEndId` is an
-  OutboundPayment to reverse. Routed through `transaction-rejected` — the
+  OutboundPayment to reverse. Routed through `provider-payment-rejected` — the
   pre-flight failure has the same outcome as a scheme decline. Fans out
   to one descriptor per instruction, read from `AssessmentFailure` or
   from ClearBank's own spelling, `AssesmentFailure`."
@@ -188,7 +188,7 @@
                      :message-id MessageId})
       (mapv
        (fn [{:keys [EndToEndId Reasons]}]
-         {:event-name "transaction-rejected"
+         {:event-name "provider-payment-rejected"
           :dedup-key (str EndToEndId ":rejected")
           :data {:end-to-end-id EndToEndId
                  :scheme (scheme PaymentMethodType)
@@ -210,7 +210,7 @@
     (let-nom>
       [amount (amount->minor-units TransactionAmount
                                    {:end-to-end-id EndToEndTransactionId})]
-      [{:event-name "transaction-held"
+      [{:event-name "provider-payment-held"
         :dedup-key (str/join ":"
                              [EndToEndTransactionId BBAN amount
                               TimestampCreated "held"])
@@ -231,7 +231,7 @@
     (let-nom>
       [amount (amount->minor-units TransactionAmount
                                    {:end-to-end-id EndToEndTransactionId})]
-      [{:event-name "transaction-held"
+      [{:event-name "provider-payment-held"
         :dedup-key (str EndToEndTransactionId ":held")
         :data {:end-to-end-id EndToEndTransactionId
                :scheme (scheme Scheme)

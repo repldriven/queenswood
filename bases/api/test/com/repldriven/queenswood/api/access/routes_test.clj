@@ -25,20 +25,20 @@
 (def ^:private user-routes
   "REQ-023's routes, each against the one role its gate names."
   {[:get "/v1/me"] "user"
-   [:get "/v1/me/memberships"] "user"
-   [:get "/v1/me/memberships/{membership-id}"] "user"
+   [:get "/v1/me/members"] "user"
+   [:get "/v1/me/members/{member-id}"] "user"
    [:get "/v1/me/invitations"] "user"
    [:get "/v1/me/invitations/{invitation-id}"] "user"
    [:post "/v1/me/invitations/{invitation-id}/accept"] "user"
    [:post "/v1/me/invitations/{invitation-id}/decline"] "user"
-   [:post "/v1/me/memberships/{membership-id}/leave"] "user"})
+   [:post "/v1/me/members/{member-id}/leave"] "user"})
 
 (def ^:private bank-routes
   "REQ-024's routes, each against the one level its gate names."
-  {[:get "/v1/memberships"] "org:viewer"
-   [:get "/v1/memberships/{membership-id}"] "org:viewer"
-   [:post "/v1/memberships/{membership-id}/change-role"] "org:admin"
-   [:post "/v1/memberships/{membership-id}/remove"] "org:admin"
+  {[:get "/v1/members"] "org:viewer"
+   [:get "/v1/members/{member-id}"] "org:viewer"
+   [:post "/v1/members/{member-id}/change-role"] "org:admin"
+   [:post "/v1/members/{member-id}/remove"] "org:admin"
    [:get "/v1/invitations"] "org:viewer"
    [:post "/v1/invitations"] "org:admin"
    [:get "/v1/invitations/{invitation-id}"] "org:viewer"

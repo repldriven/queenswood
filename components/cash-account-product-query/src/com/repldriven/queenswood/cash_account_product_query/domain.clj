@@ -1,5 +1,9 @@
 (ns com.repldriven.queenswood.cash-account-product-query.domain)
 
+(defn internal?
+  [product]
+  (= :account-product-type-sub-ledger-own-funds (:product-type product)))
+
 (defn active-version
   "The published version effective on epoch-day `as-of`: of the
   published versions whose `[effective-from, effective-to)` window
@@ -9,7 +13,7 @@
   [{:keys [versions]} as-of]
   (->> versions
        (filter (fn [v]
-                 (= :cash-account-product-status-published (:status v))))
+                 (= :version-status-published (:status v))))
        (filter (fn [{:keys [effective-from effective-to]}]
                  (and (or (nil? effective-from) (<= effective-from as-of))
                       (or (nil? effective-to) (< as-of effective-to)))))

@@ -59,7 +59,7 @@ function follow(accountId, sent, step) {
     const res = get(`/v1/cash-accounts/${accountId}`, bearer(), {
       tags: { name: "cash-accounts/{account-id}", phase: "follow" },
     });
-    if (res.status === 200 && res.json()["account-status"] === "opened") {
+    if (res.status === 200 && res.json().status === "opened") {
       openTime.add(Date.now() - sent);
       return;
     }

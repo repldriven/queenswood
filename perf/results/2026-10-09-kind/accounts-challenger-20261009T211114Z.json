@@ -1,0 +1,44 @@
+{
+  "run": {
+    "scenario": "accounts",
+    "profile": "challenger",
+    "unit": "accounts",
+    "books": false,
+    "parties": 50,
+    "openTimeoutS": 120,
+    "steps": [
+      {
+        "rate": 50,
+        "seconds": 600
+      }
+    ]
+  },
+  "headline": {
+    "accounts": 29999,
+    "rejected": {},
+    "dropped": 0,
+    "vus": 100,
+    "opening": {
+      "followed": 1500,
+      "lost": {},
+      "avg": 182.19,
+      "p50": 146,
+      "p95": 263,
+      "p99": 268,
+      "max": 303
+    },
+    "steps": [
+      {
+        "asked": 50,
+        "achieved": 50,
+        "accounts": 29999,
+        "failed": 0,
+        "avg": 13.55,
+        "p50": 12.69,
+        "p95": 19.12,
+        "p99": 23.8,
+        "max": 142.48
+      }
+    ]
+  }
+}

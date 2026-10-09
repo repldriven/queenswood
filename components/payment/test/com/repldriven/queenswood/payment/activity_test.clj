@@ -46,7 +46,7 @@
                   ;; nosemgrep: brick-test-drives-pipeline
                   (processor/process p (entry schemas event-name data)))]
      (testing "an account's opening is sent as an open, keyed by its bank"
-       (handle "account-opening"
+       (handle "cash-account-open-requested"
                {:bank-id "bnk.a"
                 :account-id "acc.1"
                 :holder-name "Arthur Dent"
@@ -91,12 +91,10 @@
        (is (empty? @sent)))
      (testing "an entry no payment provider acts on sends nothing"
        (reset! sent [])
-       (is (nil? (handle "idv-session-opening"
+       (is (nil? (handle "idv-session-open-requested"
                          {:bank-id "bnk.a"
                           :verification-id "idv.1"
                           :party-id "pty.1"
-                          :first-name "Arthur"
-                          :last-name "Dent"
                           :session-id "ses.1"
                           :verifications []
                           :screenings []})))

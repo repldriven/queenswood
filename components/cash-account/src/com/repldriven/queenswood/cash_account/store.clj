@@ -25,7 +25,8 @@
           entry (changelog/account-changed
                  (assoc changelog
                         :bank-id (:bank-id account)
-                        :updated-at (:updated-at account)))
+                        :updated-at (or (:updated-at account)
+                                        (:created-at account))))
           _ (fdb/write-changelog txn
                                  store-name
                                  (:account-id account)

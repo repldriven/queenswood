@@ -45,7 +45,7 @@
    [:notified-on {:optional true} [:ref "BusinessDay"]]
    [:due-on {:optional true} [:ref "BusinessDay"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]
    [:approved-at {:optional true} [:ref "Timestamp"]]
    [:completed-at {:optional true} [:ref "Timestamp"]]
    [:cancelled-at {:optional true} [:ref "Timestamp"]]])
@@ -77,13 +77,14 @@
    [:status [:ref "MigrationRunStatus"]]
    [:dry-run boolean?]
    [:business-day [:ref "BusinessDay"]]
-   [:started-at [:ref "Timestamp"]]
-   [:finished-at {:optional true} [:ref "Timestamp"]]
-   [:error {:optional true} string?]
+   [:failure-reason {:optional true} string?]
    [:accounts-seen {:optional true} nat-int?]
    [:accounts-moved {:optional true} nat-int?]
    [:accounts-ineligible {:optional true} nat-int?]
-   [:accounts-failed {:optional true} nat-int?]])
+   [:accounts-failed {:optional true} nat-int?]
+   [:completed-at {:optional true} [:ref "Timestamp"]]
+   [:failed-at {:optional true} [:ref "Timestamp"]]
+   [:created-at [:ref "Timestamp"]]])
 
 (def MigrationRunList (list-schema "MigrationRun" examples/MigrationRunList))
 
@@ -96,9 +97,7 @@
    [:migration-id [:ref "MigrationId"]]
    [:account-id [:ref "CashAccountId"]]
    [:outcome [:ref "MigrationOutcome"]]
-   [:from-version-id {:optional true} [:ref "VersionId"]]
-   ;; Set only where an account actually moved.
-   [:to-version-id {:optional true} [:ref "VersionId"]]
+   [:source-version-id [:ref "VersionId"]]
    [:ineligibility {:optional true} [:ref "MigrationIneligibility"]]
    [:failure-reason {:optional true} string?]
    [:created-at [:ref "Timestamp"]]])

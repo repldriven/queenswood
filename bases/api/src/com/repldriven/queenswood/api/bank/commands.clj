@@ -5,6 +5,7 @@
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.companies.queries :as companies]
     [com.repldriven.queenswood.api.errors :as errors]
+    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
 
@@ -27,7 +28,7 @@
 (defn send-create-bank
   "Dispatch a create-bank command. `data` is the command payload
   (name/status/tier/currencies plus optional audience,
-  company-binding, membership). Returns the `commands/send` ring
+  company-binding, member). Returns the `commands/send` ring
   response (200 + flat bank body on success)."
   [request data]
   (commands/send (dispatcher request) request "create-bank" "bank" data))
@@ -60,7 +61,7 @@
                                       " the bank is used")
                         :bank-id bank-id}))
        bank (banks/get-bank-view txn bank-id)]
-      (assoc (queries/with-providers request bank)
+      (assoc (queries/bank-body request bank)
              :client-secret
              client-secret))))
 
@@ -83,26 +84,9 @@
   "What an operator chooses and a person creating their own bank may not."
   [:status :tier :currencies :owner-email])
 
-(defn- office->string
-  "Join the non-blank registered-office address lines into one string."
-  [{:keys [address-line-1 locality postal-code country]}]
-  (->> [address-line-1 locality postal-code country]
-       (remove str/blank?)
-       (str/join ", ")))
-
-(defn- ->binding
-  "Snapshot the confirmed company into the bank's company-binding shape."
-  [registry company]
-  (let [office (office->string (:registered-office-address company))]
-    (utility/assoc-some
-     {:registry registry
-      :company-number (:company-number company)}
-     :company-name (:company-name company)
-     :company-status (:company-status company)
-     :type (:type company)
-     :jurisdiction (:jurisdiction company)
-     :date-of-creation (:date-of-creation company)
-     :registered-office-address (when-not (str/blank? office) office))))
+(def ^:private binding-keys
+  [:registry :company-number :name :status :company-type :jurisdiction
+   :incorporated-on :registered-office-address])
 
 (defn- operator?
   [auth]
@@ -148,12 +132,11 @@
       :tier (or tier default-tier)
       :currencies (or currencies default-currencies)
       :audience (get audiences-by-status status)
-      :actor {:kind (if person? :actor-kind-member :actor-kind-operator)
-              :principal-id (:principal-id auth)}}
+      :actor (shared.actor/actor auth)}
      :company-binding (when company
-                        (->binding (:registry-id company) company))
-     :membership (when person?
-                   {:user-id (:principal-id auth) :role :role-owner})
+                        (select-keys company binding-keys))
+     :member (when person?
+               {:user-id (:principal-id auth) :role :role-owner})
      :owner-invitation (when owner-email {:email owner-email})
      :providers (mapv (fn [[kind provider]]
                         {:kind (clojure.core/name kind) :provider provider})
@@ -169,17 +152,17 @@
 
 (defn- created-bank
   "The created bank with its fresh client secret, and whichever of the
-  owner invitation and the creator's owner membership the create wrote."
-  [request {:keys [bank-id owner-invitation-id membership]}]
+  owner invitation and the creator's owner member the create wrote."
+  [request {:keys [bank-id owner-invitation-id member]}]
   (let-nom> [bank (bank-with-secret request bank-id)
              invitation (owner-invitation request bank-id owner-invitation-id)]
     (utility/assoc-some bank
                         :owner-invitation
                         invitation
-                        :membership
-                        (when membership
-                          (access-handlers/founding-membership
-                           membership
+                        :member
+                        (when member
+                          (access-handlers/founding-member
+                           member
                            (get-in request [:auth :user])
                            bank)))))
 
@@ -216,14 +199,16 @@
                               request
                               "change-bank-tier"
                               "bank"
-                              {:bank-id bank-id :tier tier})]
+                              {:bank-id bank-id
+                               :tier tier
+                               :actor (shared.actor/actor auth)})]
     (if (not= 200 (:status result))
       result
       (let [txn {:record-db record-db :record-store record-store}
             bank (banks/get-bank-view txn bank-id)]
         (if (error/anomaly? bank)
           (errors/anomaly->response bank)
-          {:status 200 :body (queries/with-providers request bank)})))))
+          {:status 200 :body (queries/bank-body request bank)})))))
 
 (defn change-bank-status
   [request]
@@ -241,7 +226,8 @@
                               "bank"
                               {:bank-id bank-id
                                :status status
-                               :audience (get audiences-by-status status)})]
+                               :audience (get audiences-by-status status)
+                               :actor (shared.actor/actor auth)})]
     (if (not= 200 (:status result))
       result
       (let [bank (bank-with-secret request bank-id)]

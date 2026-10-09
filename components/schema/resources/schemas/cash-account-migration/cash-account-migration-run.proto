@@ -1,0 +1,38 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.cash_account_migration;
+
+import "record_metadata_options.proto";
+
+option java_outer_classname = "CashAccountMigrationRunProto";
+
+enum CashAccountMigrationRunStatus {
+  CASH_ACCOUNT_MIGRATION_RUN_STATUS_UNKNOWN = 0;
+  CASH_ACCOUNT_MIGRATION_RUN_STATUS_RUNNING = 1;
+  CASH_ACCOUNT_MIGRATION_RUN_STATUS_COMPLETED = 2;
+  CASH_ACCOUNT_MIGRATION_RUN_STATUS_FAILED = 3;
+}
+
+// One pass of a migration over a bank's accounts.
+message CashAccountMigrationRun {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string run_id = 2;
+
+  required string migration_id = 3;
+  required CashAccountMigrationRunStatus status = 4;
+  required bool dry_run = 5;
+  required int64 business_day = 6; // epoch day
+  optional int32 accounts_seen = 7;
+  optional int32 accounts_moved = 8;
+  optional int32 accounts_ineligible = 9;
+  optional int32 accounts_failed = 10;
+
+  optional int64 completed_at = 51;
+  optional int64 failed_at = 53;
+
+  required int64 created_at = 101;
+
+  optional string failure_reason = 200;
+}

@@ -3,5 +3,4 @@
 # on, so the `pulsar` subsystem is omitted versus application.yml.
 system:
   fdb: !include system/fdb.yml
-  personal-data: !include system/personal-data.yml
   telemetry: !include system/telemetry.yml

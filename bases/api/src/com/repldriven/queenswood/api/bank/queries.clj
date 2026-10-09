@@ -5,7 +5,10 @@
     [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
-    [com.repldriven.queenswood.membership-query.interface :as memberships]
+    [com.repldriven.queenswood.cash-account-api.interface :as
+     cash-account-api]
+    [com.repldriven.queenswood.member-query.interface :as members]
+    [com.repldriven.queenswood.party-api.interface :as party-api]
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
@@ -15,17 +18,26 @@
   [request]
   (vals (:providers request)))
 
-(defn with-providers
-  "`bank` with `:providers` the key of its provider of each kind offered,
-  by kind: the one it records, or the default where it records none."
+(defn bank-body
+  "`bank` as every route returns it: `:providers` the key of its provider
+  of each kind offered, by kind, the one it records or the default where
+  it records none, its party as the party routes return one, and each
+  of its accounts as the account routes return one."
   [request bank]
   (let [recorded (into {} (map (juxt :kind :provider)) (:providers bank))]
-    (assoc bank
-           :providers
-           (into {}
-                 (map (fn [{:keys [kind default]}]
-                        [(keyword kind) (get recorded kind (name default))]))
-                 (offered request)))))
+    (cond-> (assoc bank
+                   :providers
+                   (into {}
+                         (map (fn [{:keys [kind default]}]
+                                [(keyword kind)
+                                 (get recorded kind (name default))]))
+                         (offered request)))
+            (contains? bank :party)
+            (update :party party-api/->body)
+
+            (contains? bank :accounts)
+            (update :accounts
+                    (fn [accounts] (mapv cash-account-api/->body accounts))))))
 
 (defn list-providers
   [request]
@@ -54,7 +66,7 @@
   providers `request` offers."
   [request page found owners-of]
   (let [result (let-nom> [{:keys [banks]} found]
-                 (with-owners (mapv (fn [bank] (with-providers request bank))
+                 (with-owners (mapv (fn [bank] (bank-body request bank))
                                     banks)
                               owners-of))]
     (if (error/anomaly? result)
@@ -63,12 +75,12 @@
 
 (defn- owner-lookups
   "The two lookups `names/owners` takes, backed by one read of every
-  listed bank's active memberships and one of their owners' users,
+  listed bank's active members and one of their owners' users,
   rather than a read per bank and per owner. Returns
   `{:list-active f :lookup f}` or an anomaly."
   [config found]
-  (let-nom> [active (memberships/list-active-by-banks config
-                                                      (map :bank-id found))
+  (let-nom> [active (members/list-active-by-banks config
+                                                  (map :bank-id found))
              users (users/find-by-ids config
                                       (into #{}
                                             (comp cat
@@ -88,7 +100,7 @@
                  [bank (banks/get-bank-view config bank-id)
                   {:keys [list-active lookup]} (owner-lookups config [bank])
                   owners (names/owners list-active lookup bank-id)]
-                 (assoc (with-providers request bank) :owners owners))]
+                 (assoc (bank-body request bank) :owners owners))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))

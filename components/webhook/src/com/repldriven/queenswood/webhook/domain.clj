@@ -199,10 +199,9 @@
 
 (def ^:private enabled :webhook-endpoint-status-enabled)
 (def ^:private disabled :webhook-endpoint-status-disabled)
-(def ^:private paused :webhook-endpoint-status-paused)
 (def ^:private removed :webhook-endpoint-status-removed)
 
-(def ^:private live-statuses #{enabled disabled paused})
+(def ^:private live-statuses #{enabled disabled})
 
 (defn- ensure-status
   [endpoint allowed]
@@ -250,11 +249,10 @@
   `secret` is minted by the caller: randomness is an effect. `rule`
   is the deployment's address configuration, as `check-address`
   takes it."
-  [bank-id data secret resolved-addresses platform-hosts rule existing-count
-   policies]
+  [bank-id data secret actor resolved-addresses platform-hosts rule
+   existing-count policies]
   (let [{:keys [address description kinds idempotency-key]} data
-        endpoint-id (utility/generate-id "whe")
-        now (utility/now)]
+        endpoint-id (utility/generate-id "whe")]
     (let-nom>
       [_ (check-address address resolved-addresses platform-hosts rule)
        _ (check-capability :webhook-endpoint-action-register policies)
@@ -270,15 +268,15 @@
         ;; caller that sends none gets the endpoint's own id, which is
         ;; unique per registration and so reads nothing back.
         :idempotency-key (or idempotency-key endpoint-id)
-        :created-at now
-        :updated-at now}
+        :created-at (utility/now)
+        :created-by actor}
        :description description
        :kinds (seq kinds)))))
 
 (defn update-endpoint
   "Replace the editable fields — address, description and kinds — as
   an absolute set, re-running the address rule."
-  [endpoint data resolved-addresses platform-hosts rule policies]
+  [endpoint data actor resolved-addresses platform-hosts rule policies]
   (let [{:keys [address description kinds]} data]
     (let-nom>
       [_ (ensure-status endpoint live-statuses)
@@ -287,37 +285,47 @@
       (utility/assoc-some
        (assoc endpoint
               :address address
-              :updated-at (utility/now))
+              :updated-at (utility/now)
+              :updated-by actor)
        :description description
        :kinds (seq kinds)))))
 
 (defn enable
-  [endpoint policies]
+  [endpoint actor policies]
   (let-nom>
-    [_ (ensure-status endpoint #{disabled paused})
+    [_ (ensure-status endpoint #{disabled})
      _ (check-capability :webhook-endpoint-action-manage policies)]
-    (assoc endpoint :status enabled :updated-at (utility/now))))
+    (assoc endpoint
+           :status enabled
+           :enabled-at (utility/now)
+           :enabled-by actor)))
 
 (defn disable
-  [endpoint policies]
+  [endpoint actor policies]
   (let-nom>
-    [_ (ensure-status endpoint #{enabled paused})
+    [_ (ensure-status endpoint #{enabled})
      _ (check-capability :webhook-endpoint-action-manage policies)]
-    (assoc endpoint :status disabled :updated-at (utility/now))))
+    (assoc endpoint
+           :status disabled
+           :disabled-at (utility/now)
+           :disabled-by actor)))
 
 (defn remove-endpoint
-  [endpoint policies]
+  [endpoint actor policies]
   (let-nom>
     [_ (ensure-status endpoint live-statuses)
      _ (check-capability :webhook-endpoint-action-manage policies)]
-    (assoc endpoint :status removed :updated-at (utility/now))))
+    (assoc endpoint
+           :status removed
+           :removed-at (utility/now)
+           :removed-by actor)))
 
 (defn rotate-secret
   "Move the current secret to `:previous-secret`, expiring at
   `previous-expires-at`, and take `secret` as the current one. The
   rotation's key is kept on the record, so a retry under it returns
   this same pair rather than minting a third secret."
-  [endpoint secret previous-expires-at idempotency-key policies]
+  [endpoint secret previous-expires-at idempotency-key actor policies]
   (let-nom>
     [_ (ensure-status endpoint live-statuses)
      _ (check-capability :webhook-endpoint-action-manage policies)]
@@ -326,7 +334,8 @@
             :secret secret
             :previous-secret (:secret endpoint)
             :previous-secret-expires-at previous-expires-at
-            :updated-at (utility/now))
+            :secret-rotated-at (utility/now)
+            :secret-rotated-by actor)
      :rotation-idempotency-key
      idempotency-key)))
 
@@ -359,32 +368,25 @@
   than its `:max-age-ms`. The claim is released either way, so a
   delivery never sits in flight past its outcome.
 
-  `outcome` carries `:status` when a response arrived and `:error` when
-  the call failed before one did."
-  [delivery {:keys [status error]} now retry-policy]
-  (let [attempts (inc (or (:attempts delivery) 0))
-        age-ms (some->> (:created-at delivery)
-                        (- now))
+  `outcome` carries `:status` when a response arrived."
+  [delivery {:keys [status]} now retry-policy]
+  (let [attempt-count (inc (:attempt-count delivery))
+        age-ms (- now (:created-at delivery))
         base (-> delivery
-                 (assoc :attempts attempts :updated-at now)
-                 (dissoc :claim-lease-expires-at :claimed-by :next-attempt-at))]
+                 (assoc :attempt-count attempt-count)
+                 (dissoc :next-attempt-at))]
     (cond
      (delivered? status)
-     (assoc base :status delivery-delivered :last-response-status status)
+     (assoc base :status delivery-delivered :delivered-at now)
 
-     (circuit-breaker/give-up? retry-policy attempts age-ms)
-     (utility/assoc-some (assoc base :status delivery-failed)
-                         :last-response-status status
-                         :last-error error)
+     (circuit-breaker/give-up? retry-policy attempt-count age-ms)
+     (assoc base :status delivery-failed :failed-at now)
 
      :else
-     (utility/assoc-some
-      (assoc base
-             :status delivery-pending
-             :next-attempt-at
-             (+ now (circuit-breaker/backoff-ms retry-policy attempts)))
-      :last-response-status status
-      :last-error error))))
+     (assoc base
+            :status delivery-pending
+            :next-attempt-at
+            (+ now (circuit-breaker/backoff-ms retry-policy attempt-count))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Notifications and their deliveries
@@ -415,7 +417,7 @@
                 {:notification-id (:notification-id row)
                  :kind (:kind row)
                  :change-kind (:change-kind row)
-                 :occurred-at (:occurred-at row)
+                 :occurred-at (:created-at row)
                  :bank-id (:bank-id row)
                  :resource-type (:resource-type row)
                  :resource-id (:resource-id row)
@@ -423,7 +425,7 @@
                  :data data}
                 :status-before (:status-before row)
                 :status-after (:status-after row)
-                :idempotency-key (:idempotency-key row))))]
+                :idempotency-key (:resource-idempotency-key row))))]
     (.getBytes ^String encoded StandardCharsets/UTF_8)))
 
 (defn test-notification
@@ -431,10 +433,8 @@
   as its resource, so its `data` projects onto the same union member
   every other notification does.
 
-  Its changelog event id is minted rather than relayed: the unique
-  index over that field is what stops a redelivered relay event writing
-  a second notification, and a test notification answers to no relayed
-  event."
+  Its idempotency key is minted rather than taken from a relayed
+  event, since a test notification answers to none."
   [endpoint data now]
   (let-nom>
     [row {:bank-id (:bank-id endpoint)
@@ -443,27 +443,29 @@
           :change-kind test-change-kind
           :resource-type test-resource-type
           :resource-id (:endpoint-id endpoint)
-          :occurred-at now
           :correlation-id (str (utility/uuidv7))
-          :changelog-event-id (str (utility/uuidv7))
+          :idempotency-key (str (utility/uuidv7))
           :created-at now}
      body (notification-body row data)]
     (assoc row :body body)))
 
 (defn new-delivery
-  "A pending delivery of `notification` to `endpoint`, due now. A
-  re-send takes this same shape: it is a new delivery of the same
-  notification, so the attempts already recorded stay where they are."
-  [notification endpoint now]
-  {:bank-id (:bank-id notification)
-   :delivery-id (utility/generate-id "whd")
-   :notification-id (:notification-id notification)
-   :endpoint-id (:endpoint-id endpoint)
-   :status delivery-pending
-   :kind (:kind notification)
-   :next-attempt-at now
-   :created-at now
-   :updated-at now})
+  "A pending delivery of `notification` to `endpoint`, due now, and
+  `actor` the person who asked for it, where one did. A re-send takes
+  this same shape: it is a new delivery of the same notification, so
+  the attempts already recorded stay where they are."
+  [notification endpoint now actor]
+  (utility/assoc-some {:bank-id (:bank-id notification)
+                       :delivery-id (utility/generate-id "whd")
+                       :status delivery-pending
+                       :notification-id (:notification-id notification)
+                       :endpoint-id (:endpoint-id endpoint)
+                       :kind (:kind notification)
+                       :created-at now
+                       :attempt-count 0
+                       :next-attempt-at now}
+                      :created-by
+                      actor))
 
 (defn ensure-delivery-found
   "Reject when the store answered with no delivery, or with one

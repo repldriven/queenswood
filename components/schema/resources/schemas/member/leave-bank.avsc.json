@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "LeaveBank",
+  "namespace": "com.repldriven.queenswood.schema.member",
+  "doc": "End the caller's own member",
+  "fields": [
+    {
+      "name": "member_id",
+      "type": "string"
+    },
+    {
+      "name": "user_id",
+      "type": "string"
+    }
+  ]
+}

@@ -71,8 +71,8 @@ against a provider's own sandbox.
 - **An internal payment on a Modulr bank is a provider transfer too.**
   Modulr declares `balances: per-account` in
   [modulr.yml](/components/resources/resources/system/payment-providers/modulr.yml),
-  so the payment's activity entry becomes a `ProviderTransfer` and a
-  `transfer-between-accounts` command in
+  so the payment's activity entry becomes a `PaymentProviderTransfer` and a
+  `transfer-between-provider-accounts` command in
   [provider_transfer.clj](/components/payment/src/com/repldriven/queenswood/payment/events/provider_transfer.clj),
   which the adapter sends to Modulr as a payment between accounts.
 - **An outbound payment reaches Modulr through two relays and a poller.**
@@ -795,7 +795,9 @@ holds it, and the run repeated.
 
 - **Kind figures are not published.** k6 shares Colima's 8 CPUs and
   32 GiB, about a test instance's two `n2-standard-4` nodes, with what it
-  measures, against one Kafka broker.
+  measures, against one Kafka broker. They are recorded with the machine
+  they ran on under `perf/results/`, each run's summary beside its write-up,
+  as [2026-10-09-kind](../../perf/results/2026-10-09-kind.md) is.
   [values-local.yaml](/infra/helm/queenswood/values-local.yaml) runs
   FDB as a process per role — three storage, two logs, and six
   stateless for two commit proxies, a GRV proxy, a resolver, the master

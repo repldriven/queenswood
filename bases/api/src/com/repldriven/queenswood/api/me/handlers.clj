@@ -5,7 +5,7 @@
     [com.repldriven.mono.error.interface :as error]))
 
 (def ^:private user-keys
-  [:user-id :issuer :sub :email :name :avatar-url :identity-provider :status
+  [:user-id :issuer :sub :email :name :avatar-url :identity-provider
    :created-at :updated-at])
 
 (defn get-me

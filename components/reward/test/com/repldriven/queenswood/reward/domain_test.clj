@@ -13,19 +13,18 @@
 (def ^:private account
   {:bank-id "bnk.1"
    :account-id "acc.1"
-   :party-id "pty.1"
    :product-id "prd.1"
    :version-id "prv.1"
-   :product-type :product-type-sub-ledger-current
+   :product-type :account-product-type-sub-ledger-current
    :currency "GBP"
-   :account-status :cash-account-status-opened})
+   :status :cash-account-status-opened})
 
 (def ^:private house
   {:bank-id "bnk.1"
    :account-id "acc.house"
-   :product-type :product-type-sub-ledger-own-funds
+   :product-type :account-product-type-sub-ledger-own-funds
    :currency "GBP"
-   :account-status :cash-account-status-opened})
+   :status :cash-account-status-opened})
 
 (deftest opening-test
   (testing "an account becoming opened is an opening"
@@ -49,12 +48,14 @@
     (doseq [status [:cash-account-status-opening
                     :cash-account-status-suspended
                     :cash-account-status-closed]]
-      (is (not (SUT/eligible? (assoc account :account-status status))))))
+      (is (not (SUT/eligible? (assoc account :status status))))))
   (testing "the bank's own account is not" (is (not (SUT/eligible? house)))))
 
 (deftest promised-test
   (testing "a version's reward is its amount"
-    (is (= 1000 (SUT/promised {:opening-reward {:amount 1000}}))))
+    (is (= 1000
+           (SUT/promised {:reward-terms [{:kind :reward-kind-opening
+                                          :amount 1000}]}))))
   (testing "a version with no term promises nothing"
     (is (nil? (SUT/promised {:interest-rate-bps 250})))))
 
@@ -62,8 +63,7 @@
   (let [reward (SUT/new-reward account 1000)
         transaction (SUT/reward-transaction house account reward)
         [debit credit] (:legs transaction)]
-    (testing "the row is due, keyed by the account, in its currency"
-      (is (= :reward-status-due (:status reward)))
+    (testing "the row is for the account's opening, in its currency"
       (is (= :reward-kind-opening (:kind reward)))
       (is (= "GBP" (:currency reward)))
       (is (re-matches #"rwd\..+" (:reward-id reward))))
@@ -73,10 +73,10 @@
       (is (= "Welcome reward" (:reference transaction)))
       (is (= "acc.house" (:account-id debit)))
       (is (= :leg-side-debit (:side debit)))
-      (is (= :product-type-sub-ledger-own-funds (:product-type debit)))
+      (is (= :account-product-type-sub-ledger-own-funds (:product-type debit)))
       (is (= "acc.1" (:account-id credit)))
       (is (= :leg-side-credit (:side credit)))
-      (is (= :product-type-sub-ledger-current (:product-type credit)))
+      (is (= :account-product-type-sub-ledger-current (:product-type credit)))
       (is (= [1000 1000] (map :amount [debit credit]))))))
 
 (deftest paid-and-deferred-test
@@ -85,11 +85,16 @@
                               {:message "Available balance would go negative"})
         deferred (SUT/deferred reward refusal)
         paid (SUT/paid deferred "txn.1")]
-    (testing "a deferred row stays due and says why"
-      (is (= :reward-status-due (:status deferred)))
-      (is (re-find #"limit-exceeded" (:error deferred))))
-    (testing "a paid row carries the transaction and drops the error"
+    (testing "a deferred row says why and when, and is new rather than changed"
+      (is (= :account-reward-status-deferred (:status deferred)))
+      (is (re-find #"limit-exceeded" (:deferred-reason deferred)))
+      (is (some? (:deferred-at deferred)))
+      (is (not (contains? deferred :updated-at))))
+    (testing "a paid row carries the transaction and drops the reason"
       (is (SUT/paid? paid))
       (is (= "txn.1" (:transaction-id paid)))
-      (is (some? (:paid-at paid)))
-      (is (not (contains? paid :error))))))
+      (is (= (:paid-at paid) (:updated-at paid)))
+      (is (not (contains? paid :deferred-reason)))))
+  (testing "a reward paid as it is created was never changed"
+    (is (not (contains? (SUT/paid (SUT/new-reward account 1000) "txn.2")
+                        :updated-at)))))

@@ -35,7 +35,7 @@
     (testing "an inbound held is held for its payee"
       (let [[{:keys [event-name dedup-key data]}]
             (SUT/compliance (status "HELD") inbound)]
-        (is (= "transaction-held" event-name))
+        (is (= "provider-payment-held" event-name))
         (is (= "P1:held" dedup-key))
         (is (= {:end-to-end-id "P1"
                 :debit-credit-code :debit-credit-code-credit
@@ -65,9 +65,11 @@
     (testing
       "a payment the adapter sent is returned, keyed on its end-to-end id"
       (let [[{:keys [event-name dedup-key data]} :as all]
-            (SUT/returned payin original {:kind "payment"})]
+            (SUT/returned payin
+                          original
+                          {:kind :modulr-outbound-intent-kind-payment})]
         (is (= 1 (count all)))
-        (is (= "transaction-returned" event-name))
+        (is (= "provider-payment-returned" event-name))
         (is (= "pmt.01K6A3Z9X0:returned" dedup-key))
         (is (= {:end-to-end-id "pmt.01K6A3Z9X0"
                 :debit-credit-code :debit-credit-code-debit
@@ -81,9 +83,11 @@
                              :scheme-transaction-id :amount :reason-code
                              :reason :timestamp-returned])))))
     (testing "a return matching no payment is money arriving where it landed"
-      (doseq [[original intent] [[nil nil] [original {:kind "transfer"}]
+      (doseq [[original intent] [[nil nil]
+                                 [original
+                                  {:kind :modulr-outbound-intent-kind-transfer}]
                                  [original nil]]]
         (let [[{:keys [event-name data]}] (SUT/returned payin original intent)]
-          (is (= "transaction-settled" event-name))
+          (is (= "provider-payment-settled" event-name))
           (is (= :debit-credit-code-credit (:debit-credit-code data)))
           (is (= "04001000001457" (:creditor-bban data))))))))

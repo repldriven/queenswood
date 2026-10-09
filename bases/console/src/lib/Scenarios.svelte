@@ -34,22 +34,22 @@
   } from "@queenswood/ui";
   import * as api from "./api.mjs";
 
-  let { user, memberships = [] } = $props();
+  let { user, members = [] } = $props();
 
-  const bankName = $derived(memberships?.[0]?.["bank-name"]);
+  const bankName = $derived(members?.[0]?.["bank-name"]);
   const kicker = $derived(bankName ? `${bankName} · Sandbox` : "Sandbox");
 
-  // The bank whose books we move. From the membership prop, or /v1/me
+  // The bank whose books we move. From the member prop, or /v1/me
   // if the prop didn't carry it (older bank-api).
   let bankId = $state();
   $effect(() => {
     if (bankId) return;
-    const m = memberships?.[0]?.["bank-id"];
+    const m = members?.[0]?.["bank-id"];
     if (m) {
       bankId = m;
       return;
     }
-    api.list_my_memberships().then((r) => {
+    api.list_my_members().then((r) => {
       bankId = r.body?.items?.[0]?.["bank-id"];
     });
   });
@@ -75,18 +75,18 @@
   // sanctions list.
   const PARTY = {
     arthur: {
-      type: "person", "display-name": "Arthur Dent",
-      "given-name": "Arthur", "family-name": "Dent",
+      "party-type": "person", "legal-name": "Arthur Dent",
+      "display-name": "Arthur Dent",
       "external-reference": "cust-arthur",
     },
     ford: {
-      type: "person", "display-name": "Ford Prefect",
-      "given-name": "Ford", "family-name": "Prefect",
+      "party-type": "person", "legal-name": "Ford Prefect",
+      "display-name": "Ford Prefect",
       "external-reference": "cust-ford",
     },
     zaphod: {
-      type: "person", "display-name": "Zaphod Beeblebrox",
-      "given-name": "Zaphod", "family-name": "Beeblebrox",
+      "party-type": "person", "legal-name": "Zaphod Beeblebrox",
+      "display-name": "Zaphod Beeblebrox",
       "external-reference": "cust-zaphod",
     },
   };
@@ -157,7 +157,7 @@
       id: "s2", num: "02", title: "Invite", view: "people",
       story:
         "The owner invites a developer and a viewer to the bank's team in the console, resends the developer's invitation, and reads the audit log the platform keeps of each act.",
-      backing: ["journeys/memberships/1-a-founding-owner-brings-in-a-colleague", "resend-replaces-emailed-link", "audit-log-pages-in-order"],
+      backing: ["journeys/members/1-a-founding-owner-brings-in-a-colleague", "resend-replaces-emailed-link", "audit-log-pages-in-order"],
       steps: [
         { name: "Invite Trillian as a developer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
         { name: "Invite Marvin as a viewer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
@@ -277,7 +277,7 @@
   // Keyed by bank as well, so a fresh sandbox bank starts with no
   // scenes run and switching back finds the old bank's progress where
   // it was.
-  const bankKey = memberships?.[0]?.["bank-id"];
+  const bankKey = members?.[0]?.["bank-id"];
   const DONE_KEY = `queenswood.scenarios.v6.done${bankKey ? "." + bankKey : ""}`;
   const CTX_KEY = `queenswood.scenarios.v6.ctx${bankKey ? "." + bankKey : ""}`;
   const load = (k, fb) => {
@@ -469,10 +469,11 @@
   async function verifyPerson(partyId, body, outcome) {
     const verification = await api.get_verification(partyId);
     if (verification.status === 200 && verification.body?.status !== "pending") return;
+    const [given, ...family] = body["legal-name"].split(" ");
     const opened = await api.open_verification_session(partyId, {
       channel: "web",
       "return-url": location.origin + "/#/parties",
-      email: `${body["given-name"].toLowerCase()}@example.test`,
+      email: `${given.toLowerCase()}@example.test`,
     });
     if (!ok2xx(opened)) throw new Error(`open a verification session: ${opened.status}`);
     const sessionId = opened.body["session-id"];
@@ -483,14 +484,14 @@
     );
     const url = new URL(ready.body["hand-off"].url);
     url.searchParams.set("simulate", outcome);
-    url.searchParams.set("givenNames", body["given-name"]);
-    url.searchParams.set("familyName", body["family-name"]);
-    url.searchParams.set("dateOfBirth", BORN[body["given-name"]]);
-    for (const [k, v] of Object.entries(HOME[body["given-name"]])) url.searchParams.set(k, v);
+    url.searchParams.set("givenNames", given);
+    url.searchParams.set("familyName", family.join(" "));
+    url.searchParams.set("dateOfBirth", BORN[given]);
+    for (const [k, v] of Object.entries(HOME[given])) url.searchParams.set(k, v);
     url.searchParams.set("pace", "900");
     idv = {
       name: body["display-name"],
-      given: body["given-name"],
+      given,
       outcome: OUTCOMES[outcome] ?? outcome,
       url: url.toString(),
       heard: null,
@@ -531,7 +532,7 @@
     }
     const opened = await poll(
       () => api.get_cash_account(accountId),
-      (r) => r.status === 200 && r.body?.["account-status"] === "opened",
+      (r) => r.status === 200 && r.body?.status === "opened",
       { tries: 40, delay: 600 },
     );
     const rec = { accountId, bban: opened.body?.bban };
@@ -673,7 +674,7 @@
           "creditor-name": "Arthur Dent",
           currency: "GBP",
           amount: FORD_PAYS,
-          scheme: "fps",
+          "scheme-type": "fps",
           reference: "Beer and nuts",
         });
         if (!ok2xx(r)) throw new Error(`outbound submit: ${r.status}`);
@@ -682,7 +683,7 @@
       await step(2, () =>
         poll(
           () => api.get_outbound_payment(paymentId),
-          (r) => r.status === 200 && r.body?.["payment-status"] === "completed",
+          (r) => r.status === 200 && r.body?.status === "completed",
           { tries: 40, delay: 600 },
         ));
       // Outbound to a same-bank account round-trips back as an inbound:

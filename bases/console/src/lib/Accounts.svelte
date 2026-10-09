@@ -18,8 +18,8 @@
   } from "./api.mjs";
   import AccountDetail from "./AccountDetail.svelte";
 
-  let { user, memberships } = $props();
-  const kicker = $derived(memberships?.[0]?.["bank-name"]);
+  let { user, myMembers } = $props();
+  const kicker = $derived(myMembers?.[0]?.["bank-name"]);
 
   let loading = $state(true);
   let error = $state(null);
@@ -36,12 +36,12 @@
   }
 
   // Enum values arrive either short ("opened") or as a namespaced
-  // keyword (":account-status-opened"); strip a known prefix so either
+  // keyword (":cash-account-status-opened"); strip a known prefix so either
   // spelling compares cleanly.
   function shortEnum(x) {
     return String(x ?? "")
       .replace(/^:/, "")
-      .replace(/^(account-status|product-type|balance-type|balance-status)-/, "");
+      .replace(/^(cash-account-status|product-type|balance-type|balance-status)-/, "");
   }
   function prettyType(t) {
     const s = shortEnum(t);
@@ -117,7 +117,7 @@
           name: a.name ?? "",
           product: versionName[a["version-id"]] ?? prettyType(a["product-type"]),
           ccy: a.currency ?? "GBP",
-          status: shortEnum(a["account-status"]),
+          status: shortEnum(a.status),
           opened: fmtDate(a["created-at"]),
           owner: { name: partyName[a["party-id"]] ?? a["party-id"], id: a["party-id"] },
           available: a["available-balance"]?.value ?? 0,

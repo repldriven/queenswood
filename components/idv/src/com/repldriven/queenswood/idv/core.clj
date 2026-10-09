@@ -9,8 +9,6 @@
     [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
     [com.repldriven.queenswood.idv-query.interface :as idv-query]
     [com.repldriven.queenswood.party-query.interface :as party-query]
-    [com.repldriven.queenswood.person-identification.interface :as
-     person-identification]
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.cache.interface :as cache]
@@ -45,14 +43,11 @@
                 (idv-provider/for-bank providers bank))))))
 
 (defn- check-data
-  [session identification criteria]
+  [session criteria]
   (let [{:keys [verification-id party-id session-id channel return-url email]}
-        session
-        {:keys [given-name middle-names family-name]} identification]
+        session]
     (utility/assoc-some {:verification-id verification-id
                          :party-id party-id
-                         :first-name (or given-name "")
-                         :last-name (or family-name "")
                          :session-id session-id
                          :verifications (keep (fn [c]
                                                 (when (:verification c)
@@ -63,18 +58,17 @@
                                              (when (:screening c)
                                                (idv-query/criterion-name c)))
                                            criteria)}
-                        :middle-names middle-names
                         :channel channel
                         :return-url return-url
                         :email email)))
 
 (defn- record-opening
-  [txn session identification criteria]
+  [txn session criteria]
   (let [{:keys [bank-id session-id]} session]
     (bank-activity/record txn
                           {:bank-id bank-id
-                           :event-name "idv-session-opening"
-                           :data (check-data session identification criteria)
+                           :event-name "idv-session-open-requested"
+                           :data (check-data session criteria)
                            :causation-id session-id
                            :dedup-key session-id})))
 
@@ -145,7 +139,7 @@
   [txn bank-id party-id]
   (let [party (party-query/get-party txn bank-id party-id)]
     (if (and (not (error/anomaly? party))
-             (= :party-type-person (:type party))
+             (= :party-type-person (:party-type party))
              (= :party-status-pending (:status party)))
       (let [idv (domain/new-idv {:bank-id bank-id :party-id party-id})]
         (save-idv txn
@@ -194,10 +188,6 @@
                                        data
                                        policies
                                        opened-today)
-          identification
-          (person-identification/get-person-identification
-           txn
-           party-id)
           session (store/save-session txn
                                       (domain/new-session idv data)
                                       nil)
@@ -206,7 +196,6 @@
                             (assoc session
                                    :channel (:channel data)
                                    :email (:email data))
-                            identification
                             criteria)]
          session))
      :idv/open-session
@@ -310,5 +299,3 @@
 (defn get
   [txn data]
   (get-idv txn (:bank-id data) (:verification-id data)))
-
-(defn clear-read-evidence [config] (store/clear-read-evidence config))

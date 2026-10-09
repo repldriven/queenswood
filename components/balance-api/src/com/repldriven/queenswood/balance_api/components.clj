@@ -18,11 +18,10 @@
    [:product-type [:ref "ProductType"]]
    [:balance-type [:ref "BalanceType"]]
    [:balance-status [:ref "BalanceStatus"]]
-   [:currency [:ref "CurrencyCode"]]
    [:credit nat-int?]
    [:debit nat-int?]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def BalanceList
   [:map {:json-schema/example examples/BalanceList}

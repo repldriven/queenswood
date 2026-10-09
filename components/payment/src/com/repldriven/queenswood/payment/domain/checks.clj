@@ -32,7 +32,7 @@
   "True when money may move on `account` — it is opened. The status
   vocabulary the payment brick reads lives here alone."
   [account]
-  (contains? operable-statuses (:account-status account)))
+  (contains? operable-statuses (:status account)))
 
 (defn ensure-account-operable
   "Rejects when `account` is not operable. `role` is `:debtor` or
@@ -44,7 +44,7 @@
                                  (name role)
                                  " account is not open for payments")
                    :account-id (:account-id account)
-                   :status (:account-status account)
+                   :status (:status account)
                    :allowed operable-statuses})))
 
 (defn ensure-currency-matches

@@ -5,6 +5,7 @@
 
     [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
+    [com.repldriven.queenswood.transaction-api.interface :as transaction-api]
 
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.utility.interface :as utility]))
@@ -25,15 +26,16 @@
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       ;; Skip any account whose product-type reads back unset — proto2
-      ;; deserialises an absent enum as `:product-type-unknown`.
+      ;; deserialises an absent enum as `:account-product-type-unknown`.
       (let [customer-accounts (into []
-                                    (comp (filter (fn [a]
-                                                    (let [pt (:product-type a)]
-                                                      (and
-                                                       (some? pt)
-                                                       (not=
-                                                        :product-type-unknown
-                                                        pt)))))
+                                    (comp (filter
+                                           (fn [a]
+                                             (let [pt (:product-type a)]
+                                               (and
+                                                (some? pt)
+                                                (not=
+                                                 :account-product-type-unknown
+                                                 pt)))))
                                           (map cash-account-api/->body))
                                     (:accounts result))]
         {:status 200
@@ -77,7 +79,8 @@
                          (cursor/page-opts page))]
                  (cursor/page-body (cursor/request-path request)
                                    page
-                                   (:transactions found)
+                                   (mapv transaction-api/->body
+                                         (:transactions found))
                                    found))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)

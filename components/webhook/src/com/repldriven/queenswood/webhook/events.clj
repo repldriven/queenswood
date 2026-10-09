@@ -63,13 +63,12 @@
       :change-kind (:published-change-kind entry)
       :resource-type (:resource-type entry)
       :resource-id (get data (:resource-id-key entry))
-      :occurred-at now
-      :changelog-event-id (:id envelope)
+      :correlation-id (correlation-id envelope)
+      :idempotency-key (:id envelope)
       :created-at now}
      :status-before (status-name (:status-before data))
      :status-after (status-name (:status-after data))
-     :idempotency-key (:idempotency-key record)
-     :correlation-id (correlation-id envelope))))
+     :resource-idempotency-key (:idempotency-key record))))
 
 (defn- save-deliveries
   [txn notification endpoints now]
@@ -77,7 +76,8 @@
             (let [res (store/save-delivery txn
                                            (domain/new-delivery notification
                                                                 endpoint
-                                                                now))]
+                                                                now
+                                                                nil))]
               (if (error/anomaly? res) (reduced res) nil)))
           nil
           endpoints))

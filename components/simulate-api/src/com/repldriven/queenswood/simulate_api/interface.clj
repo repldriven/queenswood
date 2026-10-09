@@ -55,7 +55,7 @@
 (def
   ^{:doc
     "RFC 9457 body for a 409 `:gl/missing-currency-account` rejection:
-  Bank has no gl-account-code-cash-at-correspondent ledger account
+  Bank has no ledger-account-code-cash-at-correspondent ledger account
   in USD."}
   MissingCurrencyAccount
   examples/MissingCurrencyAccount)

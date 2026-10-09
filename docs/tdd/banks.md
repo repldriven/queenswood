@@ -18,7 +18,7 @@ In scope: the `bank` command processor and the `bank-query` read
 brick; the status enum and the tier label; the multi-brick atomic
 create flow (service-account client, org party, ledger chart,
 own-funds house accounts, tier bindings, scheduled jobs, owner
-membership, the bank-created access event and the owner invitation);
+member, the bank-created audit event and the owner invitation);
 the tier and status changes; the enrich-on-read pattern.
 
 Out of scope: the service-account and JWT mechanics — see
@@ -27,8 +27,8 @@ own rules — party creation [parties.md](parties.md), the ledger
 chart [chart-of-accounts.md](chart-of-accounts.md), product
 publish [cash-account-products.md](cash-account-products.md),
 account opening [cash-accounts.md](cash-accounts.md), policy
-bindings [policy-evaluation.md](policy-evaluation.md), memberships,
-invitations and access events [memberships.md](memberships.md).
+bindings [policy-evaluation.md](policy-evaluation.md), members,
+invitations and audit events [members.md](members.md).
 
 ## Background
 
@@ -91,7 +91,7 @@ graph TD
     PROC["operational processors service<br/>BankProcessor"]
     CORE["bank<br/>new-bank, change-tier, change-status"]
     IDP["identity-provider<br/>create-service-account"]
-    BRICKS["party, ledger-account, cash-account-product,<br/>cash-account, policy, scheduler, membership"]
+    BRICKS["party, ledger-account, cash-account-product,<br/>cash-account, policy, scheduler, member"]
     QRY["bank-query<br/>get-bank-view"]
     FDB[("FDB<br/>one transaction")]
 
@@ -161,7 +161,7 @@ yet.
 steps 2 to 14 inside one FDB transaction and step 15 once it has
 committed. A step marked with an `opts` key runs only when the
 caller supplies that key. The actor is `opts`' `:actor`; a command
-sent before `create-bank` carried one acts as the membership's
+sent before `create-bank` carried one acts as the member's
 user, a member, or else as an operator with principal id
 `unknown`.
 
@@ -173,7 +173,7 @@ user, a member, or else as an operator with principal id
    the actor's principal id on the unique index
    `Bank_by_creator_idempotency_key`, over `created_by.principal_id`
    and `idempotency_key`. A bank found there skips to step 15 with
-   that bank, the earliest owner membership of the membership's user
+   that bank, the earliest owner member of the member's user
    and the earliest owner invitation carrying the step-14 reason,
    each only where `opts` asks for it, writing nothing. Two creates
    racing under one key conflict on the index range the lookup read,
@@ -202,7 +202,7 @@ user, a member, or else as an operator with principal id
 8. **Seed the ledger chart** — one `LedgerAccount` per seed row
    per currency, described below.
 9. **Open own-funds house accounts** — per currency, draft and
-   publish a `:product-type-sub-ledger-own-funds` product
+   publish a `:account-product-type-sub-ledger-own-funds` product
    ("Bank own funds", `effective-from` today), then open a real
    `CashAccount` on the org party against it, which opens once
    the payment provider has issued its address.
@@ -211,12 +211,12 @@ user, a member, or else as an operator with principal id
     `{:kind {:bank {:bank-id <new-id>}}}`.
 11. **Seed the scheduled jobs** — `scheduler/seed-jobs`,
     idempotent on `[bank-id job-id]`.
-12. **Create the owner membership** *(`:membership`)*.
-13. **Record the bank-created access event** —
-    `membership/record-bank-created` in the actor's name, naming
-    the owner membership when there is one.
+12. **Create the owner member** *(`:member`)*.
+13. **Record the bank-created audit event** —
+    `member/record-bank-created` in the actor's name, naming
+    the owner member when there is one.
 14. **Invite the owner** *(`:owner-invitation`)* —
-    `membership/invite` with role owner, the actor, the given token
+    `member/invite` with role owner, the actor, the given token
     hash and a fixed reason, writing a pending invitation and its
     invitation-created event. A token hash another invitation holds
     fails the transaction.
@@ -229,7 +229,7 @@ user, a member, or else as an operator with principal id
     reply crosses the bus, so no credential travels on it.
 
 The return value is
-`{:bank {…} :membership <map-or-nil> :owner-invitation-id <id-or-nil>}`:
+`{:bank {…} :member <map-or-nil> :owner-invitation-id <id-or-nil>}`:
 the flat record, not the enriched view. The api handler mints the
 credential with `rotate-secret` after the reply and loads the
 view from `bank-query`.
@@ -255,7 +255,7 @@ bank's `providers`, one per kind, which the bank records for good, as
   default to test, `micro` and `["GBP"]`, and may name an owner by
   email, whom the create invites.
 - A signed-in person must name a company, and gets the defaults and an
-  owner membership of their own. Naming a status, tier, currencies or
+  owner member of their own. Naming a status, tier, currencies or
   owner is refused 403 `auth/forbidden`, and naming no company 422
   `:bank/company-required`, both before the registry is asked.
 
@@ -277,7 +277,7 @@ how legs map to control accounts at posting time.
 ### Own-funds house account
 
 Distinct from the ledger chart: per currency, the create flow
-drafts and publishes a `:product-type-sub-ledger-own-funds`
+drafts and publishes a `:account-product-type-sub-ledger-own-funds`
 product and opens a real, BBAN-addressable `CashAccount` on the
 bank's org party. This is the bank's own money — pre-funded so it
 can pay customers (interest, rewards).
@@ -311,8 +311,7 @@ over the command bus. The handler calls `rotate-secret` once the
 reply arrives and returns what that mints, so the credential
 exists only on the response. The view walks the org party and the
 cash accounts, with balances; it does not list the seeded ledger
-accounts. No `:gl-code` is carried: `gl_code` is reserved on the
-product schema, so the enrichment reads nil and omits the key.
+accounts, and carries no ledger code.
 
 ### Tier and the policy-binding model
 

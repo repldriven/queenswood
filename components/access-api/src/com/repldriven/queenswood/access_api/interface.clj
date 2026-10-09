@@ -1,5 +1,5 @@
 (ns com.repldriven.queenswood.access-api.interface
-  "Memberships, invitations and the audit log as the banking API
+  "Members, invitations and the audit log as the banking API
   publishes them: the malli components their bodies are built from,
   the examples those bodies and the rejection bodies carry, and the
   invitation example a bank example embeds."
@@ -13,13 +13,13 @@
 
 (def
   ^{:doc
-    "Malli registry of the membership, invitation and audit schemas,
+    "Malli registry of the member, invitation and audit schemas,
   keyed by the name each appears under in the document's
   `components/schemas`: `Actor`, `AuditEvent`, `AuditEventId`,
   `AuditEventKind`, `AuditEventList`, `ActorKind`,
   `ChangeRoleRequest`, `CreateInvitationRequest`, `EmailAddress`,
   `Invitation`, `InvitationId`, `InvitationStatus`,
-  `InvitationList`, `Membership`, `MembershipList`, `ReasonRequest`,
+  `InvitationList`, `Member`, `MemberList`, `ReasonRequest`,
   `RecipientInvitation`, `RecipientInvitationList`. Merged into the
   coercion registry in `api.clj`, so `[:ref \"X\"]` resolves them on
   any route."}
@@ -32,7 +32,7 @@
 
 (def
   ^{:doc
-    "Map of example name to example value for the membership,
+    "Map of example name to example value for the member,
   invitation and audit bodies, feeding the document's
   `components/examples` section."}
   examples
@@ -75,31 +75,31 @@
 
 (def
   ^{:doc
-    "RFC 9457 body for a 409 `:membership/already-exists` rejection:
+    "RFC 9457 body for a 409 `:member/already-exists` rejection:
   Already a member of this bank."}
-  MembershipAlreadyExists
-  examples/MembershipAlreadyExists)
+  MemberAlreadyExists
+  examples/MemberAlreadyExists)
 
 (def
   ^{:doc
-    "RFC 9457 body for a 409 `:membership/invalid-status` rejection:
-  Membership is not in a state that allows this."}
-  MembershipInvalidStatus
-  examples/MembershipInvalidStatus)
+    "RFC 9457 body for a 409 `:member/invalid-status` rejection:
+  Member is not in a state that allows this."}
+  MemberInvalidStatus
+  examples/MemberInvalidStatus)
 
 (def
   ^{:doc
-    "RFC 9457 body for a 409 `:membership/last-owner` rejection: Make
+    "RFC 9457 body for a 409 `:member/last-owner` rejection: Make
   someone else an owner first."}
-  MembershipLastOwner
-  examples/MembershipLastOwner)
+  MemberLastOwner
+  examples/MemberLastOwner)
 
 (def
   ^{:doc
-    "RFC 9457 body for a 404 `:membership/not-found` rejection:
-  Membership not found."}
-  MembershipNotFound
-  examples/MembershipNotFound)
+    "RFC 9457 body for a 404 `:member/not-found` rejection:
+  Member not found."}
+  MemberNotFound
+  examples/MemberNotFound)
 
 (def
   ^{:doc
@@ -110,7 +110,7 @@
 
 (def
   ^{:doc
-    "RFC 9457 body for a 403 `:membership/role-not-granted` rejection:
+    "RFC 9457 body for a 403 `:member/role-not-granted` rejection:
   Your role does not allow this."}
   RoleNotGranted
   examples/RoleNotGranted)

@@ -50,11 +50,11 @@
     partitions: 1
   - topic: topic-invitations-event-dlq
     partitions: 1
-  - topic: topic-memberships-command
+  - topic: topic-members-command
     partitions: 1
-  - topic: topic-memberships-command-dlq
+  - topic: topic-members-command-dlq
     partitions: 1
-  - topic: topic-memberships-command-response
+  - topic: topic-members-command-response
     partitions: 1
   - topic: topic-parties-command
     partitions: 4

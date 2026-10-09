@@ -7,9 +7,9 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
     [com.repldriven.mono.json.interface :as json]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
-    [clojure.edn :as edn]
     [clojure.set :as set]
     [clojure.string :as str])
   (:import
@@ -97,16 +97,21 @@
        (sort-by (fn [workflow] (count (covers workflow))))
        first))
 
-(defn- full-first-name
-  [first-name middle-names]
-  (if (str/blank? middle-names)
-    first-name
-    (str/trim (str first-name " " middle-names))))
+(defn- split-name
+  "An applicant's first and last names from a legal name, split at its
+  last space: Onfido takes them apart, and its report is the only use it
+  makes of them."
+  [legal-name]
+  (let [words (str/split (str/trim legal-name) #"\s+")]
+    (if (next words)
+      [(str/join " " (butlast words)) (last words)]
+      [legal-name legal-name])))
 
 (defn applicant
   [data]
-  (let [{:keys! [first-name last-name] :keys [middle-names email]} data]
-    (utility/assoc-some {:first_name (full-first-name first-name middle-names)
+  (let [{:keys! [legal-name] :keys [email]} data
+        [first-name last-name] (split-name legal-name)]
+    (utility/assoc-some {:first_name first-name
                          :last_name last-name}
                         :email
                         (when-not (str/blank? email) email))))
@@ -191,7 +196,7 @@
 
 (defn- request
   [intent]
-  (edn/read-string (:request intent)))
+  (transit/read-str (:request intent)))
 
 (defn- check
   [config _now intent]
@@ -219,13 +224,13 @@
   session."
   [config _now intent run]
   (let [data (request intent)]
-    {:status "settled"
+    {:status :outbound-intent-status-settled
      :event (when (:session-id data) (session-opened config data run))}))
 
 (defn- check-failed
   [_config _now intent failure reason]
   (let [data (request intent)]
-    {:status "failed"
+    {:status :outbound-intent-status-failed
      :event (when (:session-id data)
               (session-failed data
                               (if (= :undelivered failure)
@@ -234,14 +239,14 @@
 
 (intent-poller/defoperations
  :onfido
- {"check" {:call check :answered checked :failed check-failed}})
+ {:onfido-outbound-intent-kind-check
+  {:call check :answered checked :failed check-failed}})
 
 (defn- runner-config
   [config]
   (assoc config
          :adapter :onfido
-         :store store/spec
-         :default-operation "check"))
+         :store store/spec))
 
 (defn drain-once
   [config now]

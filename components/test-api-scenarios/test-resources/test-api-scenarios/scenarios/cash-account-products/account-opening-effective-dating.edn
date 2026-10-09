@@ -11,8 +11,7 @@
    :as :party-0
    :with {:token [:ref :org-0 :token]
           :display-name "Trillian Astra"
-          :given-name "Trillian"
-          :family-name "Astra"}}
+          :legal-name "Trillian Astra"}}
   ;; --- Current: a live version and a future-dated successor ---------
   {:command :api/request
    :request {:method :post

@@ -1,0 +1,36 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.payment;
+
+import "record_metadata_options.proto";
+
+option java_outer_classname = "PaymentProviderTransferProto";
+
+enum PaymentProviderTransferStatus {
+  PAYMENT_PROVIDER_TRANSFER_STATUS_UNKNOWN = 0;
+  PAYMENT_PROVIDER_TRANSFER_STATUS_PENDING = 1;
+  PAYMENT_PROVIDER_TRANSFER_STATUS_COMPLETED = 2;
+  PAYMENT_PROVIDER_TRANSFER_STATUS_FAILED = 3;
+}
+
+// A transfer between a bank's accounts at its payment provider.
+message PaymentProviderTransfer {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string transfer_id = 2; // ptr.<uuidv7>
+
+  required PaymentProviderTransferStatus status = 3;
+  required string transaction_id = 4;
+  optional string debtor_account_id = 5;
+  required string creditor_account_id = 6;
+  required int64 amount = 7; // minor units
+  required string currency = 8; // ISO 4217
+  optional string failed_reason = 9;
+
+  optional int64 completed_at = 51;
+  optional int64 failed_at = 53;
+
+  required int64 created_at = 101;
+  optional int64 updated_at = 103;
+}

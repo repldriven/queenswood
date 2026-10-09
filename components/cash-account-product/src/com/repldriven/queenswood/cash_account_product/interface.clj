@@ -132,6 +132,6 @@
   - data: template fields (`:product-type`, `:balance-sheet-side`,
     `:balance-products`, `:allowed-payment-address-schemes`,
     `:allowed-currencies`, `:iso-cash-account-type`, optional
-    `:name` / `:internal`)."
+    `:name`)."
   [config data]
   (core/new-template config data))

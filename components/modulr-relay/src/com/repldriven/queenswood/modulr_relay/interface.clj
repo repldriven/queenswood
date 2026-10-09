@@ -45,26 +45,26 @@
 (defn save-intent
   "Persist a pending intent in one FDB transaction. Returns the intent or
   a `:modulr-outbound/save` anomaly, a uniqueness violation when the
-  `dedup-key` was already enqueued.
+  `idempotency-key` was already enqueued.
 
   Args:
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
-  - intent: a map with `:intent-id`, `:dedup-key`, `:kind` (`payment`,
+  - intent: a map with `:intent-id`, `:idempotency-key`, `:kind` (`payment`,
     `transfer`, `credit`, `open-account`, `close-account` or
     `reissue-address`), `:request` (the call's JSON body), `:nonce`,
-    `:status` (\"pending\"), `:attempts`, `:created-at` and `:context`,
+    `:status` (\"pending\"), `:attempt-count`, `:created-at` and `:context`,
     EDN of what the runner needs to report the outcome."
   [txn intent]
   (store/save-intent txn intent))
 
 (defn find-intent
-  "The intent enqueued under `dedup-key`, or nil.
+  "The intent enqueued under `idempotency-key`, or nil.
 
   Args:
   - txn: an open FDB transaction or `{:record-db :record-store}` config.
-  - dedup-key: the end-to-end id, transfer id or account call key."
-  [txn dedup-key]
-  (store/find-intent txn dedup-key))
+  - idempotency-key: the end-to-end id, transfer id or account call key."
+  [txn idempotency-key]
+  (store/find-intent txn idempotency-key))
 
 (defn request
   "Make one signed call to Modulr. Returns the response map, or

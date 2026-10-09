@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.cash-account-product-query.core
   (:require
+    [com.repldriven.queenswood.cash-account-product-query.domain :as domain]
     [com.repldriven.queenswood.cash-account-product-query.store :as store]
 
     [com.repldriven.mono.error.interface :refer [let-nom>]]))
@@ -13,7 +14,7 @@
   (let-nom>
     [templates (store/get-templates txn)]
     (->> templates
-         (remove :internal)
+         (remove domain/internal?)
          (sort-by :product-type)
          vec)))
 
@@ -31,9 +32,8 @@
      :versions versions}))
 
 (defn get-products
-  "The public product listing for a bank. Internal products (e.g. the
-  bank's own-funds house product, snapshotted `:internal` from their
-  template) are excluded — a full-scan in-memory filter, fine while
+  "The public product listing for a bank. Internal products, the bank's
+  own-funds house product, are excluded — a full-scan in-memory filter, fine while
   product cardinality per bank is low. Internal products remain
   reachable by id via `get-product`, which is what house-account
   opening and posting use."
@@ -48,4 +48,4 @@
                           {:product-id (:product-id (first vs))
                            :versions (vec vs)}))
                   (remove (fn [{:keys [versions]}]
-                            (:internal (first versions)))))})))
+                            (domain/internal? (first versions)))))})))

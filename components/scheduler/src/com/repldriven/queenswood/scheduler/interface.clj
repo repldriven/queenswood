@@ -1,9 +1,9 @@
 (ns com.repldriven.queenswood.scheduler.interface
   "Per-bank job scheduler. Jobs are preset sequences of tasks (accrue,
   capitalize, future account-migration) seeded into a bank at
-  provisioning and editable by the operator within task-defined
-  periodicity limits. The `:bank-scheduler/runner` system component
-  keeps a cronut trigger per enabled job in step with the job rows, at
+  provisioning, each on a Quartz cron schedule the operator may edit
+  within what its tasks allow. The `:bank-scheduler/runner` system component
+  keeps a cronut trigger per active job in step with the job rows, at
   startup and every minute after, so a bank created after it started,
   a job added to `jobs.edn` after the bank, and an edit made through
   the API in another JVM all reach the live scheduler; FDB is the
@@ -17,18 +17,21 @@
     [com.repldriven.queenswood.scheduler.core :as core]
     [com.repldriven.queenswood.scheduler.domain :as domain]))
 
-(defn allowed-periodicities
-  "The periodicities a job built from `task-kinds` may use — the
-  intersection of its tasks' allowed periodicities (accrue is daily-only;
-  capitalize and account-migration allow daily/monthly/yearly; hourly
-  is a periodicity no seeded task takes yet). A pure
-  derivation, surfaced so callers (the API, the console) can constrain
-  the cadence picker without duplicating the rule.
+(defn validate-schedule
+  "Nil where a job of `task-kinds` may run on `schedule`, a Quartz cron
+  expression in UTC, judged on its next fire times after `now`:
+  accrue must fire exactly once a day, and capitalize and
+  account-migration no more than once a day. Otherwise a
+  `:scheduler/invalid-schedule` rejection for a schedule that does not
+  parse or never fires, or `:scheduler/periodicity-not-allowed`. Pure,
+  so callers (the API, the console) can offer only what is allowed.
 
   Args:
-  - task-kinds: the job's ordered task kinds."
-  [task-kinds]
-  (domain/job-allowed-periods task-kinds))
+  - task-kinds: the job's ordered task kinds.
+  - schedule: a Quartz cron expression.
+  - now: epoch millis to sample from."
+  [task-kinds schedule now]
+  (domain/validate-schedule task-kinds schedule now))
 
 (defn seed-jobs
   "Seed `bank-id`'s default scheduled jobs (FDB only — no triggers).
@@ -42,36 +45,37 @@
   (core/seed-jobs txn bank-id))
 
 (defn force-start
-  "Run `job-id` now (trigger source forced), in the period of the job's
-  periodicity that now falls in: its hour, day, month or year. Returns
-  the final run map or an anomaly. A run of the job that is running or
-  succeeded in that period refuses it with
+  "Run `job-id` now (trigger source forced), as the run for the last
+  fire of its schedule. Returns the final run map or an anomaly. A run
+  of the job that is running or completed for that fire refuses it with
   `:scheduler/period-already-run`; a failed one does not, so a failed
-  run may be forced again.
+  run may be forced again. The run records the `actor` that forced it.
 
   Args:
   - config: FDB+interfaces map.
   - bank-id: the bank owning the job.
-  - job-id: the job to run."
-  [config bank-id job-id]
-  (core/force-start config bank-id job-id))
+  - job-id: the job to run.
+  - actor: who forced the run."
+  [config bank-id job-id actor]
+  (core/force-start config bank-id job-id actor))
 
 (defn update-schedule
-  "Edit a job's `:periodicity`, `:monthly-day`, `:run-time-minutes`,
-  and/or `:enabled`, within the periodicities its tasks allow. Persists,
+  "Edit a job's `:schedule` and/or `:status`, the schedule within what
+  its tasks allow, recording who did as `updated-by`. Persists,
   recomputes next-run, and updates the live trigger when `config` has
-  `:scheduler`. System jobs have a fixed cadence — only `:run-time-minutes`
-  is editable; touching `:periodicity` / `:monthly-day` / `:enabled` on
-  one is rejected. Returns the updated job or an anomaly.
+  `:scheduler`. System jobs have a fixed cadence — only the time of day
+  in their schedule is editable; changing the days it fires on, or the
+  status, is rejected.
+  Returns the updated job or an anomaly.
 
   Args:
   - config: FDB+interfaces map.
   - bank-id: the bank owning the job.
   - job-id: the job to edit.
-  - edits: map of any of `:periodicity` `:monthly-day` `:run-time-minutes`
-    `:enabled`."
-  [config bank-id job-id edits]
-  (core/update-schedule config bank-id job-id edits))
+  - edits: map of any of `:schedule` `:status`.
+  - actor: who made the edit."
+  [config bank-id job-id edits actor]
+  (core/update-schedule config bank-id job-id edits actor))
 
 (defn list-jobs
   "One page of `bank-id`'s scheduled jobs, in job-id order. Returns

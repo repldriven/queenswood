@@ -28,9 +28,13 @@
    :party-id "pty.test"
    :product-id "prd.test"
    :version-id "v1"
+   :version-from-on 20089
+   :created-by {:kind :actor-kind-operator :principal-id "test"}
+   :account-type :account-type-personal
+   :product-type :account-product-type-sub-ledger-current
    :name "Event Redelivery Test Account"
    :currency "GBP"
-   :account-status status
+   :status status
    :created-at (utility/now)
    :updated-at (utility/now)})
 
@@ -60,13 +64,13 @@
                                         :cash-account-status-opening
                                         (constantly true))
        (nom-test> [found (q/find-account config test-bank-id account-id)
-                   _ (is (= :cash-account-status-opened
-                            (:account-status found)))])))))
+                   _ (is (= :cash-account-status-opened (:status found)))])))))
 
 (def ^:private payload-schema
   (delay (avro/json->schema
-          (slurp (io/resource
-                  "schemas/cash-accounts/account-status-changed.avsc.json")))))
+          (slurp
+           (io/resource
+            "schemas/cash-account/cash-account-status-changed.avsc.json")))))
 
 (defn- entry
   "The changelog map `store/save-account` hands to `status-changed`,

@@ -69,7 +69,7 @@ creation, migration creation, transaction recording and bank
 creation. The check is atomic with the write — same FDB transaction —
 and a uniqueness violation is resolved by reading the existing record
 back and returning it. Bank creation reads first instead, and returns
-the bank it finds with the owner membership and invitation that
+the bank it finds with the owner member and invitation that
 create wrote.
 
 Behind the pair with no index of their own is payee-check creation,
@@ -123,18 +123,16 @@ second account, merging a second party or accruing for a second bank
 under a key already spent is refused rather than silently answered
 with the first resource's response.
 
-An entry written before the field existed carries no fingerprint,
-and matches anything for the rest of its life.
-
 ### Two-state machine
 
-Each cache entry is in one of two states:
+Each cache entry has one of two statuses:
 
 - **`pending`** — a handler is currently processing this key. Set on
   first arrival, with the fingerprint, and cleared when the handler
   completes.
-- **`completed`** — handler finished; `status`, `headers` and `body`
-  hold the response to replay.
+- **`completed`** — handler finished; `response`, an
+  `IdempotencyResponse` of `status`, `headers` and `body`, holds the
+  response to replay, and `completed_at` when it was kept.
 
 A stale-`pending` entry (older than 60 s) is treated as abandoned —
 a server crashed, say. It is reclaimable by the next request, and
@@ -215,12 +213,12 @@ sequenceDiagram
 `claim-or-replay` is one FDB transaction, so two requests racing on one
 key cannot both claim it: both read no entry and write `pending`, one
 commit conflicts, and its retry reads the other's claim and answers
-409. A fingerprint is checked before the state, so a key reused for a
+409. A fingerprint is checked before the status, so a key reused for a
 different request is refused 422 whether its first request is still
 running or has finished. The lookup runs in the open transaction, where
 `fdb/transact` returns an anomaly as a value rather than throwing, and
 the anomaly is answered as itself before any branch is taken — without
-that it would bind as an entry with no state and claim the key against
+that it would bind as an entry with no status and claim the key against
 a cache that could not be read. None of the refusals or the replay
 stamps the request with the claim, so `:leave` does nothing for them.
 
@@ -319,16 +317,16 @@ it created in `Location` as the first one did.
 
 ### Body serialisation
 
-Cached bodies are stored as EDN, not JSON. EDN preserves keyword
-values (e.g. `:cash-account-status-closed`) that a JSON round-trip
-would flatten to plain strings, and downstream malli response
-coercion on replay requires the original type.
+Cached headers and bodies are stored as transit+json through mono's
+`transit` brick, not plain JSON. Transit preserves keyword values
+(e.g. `:cash-account-status-closed`) that a JSON round-trip would
+flatten to plain strings, and downstream malli response coercion on
+replay requires the original type.
 
 A handler's response may carry the protojure records the `schema`
-brick generates, and those print with a tag EDN has no reader for —
-a body holding one could be written and never read back, and the
-replay it was written for would answer 503. Each record is written
-out as a plain map instead, which is all a replay needs.
+brick generates, which transit has no handler for, so a body holding
+one could not be written. Each record is written out as a plain map
+instead, which is all a replay needs.
 
 A route may name paths into the response body that the entry leaves
 out, by declaring `idempotency/cache-response-omitting` with them in
@@ -354,20 +352,15 @@ mints a fresh token.
 | `principal_id` | string | required |
 | `operation` | string | required |
 | `idempotency_key` | string | required |
-| `state` | string | `"pending"` or `"completed"` |
-| `status` | int32 | optional (completed only) |
-| `headers` | string | optional EDN (completed only) |
-| `body` | string | optional EDN (completed only) |
-| `created_at` | int64 | epoch ms |
+| `status` | `IdempotencyStatus` | `PENDING` or `COMPLETED` |
+| `fingerprint` | string | SHA-256 of path, body and bank |
+| `response` | `IdempotencyResponse` | optional (completed only): `status` int32, `headers` and `body` transit+json |
 | `expires_at` | int64 | epoch ms |
-| `fingerprint` | string | optional SHA-256 of path, body and bank |
+| `completed_at` | int64 | epoch ms, field 51, completed only |
+| `created_at` | int64 | epoch ms, field 101, when the key was claimed |
 
 Primary key: `[principal_id, operation, idempotency_key]`. No
 secondary indexes.
-
-`fingerprint` is optional on the wire so entries written before it
-existed still parse; the record-metadata evolution the `fdb` brick
-enforces refuses a new required field.
 
 ### Every write route declares the pair or names a guard
 
@@ -464,7 +457,7 @@ from.
   `PUT /v1/cash-account-products/{product-id}/versions/{version-id}`,
   whose body names the whole draft and which is refused
   `product/version-immutable` once the version has published.
-  `POST /v1/memberships/{membership-id}/change-role` is one too: the body
+  `POST /v1/members/{member-id}/change-role` is one too: the body
   names the role, so a second application converges and records
   nothing.
 - Source-state guards:
@@ -537,7 +530,7 @@ header as the store-level key.
   TTL-native delete should be added before sustained high write
   volumes make this significant.
 
-- **Response schema evolution.** A stored EDN body reflects the
+- **Response schema evolution.** A stored body reflects the
   response shape at write time. A deploy that changes the response
   schema may cause a replay to return the old shape during the 24 h
   window. The invariant: stored responses are immutable artefacts of

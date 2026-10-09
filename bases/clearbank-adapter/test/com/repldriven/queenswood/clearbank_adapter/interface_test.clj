@@ -146,25 +146,30 @@
        body (http/res->edn res)
        _ (is (= nonce (:Nonce body)))])))
 
-(defn- dedup-count
-  [config store-name record-type dedup-keys]
+(defn- key-count
+  [config store-name record-type field ks]
   (fdb/transact config
                 (fn [txn]
                   (let [store (fdb/open txn store-name)]
                     (reduce +
-                            (map (fn [dedup-key]
+                            (map (fn [k]
                                    (count (fdb/query-records
                                            store
                                            record-type
-                                           "dedup_key"
-                                           dedup-key
+                                           field
+                                           k
                                            {:index (str record-type
-                                                        "_by_dedup_key")})))
-                                 dedup-keys))))))
+                                                        "_by_"
+                                                        field)})))
+                                 ks))))))
 
 (defn- outbox-count
   [config dedup-keys]
-  (dedup-count config "clearbank-outbox" "ClearbankOutboxEvent" dedup-keys))
+  (key-count config
+             "clearbank-outbox"
+             "ClearbankOutboxEvent"
+             "dedup_key"
+             dedup-keys))
 
 (defn- outbox-size
   [config]
@@ -286,10 +291,11 @@
        ;; nosemgrep: brick-test-drives-pipeline
        second-res (processor/process proc message)
        _ (is (= {:status "ACCEPTED"} second-res))
-       intents (dedup-count config
-                            "clearbank-outbound-intents"
-                            "ClearbankOutboundIntent"
-                            [(:end-to-end-id command)])
+       intents (key-count config
+                          "clearbank-outbound-intents"
+                          "ClearbankOutboundIntent"
+                          "idempotency_key"
+                          [(:end-to-end-id command)])
        _ (is (= 1 intents))])))
 
 (def ^:private settled-webhook
@@ -336,11 +342,12 @@
                  ;; nosemgrep: brick-test-drives-pipeline
                  (processor/process proc
                                     {:command command :payload payload})))
-        intents (fn [dedup-key]
-                  (dedup-count config
-                               "clearbank-outbound-intents"
-                               "ClearbankOutboundIntent"
-                               [dedup-key]))
+        intents (fn [idempotency-key]
+                  (key-count config
+                             "clearbank-outbound-intents"
+                             "ClearbankOutboundIntent"
+                             "idempotency_key"
+                             [idempotency-key]))
         opening {:bank-id "bnk.1"
                  :account-id "acc.adapter.1"
                  :holder-name "Ford Prefect"

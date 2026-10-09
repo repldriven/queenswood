@@ -1,0 +1,56 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.bank;
+
+import "record_metadata_options.proto";
+import "schemas/actor/actor.proto";
+import "schemas/company/company.proto";
+
+option java_outer_classname = "BankProto";
+
+enum BankStatus {
+  BANK_STATUS_UNKNOWN = 0;
+  BANK_STATUS_TEST = 1;
+  BANK_STATUS_LIVE = 2;
+}
+
+// A bank run on the platform.
+message Bank {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+
+  required string name = 2;
+  required BankStatus status = 3;
+  required string tier = 4;
+  repeated BankProvider providers = 5;
+  optional BankCompanyBinding company_binding = 6;
+
+  optional int64 status_changed_at = 51;
+  optional com.repldriven.queenswood.schema.actor.Actor status_changed_by = 52;
+  optional int64 tier_changed_at = 53;
+  optional com.repldriven.queenswood.schema.actor.Actor tier_changed_by = 54;
+
+  required string idempotency_key = 100;
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+  optional int64 updated_at = 103;
+}
+
+// The provider of one kind a bank runs on.
+message BankProvider {
+  required string kind = 1; // e.g. "payment"
+  required string provider = 2; // e.g. "modulr"
+}
+
+// The company a bank is bound to, as its registry held it.
+message BankCompanyBinding {
+  required com.repldriven.queenswood.schema.company.CompanyRegistry registry = 1;
+  required string company_number = 2;
+  required string name = 3;
+  required string status = 4; // the registry's, e.g. "active"
+  required string company_type = 5; // the registry's, e.g. "ltd"
+  optional string jurisdiction = 6;
+  optional int64 incorporated_on = 7; // epoch day
+  optional com.repldriven.queenswood.schema.company.RegisteredOfficeAddress registered_office_address = 8;
+}

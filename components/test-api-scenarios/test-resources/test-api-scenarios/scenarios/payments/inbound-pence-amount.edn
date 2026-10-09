@@ -16,8 +16,7 @@
    :as :trillian
    :with {:token [:ref :bank-0 :token]
           :display-name "Trillian Astra"
-          :given-name "Trillian"
-          :family-name "Astra"}}
+          :legal-name "Trillian Astra"}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts"
@@ -33,7 +32,7 @@
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :creditor :account-id]}
              :auth [:ref :bank-0 :token]}
-   :until {:status 200 :body {:account-status "opened"}}
+   :until {:status 200 :body {:status "opened"}}
    :as :creditor}
   {:command :api/request
    :request {:method :get

@@ -22,7 +22,7 @@
                     :creditor-name "Arthur Dent"
                     :currency "GBP"
                     :amount 2500
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Retried"}}
    :assert {:status 500}}
   {:command :api/request
@@ -36,7 +36,7 @@
                     :creditor-name "Arthur Dent"
                     :currency "GBP"
                     :amount 2500
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Retried"}}
    :as :payment
    :assert {:status 201}}
@@ -52,7 +52,7 @@
                     :creditor-name "Arthur Dent"
                     :currency "GBP"
                     :amount 2500
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Retried"}}
    :assert {:status 201
             :headers {:idempotent-replayed "true"}
@@ -64,7 +64,7 @@
              :path "/v1/payments/outbound/{payment-id}"
              :path-params {:payment-id [:ref :payment :payment-id]}
              :auth [:ref :bank-0 :token]}
-   :until {:status 200 :body {:payment-status "completed"}}}
+   :until {:status 200 :body {:status "completed"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"

@@ -1,0 +1,59 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.payment;
+
+import "record_metadata_options.proto";
+import "schemas/actor/actor.proto";
+import "schemas/scheme-type/scheme-type.proto";
+
+option java_outer_classname = "OutboundPaymentProto";
+
+enum OutboundPaymentStatus {
+  OUTBOUND_PAYMENT_STATUS_UNKNOWN = 0;
+  OUTBOUND_PAYMENT_STATUS_PENDING = 1;
+  OUTBOUND_PAYMENT_STATUS_COMPLETED = 2;
+  OUTBOUND_PAYMENT_STATUS_FAILED = 3;
+  OUTBOUND_PAYMENT_STATUS_HELD = 4;
+  OUTBOUND_PAYMENT_STATUS_RETURNED = 5;
+}
+
+enum OutboundPaymentFailedKind {
+  OUTBOUND_PAYMENT_FAILED_KIND_UNKNOWN = 0;
+  OUTBOUND_PAYMENT_FAILED_KIND_DECLINED = 1;
+  OUTBOUND_PAYMENT_FAILED_KIND_REFUSED = 2;
+  OUTBOUND_PAYMENT_FAILED_KIND_UNDELIVERED = 3;
+}
+
+// A payment out of a bank to an account at another, over a scheme.
+message OutboundPayment {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string payment_id = 2; // pmt.<uuidv7>
+
+  required OutboundPaymentStatus status = 3;
+  required com.repldriven.queenswood.schema.scheme_type.SchemeType scheme_type = 4;
+  required string debtor_account_id = 5;
+  required string creditor_name = 6;
+  required string creditor_bban = 7; // sort code and account number
+  required int64 amount = 8; // minor units
+  required string currency = 9; // ISO 4217
+  optional string reference = 10;
+  required string transaction_id = 11;
+  required int64 business_day = 12; // epoch day
+  optional OutboundPaymentFailedKind failed_kind = 13;
+  optional string failed_reason_code = 14; // ISO 20022
+  optional string failed_reason = 15;
+  optional string returned_reason_code = 16; // ISO 20022
+  optional string returned_reason = 17;
+
+  optional int64 held_at = 51;
+  optional int64 completed_at = 53;
+  optional int64 failed_at = 55;
+  optional int64 returned_at = 57;
+
+  required string idempotency_key = 100;
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+  optional int64 updated_at = 103;
+}

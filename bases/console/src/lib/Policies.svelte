@@ -18,7 +18,7 @@
   import { list_my_effective_policies } from "./api.mjs";
   import { adaptEffectivePolicy } from "./policy-adapter.mjs";
 
-  let { user, memberships } = $props();
+  let { user, members } = $props();
 
   let loading = $state(true);
   let error = $state(null);
@@ -29,7 +29,7 @@
   let query = $state(new URLSearchParams(location.hash.split("?")[1] ?? "").get("q") ?? "");
   let showUngoverned = $state(false);
 
-  const kicker = $derived(memberships?.[0]?.["bank-name"]);
+  const kicker = $derived(members?.[0]?.["bank-name"]);
 
   async function load() {
     loading = true;

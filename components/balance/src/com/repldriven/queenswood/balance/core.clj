@@ -21,14 +21,13 @@
    (store/transact
     txn
     (fn [txn]
-      (let [{:keys [account-id balance-type currency balance-status]} data]
+      (let [{:keys [account-id balance-type balance-status]} data]
         (let-nom>
           [policies (get-policies txn account-id opts)
            existing (q/find-balance txn
                                     bank-id
                                     account-id
                                     balance-type
-                                    currency
                                     balance-status)
            balance (domain/new-balance (assoc data :bank-id bank-id)
                                        (some? existing)

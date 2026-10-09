@@ -8,6 +8,7 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.processor.interface :as processor]
+    [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- save-intent
@@ -15,8 +16,8 @@
   (let [res (relay/save-intent (select-keys config [:record-store :record-db])
                                (assoc intent
                                       :intent-id (str (utility/uuidv7))
-                                      :status "pending"
-                                      :attempts 0
+                                      :status :outbound-intent-status-pending
+                                      :attempt-count 0
                                       :created-at (utility/now)))]
     (cond
      (not (error/anomaly? res))
@@ -31,7 +32,8 @@
 (defn- submit-payment-intent
   [config data]
   (save-intent config
-               {:dedup-key (:end-to-end-id data)
+               {:idempotency-key (:end-to-end-id data)
+                :kind :clearbank-outbound-intent-kind-payment
                 :subjects (vec (keep identity [(:debtor-account-id data)]))
                 :request (clearbank/->fps-body data)}))
 
@@ -44,8 +46,8 @@
   (let [{:keys [bank-id account-id holder-name currency]} data]
     (let-nom> [account-number (relay/allocate-account-number (fdb config))]
       (save-intent config
-                   {:dedup-key (str "open:" account-id)
-                    :kind "open-account"
+                   {:idempotency-key (str "open:" account-id)
+                    :kind :clearbank-outbound-intent-kind-open-account
                     :subjects [account-id]
                     :request (clearbank/->virtual-account-body
                               (:sort-code config)
@@ -53,29 +55,30 @@
                               holder-name
                               currency
                               account-id)
-                    :context (pr-str {:bank-id bank-id
-                                      :account-id account-id})}))))
+                    :context (transit/write-str {:bank-id bank-id
+                                                 :account-id account-id})}))))
 
 (defn- close-account-intent
   [config data]
   (let [{:keys [bank-id account-id provider-account-id]} data]
     (save-intent config
-                 {:dedup-key (str "close:" account-id)
-                  :kind "close-account"
+                 {:idempotency-key (str "close:" account-id)
+                  :kind :clearbank-outbound-intent-kind-close-account
                   :subjects [account-id]
                   :request "{}"
-                  :context (pr-str {:bank-id bank-id
-                                    :account-id account-id
-                                    :provider-account-id
-                                    provider-account-id})})))
+                  :context (transit/write-str {:bank-id bank-id
+                                               :account-id account-id
+                                               :provider-account-id
+                                               provider-account-id})})))
 
 (defn- reissue-address-intent
   [config data]
   (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
     (let-nom> [account-number (relay/allocate-account-number (fdb config))]
       (save-intent config
-                   {:dedup-key (str "reissue:" account-id ":" rotation-key)
-                    :kind "reissue-address"
+                   {:idempotency-key (str "reissue:" account-id
+                                          ":" rotation-key)
+                    :kind :clearbank-outbound-intent-kind-reissue-address
                     :subjects [account-id]
                     :request (clearbank/->virtual-account-body
                               (:sort-code config)
@@ -83,12 +86,12 @@
                               nil
                               nil
                               account-id)
-                    :context (pr-str (utility/assoc-some
-                                      {:bank-id bank-id
-                                       :account-id account-id
-                                       :rotation-key rotation-key}
-                                      :provider-account-id
-                                      provider-account-id))}))))
+                    :context (transit/write-str (utility/assoc-some
+                                                 {:bank-id bank-id
+                                                  :account-id account-id
+                                                  :rotation-key rotation-key}
+                                                 :provider-account-id
+                                                 provider-account-id))}))))
 
 (defn- dispatch
   [config message]

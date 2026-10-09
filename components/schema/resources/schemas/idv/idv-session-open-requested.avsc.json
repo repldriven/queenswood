@@ -1,0 +1,64 @@
+{
+  "type": "record",
+  "name": "IdvSessionOpenRequested",
+  "namespace": "com.repldriven.queenswood.schema.idv",
+  "doc": "A verification session opening, for the bank's identity verification provider to run its check.",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "verification_id",
+      "type": "string"
+    },
+    {
+      "name": "party_id",
+      "type": "string"
+    },
+    {
+      "name": "session_id",
+      "type": "string"
+    },
+    {
+      "name": "channel",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "return_url",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "email",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "verifications",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "default": []
+    },
+    {
+      "name": "screenings",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "default": []
+    }
+  ]
+}

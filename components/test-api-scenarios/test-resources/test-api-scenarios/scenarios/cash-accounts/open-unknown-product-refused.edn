@@ -8,8 +8,7 @@
           :as :party-0
           :with {:token [:ref :org-0 :token]
                  :display-name "Unknown Product Holder"
-                 :given-name "Unknown"
-                 :family-name "Holder"}}
+                 :legal-name "Unknown Holder"}}
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}]
  :when
  [{:command :api/request

@@ -29,7 +29,8 @@
   {:bank-id test-bank-id
    :creditor-name "Ada Lovelace"
    :account {:sort-code "123456" :account-number "12345678"}
-   :account-type :account-type-personal})
+   :account-type :account-type-personal
+   :actor {:kind :actor-kind-member :principal-id "usr.checker"}})
 
 (deftest a-check-the-adapter-cannot-answer-is-saved-unavailable-test
   (with-test-system
@@ -43,10 +44,17 @@
                             (get-in check [:result :match-result])))
                      (is (= "ACNS" (get-in check [:result :reason-code])))
                      (is (= "Ada Lovelace"
-                            (get-in check [:request :creditor-name]))))
+                            (get-in check [:request :creditor-name])))
+                     (is (not (contains? (:request check) :actor))))
                  saved (SUT/get-check config test-bank-id (:check-id check))
-                 _ (testing "and reads back as saved"
-                     (is (= (:check-id check) (:check-id saved))))]))))
+                 _ (testing "and reads back as saved, with who made it"
+                     (is (= (:check-id check) (:check-id saved)))
+                     (is (= {:kind :actor-kind-member
+                             :principal-id "usr.checker"}
+                            (:created-by saved))))
+                 _ (testing "standing for 24 hours from when it was made"
+                     (is (= (+ (:created-at saved) (* 24 60 60 1000))
+                            (SUT/expires-at saved))))]))))
 
 (deftest a-check-from-an-account-the-bank-does-not-hold-is-refused-test
   (with-test-system

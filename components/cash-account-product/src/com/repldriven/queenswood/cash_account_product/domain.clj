@@ -9,7 +9,7 @@
 
 (defn- draft?
   [version]
-  (= :cash-account-product-status-draft (:status version)))
+  (= :version-status-draft (:status version)))
 
 (defn- ensure-draft
   [version]
@@ -42,13 +42,26 @@
                      :template-id (:template-id template)
                      :requested-template-id requested}))))
 
+(defn- flat-interest
+  "Interest terms paying `rate-bps` on the whole balance from the start,
+  paid daily. Nil at no rate or a zero one, since a version that pays
+  nothing carries no terms."
+  [rate-bps]
+  (when (and rate-bps (not (zero? rate-bps)))
+    {:basis :interest-schedule-basis-fixed
+     :banding :interest-banding-marginal
+     :steps [{:bands [{:rate-bps rate-bps}]}]
+     :day-count :interest-day-count-actual-365
+     :payment {:frequency :interest-payment-frequency-daily}}))
+
 (defn- product-fields
   "Snapshot the derived instrument fields from the resolved `template`
   (product-type, balance-sheet-side, balance buckets, payment-address
-  schemes, iso type) plus the caller's `:interest-rate-bps` and
-  `:opening-reward`, and stamp the originating `:template-id` for
-  provenance. Returns the fields or an anomaly when the caller's
-  currency isn't allowed."
+  schemes, iso type) plus the caller's `:interest-rate-bps`, as flat
+  interest terms, and `:opening-reward`, as an opening reward's terms,
+  and stamp the originating
+  `:template-id` for provenance. Returns the fields or an anomaly when
+  the caller's currency isn't allowed."
   [template data]
   (let [{:keys [currency interest-rate-bps opening-reward]} data]
     (let-nom>
@@ -60,13 +73,12 @@
         :balance-products (:balance-products template)
         :allowed-payment-address-schemes
         (:allowed-payment-address-schemes template)
-        :interest-rate-bps (or interest-rate-bps 0)}
-       :iso-cash-account-type
-       (:iso-cash-account-type template)
-       :internal
-       (when (:internal template) true)
-       :opening-reward
-       (when opening-reward {:amount (:amount opening-reward)})))))
+        :iso-cash-account-type (:iso-cash-account-type template)}
+       :interest-terms
+       (flat-interest interest-rate-bps)
+       :reward-terms
+       (when opening-reward
+         [{:kind :reward-kind-opening :amount (:amount opening-reward)}])))))
 
 (defn new-template
   "Build a template record from seed data: stamp a stable `tpl.` id when
@@ -75,8 +87,7 @@
   (let [now (utility/now)]
     (assoc data
            :template-id (or (:template-id data) (utility/generate-id "tpl"))
-           :created-at now
-           :updated-at now)))
+           :created-at now)))
 
 ;; ---------------------------------------------------------------------------
 ;; Capability + limit checks
@@ -175,11 +186,11 @@
                :product-id product-id
                :version-id (utility/generate-id "prv")
                :version-number (inc (count versions))
-               :status :cash-account-product-status-draft
+               :status :version-status-draft
                :name name
-               :allowed-currencies [currency]
+               :currency currency
                :created-at now
-               :updated-at now}
+               :created-by (:created-by data)}
               fields)
        :effective-from effective-from
        :effective-to effective-to
@@ -208,7 +219,7 @@
 (defn update-version
   [existing template data policies]
   (let [{:keys [bank-id product-id version-id
-                version-number status created-at]}
+                version-number status created-at created-by]}
         existing
         {:keys [name currency effective-from effective-to opening-reward]}
         data]
@@ -228,8 +239,9 @@
                :version-number version-number
                :status status
                :name name
-               :allowed-currencies [currency]
+               :currency currency
                :created-at created-at
+               :created-by created-by
                :updated-at (utility/now)}
               fields)
        :effective-from effective-from
@@ -262,19 +274,22 @@
                        :unsupported (vec unsupported)})))))
 
 (defn publish
-  [existing policies payment-provider]
+  [existing policies payment-provider actor]
   (let-nom>
     [_ (ensure-draft existing)
      _ (check-capability :cash-account-product-action-publish
                          (:product-type existing)
                          policies)
      _ (check-address-schemes existing payment-provider)]
-    (assoc existing
-           :status :cash-account-product-status-published
-           :updated-at (utility/now))))
+    (let [now (utility/now)]
+      (assoc existing
+             :status :version-status-published
+             :published-at now
+             :published-by actor
+             :updated-at now))))
 
 (defn discard
-  [existing policies]
+  [existing policies actor]
   (let-nom>
     [_ (ensure-draft existing)
      _ (check-capability :cash-account-product-action-draft
@@ -282,6 +297,7 @@
                          policies)]
     (let [now (utility/now)]
       (assoc existing
-             :status :cash-account-product-status-discarded
+             :status :version-status-discarded
              :discarded-at now
+             :discarded-by actor
              :updated-at now))))

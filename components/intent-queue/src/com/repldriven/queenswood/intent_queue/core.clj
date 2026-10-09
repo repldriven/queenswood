@@ -19,7 +19,7 @@
                              (and (settles-first? intent)
                                   (holds? unsettled intent)))]
               (cond
-               (= "sent" (:status intent))
+               (= :outbound-intent-status-sent (:status intent))
                (update state :unsettled block intent)
 
                (or waits? (not (due? now intent)))
@@ -30,11 +30,14 @@
                :else
                (let [status (:status (run intent))]
                  (cond-> (update state :ran conj (:intent-id intent))
-                         (not (#{"sent" "settled" "failed"} status))
+                         (not (#{:outbound-intent-status-sent
+                                 :outbound-intent-status-settled
+                                 :outbound-intent-status-failed}
+                               status))
                          (-> (update :unsent block intent)
                              (update :unsettled block intent))
 
-                         (= "sent" status)
+                         (= :outbound-intent-status-sent status)
                          (update :unsettled block intent))))))
           {:unsent #{} :unsettled #{} :ran []}
           (sort-by :intent-id intents)))
@@ -47,7 +50,7 @@
                               (and (settles-first? intent)
                                    (holds? unsettled intent)))]
                (cond
-                (= "sent" (:status intent))
+                (= :outbound-intent-status-sent (:status intent))
                 (update state :unsettled block intent)
 
                 (or waits? (not (due? now intent)))

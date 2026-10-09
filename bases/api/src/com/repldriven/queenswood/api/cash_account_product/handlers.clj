@@ -12,6 +12,7 @@
   See [ADR-0018](../../../../../../../docs/adr/0018-command-writes-are-earned.md)."
   (:require
     [com.repldriven.queenswood.api.errors :as errors]
+    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
     [com.repldriven.queenswood.cash-account-product-api.interface :as
@@ -76,7 +77,8 @@
         {:keys [body]} parameters]
     (respond (products/new-product (config request)
                                    bank-id
-                                   (with-idempotency-key body request))
+                                   (with-idempotency-key body request)
+                                   {:actor (shared.actor/actor auth)})
              created)))
 
 (defn open-draft
@@ -85,7 +87,11 @@
         {:keys [bank-id]} auth
         {:keys [path body]} parameters
         {:keys [product-id]} path]
-    (respond (products/open-draft (config request) bank-id product-id body)
+    (respond (products/open-draft (config request)
+                                  bank-id
+                                  product-id
+                                  body
+                                  {:actor (shared.actor/actor auth)})
              created)))
 
 (defn update-draft
@@ -110,7 +116,8 @@
     (respond (products/discard-draft (config request)
                                      bank-id
                                      product-id
-                                     version-id)
+                                     version-id
+                                     {:actor (shared.actor/actor auth)})
              no-content)))
 
 (defn publish-draft
@@ -124,5 +131,6 @@
                                  bank-id
                                  product-id
                                  version-id
-                                 {:payment-provider declaration}))
+                                 {:payment-provider declaration
+                                  :actor (shared.actor/actor auth)}))
              ok)))

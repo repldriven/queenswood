@@ -33,7 +33,7 @@
              :path-params {:invitation-id [:ref :bank :owner-invitation
                                            :invitation-id]}
              :auth :owner-token}
-   :as :owner-membership
+   :as :owner-member
    :assert {:status 201}}
   {:command :api/request
    :request {:method :post
@@ -56,16 +56,16 @@
              :auth :admin-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :body {:email "inviting-guest@example.test" :role "owner"}}
-   :assert {:status 403 :problem {:type ":membership/role-not-granted"}}}
+   :assert {:status 403 :problem {:type ":member/role-not-granted"}}}
   {:command :api/request
    :request {:method :post
-             :path "/v1/memberships/{membership-id}/change-role"
-             :path-params {:membership-id [:ref :owner-membership
-                                           :membership-id]}
+             :path "/v1/members/{member-id}/change-role"
+             :path-params {:member-id [:ref :owner-member
+                                           :member-id]}
              :auth :admin-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :body {:role "admin"}}
-   :assert {:status 403 :problem {:type ":membership/role-not-granted"}}}
+   :assert {:status 403 :problem {:type ":member/role-not-granted"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"

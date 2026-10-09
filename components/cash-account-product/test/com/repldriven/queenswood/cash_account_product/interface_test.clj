@@ -44,7 +44,7 @@
 (def ^:private allow-draft
   "Capability without limits — the tests that are not about the cap
   reach the write without a policy read against the store."
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:effect :effect-allow
                     :kind {:cash-account-product
                            {:action :cash-account-product-action-draft}}}]}])
@@ -74,6 +74,9 @@
       (.await gate 5 TimeUnit/SECONDS))
     result))
 
+(def ^:private operator
+  {:kind :actor-kind-operator :principal-id "queenswood-admin"})
+
 (deftest retried-create-reads-the-original-back-test
   (with-test-system
    [sys config-file]
@@ -84,12 +87,12 @@
                                 config
                                 bank-id
                                 (product-data "Current" current-template-id key)
-                                {:policies allow-draft})
+                                {:policies allow-draft :actor operator})
                  retried (SUT/new-product
                           config
                           bank-id
                           (product-data "Current again" current-template-id key)
-                          {:policies allow-draft})
+                          {:policies allow-draft :actor operator})
                  _ (testing
                      "the retry answers with the version the first created"
                      (is (= (:version-id first-version) (:version-id retried)))
@@ -113,12 +116,12 @@
                             (assoc (product-data "Current" current-template-id)
                                    :opening-reward
                                    {:amount 1000})
-                            {:policies allow-draft})
+                            {:policies allow-draft :actor operator})
                  plain (SUT/new-product config
                                         bank-id
                                         (product-data "Savings"
                                                       savings-template-id)
-                                        {:policies allow-draft})
+                                        {:policies allow-draft :actor operator})
                  read-rewarding (q/get-version config
                                                bank-id
                                                (:product-id rewarding)
@@ -127,11 +130,13 @@
                                            bank-id
                                            (:product-id plain)
                                            (:version-id plain))
-                 _ (testing "the reward reads back as the map it was written as"
-                     (is (= {:amount 1000} (:opening-reward read-rewarding))))
+                 _ (testing
+                     "the reward reads back as the terms it was written as"
+                     (is (= [{:kind :reward-kind-opening :amount 1000}]
+                            (:reward-terms read-rewarding))))
                  _ (testing
                      "and a version that named none reads back without one"
-                     (is (not (contains? read-plain :opening-reward))))]))))
+                     (is (empty? (:reward-terms read-plain))))]))))
 
 (deftest key-survives-an-update-test
   (with-test-system
@@ -143,23 +148,23 @@
                           config
                           bank-id
                           (product-data "Current" current-template-id key)
-                          {:policies allow-draft})
-                 updated (SUT/update-draft config
-                                           bank-id
-                                           (:product-id created)
-                                           (:version-id created)
-                                           (product-data "Renamed"
-                                                         current-template-id)
-                                           {:policies allow-draft})
+                          {:policies allow-draft :actor operator})
+                 updated (SUT/update-draft
+                          config
+                          bank-id
+                          (:product-id created)
+                          (:version-id created)
+                          (product-data "Renamed" current-template-id)
+                          {:policies allow-draft :actor operator})
                  _ (testing "the update carries the key through"
                      (is (= "Renamed" (:name updated)))
                      (is (= key (:idempotency-key updated))))
-                 replayed (SUT/new-product config
-                                           bank-id
-                                           (product-data "Current again"
-                                                         current-template-id
-                                                         key)
-                                           {:policies allow-draft})
+                 replayed
+                 (SUT/new-product
+                  config
+                  bank-id
+                  (product-data "Current again" current-template-id key)
+                  {:policies allow-draft :actor operator})
                  _ (testing "so replaying the create still finds the original"
                      (is (= (:version-id created) (:version-id replayed))))
                  listed (q/get-products config bank-id)
@@ -173,30 +178,30 @@
      (nom-test> [_ (SUT/new-product config
                                     bank-id
                                     (product-data "Current" current-template-id)
-                                    {:policies allow-draft})
+                                    {:policies allow-draft :actor operator})
                  _ (testing "one product of one type"
                      (is (= 1 (q/count-by-org config bank-id)))
                      (is (= 1
                             (q/count-by-org-product-type
                              config
                              bank-id
-                             :product-type-sub-ledger-current))))
+                             :account-product-type-sub-ledger-current))))
                  _ (SUT/new-product config
                                     bank-id
                                     (product-data "Savings" savings-template-id)
-                                    {:policies allow-draft})
+                                    {:policies allow-draft :actor operator})
                  _ (testing "a second type moves the total, not the first type"
                      (is (= 2 (q/count-by-org config bank-id)))
                      (is (= 1
                             (q/count-by-org-product-type
                              config
                              bank-id
-                             :product-type-sub-ledger-current)))
+                             :account-product-type-sub-ledger-current)))
                      (is (= 1
                             (q/count-by-org-product-type
                              config
                              bank-id
-                             :product-type-sub-ledger-savings))))
+                             :account-product-type-sub-ledger-savings))))
                  ;; The own-funds template is the one new-bank creates a
                  ;; bank's house product from. No bank system boots here,
                  ;; so this is what such a product does to the counts
@@ -205,16 +210,18 @@
                                             bank-id
                                             (product-data "Bank own funds"
                                                           own-funds-template-id)
-                                            {:policies allow-draft})
+                                            {:policies allow-draft
+                                             :actor operator})
                  _ (testing
                      "an own-funds product counts toward the bank's total"
-                     (is (true? (:internal own-funds)))
+                     (is (= :account-product-type-sub-ledger-own-funds
+                            (:product-type own-funds)))
                      (is (= 3 (q/count-by-org config bank-id)))
                      (is (= 1
                             (q/count-by-org-product-type
                              config
                              bank-id
-                             :product-type-sub-ledger-own-funds))))
+                             :account-product-type-sub-ledger-own-funds))))
                  listed (q/get-products config bank-id)
                  _ (testing "while the listing hides it"
                      (is (= 2 (count (:items listed))))
@@ -231,7 +238,7 @@
          template
          {:template-id "tpl.00000000000000000000000099"
           :name "Round Trip Current"
-          :product-type :product-type-sub-ledger-current
+          :product-type :account-product-type-sub-ledger-current
           :balance-sheet-side :balance-sheet-side-liability
           :iso-cash-account-type :iso-cash-account-type-cacc
           :allowed-currencies ["GBP"]
@@ -243,7 +250,7 @@
                  _ (testing "the template round-trips through the store"
                      (is (= (:template-id template) (:template-id loaded)))
                      (is (= "Round Trip Current" (:name loaded)))
-                     (is (= :product-type-sub-ledger-current
+                     (is (= :account-product-type-sub-ledger-current
                             (:product-type loaded)))
                      (is (= ["GBP"] (:allowed-currencies loaded)))
                      (is (= (:created-at seeded) (:created-at loaded))))
@@ -272,7 +279,8 @@
                                    (SUT/new-product
                                     config
                                     bank-id
-                                    (product-data name current-template-id)))))]
+                                    (product-data name current-template-id)
+                                    {:actor operator}))))]
      (nom-test>
        ;; The micro tier caps each customer product type at one, so a
        ;; bank with no current product is one below the cap. Binding
@@ -282,7 +290,9 @@
         _ (is (= 1 (count micro)))
         _ (policy/new-binding config
                               {:policy-id (:policy-id (first micro))
-                               :target {:kind {:bank {:bank-id bank-id}}}})
+                               :target {:kind {:bank {:bank-id bank-id}}}
+                               :actor {:kind :actor-kind-operator
+                                       :principal-id "queenswood-admin"}})
         results (with-redefs [q/count-by-org-product-type
                               gated-count-by-org-product-type]
                   (let [left (racing-create "Current A")
@@ -303,4 +313,4 @@
                    (q/count-by-org-product-type
                     config
                     bank-id
-                    :product-type-sub-ledger-current))))]))))
+                    :account-product-type-sub-ledger-current))))]))))

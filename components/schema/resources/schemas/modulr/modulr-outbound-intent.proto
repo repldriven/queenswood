@@ -1,0 +1,46 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.modulr;
+
+import "record_metadata_options.proto";
+import "schemas/outbound-intent/outbound-intent-status.proto";
+
+option java_outer_classname = "ModulrOutboundIntentProto";
+
+enum ModulrOutboundIntentKind {
+  MODULR_OUTBOUND_INTENT_KIND_UNKNOWN = 0;
+  MODULR_OUTBOUND_INTENT_KIND_PAYMENT = 1;
+  MODULR_OUTBOUND_INTENT_KIND_TRANSFER = 2;
+  MODULR_OUTBOUND_INTENT_KIND_CREDIT = 3;
+  MODULR_OUTBOUND_INTENT_KIND_OPEN_ACCOUNT = 4;
+  MODULR_OUTBOUND_INTENT_KIND_CLOSE_ACCOUNT = 5;
+  MODULR_OUTBOUND_INTENT_KIND_REISSUE_ADDRESS = 6;
+}
+
+// A call to Modulr the adapter has yet to make, or to hear back from.
+message ModulrOutboundIntent {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string intent_id = 1; // uuidv7
+
+  required ModulrOutboundIntentKind kind = 2;
+  required com.repldriven.queenswood.schema.outbound_intent.OutboundIntentStatus status = 3;
+  required string request = 4; // json
+  optional string context = 5; // transit+json
+  repeated string subjects = 6;
+  optional string correlation_id = 7;
+  optional string nonce = 8;
+  optional string provider_payment_id = 9;
+
+  optional int64 sent_at = 51;
+
+  required string idempotency_key = 100; // the command's dedup key
+  required int64 created_at = 101;
+
+  optional string failure_reason = 200;
+
+  required int32 attempt_count = 201;
+  optional int64 next_attempt_at = 202;
+  optional string traceparent = 203; // W3C trace context
+}
+

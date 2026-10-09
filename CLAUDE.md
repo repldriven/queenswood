@@ -390,7 +390,7 @@ non-trivial work on their topic.
 - **Per-capability designs** — `docs/tdd/` has one TDD per
   capability or subsystem (authentication, bank-providers, banks,
   cash-account-migration, cash-account-products, cash-accounts,
-  demo-digital-bank, idempotency, infrastructure, interest, memberships,
+  demo-digital-bank, idempotency, infrastructure, interest, members,
   onboarding, outbound-delivery, outbound-email, parties, payments, with
   payments-internal, payments-outbound and payments-inbound drawing each
   flow and the records it writes, policy-evaluation, rewards,
@@ -399,7 +399,7 @@ non-trivial work on their topic.
 - **Per-capability requirements** — `docs/prd/` has the
   product-shaped requirements (cash-account-migrations,
   cash-account-products, cash-accounts, demo-digital-bank, interest,
-  memberships, onboarding, parties, payments, platform, policies,
+  members, onboarding, parties, payments, platform, policies,
   webhooks).
 - **In-flight implementation plans** — `docs/plan/`.
 

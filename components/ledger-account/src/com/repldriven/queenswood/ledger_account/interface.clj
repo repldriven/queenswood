@@ -23,22 +23,22 @@
 (def
   ^{:doc
     "Map from cash-account product-type keyword to the control
-  ledger account's `:gl-account-code` role its balance rolls up into.
+  ledger account's `:code` role its balance rolls up into.
   The control's balance is the sum of the default posted balances of
   the cash accounts of these product types."}
   product-type->control-code
   domain/product-type->control-code)
 
-(defn gl-account-code->gl-code
-  "The chart number, as a string, for a `gl-account-code` role (the enum's
-  integer value — e.g. `:gl-account-code-suspense` -> `\"2500\"`). The one
+(defn chart-number
+  "The chart number, as a string, for a `code` role (the enum's
+  integer value — e.g. `:ledger-account-code-suspense` -> `\"2500\"`). The one
   place the bare number is reconstituted, for display/reporting at the API
   edge; code itself resolves accounts by role.
 
   Args:
-  - gl-account-code: a `:gl-account-code-*` role keyword."
-  [gl-account-code]
-  (domain/gl-account-code->gl-code gl-account-code))
+  - code: a `:ledger-account-code-*` role keyword."
+  [code]
+  (domain/chart-number code))
 
 (defn new-account
   "Create one bank-owned `LedgerAccount` from a chart-of-accounts
@@ -58,8 +58,7 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - currency: ISO 4217 currency string.
-  - row: chart-of-accounts row (`:gl-account-code`, `:name`,
-    `:gl-account-type`, `:gl-account-class`, `:required`).
+  - row: chart-of-accounts row (`:code`, `:name`).
   - opts (optional): `:policies` to check against."
   ([txn bank-id currency row]
    (core/new-account txn bank-id currency row))
@@ -116,25 +115,25 @@
    (core/close-account txn bank-id ledger-account-id opts)))
 
 (defn find-by-code
-  "Resolve a ledger account from its `gl-account-code` role and
+  "Resolve a ledger account from its `code` role and
   `currency`. A bank holds one row per chart role per currency, so the
   role alone does not identify an account. Used by posting sites to find
-  counter-leg accounts by role — `:gl-account-code-cash-at-correspondent`,
-  `:gl-account-code-interest-payable`, `:gl-account-code-suspense`, etc.
+  counter-leg accounts by role — `:ledger-account-code-cash-at-correspondent`,
+  `:ledger-account-code-interest-payable`, `:ledger-account-code-suspense`, etc.
 
   An absent row is a rejection, not nil: rejects
   `:gl/missing-currency-account` carrying `:message`, `:bank-id`,
-  `:gl-account-code` and `:currency` when the bank has no row for the
+  `:code` and `:currency` when the bank has no row for the
   triple, and `:ledger-account/closed` when the row it finds is closed.
   Returns the `LedgerAccount` map otherwise.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
-  - gl-account-code: a `:gl-account-code-*` role keyword.
+  - code: a `:ledger-account-code-*` role keyword.
   - currency: ISO 4217 currency string of the posting."
-  [txn bank-id gl-account-code currency]
-  (core/find-by-code txn bank-id gl-account-code currency))
+  [txn bank-id code currency]
+  (core/find-by-code txn bank-id code currency))
 
 (defn prefetch
   "Start loading, without waiting, the ledger accounts a posting in
@@ -171,29 +170,49 @@
 (defn list-accounts-with-balances
   "Return the bank's chart paired with each account's balances, as a
   vector of `{:account LedgerAccount :balances [Balance ...]}` in
-  account-id order, or an anomaly. One merged scan of the two stores,
-  so a chart of any size costs a page per store rather than a
-  transaction per account; a control account's balances are its one
-  default-posted balance summed from its sub-ledger, as `get-balances`
-  returns.
+  account-id order, or an anomaly. Read in one transaction, so every
+  balance is as of one moment and the chart's trial balance ties: the
+  stored balances in one round trip, and a derived account's balances
+  its one balance summed from its sub-ledger or its legs, as
+  `get-balances` returns.
 
   Args:
-  - config: map with `:record-db` and `:record-store`. The scan pages
-    in transactions of its own, so it takes the config rather than a
-    transaction.
+  - txn: FDB transaction or config map.
   - bank-id: owning bank id."
-  [config bank-id]
-  (core/list-accounts-with-balances config bank-id))
+  [txn bank-id]
+  (core/list-accounts-with-balances txn bank-id))
+
+(defn account-class
+  "The class of the account in a `code` role, from the thousand
+  of its chart number: `:ledger-account-class-asset`, `-liability`,
+  `-equity`, `-income` or `-expense`.
+
+  Args:
+  - code: a `:ledger-account-code-*` keyword."
+  [code]
+  (domain/account-class code))
+
+(defn account-type
+  "The type of the account in a `code` role:
+  `:ledger-account-type-control` for one standing for a sub-ledger —
+  the deposit and own-funds controls and 2400 interest-payable — and
+  `:ledger-account-type-detail` otherwise.
+
+  Args:
+  - code: a `:ledger-account-code-*` keyword."
+  [code]
+  (domain/account-type code))
 
 (defn debit-normal?
-  "True for debit-normal account families (asset, expense), false for
-  credit-normal (liability, equity, income) — which column a ledger
-  account's balance falls in when assembling a trial balance.
+  "True for an account whose class is debit-normal (asset, expense),
+  false for a credit-normal one (liability, equity, income) — which
+  column a ledger account's balance falls in when assembling a trial
+  balance.
 
   Args:
-  - gl-account-type: a `:gl-account-type-*` keyword."
-  [gl-account-type]
-  (domain/debit-normal? gl-account-type))
+  - account: a `LedgerAccount` map, read for its `:code`."
+  [account]
+  (domain/debit-normal? account))
 
 (defn ensure-controls
   "Check the control every posted default customer leg in `legs` rolls

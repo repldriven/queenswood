@@ -20,7 +20,7 @@
             :body {:account-id [:m/regex "^acc\\."]
                    :party-id [:ref :arthur :party :party-id]
                    :currency "GBP"
-                   :account-status "opening"
+                   :status "opening"
                    :payment-addresses []
                    :bban [:m/absent]}}}]
  :then
@@ -33,7 +33,7 @@
    :until
    {:status 200
     :body
-    {:account-status "opened"
+    {:status "opened"
      :bban [:m/regex "^[0-9]{14}$"]
      :payment-addresses [{:scheme "scan"
                           :scan {:sort-code [:m/regex "^[0-9]{6}$"]

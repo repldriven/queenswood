@@ -31,25 +31,46 @@
             record
             unknowns)))
 
+(def ^:private unset-when-zero
+  "The optional dates and timestamps a migration reads back as zero when
+  they were never set."
+  [:notified-on :due-on :approved-at :completed-at :cancelled-at])
+
 (defn- clean-migration
+  "One migration as a plain map, without the optional fields it was
+  never given: a zero date or timestamp, or an absent actor. A nested
+  actor becomes a plain map."
   [migration]
-  (drop-defaults migration [:idempotency-key] {}))
+  (reduce-kv (fn [m k v]
+               (cond (or (nil? v)
+                         (and (some #{k} unset-when-zero) (zero? v)))
+                     (dissoc m k)
+
+                     (record? v)
+                     (assoc m k (into {} v))
+
+                     :else
+                     m))
+             (into {} migration)
+             (into {} migration)))
 
 (defn- clean-run
   [run]
-  (cond-> (drop-defaults run [:error] {})
-          (zero? (:finished-at run 0))
-          (dissoc :finished-at)))
+  (cond-> (drop-defaults run [:failure-reason] {})
+          (zero? (:completed-at run 0))
+          (dissoc :completed-at)
+
+          (zero? (:failed-at run 0))
+          (dissoc :failed-at)))
 
 (defn- clean-account-run
-  "`to-version-id` is set only where an account moved, `failure-reason`
-  only where one errored, and `ineligibility` only where one was left
-  behind. All three come back as their proto2 defaults otherwise, and
-  keeping them would say an eligible account had an unknown reason for
-  not moving."
+  "`failure-reason` is set only where an account errored, and
+  `ineligibility` only where one was left behind. Both come back as their
+  proto2 defaults otherwise, and keeping them would say an eligible
+  account had an unknown reason for not moving."
   [account-run]
   (drop-defaults account-run
-                 [:to-version-id :failure-reason]
+                 [:failure-reason]
                  {:ineligibility
                   :cash-account-migration-ineligibility-unknown}))
 

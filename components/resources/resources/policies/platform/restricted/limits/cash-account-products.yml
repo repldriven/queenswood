@@ -12,9 +12,9 @@
 - kind:
     cash-account-product:
       filters:
-        - product-type: !keyword product-type-sub-ledger-current
-        - product-type: !keyword product-type-sub-ledger-savings
-        - product-type: !keyword product-type-sub-ledger-term-deposit
+        - product-type: !keyword account-product-type-sub-ledger-current
+        - product-type: !keyword account-product-type-sub-ledger-savings
+        - product-type: !keyword account-product-type-sub-ledger-term-deposit
   bound:
     kind:
       max:

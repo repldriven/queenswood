@@ -8,6 +8,8 @@
 
 (def WebhookDeliveryId "whd.01kprbmgcj35ptc8npmybhh4sh")
 
+(def WebhookDeliveryAttemptId "wha.01kprbmgcj35ptc8npmybhh4sj")
+
 (def WebhookNotificationId "whn.01kprbmgcj35ptc8npmybhh4sj")
 
 (def WebhookSigningSecret "whsec_9Qk3sVQm0d1tYf8pZr2XwLbN7cJhGeAu5KiRoT4MzSY")
@@ -33,10 +35,20 @@
    :endpoint-id WebhookEndpointId
    :status :delivered
    :kind "cash-account.opened"
-   :attempts 1
-   :last-response-status 200
+   :delivered-at "2026-05-18T09:15:04Z"
    :created-at "2026-05-18T09:15:00Z"
-   :updated-at "2026-05-18T09:15:04Z"})
+   :attempt-count 1})
+
+(def attempt
+  "One attempt at a delivery, the endpoint answering 200."
+  {:bank-id (:bank-id cash-account-api/CashAccount)
+   :delivery-id WebhookDeliveryId
+   :attempt-id WebhookDeliveryAttemptId
+   :response-status 200
+   :duration-ms 142
+   :created-at "2026-05-18T09:15:04Z"})
+
+(def WebhookDeliveryAttemptList {:items [attempt]})
 
 (def notification
   "One `cash-account.opened` notification, carrying the account

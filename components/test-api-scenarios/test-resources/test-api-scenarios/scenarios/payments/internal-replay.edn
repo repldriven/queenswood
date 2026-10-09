@@ -10,8 +10,7 @@
           :as :ford
           :with {:token [:ref :bank-0 :token]
                  :display-name "Ford Prefect"
-                 :given-name "Ford"
-                 :family-name "Prefect"}}
+                 :legal-name "Ford Prefect"}}
          ;; £1,000 from outside, paid in from the bank's own funds.
          {:fixture :funded-account
           :as :debtor

@@ -65,7 +65,7 @@
        :as-of-date as-of-date
        :accounts-processed (+ (:done tally) (:skipped tally))
        :accounts-failed (:failed tally)
-       :run-state (:state record)})))
+       :run-status (:status record)})))
 
 (defn accrue-day [config data] (run-interest config data accrue/pass))
 
@@ -80,24 +80,24 @@
   (if-let [{:keys [run-kind account-kind]} (kind->run kind)]
     (let-nom>
       [scope (store/count-account-runs config bank-id as-of-date account-kind)
-       done (store/count-account-runs-by-state
+       done (store/count-account-runs-by-status
              config
              bank-id
              as-of-date
              account-kind
-             :interest-account-run-state-done)
-       failed (store/count-account-runs-by-state
+             :interest-account-run-status-completed)
+       failed (store/count-account-runs-by-status
                config
                bank-id
                as-of-date
                account-kind
-               :interest-account-run-state-failed)
+               :interest-account-run-status-failed)
        run (store/load-run config bank-id as-of-date run-kind)]
       {:scope scope
        :done done
        :failed failed
        :pending (- scope done failed)
-       :run-state (:state run)})
+       :run-status (:status run)})
     (error/reject :interest/unknown-run-kind
                   {:message "Run kind must be :accrue or :capitalize"
                    :kind kind})))

@@ -4,7 +4,7 @@
 
 (defn- available
   [bank bank-real-id account-id]
-  (or (-> (balance/get-balances bank bank-real-id account-id)
+  (or (-> (balance/get-balances bank bank-real-id account-id "GBP")
           :available-balance
           :value)
       0))

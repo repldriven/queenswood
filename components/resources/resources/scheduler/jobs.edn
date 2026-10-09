@@ -1,17 +1,15 @@
 ;; Default scheduled jobs seeded into every bank at provisioning.
 ;; Templates carry no :bank-id / timestamps — those are stamped at
 ;; seed time. :job-id is stable so re-seeding overwrites in place.
-;; A job's allowed periodicities are the intersection of its tasks'
-;; limits (accrue is daily-only), so [accrue capitalize] is daily.
+;; :schedule is a Quartz cron in UTC, which each task's cadence limits
+;; (accrue exactly daily), so [accrue capitalize] is daily.
 ;; :kind is user (operator-editable) or system (platform-fixed cadence,
-;; only the time of day editable). :monthly-day (first/last) applies to
-;; monthly jobs.
+;; only the time of day editable).
 [{:job-id "daily-interest"
   :name "Daily interest"
   :task-kinds [:scheduler-task-kind-accrue :scheduler-task-kind-capitalize]
-  :periodicity :scheduler-periodicity-daily
-  :run-time-minutes 1020 ; 17:00 UTC
-  :enabled true
+  :schedule "0 0 17 * * ?"
+  :status :scheduler-job-status-active
   :kind :scheduler-job-kind-user}
  ;; System job: account migration runs every day at 00:00 UTC. It
  ;; commits every migration that is approved and due, and is the only
@@ -19,7 +17,6 @@
  {:job-id "account-migration"
   :name "Account migration"
   :task-kinds [:scheduler-task-kind-account-migration]
-  :periodicity :scheduler-periodicity-daily
-  :run-time-minutes 0
-  :enabled true
+  :schedule "0 0 0 * * ?"
+  :status :scheduler-job-status-active
   :kind :scheduler-job-kind-system}]

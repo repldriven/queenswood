@@ -11,9 +11,9 @@
 
 (defn- rejected
   [intent failure-kind reason now]
-  {:event-name "transaction-rejected"
-   :dedup-key (str (:dedup-key intent) ":submission-rejected")
-   :data {:end-to-end-id (:dedup-key intent)
+  {:event-name "provider-payment-rejected"
+   :dedup-key (str (:idempotency-key intent) ":submission-rejected")
+   :data {:end-to-end-id (:idempotency-key intent)
           :scheme "fps"
           :debit-credit-code :debit-credit-code-debit
           :cancellation-code "NARR"
@@ -48,7 +48,7 @@
 
 (defn- payment-failed
   [_config now intent failure reason]
-  {:status "failed"
+  {:status :outbound-intent-status-failed
    :event (rejected intent
                     (if (= :refused failure)
                       :failure-kind-refused
@@ -61,11 +61,11 @@
   record what it reports under the dedup key its webhook would carry, so
   a late webhook finds it already there."
   [config now intent]
-  (let [{:keys [intent-id dedup-key provider-payment-id]} intent
+  (let [{:keys [intent-id idempotency-key provider-payment-id]} intent
         {:keys! [amount currency]} (shared/context intent)
         [outcome {:keys [status]}] (shared/lookup config provider-payment-id)
         descriptor (outcomes/payment {:provider-payment-id provider-payment-id
-                                      :end-to-end-id dedup-key
+                                      :end-to-end-id idempotency-key
                                       :amount amount
                                       :currency currency
                                       :status status
@@ -73,13 +73,14 @@
     (assoc (if descriptor
              (do (log/info "Reconciled a Modulr payment"
                            {:intent-id intent-id :status status})
-                 {:status "settled" :event descriptor})
+                 {:status :outbound-intent-status-settled :event descriptor})
              (shared/wait config now))
            :outcome
            outcome)))
 
 (intent-poller/defoperations :modulr
-                             {"payment" {:call pay
-                                         :answered paid
-                                         :failed payment-failed
-                                         :reconcile reconcile-payment}})
+                             {:modulr-outbound-intent-kind-payment
+                              {:call pay
+                               :answered paid
+                               :failed payment-failed
+                               :reconcile reconcile-payment}})

@@ -6,10 +6,9 @@
           :request {:method :post
                     :path "/v1/parties"
                     :auth [:ref :org-0 :token]
-                    :body {:type "person"
+                    :body {:party-type "person"
                            :display-name "Arthur Dent"
-                           :given-name "Arthur"
-                           :family-name "Dent"
+                           :legal-name "Arthur Dent"
                            :external-reference "cust-4471"}}
           :as :first
           :assert {:status 201}}]
@@ -17,10 +16,9 @@
          :request {:method :post
                    :path "/v1/parties"
                    :auth [:ref :org-0 :token]
-                   :body {:type "person"
+                   :body {:party-type "person"
                           :display-name "Ford Prefect"
-                          :given-name "Ford"
-                          :family-name "Prefect"
+                          :legal-name "Ford Prefect"
                           :external-reference "cust-4471"}}
          :assert {:status 409
                   :body {:type ":party/external-reference-taken"}}}]}

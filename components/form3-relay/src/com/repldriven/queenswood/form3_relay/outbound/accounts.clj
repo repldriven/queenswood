@@ -64,7 +64,7 @@
 (defn- account-refused
   [intent ctx reason]
   (shared/account-event intent
-                        "payment-account-refused"
+                        "payment-account-open-refused"
                         {:bank-id (:bank-id ctx)
                          :account-id (:account-id ctx)
                          :reason reason}))
@@ -82,7 +82,7 @@
         {:keys! [bank-id account-id]} ctx
         {:keys [status status_reason]} (:attributes account)]
     (if (= "confirmed" status)
-      {:status "settled"
+      {:status :outbound-intent-status-settled
        :event (shared/account-event intent
                                     "payment-account-opened"
                                     {:bank-id bank-id
@@ -92,7 +92,7 @@
                                                             account))})}
       (do (log/error "Form3 did not confirm an account registration"
                      {:intent-id (:intent-id intent) :status status})
-          {:status "failed"
+          {:status :outbound-intent-status-failed
            :event (account-refused intent
                                    ctx
                                    (or status_reason
@@ -100,7 +100,7 @@
 
 (defn- open-failed
   [_config _now intent failure reason]
-  {:status "failed"
+  {:status :outbound-intent-status-failed
    :event (account-refused intent
                            (shared/context intent)
                            (shared/undelivered failure reason))})
@@ -130,7 +130,7 @@
 (defn- closed
   [_config _now intent _result]
   (let [{:keys! [bank-id account-id]} (shared/context intent)]
-    {:status "settled"
+    {:status :outbound-intent-status-settled
      :event (shared/account-event intent
                                   "payment-account-closed"
                                   {:bank-id bank-id :account-id account-id})}))
@@ -138,7 +138,7 @@
 (defn- close-failed
   [_config _now intent failure reason]
   (let [{:keys! [bank-id account-id]} (shared/context intent)]
-    {:status "failed"
+    {:status :outbound-intent-status-failed
      :event (shared/account-event intent
                                   "payment-account-close-refused"
                                   {:bank-id bank-id
@@ -233,7 +233,7 @@
   [_config _now intent {:keys [ctx next]}]
   (if next
     {:advance next}
-    {:status "settled" :event (reissued intent ctx)}))
+    {:status :outbound-intent-status-settled :event (reissued intent ctx)}))
 
 (defn- reissue-stopped
   "A reissue that stops at closing the old registration is reissued, the
@@ -244,13 +244,15 @@
                    {:intent-id (:intent-id intent)
                     :provider-account-id (:provider-account-id ctx)
                     :reason reason})
-        {:status "settled" :event (reissued intent ctx)})
-    {:status "failed"
+        {:status :outbound-intent-status-settled :event (reissued intent ctx)})
+    {:status :outbound-intent-status-failed
      :event (reissue-failed intent ctx (shared/undelivered failure reason))}))
 
 (intent-poller/defoperations
  :form3
- {"open-account" {:call open :answered opened :failed open-failed}
-  "close-account" {:call close :answered closed :failed close-failed}
-  "reissue-address"
+ {:form3-outbound-intent-kind-open-account
+  {:call open :answered opened :failed open-failed}
+  :form3-outbound-intent-kind-close-account
+  {:call close :answered closed :failed close-failed}
+  :form3-outbound-intent-kind-reissue-address
   {:call reissue :answered reissue-advanced :failed reissue-stopped}})

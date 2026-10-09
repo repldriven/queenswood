@@ -15,63 +15,70 @@
 (defn- drain
   [intents outcomes]
   (let [ran (atom [])]
-    (SUT/drain intents
-               1000
-               {:run (fn [i]
-                       (swap! ran conj (:intent-id i))
-                       (assoc i :status (get outcomes (:intent-id i) "sent")))
-                :settles-first? closes-settle-first?})
+    (SUT/drain
+     intents
+     1000
+     {:run (fn [i]
+             (swap! ran conj (:intent-id i))
+             (assoc i
+                    :status
+                    (get outcomes (:intent-id i) :outbound-intent-status-sent)))
+      :settles-first? closes-settle-first?})
     @ran))
 
 (deftest drain-test
   (testing "intents for different subjects all run, oldest first"
     (is (= ["i1" "i2"]
-           (drain [(intent "i2" "pending" "payment" "b")
-                   (intent "i1" "pending" "payment" "a")]
+           (drain [(intent "i2" :outbound-intent-status-pending "payment" "b")
+                   (intent "i1" :outbound-intent-status-pending "payment" "a")]
                   {}))))
   (testing "a later intent runs once an earlier one for its subject is sent"
     (is (= ["i1" "i2"]
-           (drain [(intent "i1" "pending" "payment" "a")
-                   (intent "i2" "pending" "payment" "a")]
+           (drain [(intent "i1" :outbound-intent-status-pending "payment" "a")
+                   (intent "i2" :outbound-intent-status-pending "payment" "a")]
                   {}))))
   (testing "an earlier intent left pending holds its subject's later ones"
     (is (= ["i1" "i3"]
-           (drain [(intent "i1" "pending" "payment" "a")
-                   (intent "i2" "pending" "payment" "a")
-                   (intent "i3" "pending" "payment" "b")]
-                  {"i1" "pending"}))))
+           (drain [(intent "i1" :outbound-intent-status-pending "payment" "a")
+                   (intent "i2" :outbound-intent-status-pending "payment" "a")
+                   (intent "i3" :outbound-intent-status-pending "payment" "b")]
+                  {"i1" :outbound-intent-status-pending}))))
   (testing "one not yet due holds its subjects without running"
     (is (= ["i3"]
-           (drain [(assoc (intent "i1" "pending" "payment" "a")
+           (drain [(assoc (intent "i1" :outbound-intent-status-pending
+                                  "payment" "a")
                           :next-attempt-at
-                          5000) (intent "i2" "pending" "payment" "a")
-                   (intent "i3" "pending" "payment" "b")]
+                          5000)
+                   (intent "i2" :outbound-intent-status-pending "payment" "a")
+                   (intent "i3" :outbound-intent-status-pending "payment" "b")]
                   {}))))
   (testing "a transfer holds both its accounts"
     (is (= ["i1"]
-           (drain [(intent "i1" "pending" "transfer" "a" "b")
-                   (intent "i2" "pending" "payment" "b")]
-                  {"i1" "pending"}))))
+           (drain
+            [(intent "i1" :outbound-intent-status-pending "transfer" "a" "b")
+             (intent "i2" :outbound-intent-status-pending "payment" "b")]
+            {"i1" :outbound-intent-status-pending}))))
   (testing "a close waits for an earlier sent transfer to settle"
     (is (= []
-           (drain [(intent "i1" "sent" "transfer" "a" "b")
-                   (intent "i2" "pending" "close" "b")]
+           (drain [(intent "i1" :outbound-intent-status-sent "transfer" "a" "b")
+                   (intent "i2" :outbound-intent-status-pending "close" "b")]
                   {}))))
   (testing "but a payment does not"
     (is (= ["i2"]
-           (drain [(intent "i1" "sent" "payment" "a")
-                   (intent "i2" "pending" "payment" "a")]
+           (drain [(intent "i1" :outbound-intent-status-sent "payment" "a")
+                   (intent "i2" :outbound-intent-status-pending "payment" "a")]
                   {}))))
   (testing "a close runs once what came before it has settled"
     (is (= ["i1" "i2"]
-           (drain [(intent "i1" "pending" "transfer" "a" "b")
-                   (intent "i2" "pending" "close" "b")]
-                  {"i1" "settled"}))))
+           (drain
+            [(intent "i1" :outbound-intent-status-pending "transfer" "a" "b")
+             (intent "i2" :outbound-intent-status-pending "close" "b")]
+            {"i1" :outbound-intent-status-settled}))))
   (testing "an intent naming no subject waits for nothing"
     (is (= ["i1" "i2"]
-           (drain [(intent "i1" "pending" "payment" "a")
-                   (intent "i2" "pending" "return")]
-                  {"i1" "pending"})))))
+           (drain [(intent "i1" :outbound-intent-status-pending "payment" "a")
+                   (intent "i2" :outbound-intent-status-pending "return")]
+                  {"i1" :outbound-intent-status-pending})))))
 
 (defn- runnable-ids
   [intents]
@@ -81,34 +88,42 @@
 (deftest runnable-test
   (testing "intents for different subjects run together, oldest first"
     (is (= ["i1" "i2"]
-           (runnable-ids [(intent "i2" "pending" "payment" "b")
-                          (intent "i1" "pending" "payment" "a")]))))
+           (runnable-ids
+            [(intent "i2" :outbound-intent-status-pending "payment" "b")
+             (intent "i1" :outbound-intent-status-pending "payment" "a")]))))
   (testing "a later intent for a running one's subject waits for a pass"
     (is (= ["i1" "i3"]
-           (runnable-ids [(intent "i1" "pending" "payment" "a")
-                          (intent "i2" "pending" "payment" "a")
-                          (intent "i3" "pending" "payment" "b")]))))
+           (runnable-ids
+            [(intent "i1" :outbound-intent-status-pending "payment" "a")
+             (intent "i2" :outbound-intent-status-pending "payment" "a")
+             (intent "i3" :outbound-intent-status-pending "payment" "b")]))))
   (testing "a transfer holds both its accounts"
     (is (= ["i1" "i4"]
-           (runnable-ids [(intent "i1" "pending" "transfer" "a" "b")
-                          (intent "i2" "pending" "payment" "b")
-                          (intent "i3" "pending" "transfer" "a" "c")
-                          (intent "i4" "pending" "payment" "d")]))))
+           (runnable-ids
+            [(intent "i1" :outbound-intent-status-pending "transfer" "a" "b")
+             (intent "i2" :outbound-intent-status-pending "payment" "b")
+             (intent "i3" :outbound-intent-status-pending "transfer" "a" "c")
+             (intent "i4" :outbound-intent-status-pending "payment" "d")]))))
   (testing "one not yet due holds its subjects"
     (is (= ["i3"]
-           (runnable-ids [(assoc (intent "i1" "pending" "payment" "a")
-                                 :next-attempt-at
-                                 5000) (intent "i2" "pending" "payment" "a")
-                          (intent "i3" "pending" "payment" "b")]))))
+           (runnable-ids
+            [(assoc (intent "i1" :outbound-intent-status-pending "payment" "a")
+                    :next-attempt-at
+                    5000)
+             (intent "i2" :outbound-intent-status-pending "payment" "a")
+             (intent "i3" :outbound-intent-status-pending "payment" "b")]))))
   (testing "a close waits for an earlier sent transfer to settle"
     (is (= []
-           (runnable-ids [(intent "i1" "sent" "transfer" "a" "b")
-                          (intent "i2" "pending" "close" "b")]))))
+           (runnable-ids
+            [(intent "i1" :outbound-intent-status-sent "transfer" "a" "b")
+             (intent "i2" :outbound-intent-status-pending "close" "b")]))))
   (testing "but a payment does not"
     (is (= ["i2"]
-           (runnable-ids [(intent "i1" "sent" "transfer" "a" "b")
-                          (intent "i2" "pending" "payment" "b")]))))
+           (runnable-ids
+            [(intent "i1" :outbound-intent-status-sent "transfer" "a" "b")
+             (intent "i2" :outbound-intent-status-pending "payment" "b")]))))
   (testing "an intent naming no subject waits for nothing"
     (is (= ["i1" "i2"]
-           (runnable-ids [(intent "i1" "pending" "payment")
-                          (intent "i2" "pending" "payment")])))))
+           (runnable-ids
+            [(intent "i1" :outbound-intent-status-pending "payment")
+             (intent "i2" :outbound-intent-status-pending "payment")])))))

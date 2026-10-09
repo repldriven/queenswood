@@ -20,6 +20,9 @@
 
 (def ^:private config-file "classpath:scheduler/application-test.yml")
 
+(def ^:private operator
+  {:kind :actor-kind-operator :principal-id "queenswood-admin"})
+
 (defn- runner
   "The runner's instance: the config with the scheduler and the
   triggers it registered."
@@ -69,15 +72,13 @@
                                       :name "Account migration"
                                       :task-kinds
                                       [:scheduler-task-kind-account-migration]
-                                      :periodicity :scheduler-periodicity-daily
-                                      :run-time-minutes 0
-                                      :enabled true
+                                      :schedule "0 0 0 * * ?"
+                                      :status :scheduler-job-status-active
                                       :kind :scheduler-job-kind-system
-                                      :created-at now
-                                      :updated-at now})
+                                      :created-at now})
                    _ (SUT/reconcile! config)
                    seeded (store/get-job config bank-id "daily-interest")
-                   _ (is (= 1020 (:run-time-minutes seeded)))
+                   _ (is (= "0 0 17 * * ?" (:schedule seeded)))
                    _ (is (= "0 0 17 * * ?"
                             (registered config bank-id "daily-interest")))])))))
 
@@ -89,35 +90,37 @@
          bank-id (str "bnk.core." (utility/uuidv7))]
      (nom-test> [_ (seed config bank-id)
                  _ (SUT/reconcile! config)
-                 _ (testing
-                     "an edit made as the API makes it, with no scheduler"
-                     (nom-test> [_ (SUT/update-schedule api-config
-                                                        bank-id
-                                                        "daily-interest"
-                                                        {:run-time-minutes 300})
-                                 _ (is (= "0 0 17 * * ?"
-                                          (registered config
+                 _
+                 (testing "an edit made as the API makes it, with no scheduler"
+                   (nom-test> [_ (SUT/update-schedule api-config
                                                       bank-id
-                                                      "daily-interest")))]))
+                                                      "daily-interest"
+                                                      {:schedule "0 0 5 * * ?"}
+                                                      operator)
+                               _ (is (= "0 0 17 * * ?"
+                                        (registered config
+                                                    bank-id
+                                                    "daily-interest")))]))
                  _ (testing "reaches the live trigger at the next reconcile"
                      (SUT/reconcile! config)
                      (is (= "0 0 5 * * ?"
                             (registered config bank-id "daily-interest"))))
-                 _ (testing "and disabling it removes the trigger"
-                     (nom-test> [_ (SUT/update-schedule api-config
-                                                        bank-id
-                                                        "daily-interest"
-                                                        {:enabled false})
+                 _ (testing "and pausing it removes the trigger"
+                     (nom-test> [_ (SUT/update-schedule
+                                    api-config
+                                    bank-id
+                                    "daily-interest"
+                                    {:status :scheduler-job-status-paused}
+                                    operator)
                                  _ (SUT/reconcile! config)
                                  _ (is (nil? (registered config
                                                          bank-id
                                                          "daily-interest")))]))
                  _ (testing "while an hourly cadence is refused for its tasks"
-                     (let [result (SUT/update-schedule
-                                   api-config
-                                   bank-id
-                                   "daily-interest"
-                                   {:periodicity :scheduler-periodicity-hourly
-                                    :run-time-minutes 5})]
+                     (let [result (SUT/update-schedule api-config
+                                                       bank-id
+                                                       "daily-interest"
+                                                       {:schedule "0 5 * * * ?"}
+                                                       operator)]
                        (is (= :scheduler/periodicity-not-allowed
                               (error/kind result)))))]))))

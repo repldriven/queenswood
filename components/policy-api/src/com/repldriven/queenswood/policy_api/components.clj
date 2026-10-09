@@ -11,6 +11,9 @@
 (def PolicyCategory
   (coercion/policy-category-enum-schema {:json-schema/example "restricted"}))
 
+(def PolicyStatus
+  (coercion/policy-status-enum-schema {:json-schema/example "active"}))
+
 ;; Capability and Limit bodies are polymorphic oneofs over kind
 ;; (`:balance`, `:cash-account`, …). Rather than mirror the proto's
 ;; nested structure in malli — which balloons fast and breaks every
@@ -25,13 +28,14 @@
    [:policy-id [:ref "PolicyId"]]
    [:name {:optional true} [:maybe [:ref "Name"]]]
    [:description {:optional true} [:maybe string?]]
-   [:enabled boolean?]
+   [:status [:ref "PolicyStatus"]]
    [:category [:ref "PolicyCategory"]]
    [:capabilities [:vector [:ref "Capability"]]]
    [:limits [:vector [:ref "Limit"]]]
    [:labels [:map-of string? string?]]
+   [:archived-at {:optional true} [:ref "Timestamp"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def PolicyList (list-schema "Policy" examples/PolicyList))
 
@@ -58,6 +62,13 @@
    [:limits [:vector [:ref "EffectiveLimit"]]]])
 
 (def registry
-  (components-registry [#'PolicyId #'PolicyCategory #'Capability #'Limit
-                        #'Policy #'PolicyList #'Origin #'EffectiveCapability
-                        #'EffectiveLimit #'EffectivePolicy]))
+  (components-registry [#'PolicyId #'PolicyCategory #'PolicyStatus #'Capability
+                        #'Limit #'Policy #'PolicyList #'Origin
+                        #'EffectiveCapability #'EffectiveLimit
+                        #'EffectivePolicy]))
+
+(def ^:private policy-keys (into [] (comp (filter vector?) (map first)) Policy))
+
+(defn ->body
+  [policy]
+  (select-keys policy policy-keys))

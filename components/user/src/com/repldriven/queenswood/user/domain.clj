@@ -3,30 +3,24 @@
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn new-user
-  "Build a User map from OIDC claims. Status defaults to active --
-  the IdP is the authority on identity; if it asserted the subject
-  to us, they are active by definition."
+  "Build a User map from OIDC claims."
   [{:keys [issuer sub email name avatar-url identity-provider]}]
-  (let [now (utility/now)]
-    (utility/assoc-some
-     {:user-id (utility/generate-id "usr")
-      :issuer issuer
-      :sub sub
-      :email email
-      :name name
-      :identity-provider (or identity-provider
-                             :identity-provider-unknown)
-      :status :user-status-active
-      :created-at now
-      :updated-at now}
-     :avatar-url
-     avatar-url)))
+  (utility/assoc-some {:user-id (utility/generate-id "usr")
+                       :issuer issuer
+                       :sub sub
+                       :name name
+                       :identity-provider (or identity-provider
+                                              :identity-provider-unknown)
+                       :email email
+                       :created-at (utility/now)}
+                      :avatar-url
+                      avatar-url))
 
 (defn update-user
   "Merge a fresh set of OIDC claims into an existing User -- used
   when a known (issuer, sub) re-signs in and their email / name /
-  avatar may have changed. user-id, issuer, sub, status, created-at
-  stay put; updated-at refreshes."
+  avatar may have changed. user-id, issuer, sub and created-at stay
+  put; updated-at refreshes."
   [user {:keys [email name avatar-url identity-provider]}]
   (-> user
       (assoc :updated-at (utility/now))

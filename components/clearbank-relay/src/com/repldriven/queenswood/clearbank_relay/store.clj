@@ -34,12 +34,23 @@
   (intent-poller/intents-with-status (assoc config :store spec) status))
 
 (defn finish
-  [config intent-id status outcome attempts event]
-  (intent-poller/finish config spec intent-id status outcome attempts event))
+  [config intent-id status outcome attempt-count event]
+  (intent-poller/finish config
+                        spec
+                        intent-id
+                        status
+                        outcome
+                        attempt-count
+                        event))
 
 (defn mark-sent
   [config intent-id]
-  (finish config intent-id "pending" "sent" nil nil))
+  (finish config
+          intent-id
+          :outbound-intent-status-pending
+          :outbound-intent-status-sent
+          nil
+          nil))
 
 (defn allocate-account-number
   [txn]

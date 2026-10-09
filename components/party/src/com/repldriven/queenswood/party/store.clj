@@ -12,8 +12,6 @@
 
 ;; Nothing writes national identifiers (ADR-0045); the store stays until
 ;; every instance has deleted its records.
-(def ^:private national-identifiers-store-name "party-national-identifiers")
-
 (def transact fdb/transact)
 (def uniqueness-violation? fdb/uniqueness-violation?)
 
@@ -36,10 +34,3 @@
          (schema/Party->pb party))))
    :party/save
    "Failed to save party"))
-
-(defn delete-national-identifiers
-  [config]
-  (fdb/rewrite-store config
-                     national-identifiers-store-name
-                     (fn [_txn _bytes] :delete)
-                     {}))

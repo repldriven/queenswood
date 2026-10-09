@@ -26,10 +26,9 @@
              :path "/v1/parties"
              :auth :bank-a-token
              :headers {:idempotency-key "ik-parties-shared-key-0001"}
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Zaphod Beeblebrox"
-                    :given-name "Zaphod"
-                    :family-name "Beeblebrox"}}
+                    :legal-name "Zaphod Beeblebrox"}}
    :as :party-a
    :assert {:status 201 :body {:bank-id [:ref :bank-a :bank :bank-id]}}}
   {:command :idv/verify
@@ -40,10 +39,9 @@
              :path "/v1/parties"
              :auth :bank-b-token
              :headers {:idempotency-key "ik-parties-shared-key-0001"}
-             :body {:type "person"
+             :body {:party-type "person"
                     :display-name "Slartibartfast"
-                    :given-name "Slarti"
-                    :family-name "Bartfast"}}
+                    :legal-name "Slarti Bartfast"}}
    :as :party-b
    :assert {:status 201 :body {:bank-id [:ref :bank-b :bank :bank-id]}}}
   {:command :idv/verify

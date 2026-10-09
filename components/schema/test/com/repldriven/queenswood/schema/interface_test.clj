@@ -6,16 +6,19 @@
   The reply schema is hand-maintained — nothing generates it from the
   proto — which is what these round-trips are for.
 
-  The access records read back what was written, and a membership
-  written before a membership could end reads as active. An inbound
+  The access records read back what was written, and a member
+  written before a member could end reads as active. An inbound
   payment reads back its creditor account and transaction only when it
   carries them. A product version reads back its opening reward as a
   plain map, or without one, and a reward its transaction only once
   paid.
 
-  A `transaction-rejected` written with the current schema is read by a
+  A `provider-payment-rejected` written with the current schema is read by a
   consumer still on the schema at `stable-20260916112610`, which is the
-  order a deploy puts them in."
+  order a deploy puts them in.
+
+  A required field holding zero reaches the Java parse, and one left out
+  is still refused by it."
   (:require
     [com.repldriven.queenswood.schema.interface :as SUT]
 
@@ -23,7 +26,9 @@
     [com.repldriven.mono.error.interface :as error]
 
     [clojure.java.io :as io]
-    [clojure.test :refer [deftest is testing]]))
+    [clojure.test :refer [deftest is testing]])
+  (:import
+    (com.google.protobuf InvalidProtocolBufferException)))
 
 (def ^:private payment-address
   {:scheme :payment-address-scheme-scan
@@ -37,11 +42,13 @@
    :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
    :product-id "prd.01kprbmgcj35ptc8npmybhh4se"
    :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
+   :version-from-on 20089
+   :created-by {:kind :actor-kind-operator :principal-id "test"}
    :name "Arthur Phillip Dent - Current Account"
    :currency "GBP"
-   :account-status :cash-account-status-opened
+   :status :cash-account-status-opened
    :account-type :account-type-personal
-   :product-type :product-type-sub-ledger-current
+   :product-type :account-product-type-sub-ledger-current
    :payment-addresses [payment-address]
    :bban "04000412345678"
    :created-at 1700000000000
@@ -52,11 +59,35 @@
   (assoc opened-account
          :retired-payment-addresses [{:address payment-address
                                       :retired-at 1700000000500}]
-         :last-rotation-idempotency-key "01kprbmgcj35ptc8npmybhh4sh"))
+         :rotation {:idempotency-key "01kprbmgcj35ptc8npmybhh4sh"
+                    :status :address-rotation-status-completed}))
 
 (def ^:private reply-schema
   (avro/json->schema (slurp (io/resource
-                             "schemas/cash-accounts/account.avsc.json"))))
+                             "schemas/cash-account/cash-account.avsc.json"))))
+
+(def ^:private opened-balance
+  {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
+   :balance-type :balance-type-default
+   :balance-status :balance-status-posted
+   :product-type :account-product-type-sub-ledger-current
+   :credit 0
+   :debit 0
+   :created-at 1700000000000})
+
+(deftest required-field-test
+  (testing "a required field holding zero is written"
+    (is (= 0 (.getCredit (SUT/AccountBalance->java opened-balance))))
+    (is (= opened-balance
+           (into {}
+                 (SUT/pb->AccountBalance (SUT/AccountBalance->pb
+                                          opened-balance))))))
+  (testing "a required field left out is refused by the Java parse"
+    (is (thrown-with-msg? InvalidProtocolBufferException
+                          #"bank_id"
+                          (SUT/AccountBalance->java (dissoc opened-balance
+                                                     :bank-id))))))
 
 (deftest cash-account-record-round-trip-test
   (testing "an account that has been rotated keeps its history"
@@ -67,13 +98,17 @@
       (is (= :payment-address-scheme-scan (:scheme (:address retired))))
       (is (= {:sort-code "040004" :account-number "12345678"}
              (into {} (:scan (:address retired)))))
-      (is (= "01kprbmgcj35ptc8npmybhh4sh"
-             (:last-rotation-idempotency-key account)))))
-  (testing "the record carries no GL control pointer"
+      (is (= {:idempotency-key "01kprbmgcj35ptc8npmybhh4sh"
+              :status :address-rotation-status-completed}
+             (:rotation account)))))
+  (testing "a field an account was never given reads back absent"
     (let [account (SUT/pb->CashAccount (SUT/CashAccount->pb opened-account))]
-      (is (not (contains? account :gl-control-account-id)))
-      (is (not (contains? account :last-rotation-idempotency-key))
-          "an account that has never been rotated leaves the key unset"))))
+      (is (not (contains? account :rotation))
+          "an account that has never been rotated has no rotation")
+      (is (not (contains? account :suspended-at)))
+      (is (not (contains? account :suspended-by)))
+      (is (= {:kind :actor-kind-operator :principal-id "test"}
+             (:created-by account))))))
 
 (deftest cash-account-reply-schema-test
   (is (not (error/anomaly? reply-schema)) "the reply schema parses")
@@ -87,7 +122,7 @@
       (is (= [] (:retired-payment-addresses body)))
       (testing "and publishes none of the GL fields the record dropped"
         (is (empty? (select-keys body
-                                 [:gl-code :gl-account-type :gl-account-class
+                                 [:gl-code :gl-account-type :account-class
                                   :required :gl-control-code]))))))
   (testing "a rotated account's history round-trips"
     (let [body (avro/deserialize-same reply-schema
@@ -99,136 +134,165 @@
 (def ^:private suspended-inbound
   "An inbound as `payment/domain` parks it: no creditor account and, until
   a suspense posting, no transaction."
-  {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4s5"
-   :scheme-transaction-id "01a0b01c-5496-7d64-a052-ad4c57e5d0ef"
-   :end-to-end-id "01a0b01c-546b-76ac-9462-53eec8a61307"
-   :scheme "FasterPayments"
-   :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :business-day 20713
-   :currency "GBP"
+  {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :payment-id "pmt.01kprbmgcj35ptc8npmybhh4s5"
+   :status :inbound-payment-status-suspended
+   :scheme-type :scheme-type-fps
    :amount 2500
-   :payment-status :inbound-payment-status-suspended
-   :created-at 1700000000000
-   :updated-at 1700000000000})
+   :currency "GBP"
+   :end-to-end-id "01a0b01c-546b-76ac-9462-53eec8a61307"
+   :scheme-transaction-id "01a0b01c-5496-7d64-a052-ad4c57e5d0ef"
+   :business-day 20713
+   :suspended-at 1700000000000
+   :created-at 1700000000000})
 
 (deftest inbound-payment-record-round-trip-test
   (testing "a record with no creditor account or transaction reads neither"
     (let [payment (SUT/pb->InboundPayment (SUT/InboundPayment->pb
                                            suspended-inbound))]
-      (is (= :inbound-payment-status-suspended (:payment-status payment)))
+      (is (= :inbound-payment-status-suspended (:status payment)))
+      (is (= 1700000000000 (:suspended-at payment)))
       (is (not (contains? payment :creditor-account-id)))
-      (is (not (contains? payment :transaction-id)))))
+      (is (not (contains? payment :transaction-id)))
+      (is (not (contains? payment :settled-at)))
+      (is (not (contains? payment :updated-at)))))
   (testing "a settled record keeps both"
     (let [payment (SUT/pb->InboundPayment
                    (SUT/InboundPayment->pb
                     (assoc suspended-inbound
-                           :payment-status :inbound-payment-status-settled
+                           :status :inbound-payment-status-settled
                            :creditor-account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
                            :transaction-id "txn.01kprbmgcj35ptc8npmybhh4t2")))]
       (is (= "acc.01kprbmgcj35ptc8npmybhh4s8" (:creditor-account-id payment)))
       (is (= "txn.01kprbmgcj35ptc8npmybhh4t2" (:transaction-id payment))))))
 
-(def ^:private owner
-  {:membership-id "mem.01kprbmgcj35ptc8npmybhh4t0"
-   :user-id "usr.01kprbmgcj35ptc8npmybhh4t1"
-   :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :role :role-owner
-   :created-at 1700000000000
-   :updated-at 1700000000000})
-
 (def ^:private member-actor
   {:kind :actor-kind-member :principal-id "usr.01kprbmgcj35ptc8npmybhh4t1"})
 
-(deftest membership-record-round-trip-test
-  (testing "a membership written without a status reads back active"
-    (is (= (assoc owner :status :membership-status-active)
-           (SUT/pb->Membership (SUT/Membership->pb owner)))))
-  (testing "an ended membership keeps who ended it and when"
-    (let [ended (assoc owner
-                       :role :role-viewer
-                       :status :membership-status-ended
-                       :ended-at 1700000000500
-                       :ended-by member-actor
-                       :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2")]
-      (is (= ended (SUT/pb->Membership (SUT/Membership->pb ended))))
-      (is (= (SUT/membership-status->pb-enum :membership-status-ended)
-             (.getStatus (SUT/Membership->java ended)))))))
-
-(def ^:private pending-invitation
-  {:invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2"
-   :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :email "Ford.Prefect@example.com"
-   :email-lower "ford.prefect@example.com"
-   :role :role-developer
-   :status :invitation-status-pending
-   :token-hash (apply str (repeat 64 "a"))
-   :expires-at 1700604800000
-   :invited-by member-actor
+(def ^:private owner
+  {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :member-id "mem.01kprbmgcj35ptc8npmybhh4t0"
+   :status :member-status-active
+   :role :role-owner
+   :user-id "usr.01kprbmgcj35ptc8npmybhh4t1"
    :created-at 1700000000000
+   :created-by member-actor
    :updated-at 1700000000000})
 
+(deftest member-record-round-trip-test
+  (testing "an active member keeps who created it"
+    (is (= owner (SUT/pb->Member (SUT/Member->pb owner)))))
+  (testing "a removed member keeps who removed it, when and why"
+    (let [ended (assoc owner
+                       :role :role-viewer
+                       :status :member-status-removed
+                       :removed-at 1700000000500
+                       :removed-by member-actor
+                       :removed-reason "Left the company"
+                       :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2")]
+      (is (= ended (SUT/pb->Member (SUT/Member->pb ended))))
+      (is (= (SUT/member-status->pb-enum :member-status-removed)
+             (.getStatus (SUT/Member->java ended)))))))
+
+(def ^:private pending-invitation
+  {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2"
+   :status :invitation-status-pending
+   :role :role-developer
+   :email "Ford.Prefect@example.com"
+   :email-lower "ford.prefect@example.com"
+   :token-hash (apply str (repeat 64 "a"))
+   :expires-at 1700604800000
+   :created-at 1700000000000
+   :created-by member-actor
+   :updated-at 1700000000000})
+
+(def ^:private operator-actor {:kind :actor-kind-operator :principal-id "ops"})
+
 (deftest invitation-record-round-trip-test
-  (testing "a pending invitation carries no reason and no accepting user"
+  (testing "a pending invitation carries no reason and no transition"
     (is (= pending-invitation
            (SUT/pb->Invitation (SUT/Invitation->pb pending-invitation))))
     (is (some? (SUT/Invitation->java pending-invitation))))
-  (testing "an operator's accepted invitation keeps both"
-    (let [accepted
-          (assoc pending-invitation
-                 :status :invitation-status-accepted
-                 :invited-by {:kind :actor-kind-operator :principal-id "ops"}
-                 :reason "Support ticket 42"
-                 :accepted-by-user-id "usr.01kprbmgcj35ptc8npmybhh4t3")]
-      (is (= accepted (SUT/pb->Invitation (SUT/Invitation->pb accepted)))))))
+  (testing "an operator's resent, then accepted, invitation keeps each act"
+    (let [accepted (assoc pending-invitation
+                          :status :invitation-status-accepted
+                          :created-by operator-actor
+                          :reason "Support ticket 42"
+                          :resent-at 1700000000100
+                          :resent-by operator-actor
+                          :accepted-at 1700000000200
+                          :accepted-by {:kind :actor-kind-member
+                                        :principal-id
+                                        "usr.01kprbmgcj35ptc8npmybhh4t3"})]
+      (is (= accepted (SUT/pb->Invitation (SUT/Invitation->pb accepted))))))
+  (testing "a withdrawn invitation keeps who withdrew it and why"
+    (let [withdrawn (assoc pending-invitation
+                           :status :invitation-status-withdrawn
+                           :withdrawn-at 1700000000300
+                           :withdrawn-by operator-actor
+                           :withdrawn-reason "Sent to the wrong address")]
+      (is (= withdrawn (SUT/pb->Invitation (SUT/Invitation->pb withdrawn)))))))
 
-(deftest access-event-record-round-trip-test
-  (testing "a role change carries the roles either side"
-    (let [event {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-                 :access-event-id "aev.01kprbmgcj35ptc8npmybhh4t4"
-                 :kind :access-event-kind-role-changed
-                 :actor member-actor
-                 :subject-user-id "usr.01kprbmgcj35ptc8npmybhh4t3"
-                 :membership-id "mem.01kprbmgcj35ptc8npmybhh4t5"
-                 :role-before :role-viewer
-                 :role-after :role-admin
-                 :occurred-at 1700000000000}]
-      (is (= event (SUT/pb->AccessEvent (SUT/AccessEvent->pb event))))
-      (is (some? (SUT/AccessEvent->java event)))))
-  (testing "a bank's creation carries only what it has"
-    (let [event {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-                 :access-event-id "aev.01kprbmgcj35ptc8npmybhh4t6"
-                 :kind :access-event-kind-bank-created
-                 :actor {:kind :actor-kind-operator :principal-id "ops"}
-                 :occurred-at 1700000000000}]
-      (is (= event (SUT/pb->AccessEvent (SUT/AccessEvent->pb event)))))))
+(deftest member-role-change-record-round-trip-test
+  (let [change {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+                :member-id "mem.01kprbmgcj35ptc8npmybhh4t5"
+                :role-change-id "rch.01kprbmgcj35ptc8npmybhh4t4"
+                :role-before :role-viewer
+                :role-after :role-admin
+                :created-at 1700000000000
+                :created-by member-actor}]
+    (testing "a role change carries the roles either side and who moved it"
+      (is (= change
+             (SUT/pb->MemberRoleChange (SUT/MemberRoleChange->pb change))))
+      (is (some? (SUT/MemberRoleChange->java change))))
+    (testing "and the reason when one was given"
+      (let [with-reason (assoc change :reason "Leads the team")]
+        (is (= with-reason
+               (SUT/pb->MemberRoleChange (SUT/MemberRoleChange->pb
+                                          with-reason))))))))
 
 (deftest email-delivery-record-round-trip-test
-  (testing "a pending delivery carries no claim, attempt or message id"
+  (testing "a pending delivery carries no message id, send or failure"
     (let [delivery {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
                     :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
                     :kind :email-kind-invitation
-                    :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2"
-                    :expires-at 1700604800000
-                    :changelog-event-id "01kprbmgcj35ptc8npmybhh4t8"
                     :status :email-delivery-status-pending
-                    :next-attempt-at 1700000000000
+                    :kind-id "inv.01kprbmgcj35ptc8npmybhh4t2"
+                    :idempotency-key "01kprbmgcj35ptc8npmybhh4t8"
                     :created-at 1700000000000
-                    :updated-at 1700000000000}]
+                    :updated-at 1700000000000
+                    :attempt-count 0
+                    :next-attempt-at 1700000000000}]
       (is (= delivery (SUT/pb->EmailDelivery (SUT/EmailDelivery->pb delivery))))
       (is (some? (SUT/EmailDelivery->java delivery)))))
-  (testing "a sent delivery carries its attempts and message id"
+  (testing "a sent delivery carries its attempts, message id and send"
     (let [delivery {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
                     :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
                     :kind :email-kind-invitation
-                    :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2"
-                    :expires-at 1700604800000
-                    :changelog-event-id "01kprbmgcj35ptc8npmybhh4t8"
                     :status :email-delivery-status-sent
-                    :attempts 2
-                    :last-error "connection refused"
+                    :kind-id "inv.01kprbmgcj35ptc8npmybhh4t2"
                     :message-id "<abc@queenswood.local>"
+                    :sent-at 1700000060000
+                    :idempotency-key "01kprbmgcj35ptc8npmybhh4t8"
                     :created-at 1700000000000
-                    :updated-at 1700000060000}]
+                    :updated-at 1700000060000
+                    :attempt-count 2
+                    :traceparent
+                    "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"}]
+      (is (= delivery
+             (SUT/pb->EmailDelivery (SUT/EmailDelivery->pb delivery))))))
+  (testing "a failed delivery carries its reason"
+    (let [delivery {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+                    :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
+                    :kind :email-kind-invitation
+                    :status :email-delivery-status-failed
+                    :kind-id "inv.01kprbmgcj35ptc8npmybhh4t2"
+                    :idempotency-key "01kprbmgcj35ptc8npmybhh4t8"
+                    :created-at 1700000000000
+                    :updated-at 1700000060000
+                    :attempt-count 11
+                    :failure-reason "connection refused"}]
       (is (= delivery
              (SUT/pb->EmailDelivery (SUT/EmailDelivery->pb delivery)))))))
 
@@ -239,112 +303,117 @@
    :product-id "prd.01kprbmgcj35ptc8npmybhh4se"
    :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
    :version-number 1
-   :status :cash-account-product-status-draft
-   :product-type :product-type-sub-ledger-current
+   :status :version-status-draft
+   :product-type :account-product-type-sub-ledger-current
    :template-id "tpl.00000000000000000000000001"
    :balance-sheet-side :balance-sheet-side-liability
    :name "Current Account"
-   :allowed-currencies ["GBP"]
+   :currency "GBP"
    :balance-products [{:balance-type :balance-type-default
                        :balance-status :balance-status-posted}]
    :allowed-payment-address-schemes [:payment-address-scheme-scan]
-   :interest-rate-bps 0
+   :iso-cash-account-type :iso-cash-account-type-cacc
    :effective-from 20089
    :created-at 1700000000000
+   :created-by {:kind :actor-kind-operator :principal-id "queenswood-admin"}
    :updated-at 1700000000000})
 
 (deftest cash-account-product-record-round-trip-test
-  (testing "a version with no reward reads back without one"
+  (testing "a version with no reward reads back with none"
     (let [read (SUT/pb->CashAccountProduct (SUT/CashAccountProduct->pb
                                             draft-version))]
-      (is (not (contains? read :opening-reward)))
+      (is (empty? (:reward-terms read)))
       (is (some? (SUT/CashAccountProduct->java draft-version)))))
-  (testing "a version's reward reads back as a plain map"
-    (let [version (assoc draft-version :opening-reward {:amount 1000})
+  (testing "a version's reward terms read back as plain maps"
+    (let [rewards [{:kind :reward-kind-opening :amount 1000}]
+          version (assoc draft-version :reward-terms rewards)
           read (SUT/pb->CashAccountProduct (SUT/CashAccountProduct->pb
                                             version))]
-      (is (= {:amount 1000} (:opening-reward read)))
+      (is (= rewards (:reward-terms read)))
       (is (= 1000
              (.. (SUT/CashAccountProduct->java version)
-                 getOpeningReward
-                 getAmount))))))
+                 (getRewardTerms 0)
+                 getAmount)))))
+  (testing "a version's interest terms read back as plain maps"
+    (let [interest {:basis :interest-schedule-basis-relative
+                    :banding :interest-banding-marginal
+                    :steps [{:bands [{:up-to 500000 :rate-bps 500}
+                                     {:rate-bps 0}]}
+                            {:starts-after-months 12 :bands [{:rate-bps 150}]}]
+                    :day-count :interest-day-count-actual-actual
+                    :payment {:frequency :interest-payment-frequency-monthly
+                              :day :interest-payment-day-last-of-month}}
+          read (SUT/pb->CashAccountProduct
+                (SUT/CashAccountProduct->pb
+                 (assoc draft-version :interest-terms interest)))]
+      (is (= interest (:interest-terms read))))))
 
-(def ^:private due-reward
+(def ^:private deferred-reward
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
    :reward-id "rwd.01kprbmgcj35ptc8npmybhh4t9"
+   :status :account-reward-status-deferred
+   :kind :reward-kind-opening
    :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
-   :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
    :product-id "prd.01kprbmgcj35ptc8npmybhh4se"
    :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
-   :kind :reward-kind-opening
    :amount 1000
    :currency "GBP"
-   :status :reward-status-due
-   :run-id "run.01kprbmgcj35ptc8npmybhh4ta"
-   :error "house account cannot cover it"
-   :created-at 1700000000000
-   :updated-at 1700000000000})
+   :deferred-reason "house account cannot cover it"
+   :deferred-at 1700000000000
+   :created-at 1700000000000})
 
-(deftest reward-record-round-trip-test
-  (testing "a due reward carries no transaction and no paid-at"
-    (is (= due-reward (SUT/pb->Reward (SUT/Reward->pb due-reward))))
-    (is (some? (SUT/Reward->java due-reward))))
+(deftest account-reward-record-round-trip-test
+  (testing "a deferred reward carries no transaction, paid-at or update"
+    (is (= deferred-reward
+           (SUT/pb->AccountReward (SUT/AccountReward->pb deferred-reward))))
+    (is (some? (SUT/AccountReward->java deferred-reward))))
   (testing "a paid reward carries the transaction that paid it"
-    (let [paid (-> due-reward
-                   (dissoc :error)
-                   (assoc :status :reward-status-paid
+    (let [paid (-> deferred-reward
+                   (dissoc :deferred-reason)
+                   (assoc :status :account-reward-status-paid
                           :transaction-id "txn.01kprbmgcj35ptc8npmybhh4tb"
                           :paid-at 1700003600000
                           :updated-at 1700003600000))]
-      (is (= paid (SUT/pb->Reward (SUT/Reward->pb paid))))
-      (is (= (SUT/reward-status->int :reward-status-paid)
-             (.getNumber (.getStatus (SUT/Reward->java paid))))))))
+      (is (= paid (SUT/pb->AccountReward (SUT/AccountReward->pb paid))))
+      (is (= (SUT/account-reward-status->int :account-reward-status-paid)
+             (.getNumber (.getStatus (SUT/AccountReward->java paid))))))))
 
 (def ^:private failed-outbound
-  {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4s6"
-   :idempotency-key "5b2f0f6e-outbound"
-   :scheme "fps"
+  {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :payment-id "pmt.01kprbmgcj35ptc8npmybhh4s6"
+   :status :outbound-payment-status-failed
+   :scheme-type :scheme-type-fps
    :debtor-account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
-   :creditor-bban "04000412345678"
    :creditor-name "Arthur Dent"
-   :currency "GBP"
+   :creditor-bban "04000412345678"
    :amount 2500
-   :payment-status :outbound-payment-status-failed
+   :currency "GBP"
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4s9"
+   :business-day 20713
+   :idempotency-key "5b2f0f6e-outbound"
    :created-at 1700000000000
-   :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :business-day 20713})
+   :created-by member-actor})
 
 (deftest outbound-payment-record-round-trip-test
-  (testing "a failed record keeps its failure"
-    (let [payment (SUT/pb->OutboundPayment
-                   (SUT/OutboundPayment->pb
-                    (assoc failed-outbound
-                           :failure-kind :outbound-payment-failure-kind-refused
-                           :failure-reason-code "NARR"
-                           :failure-reason "HTTP 400")))]
-      (is (= :outbound-payment-failure-kind-refused (:failure-kind payment)))
-      (is (= "NARR" (:failure-reason-code payment)))
-      (is (= "HTTP 400" (:failure-reason payment)))))
-  (testing "a record with no failure reads none"
-    (let [payment (SUT/pb->OutboundPayment (SUT/OutboundPayment->pb
-                                            failed-outbound))]
-      (is (not (contains? payment :failure-kind)))
-      (is (not (contains? payment :failure-reason-code)))
-      (is (not (contains? payment :failure-reason)))))
-  (testing "the deprecated cancellation fields are dropped"
-    (let [payment (SUT/pb->OutboundPayment
-                   (SUT/OutboundPayment->pb
-                    (assoc failed-outbound
-                           :cancellation-code "CB_SubmissionRefused"
-                           :cancellation-reason "HTTP 400")))]
-      (is (not (contains? payment :cancellation-code)))
-      (is (not (contains? payment :cancellation-reason))))))
+  (testing "a failed record keeps its kind, code, reason and when"
+    (let [failed (assoc failed-outbound
+                        :failed-kind :outbound-payment-failed-kind-refused
+                        :failed-reason-code "NARR"
+                        :failed-reason "HTTP 400"
+                        :failed-at 1700000000100
+                        :updated-at 1700000000100)]
+      (is (= failed
+             (SUT/pb->OutboundPayment (SUT/OutboundPayment->pb failed))))))
+  (testing "a record with no outcome reads none, nor an update"
+    (is (= failed-outbound
+           (SUT/pb->OutboundPayment (SUT/OutboundPayment->pb
+                                     failed-outbound))))))
 
 (def ^:private transaction-rejected-schema
   (avro/json->schema
-   (slurp (io/resource
-           "schemas/schemes/payments/transaction-rejected.avsc.json"))))
+   (slurp
+    (io/resource
+     "schemas/payment-provider/payment/provider-payment-rejected.avsc.json"))))
 
 (def ^:private stable-transaction-rejected-schema
   (avro/json->schema

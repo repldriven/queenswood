@@ -43,73 +43,91 @@
    :email-delivery/find
    "Failed to load email delivery"))
 
-(defn find-delivery-by-changelog-event-id
-  [txn changelog-event-id]
+(defn find-delivery-by-idempotency-key
+  [txn idempotency-key]
   (fdb/transact
    txn
    (fn [txn]
      (some-> (fdb/query-record (fdb/open txn deliveries-store-name)
                                "EmailDelivery"
-                               "changelog_event_id"
-                               changelog-event-id
-                               {:index "EmailDelivery_by_changelog_event_id"})
+                               "idempotency_key"
+                               idempotency-key
+                               {:index "EmailDelivery_by_idempotency_key"})
              schema/pb->EmailDelivery))
-   :email-delivery/find-by-changelog-event-id
-   "Failed to find email delivery by changelog event id"))
+   :email-delivery/find-by-idempotency-key
+   "Failed to find email delivery by idempotency key"))
+
+(defn- later?
+  [a b]
+  (pos? (compare [(:created-at a) (:delivery-id a)]
+                 [(:created-at b) (:delivery-id b)])))
+
+(defn newer-delivery?
+  "Whether a delivery of the same kind about the same record was written
+  after `delivery`."
+  [txn delivery]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [store (fdb/open txn deliveries-store-name)
+           {:keys [bank-id kind kind-id]} delivery]
+       (->> (fdb/query-records-compound
+             store
+             "EmailDelivery"
+             [["bank_id" bank-id]
+              ["kind"
+               (fdb/enum-value store
+                               "EmailDelivery"
+                               "kind"
+                               (schema/email-kind->int kind))]
+              ["kind_id" kind-id]]
+             {:index "EmailDelivery_by_kind"})
+            (map schema/pb->EmailDelivery)
+            (some (fn [other] (later? other delivery)))
+            boolean)))
+   :email-delivery/find-by-kind
+   "Failed to find email deliveries by kind"))
 
 (def ^:private scan-factor
   "How many rows a claim reads for each it may take."
   10)
 
-(defn- deliveries-with-status
-  "Up to `limit` of the deliveries in `status`, due first, and with
-  `due-by`, only those due by then."
-  [store status limit due-by]
+(defn- due-deliveries
+  "Up to `limit` of the deliveries in `status` whose next attempt is due
+  by `now`, soonest first."
+  [store status limit now]
   (fdb/scan-index-records store
                           "EmailDelivery_by_status_due"
                           [(schema/email-delivery-status->int status)]
-                          (cond-> {:limit limit}
-
-                                  due-by
-                                  (assoc :through [due-by]))))
-
-(defn- claimable?
-  "Whether a row may be claimed now: a pending one whose next attempt
-  has come, or an in-flight one whose lease has passed because the
-  runner holding it stopped between the claim and the outcome."
-  [{:keys [status next-attempt-at claim-lease-expires-at]} now]
-  (if (= in-flight status)
-    (<= (or claim-lease-expires-at 0) now)
-    (<= (or next-attempt-at 0) now)))
+                          {:limit limit :through [now]}))
 
 (defn claim-due-deliveries
   "Claim the deliveries that are due in the transaction that read them:
-  each takes a lease and the claiming runner and moves to in flight. A
+  each moves to in flight with its next attempt `lease-ms` away, when
+  the claim lapses if the runner holding it stops before the outcome. A
   second runner reading the same rows loses the transaction and claims
-  nothing. Rows whose lease has passed are scanned before pending ones,
-  so a pending backlog cannot starve their recovery."
-  [txn {:keys [now claimed-by lease-ms limit]}]
+  nothing. In-flight rows whose claim has lapsed are scanned before
+  pending ones, so a pending backlog cannot starve their recovery."
+  [txn {:keys [now lease-ms limit]}]
   (fdb/transact
    txn
    (fn [txn]
      (let [store (fdb/open txn deliveries-store-name)
            due (into []
                      (comp (map schema/pb->EmailDelivery)
-                           (filter (fn [delivery] (claimable? delivery now)))
                            (take limit))
-                     (concat (deliveries-with-status store
-                                                     in-flight
-                                                     (* scan-factor limit)
-                                                     nil)
-                             (deliveries-with-status store
-                                                     pending
-                                                     (* scan-factor limit)
-                                                     now)))]
+                     (concat (due-deliveries store
+                                             in-flight
+                                             (* scan-factor limit)
+                                             now)
+                             (due-deliveries store
+                                             pending
+                                             (* scan-factor limit)
+                                             now)))]
        (reduce (fn [claimed delivery]
                  (let [row (assoc delivery
                                   :status in-flight
-                                  :claim-lease-expires-at (+ now lease-ms)
-                                  :claimed-by claimed-by
+                                  :next-attempt-at (+ now lease-ms)
                                   :updated-at now)
                        res (fdb/save-record store
                                             (schema/EmailDelivery->java row))]

@@ -6,23 +6,6 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.utility.interface :as utility]))
 
-(def ^:private unknown-principal-id
-  "The principal id recorded for an operator's create sent before
-  commands carried an actor."
-  "unknown")
-
-(defn creation-actor
-  [actor membership]
-  (cond
-   (some? actor)
-   actor
-
-   (some? membership)
-   {:kind :actor-kind-member :principal-id (:user-id membership)}
-
-   :else
-   {:kind :actor-kind-operator :principal-id unknown-principal-id}))
-
 (defn- offering
   [offered]
   (into {}
@@ -51,12 +34,6 @@
               {:kind kind :provider (get chosen kind (name default))})
             (sort-by :kind offered)))))
 
-(def ^:private placeholder-sort-code
-  "What the deprecated, required `sort_code` field is written with: the
-  payment provider issues every address, and the Record Layer will not
-  relax a required field."
-  "000000")
-
 (defn new-bank
   [bank-name bank-status tier company-binding tier-policies policies
    idv-provider]
@@ -72,20 +49,18 @@
                         :tier tier}))
      _ (idv/check-criteria (concat policies tier-policies) idv-provider)
      _ (when (and company-binding
-                  (not= "active" (:company-status company-binding)))
+                  (not= "active" (:status company-binding)))
          (error/reject
           :bank/company-not-active
           {:message "Only an active company can be bound to a bank"
            :company-number (:company-number company-binding)
-           :company-status (:company-status company-binding)}))]
+           :company-status (:status company-binding)}))]
     (let [now (utility/now)]
       (utility/assoc-some {:bank-id (utility/generate-id "bnk")
                            :name bank-name
                            :status bank-status
-                           :sort-code placeholder-sort-code
                            :tier tier
-                           :created-at now
-                           :updated-at now}
+                           :created-at now}
                           :company-binding
                           company-binding))))
 
@@ -98,7 +73,7 @@
   policies (a typo must not silently strip all tier bindings), and
   `:idv/unsupported-criteria` when the tier requires a verification or
   screening `idv-provider` does not establish."
-  [bank tier new-tier-policies policies idv-provider]
+  [bank tier new-tier-policies policies idv-provider actor]
   (let-nom>
     [_ (when-not (#{:bank-status-test :bank-status-live} (:status bank))
          (error/reject :bank/invalid-status
@@ -112,14 +87,19 @@
                         :bank-id (:bank-id bank)
                         :tier tier}))
      _ (idv/check-criteria (concat policies new-tier-policies) idv-provider)]
-    (assoc bank :tier tier :updated-at (utility/now))))
+    (let [now (utility/now)]
+      (assoc bank
+             :tier tier
+             :tier-changed-at now
+             :tier-changed-by actor
+             :updated-at now))))
 
 (defn change-status
   "Flip a bank between `:bank-status-test` and `:bank-status-live`.
   Rejects `:bank/invalid-status` unless the bank is currently test or
   live, and again when `new-status` matches the bank's current
   status (a no-op transition, not a flip)."
-  [bank new-status]
+  [bank new-status actor]
   (let-nom>
     [_ (when-not (#{:bank-status-test :bank-status-live} (:status bank))
          (error/reject :bank/invalid-status
@@ -133,4 +113,9 @@
                         :bank-id (:bank-id bank)
                         :status (:status bank)
                         :allowed #{new-status}}))]
-    (assoc bank :status new-status :updated-at (utility/now))))
+    (let [now (utility/now)]
+      (assoc bank
+             :status new-status
+             :status-changed-at now
+             :status-changed-by actor
+             :updated-at now))))

@@ -27,7 +27,7 @@
     onSaved,
   } = $props();
 
-  const isOrg = $derived(target?.type === "organization");
+  const isOrg = $derived(target?.["party-type"] === "organization");
 
   // Form state — reset whenever the drawer enters create/edit mode.
   let firstName = $state("");
@@ -65,26 +65,22 @@
     }
   });
 
-  const readSplit = $derived(splitName(target?.["display-name"]));
-
   // Read mode fetches the party's names; the list summary the drawer is
   // handed only carries the display name. Guard against a stale
   // response landing after the user has moved to a different party.
   let detail = $state(null);
   $effect(() => {
     // Only persons carry names; organizations are summary-only.
-    if (!(open && mode === "read" && target?.type === "person")) return;
+    if (!(open && mode === "read" && target?.["party-type"] === "person")) return;
     const id = target?.["party-id"];
     if (!id) return;
     detail = null;
-    get_party(id, { embed: ["person-identification"] }).then((r) => {
+    get_party(id, { embed: ["legal-name"] }).then((r) => {
       if (r.status === 200 && r.body?.["party-id"] === id) detail = r.body;
     });
   });
 
-  const readFirst = $derived(detail?.["given-name"] ?? readSplit.first);
-  const readMiddle = $derived(detail?.["middle-names"] ?? "");
-  const readLast = $derived(detail?.["family-name"] ?? readSplit.last);
+  const readLegalName = $derived(detail?.["legal-name"] ?? "");
   const readReference = $derived(
     detail?.["external-reference"] ?? target?.["external-reference"] ?? "",
   );
@@ -99,7 +95,7 @@
     });
   }
   const readCreated = $derived(fmtDate(target?.["created-at"]));
-  const readUpdated = $derived(formatRelative(target?.["updated-at"]));
+  const readUpdated = $derived(formatRelative(target?.["updated-at"] ?? target?.["created-at"]));
 
   // bank-api status → Badge tone. Matches Parties.svelte.
   const TONE = {
@@ -145,7 +141,7 @@
 
   const subFor = $derived(
     mode === "read"
-      ? `${target?.type ?? ""} · updated ${formatRelative(target?.["updated-at"])}`
+      ? `${target?.["party-type"] ?? ""} · updated ${formatRelative(target?.["updated-at"] ?? target?.["created-at"])}`
       : "Register the person by name. They give their date of birth, address and documents to the identity provider when you open a verification session. Status starts as pending until the check completes.",
   );
 
@@ -172,16 +168,15 @@
     submitting = true;
     formError = null;
     try {
+      const legalName = [firstName, middleNames, lastName]
+        .map((n) => n.trim())
+        .filter(Boolean)
+        .join(" ");
       const payload = {
-        type: "person",
-        "display-name": [firstName, middleNames, lastName]
-          .map((n) => n.trim())
-          .filter(Boolean)
-          .join(" "),
-        "given-name": firstName.trim(),
-        "family-name": lastName.trim(),
+        "party-type": "person",
+        "legal-name": legalName,
+        "display-name": legalName,
       };
-      if (middleNames.trim()) payload["middle-names"] = middleNames.trim();
       if (reference.trim()) payload["external-reference"] = reference.trim();
       const res = await create_party(payload);
       if (res.status >= 200 && res.status < 300) {
@@ -228,9 +223,7 @@
     <section class="drawer-section">
       <h3 class="drawer-section-title">Identity</h3>
       <dl class="detail-list">
-        <dt>First name</dt>    <dd class:empty={!readFirst}>{readFirst || "—"}</dd>
-        <dt>Middle names</dt>  <dd class:empty={!readMiddle}>{readMiddle || "—"}</dd>
-        <dt>Last name</dt>     <dd class:empty={!readLast}>{readLast || "—"}</dd>
+        <dt>Legal name</dt>    <dd class:empty={!readLegalName}>{readLegalName || "—"}</dd>
         <dt>Your reference</dt> <dd class="mono" class:empty={!readReference}>{readReference || "—"}</dd>
       </dl>
       <p class="notice">

@@ -23,7 +23,7 @@
                     :creditor-name "Marvin"
                     :currency "GBP"
                     :amount 4200
-                    :scheme "fps"
+                    :scheme-type "fps"
                     :reference "Sent back"}}
    :as :outbound
    :assert {:status 201}}
@@ -32,7 +32,7 @@
              :path "/v1/payments/outbound/{payment-id}"
              :path-params {:payment-id [:ref :outbound :payment-id]}
              :auth [:ref :org-0 :token]}
-   :until {:status 200 :body {:payment-status "completed"}}}
+   :until {:status 200 :body {:status "completed"}}}
   {:command :api/request
    :request {:method :post
              :base :payment-simulator
@@ -45,7 +45,7 @@
              :path "/v1/payments/outbound/{payment-id}"
              :path-params {:payment-id [:ref :outbound :payment-id]}
              :auth [:ref :org-0 :token]}
-   :until {:status 200 :body {:payment-status "returned"}}}]
+   :until {:status 200 :body {:status "returned"}}}]
  :when [{:command :api/request
          :request {:method :post
                    :base :payment-simulator

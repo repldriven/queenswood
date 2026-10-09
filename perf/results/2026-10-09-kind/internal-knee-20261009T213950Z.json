@@ -1,0 +1,105 @@
+{
+  "run": {
+    "scenario": "internal",
+    "profile": "knee",
+    "mode": "spread",
+    "accounts": 200,
+    "steps": [
+      {
+        "rate": 20,
+        "seconds": 60
+      },
+      {
+        "rate": 40,
+        "seconds": 60
+      },
+      {
+        "rate": 80,
+        "seconds": 60
+      },
+      {
+        "rate": 160,
+        "seconds": 60
+      },
+      {
+        "rate": 320,
+        "seconds": 60
+      }
+    ]
+  },
+  "headline": {
+    "payments": 36442,
+    "rejected": {},
+    "dropped": 0,
+    "vus": 640,
+    "books": {
+      "injected": 8228000,
+      "in": 0,
+      "out": 0,
+      "expected": 8228000,
+      "cash": 8228000,
+      "controls": 8228000,
+      "provider": 8228000,
+      "trialBalanceTied": true,
+      "settleS": 5.57,
+      "held": true
+    },
+    "steps": [
+      {
+        "asked": 20,
+        "achieved": 19.98,
+        "payments": 1199,
+        "failed": 0,
+        "avg": 13.79,
+        "p50": 13.04,
+        "p95": 17.84,
+        "p99": 21.29,
+        "max": 42.2
+      },
+      {
+        "asked": 40,
+        "achieved": 39.17,
+        "payments": 2350,
+        "failed": 0,
+        "avg": 13.87,
+        "p50": 13.07,
+        "p95": 18.97,
+        "p99": 23.45,
+        "max": 37.88
+      },
+      {
+        "asked": 80,
+        "achieved": 78.32,
+        "payments": 4699,
+        "failed": 0,
+        "avg": 16.14,
+        "p50": 15.34,
+        "p95": 23.53,
+        "p99": 30.03,
+        "max": 61.85
+      },
+      {
+        "asked": 160,
+        "achieved": 156.63,
+        "payments": 9398,
+        "failed": 0,
+        "avg": 35.46,
+        "p50": 33.33,
+        "p95": 61.68,
+        "p99": 76.77,
+        "max": 115.93
+      },
+      {
+        "asked": 320,
+        "achieved": 313.27,
+        "payments": 18796,
+        "failed": 0,
+        "avg": 91.65,
+        "p50": 84.15,
+        "p95": 158.93,
+        "p99": 223.24,
+        "max": 419.49
+      }
+    ]
+  }
+}

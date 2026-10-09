@@ -27,12 +27,12 @@
   reach a downstream check pass this in. The `:kind` is a oneof
   map (variant → fields), and an empty fields map matches every
   request because the matcher only constrains on set fields."
-  [{:enabled true
+  [{:status :policy-status-active
     :capabilities [{:kind {:cash-account-product {}} :effect :effect-allow}]}])
 
 (def ^:private template
   {:template-id "tpl.00000000000000000000000001"
-   :product-type :product-type-sub-ledger-current
+   :product-type :account-product-type-sub-ledger-current
    :balance-sheet-side :balance-sheet-side-liability
    :allowed-currencies ["GBP"]
    :balance-products [{:balance-type :balance-type-default
@@ -45,15 +45,14 @@
    :product-id "prd.1"
    :version-id "prv.1"
    :version-number 1
-   :status :cash-account-product-status-published
+   :status :version-status-published
    :name "Published"
-   :allowed-currencies ["GBP"]
-   :product-type :product-type-sub-ledger-current
+   :currency "GBP"
+   :product-type :account-product-type-sub-ledger-current
    :template-id "tpl.00000000000000000000000001"
    :balance-sheet-side :balance-sheet-side-liability
    :balance-products [{:balance-type :balance-type-default
                        :balance-status :balance-status-posted}]
-   :interest-rate-bps 0
    :effective-from 20089
    :created-at 1700000000000
    :updated-at 1700000000000})
@@ -62,13 +61,13 @@
   (assoc published-version
          :version-id "prv.2"
          :version-number 2
-         :status :cash-account-product-status-discarded))
+         :status :version-status-discarded))
 
 (def ^:private draft-version
   (assoc published-version
          :version-id "prv.3"
          :version-number 3
-         :status :cash-account-product-status-draft))
+         :status :version-status-draft))
 
 (def ^:private good-data {:name "v2" :currency "GBP" :effective-from 20089})
 
@@ -95,24 +94,36 @@
       (is (= "prv.3" (:version-id v)))
       (is (= 3 (:version-number v)))
       (is (= "renamed" (:name v)))
-      (is (= :cash-account-product-status-draft (:status v))))))
+      (is (= :version-status-draft (:status v))))))
+
+(def ^:private operator
+  {:kind :actor-kind-operator :principal-id "queenswood-admin"})
 
 (def ^:private payment-provider {:addresses ["scan"]})
 
 (deftest publish-test
   (testing "rejects with :version-immutable when already published"
-    (let [r
-          (SUT/publish published-version permissive-policies payment-provider)]
+    (let [r (SUT/publish published-version
+                         permissive-policies
+                         payment-provider
+                         operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "rejects with :version-immutable when discarded"
-    (let [r
-          (SUT/publish discarded-version permissive-policies payment-provider)]
+    (let [r (SUT/publish discarded-version
+                         permissive-policies
+                         payment-provider
+                         operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "flips draft to :published, preserving other fields"
-    (let [v (SUT/publish draft-version permissive-policies payment-provider)]
-      (is (= :cash-account-product-status-published (:status v)))
+    (let [v (SUT/publish draft-version
+                         permissive-policies
+                         payment-provider
+                         operator)]
+      (is (= :version-status-published (:status v)))
+      (is (number? (:published-at v)))
+      (is (= operator (:published-by v)))
       (is (= "prv.3" (:version-id v)))
       (is (= 3 (:version-number v)))))
   (testing "rejects an address scheme the payment provider does not issue"
@@ -121,7 +132,8 @@
                                 [:payment-address-scheme-scan
                                  :payment-address-scheme-iban])
                          permissive-policies
-                         payment-provider)]
+                         payment-provider
+                         operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/unsupported-address-scheme (error/kind r)))
       (is (= [:payment-address-scheme-iban] (:unsupported (error/payload r))))))
@@ -130,21 +142,22 @@
                                 :allowed-payment-address-schemes
                                 [:payment-address-scheme-scan])
                          permissive-policies
-                         payment-provider)]
-      (is (= :cash-account-product-status-published (:status v))))))
+                         payment-provider
+                         operator)]
+      (is (= :version-status-published (:status v))))))
 
 (deftest discard-test
   (testing "rejects with :version-immutable when already published"
-    (let [r (SUT/discard published-version permissive-policies)]
+    (let [r (SUT/discard published-version permissive-policies operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "rejects with :version-immutable when already discarded"
-    (let [r (SUT/discard discarded-version permissive-policies)]
+    (let [r (SUT/discard discarded-version permissive-policies operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "flips draft to :discarded and stamps :discarded-at"
-    (let [v (SUT/discard draft-version permissive-policies)]
-      (is (= :cash-account-product-status-discarded (:status v)))
+    (let [v (SUT/discard draft-version permissive-policies operator)]
+      (is (= :version-status-discarded (:status v)))
       (is (some? (:discarded-at v))))))
 
 (deftest new-version-test
@@ -164,7 +177,7 @@
                              template
                              good-data
                              permissive-policies)]
-      (is (= :cash-account-product-status-draft (:status v)))
+      (is (= :version-status-draft (:status v)))
       (is (= 3 (:version-number v)) "version-number is 1 + (count versions)")))
   (testing "succeeds with no prior versions — fresh product flow"
     (let [v (SUT/new-version "bnk.1"
@@ -174,7 +187,7 @@
                              good-data
                              permissive-policies)]
       (is (= 1 (:version-number v)))
-      (is (= :cash-account-product-status-draft (:status v)))))
+      (is (= :version-status-draft (:status v)))))
   (testing "snapshots the derived fields from the template"
     (let [v (SUT/new-version "bnk.1"
                              "prd.1"
@@ -183,10 +196,10 @@
                              good-data
                              permissive-policies)]
       (is (= "tpl.00000000000000000000000001" (:template-id v)))
-      (is (= :product-type-sub-ledger-current (:product-type v)))
+      (is (= :account-product-type-sub-ledger-current (:product-type v)))
       (is (= :balance-sheet-side-liability (:balance-sheet-side v)))
       (is (= :iso-cash-account-type-cacc (:iso-cash-account-type v)))
-      (is (= ["GBP"] (:allowed-currencies v)))
+      (is (= "GBP" (:currency v)))
       (is (= [:payment-address-scheme-scan]
              (:allowed-payment-address-schemes v)))
       (is (some #(= %
@@ -234,7 +247,7 @@
                              template
                              (assoc good-data :opening-reward {:amount 1000})
                              permissive-policies)]
-      (is (= {:amount 1000} (:opening-reward v)))))
+      (is (= [{:kind :reward-kind-opening :amount 1000}] (:reward-terms v)))))
   (testing "a version that names no reward carries none"
     (let [v (SUT/new-version "bnk.1"
                              "prd.1"
@@ -242,7 +255,7 @@
                              template
                              good-data
                              permissive-policies)]
-      (is (not (contains? v :opening-reward)))))
+      (is (not (contains? v :reward-terms)))))
   (testing "a draft's update replaces or removes it"
     (let [with-reward (SUT/update-version
                        draft-version
@@ -253,8 +266,9 @@
                                       template
                                       good-data
                                       permissive-policies)]
-      (is (= {:amount 2500} (:opening-reward with-reward)))
-      (is (not (contains? without :opening-reward)))))
+      (is (= [{:kind :reward-kind-opening :amount 2500}]
+             (:reward-terms with-reward)))
+      (is (not (contains? without :reward-terms)))))
   (testing "a reward of nothing, or less, is rejected with :invalid-reward"
     (doseq [amount [0 -1 nil]]
       (let [r (SUT/new-version

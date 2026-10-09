@@ -1,9 +1,0 @@
-{
-  "type": "record",
-  "name": "ChangeBankTier",
-  "namespace": "com.repldriven.mono.banks",
-  "fields": [
-    {"name": "bank_id", "type": "string"},
-    {"name": "tier", "type": "string"}
-  ]
-}

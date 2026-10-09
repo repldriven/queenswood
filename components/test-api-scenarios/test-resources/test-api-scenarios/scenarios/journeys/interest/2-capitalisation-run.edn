@@ -26,11 +26,11 @@
              :path-params {:job-id "daily-interest"}
              :auth [:ref :bank-0 :token]}
    :assert {:status 201
-            :body {:status "succeeded"
-                   :tasks [{:label "accrue" :status "succeeded"}
+            :body {:status "completed"
+                   :tasks [{:label "accrue" :status "completed"}
                            {:label "capitalize"
-                            :status "succeeded"
-                            :records-failed 0}]}}}]
+                            :status "completed"
+                            :failed-count 0}]}}}]
  :then
  [{:command :api/poll
    :request {:method :get
@@ -41,7 +41,7 @@
    :until
    {:status 200
     :body {:items [:m/embeds
-                   [{:transaction-type "interest-capital"
+                   [{:transaction-type "interest-capitalization"
                      :side "credit"
                      :balance-status "posted"}]]}}}
   {:command :api/request
@@ -61,6 +61,6 @@
             :body
             {:items
              [:m/embeds
-              [{:gl-code "2400" :posted-balance {:value 0 :currency "GBP"}}
-               {:gl-code "5100" :posted-balance {:value -100 :currency "GBP"}}]]
+              [{:code "2400" :posted-balance {:value 0 :currency "GBP"}}
+               {:code "5100" :posted-balance {:value -100 :currency "GBP"}}]]
              :trial-balance [:m/embeds [{:currency "GBP"}]]}}}]}

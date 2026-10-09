@@ -95,9 +95,9 @@
        updated))))
 
 (defn register
-  ([txn bank-id data]
-   (register txn bank-id data {}))
-  ([txn bank-id data opts]
+  ([txn bank-id data actor]
+   (register txn bank-id data actor {}))
+  ([txn bank-id data actor opts]
    (let [addresses (resolved (:address data))]
      (or-already-registered
       txn
@@ -112,6 +112,7 @@
             endpoint (domain/new-endpoint bank-id
                                           data
                                           (mint-secret)
+                                          actor
                                           addresses
                                           (:platform-hosts opts)
                                           (:address-rule opts)
@@ -131,9 +132,9 @@
    (store/get-endpoints txn bank-id opts)))
 
 (defn update-endpoint
-  ([txn bank-id endpoint-id data]
-   (update-endpoint txn bank-id endpoint-id data {}))
-  ([txn bank-id endpoint-id data opts]
+  ([txn bank-id endpoint-id data actor]
+   (update-endpoint txn bank-id endpoint-id data actor {}))
+  ([txn bank-id endpoint-id data actor opts]
    (let [addresses (resolved (:address data))]
      (transition txn
                  bank-id
@@ -142,25 +143,29 @@
                    (let-nom> [policies (get-policies txn bank-id opts)]
                      (domain/update-endpoint existing
                                              data
+                                             actor
                                              addresses
                                              (:platform-hosts opts)
                                              (:address-rule opts)
                                              policies)))))))
 
 (defn- save-deliveries
-  "One pending delivery of each notification to `endpoint`, saved in
-  the caller's transaction. Returns the rows written."
-  [txn notifications endpoint now]
+  "One pending delivery of each notification to `endpoint`, asked for
+  by `actor`, saved in the caller's transaction. Returns the rows
+  written."
+  [txn notifications endpoint now actor]
   (reduce (fn [saved notification]
-            (let [row (domain/new-delivery notification endpoint now)
+            (let [row (domain/new-delivery notification endpoint now actor)
                   res (store/save-delivery txn row)]
               (if (error/anomaly? res) (reduced res) (conj saved row))))
           []
           notifications))
 
 (defn- delivered-notification-ids
-  [txn endpoint-id]
-  (let-nom> [deliveries (store/find-deliveries-by-endpoint txn endpoint-id)]
+  [txn bank-id endpoint-id]
+  (let-nom> [deliveries (store/find-deliveries-by-endpoint txn
+                                                           bank-id
+                                                           endpoint-id)]
     (into #{}
           (comp (filter domain/delivered-delivery?) (map :notification-id))
           deliveries)))
@@ -170,10 +175,12 @@
   endpoint has chosen and has never had delivered. Runs in the
   transaction the enable committed in, so resuming and asking for the
   gap land together or not at all."
-  [txn endpoint since now]
+  [txn endpoint since now actor]
   (let-nom>
     [notifications (store/find-notifications-by-bank txn (:bank-id endpoint))
-     delivered (delivered-notification-ids txn (:endpoint-id endpoint))]
+     delivered (delivered-notification-ids txn
+                                           (:bank-id endpoint)
+                                           (:endpoint-id endpoint))]
     (save-deliveries
      txn
      (filterv (fn [notification]
@@ -183,50 +190,51 @@
                                      (:notification-id notification)))))
               notifications)
      endpoint
-     now)))
+     now
+     actor)))
 
 (defn enable
-  ([txn bank-id endpoint-id]
-   (enable txn bank-id endpoint-id {}))
-  ([txn bank-id endpoint-id opts]
+  ([txn bank-id endpoint-id actor]
+   (enable txn bank-id endpoint-id actor {}))
+  ([txn bank-id endpoint-id actor opts]
    (store/transact
     txn
     (fn [txn]
       (let-nom>
         [existing (load-endpoint txn bank-id endpoint-id)
          policies (get-policies txn bank-id opts)
-         updated (domain/enable existing policies)
+         updated (domain/enable existing actor policies)
          _ (store/save-endpoint txn updated)
          _ (when-let [since (:since opts)]
-             (backfill txn updated since (utility/now)))]
+             (backfill txn updated since (utility/now) actor))]
         updated)))))
 
 (defn disable
-  ([txn bank-id endpoint-id]
-   (disable txn bank-id endpoint-id {}))
-  ([txn bank-id endpoint-id opts]
+  ([txn bank-id endpoint-id actor]
+   (disable txn bank-id endpoint-id actor {}))
+  ([txn bank-id endpoint-id actor opts]
    (transition txn
                bank-id
                endpoint-id
                (fn [txn existing]
                  (let-nom> [policies (get-policies txn bank-id opts)]
-                   (domain/disable existing policies))))))
+                   (domain/disable existing actor policies))))))
 
 (defn remove-endpoint
-  ([txn bank-id endpoint-id]
-   (remove-endpoint txn bank-id endpoint-id {}))
-  ([txn bank-id endpoint-id opts]
+  ([txn bank-id endpoint-id actor]
+   (remove-endpoint txn bank-id endpoint-id actor {}))
+  ([txn bank-id endpoint-id actor opts]
    (transition txn
                bank-id
                endpoint-id
                (fn [txn existing]
                  (let-nom> [policies (get-policies txn bank-id opts)]
-                   (domain/remove-endpoint existing policies))))))
+                   (domain/remove-endpoint existing actor policies))))))
 
 (defn rotate-secret
-  ([txn bank-id endpoint-id data]
-   (rotate-secret txn bank-id endpoint-id data {}))
-  ([txn bank-id endpoint-id data opts]
+  ([txn bank-id endpoint-id data actor]
+   (rotate-secret txn bank-id endpoint-id data actor {}))
+  ([txn bank-id endpoint-id data actor opts]
    (let [{:keys [idempotency-key previous-secret-ttl-ms]} data
          expires-at (+ (utility/now)
                        (or previous-secret-ttl-ms
@@ -244,6 +252,7 @@
                                              (mint-secret)
                                              expires-at
                                              idempotency-key
+                                             actor
                                              policies))))))))
 
 (defn- load-deliverable
@@ -254,9 +263,9 @@
     (domain/ensure-deliverable endpoint policies)))
 
 (defn test-notification
-  ([txn bank-id endpoint-id]
-   (test-notification txn bank-id endpoint-id {}))
-  ([txn bank-id endpoint-id opts]
+  ([txn bank-id endpoint-id actor]
+   (test-notification txn bank-id endpoint-id actor {}))
+  ([txn bank-id endpoint-id actor opts]
    (store/transact
     txn
     (fn [txn]
@@ -268,14 +277,14 @@
                          (components/->wire-endpoint-body endpoint)
                          now)
            _ (store/save-notification txn notification)
-           delivery (domain/new-delivery notification endpoint now)
+           delivery (domain/new-delivery notification endpoint now actor)
            _ (store/save-delivery txn delivery)]
           delivery))))))
 
 (defn resend
-  ([txn bank-id endpoint-id delivery-id]
-   (resend txn bank-id endpoint-id delivery-id {}))
-  ([txn bank-id endpoint-id delivery-id opts]
+  ([txn bank-id endpoint-id delivery-id actor]
+   (resend txn bank-id endpoint-id delivery-id actor {}))
+  ([txn bank-id endpoint-id delivery-id actor opts]
    (store/transact
     txn
     (fn [txn]
@@ -295,14 +304,14 @@
                          found-notification
                          bank-id
                          (:notification-id existing))
-           delivery (domain/new-delivery notification endpoint now)
+           delivery (domain/new-delivery notification endpoint now actor)
            _ (store/save-delivery txn delivery)]
           delivery))))))
 
 (defn resend-window
-  ([txn bank-id endpoint-id data]
-   (resend-window txn bank-id endpoint-id data {}))
-  ([txn bank-id endpoint-id data opts]
+  ([txn bank-id endpoint-id data actor]
+   (resend-window txn bank-id endpoint-id data actor {}))
+  ([txn bank-id endpoint-id data actor opts]
    (let [{:keys [from to]} data]
      (store/transact
       txn
@@ -321,7 +330,8 @@
                                                      (:kind notification))))
                               notifications)
                      endpoint
-                     now)]
+                     now
+                     actor)]
             {:deliveries resent})))))))
 
 (defn get-deliveries
@@ -334,9 +344,21 @@
       (let-nom>
         [endpoint (load-endpoint txn bank-id endpoint-id)
          deliveries (store/find-deliveries-by-endpoint txn
-                                                       (:endpoint-id endpoint))]
-        {:deliveries (filterv (fn [delivery]
-                                (and (= bank-id (:bank-id delivery))
-                                     (domain/matches-filters? delivery
-                                                              filters)))
-                              deliveries)})))))
+                                                       bank-id
+                                                       (:endpoint-id endpoint))
+         matching (filterv (fn [delivery]
+                             (domain/matches-filters? delivery filters))
+                           deliveries)]
+        {:deliveries matching})))))
+
+(defn get-attempts
+  [txn bank-id endpoint-id delivery-id]
+  (store/transact
+   txn
+   (fn [txn]
+     (let-nom>
+       [_ (load-endpoint txn bank-id endpoint-id)
+        found (store/find-delivery txn bank-id delivery-id)
+        _ (domain/ensure-delivery-found found bank-id endpoint-id delivery-id)
+        attempts (store/find-attempts-by-delivery txn bank-id delivery-id)]
+       {:attempts attempts}))))

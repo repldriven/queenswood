@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "SubmitIdvCheck",
-  "namespace": "com.repldriven.mono.idv",
+  "namespace": "com.repldriven.queenswood.schema.idv",
   "fields": [
     {
       "name": "bank_id",
@@ -13,22 +13,6 @@
     },
     {
       "name": "party_id",
-      "type": "string"
-    },
-    {
-      "name": "first_name",
-      "type": "string"
-    },
-    {
-      "name": "middle_names",
-      "type": [
-        "null",
-        "string"
-      ],
-      "default": null
-    },
-    {
-      "name": "last_name",
       "type": "string"
     },
     {

@@ -1,107 +1,29 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schemas.interest;
+package com.repldriven.queenswood.schema.interest;
 
 import "record_metadata_options.proto";
-import "schemas/types/product-type.proto";
+import "schemas/interest/types.proto";
 
 option java_outer_classname = "InterestRunProto";
 
+enum InterestRunStatus {
+  INTEREST_RUN_STATUS_UNKNOWN = 0;
+  INTEREST_RUN_STATUS_RUNNING = 1;
+  INTEREST_RUN_STATUS_CLOSED = 2;
+}
+
+// A bank's interest run of one kind for a business day.
 message InterestRun {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string bank_id = 1;
-  required int64 business_day = 2;
+  required int64 business_day = 2; // epoch day
   required InterestRunKind kind = 3;
-  required int64 created_at = 4;
-  optional int64 deleted_at = 5;
-  required InterestRunState state = 6;
-  optional int64 closed_at = 7;
 
-  // What ran. Formerly `status`, whose two values conflated the kind
-  // with having finished; `state` now carries the lifecycle.
-  enum InterestRunKind {
-    INTEREST_RUN_KIND_UNKNOWN = 0;
-    INTEREST_RUN_KIND_ACCRUE = 1;
-    INTEREST_RUN_KIND_CAPITALIZE = 2;
-  }
+  required InterestRunStatus status = 4;
 
-  // RUNNING while the pass is in flight, CLOSED once it has reached
-  // every account. A run that finished with failures is still CLOSED —
-  // the residue is the count of FAILED rows, not a state of its own.
-  enum InterestRunState {
-    INTEREST_RUN_STATE_UNKNOWN = 0;
-    INTEREST_RUN_STATE_RUNNING = 1;
-    // 2 was DISPATCHED, from a per-account command fan-out that was
-    // designed and then dropped in favour of a single batch pass.
-    reserved 2;
-    INTEREST_RUN_STATE_CLOSED = 3;
-  }
-}
+  optional int64 closed_at = 51;
 
-// One row per account per run. Written PENDING as the account set is
-// enumerated, flipped to DONE in the same transaction as the posting.
-// The pending rows are simultaneously the scope snapshot, the
-// idempotency marker, the progress source, and the gap index.
-message InterestAccountRun {
-  option (com.apple.foundationdb.record.record).usage = RECORD;
-
-  required string bank_id = 1;
-  required int64 business_day = 2;
-  required InterestAccountRunKind kind = 3;
-  required string account_id = 4;
-  required InterestAccountRunState state = 5;
-  required int64 created_at = 6;
-  optional int64 updated_at = 7;
-  optional string failure_reason = 8;
-
-  // What the run computed for this account, and what it computed from.
-  // The inputs make the amount reproducible after the fact: the balance
-  // alone is not enough, because the sub-unit carry feeds the same
-  // calculation.
-  //
-  // All optional, and necessarily so: protojure drops a zero from the
-  // wire, and a zero accrual is the ordinary case for a small balance
-  // or a zero-rate product. A required field holding its default fails
-  // the Java parse.
-  optional int64 amount = 9;
-  optional int64 principal = 10;
-  optional int64 opening_carry = 11;
-
-  // The account's currency. Required, and safely so — a currency is
-  // an ISO 4217 code and never the empty string that would be dropped
-  // from the wire.
-  required string currency = 12;
-
-  // The account's product type, which its legs carry so each rolls
-  // into its control.
-  //
-  // Optional rather than required, unlike currency: the zero value of
-  // this enum is a real label (PRODUCT_TYPE_UNKNOWN) rather than an
-  // impossible one, and protojure drops a zero from the wire, which
-  // would fail the Java parse of a required field.
-  optional com.repldriven.queenswood.schemas.types.ProductType
-      product_type = 13;
-
-  // How much this accrual moved the account's sub-unit carry, closing
-  // less opening. The carry is the run's own state rather than a
-  // balance, and summing these per account, by the carry index, gives
-  // the carry the next accrual opens with. Unset on capitalisation.
-  optional int64 carry_change = 14;
-
-  // Mirrors InterestRun.InterestRunKind. Duplicated rather than
-  // referenced so each message owns the enum protojure generates
-  // converters for.
-  enum InterestAccountRunKind {
-    INTEREST_ACCOUNT_RUN_KIND_UNKNOWN = 0;
-    INTEREST_ACCOUNT_RUN_KIND_ACCRUE = 1;
-    INTEREST_ACCOUNT_RUN_KIND_CAPITALIZE = 2;
-  }
-
-  enum InterestAccountRunState {
-    INTEREST_ACCOUNT_RUN_STATE_UNKNOWN = 0;
-    INTEREST_ACCOUNT_RUN_STATE_PENDING = 1;
-    INTEREST_ACCOUNT_RUN_STATE_DONE = 2;
-    INTEREST_ACCOUNT_RUN_STATE_FAILED = 3;
-  }
+  required int64 created_at = 101;
 }

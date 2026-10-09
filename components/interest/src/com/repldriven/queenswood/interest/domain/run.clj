@@ -23,7 +23,7 @@
 
 (defn eligible-cash-account?
   [account]
-  (contains? eligible-cash-account-statuses (:account-status account)))
+  (contains? eligible-cash-account-statuses (:status account)))
 
 (defn check-complete
   "The tally, or `:interest/run-incomplete` while any account in scope
@@ -44,13 +44,13 @@
   {:bank-id bank-id
    :business-day business-day
    :kind kind
-   :state :interest-run-state-running
+   :status :interest-run-status-running
    :created-at (utility/now)})
 
 (defn- close
   [run]
   (assoc run
-         :state :interest-run-state-closed
+         :status :interest-run-status-closed
          :closed-at (utility/now)))
 
 (defn closed

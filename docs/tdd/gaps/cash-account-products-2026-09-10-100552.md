@@ -182,7 +182,7 @@ Evidence: `CashAccountProductRequest` in the api base's product
 `domain.clj`,
 [savings.yml](/components/resources/resources/cash-account-product-templates/savings.yml)
 and the `CashAccountProductTemplate` message in
-[account-product.proto](/components/schema/resources/schemas/cash-account-products/account-product.proto).
+[cash-account-product.proto](/components/schema/resources/schemas/cash-account-product/cash-account-product.proto).
 
 Fix: rewrite the data model around the template — what the caller
 supplies, what is snapshotted, what is stamped — list the currency

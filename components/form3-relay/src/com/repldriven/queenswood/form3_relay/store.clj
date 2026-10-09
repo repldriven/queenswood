@@ -22,31 +22,33 @@
 (def uniqueness-violation? intent-poller/uniqueness-violation?)
 
 (defn find-intent
-  [txn dedup-key]
+  [txn idempotency-key]
   (fdb/transact
    txn
    (fn [txn]
      (some-> (fdb/query-record (fdb/open txn (:intents spec))
                                "Form3OutboundIntent"
-                               "dedup_key"
-                               dedup-key
-                               {:index "Form3OutboundIntent_by_dedup_key"})
+                               "idempotency_key"
+                               idempotency-key
+                               {:index
+                                "Form3OutboundIntent_by_idempotency_key"})
              schema/pb->Form3OutboundIntent))
    :form3-outbound/find
    "Failed to find an outbound intent"))
 
 (defn- settle
-  [txn dedup-key]
-  (let-nom> [intent (find-intent txn dedup-key)]
-    (when (= "sent" (:status intent))
-      (fdb/save-record (fdb/open txn (:intents spec))
-                       (schema/Form3OutboundIntent->java
-                        (assoc intent :status "settled"))))))
+  [txn idempotency-key]
+  (let-nom> [intent (find-intent txn idempotency-key)]
+    (when (= :outbound-intent-status-sent (:status intent))
+      (fdb/save-record
+       (fdb/open txn (:intents spec))
+       (schema/Form3OutboundIntent->java
+        (assoc intent :status :outbound-intent-status-settled))))))
 
 (defn save-event
   "Persist an outbox event and append it to the store's changelog in one
   transaction. A duplicate `dedup-key` fails the unique index. With
-  `settles`, the sent intent carrying that dedup key is settled in the
+  `settles`, the sent intent carrying that idempotency key is settled in the
   same transaction, so its reconciliation does not run."
   ([txn event]
    (save-event txn event nil))

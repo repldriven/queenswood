@@ -50,7 +50,7 @@
 (defn- return-not-taken
   "Form3 did not take the return, so the inbound stays in suspense."
   [_config _now intent failure reason]
-  {:status "failed"
+  {:status :outbound-intent-status-failed
    :event (return-failed intent (shared/undelivered failure reason))})
 
 (defn- reconcile-return
@@ -83,12 +83,12 @@
      (cond
       descriptor
       (do (log/info "Form3 delivered a return" {:intent-id intent-id})
-          {:status "settled" :event descriptor})
+          {:status :outbound-intent-status-settled :event descriptor})
 
       (= :failed (outcomes/outcome status))
       (do (log/error "Form3 did not deliver a return; it stays in suspense"
                      {:intent-id intent-id :status status})
-          {:status "failed"
+          {:status :outbound-intent-status-failed
            :event (return-failed intent
                                  (or (get-in result
                                              [:data :attributes :status_reason])
@@ -100,7 +100,8 @@
      outcome)))
 
 (intent-poller/defoperations :form3
-                             {"return" {:call send-return
-                                        :answered returned
-                                        :failed return-not-taken
-                                        :reconcile reconcile-return}})
+                             {:form3-outbound-intent-kind-return
+                              {:call send-return
+                               :answered returned
+                               :failed return-not-taken
+                               :reconcile reconcile-return}})

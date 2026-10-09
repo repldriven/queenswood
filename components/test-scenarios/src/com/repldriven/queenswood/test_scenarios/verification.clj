@@ -28,14 +28,16 @@
   [ctx bank-id party-id person]
   (let [{:keys [bank]} ctx
         {:keys [zyphe-simulator-url]} bank
-        {:keys [given-name middle-names family-name]} person]
+        words (str/split (:legal-name person) #" ")]
     (let-nom>
       [session (idv/open-session bank
                                  {:bank-id bank-id
                                   :party-id party-id
                                   :channel "web"
                                   :return-url "https://app.example.test/back"
-                                  :email "person@example.test"})
+                                  :email "person@example.test"
+                                  :actor {:kind :actor-kind-operator
+                                          :principal-id "test-scenarios"}})
        ready (await/value ctx
                           "the session's hand-off"
                           (fn []
@@ -59,10 +61,8 @@
              :headers {"Content-Type" "application/json"}
              :body (json/write-str
                     {:outcome "match"
-                     :givenNames (str/join " "
-                                           (remove str/blank?
-                                                   [given-name middle-names]))
-                     :familyName family-name
+                     :givenNames (str/join " " (butlast words))
+                     :familyName (last words)
                      :dateOfBirth "1970-01-01"})})]
       (if (= 200 (:status res))
         ready

@@ -2,7 +2,7 @@
   import Router, { push } from "svelte-spa-router";
   import { wrap } from "svelte-spa-router/wrap";
   import { ensure_session, sign_in, sign_out } from "./lib/auth.mjs";
-  import { get_me, list_my_memberships, set_bank_id } from "./lib/api.mjs";
+  import { get_me, list_my_members, set_bank_id } from "./lib/api.mjs";
   import Landing from "./lib/Landing.svelte";
   import SignInPage from "./lib/SignInPage.svelte";
   import Onboarding from "./lib/Onboarding.svelte";
@@ -38,9 +38,9 @@
 
   // The bank the console acts on. A person may belong to several — a
   // fresh sandbox bank leaves the old one standing — and every page
-  // reads `memberships[0]` as its bank, so the list is kept with the
+  // reads `myMembers[0]` as its bank, so the list is kept with the
   // current bank first: the one this browser last chose, where it is
-  // still held, else the newest membership.
+  // still held, else the newest member.
   const BANK_KEY = "queenswood.console.bank";
   const rememberedBank = () => {
     try {
@@ -70,53 +70,53 @@
     // Kicker is the org name when /v1/me has surfaced it. If absent
     // (older bank-api that hasn't been restarted yet), pass undefined
     // — PageHeader hides empty kickers cleanly.
-    const kicker = memberships?.[0]?.["bank-name"];
+    const kicker = myMembers?.[0]?.["bank-name"];
     authRoutes = {
       "/products": wrap({
         component: Products,
-        props: { user, memberships },
+        props: { user, myMembers },
       }),
       "/parties": wrap({
         component: Parties,
-        props: { user, memberships },
+        props: { user, myMembers },
       }),
       "/ledger": wrap({
         component: LedgerAccounts,
-        props: { user, memberships },
+        props: { user, myMembers },
       }),
       "/accounts": wrap({
         component: Accounts,
-        props: { user, memberships },
+        props: { user, myMembers },
       }),
       "/migrations": wrap({
         component: Migrations,
-        props: { user, memberships },
+        props: { user, myMembers },
       }),
       "/jobs": wrap({
         component: Jobs,
-        props: { user, memberships },
+        props: { user, myMembers },
       }),
       "/scenarios": wrap({
         component: Scenarios,
-        props: { user, memberships },
+        props: { user, myMembers },
       }),
       "/people": wrap({
         component: People,
-        props: { user, memberships, onAccessChanged: refresh_me },
+        props: { user, myMembers, onAccessChanged: refresh_me },
       }),
       "/policies": wrap({
         component: Policies,
-        props: { user, memberships },
+        props: { user, myMembers },
       }),
       "/bank": wrap({
         component: Bank,
-        props: { user, memberships, onSwitch: switchBank, onFreshBank: startFreshBank },
+        props: { user, myMembers, onSwitch: switchBank, onFreshBank: startFreshBank },
       }),
       // Catch-all: render Products. Anyone landing on /#/ or a bad
       // path sees the default surface, matching what onboarding push.
       "*": wrap({
         component: Products,
-        props: { user, memberships },
+        props: { user, myMembers },
       }),
     };
   }
@@ -130,7 +130,7 @@
   // out of.
   let stage = $state("loading");
   let user = $state(null);
-  let memberships = $state([]);
+  let myMembers = $state([]);
   let invitationLink = $state(null);
 
   $effect(() => {
@@ -148,7 +148,7 @@
   }
 
   async function refresh_me() {
-    const [me, mine] = await Promise.all([get_me(), list_my_memberships()]);
+    const [me, mine] = await Promise.all([get_me(), list_my_members()]);
     if (me.status !== 200 || mine.status !== 200) {
       // Unexpected status (5xx, 401 after refresh) — safer to send
       // the user back to sign-in than to render stale state.
@@ -156,11 +156,11 @@
       return;
     }
     user = me.body;
-    memberships = currentFirst(mine.body.items ?? [], rememberedBank());
-    set_bank_id(memberships[0]?.["bank-id"]);
+    myMembers = currentFirst(mine.body.items ?? [], rememberedBank());
+    set_bank_id(myMembers[0]?.["bank-id"]);
     if (invitationLink) {
       stage = "invitation";
-    } else if (memberships.length === 0) {
+    } else if (myMembers.length === 0) {
       stage = "onboarding";
     } else {
       buildAuthRoutes();
@@ -181,13 +181,13 @@
   }
 
   // Lands on the bank just created, first sign-in and fresh bank
-  // alike. The created bank carries the person's owner membership.
+  // alike. The created bank carries the person's owner member.
   function handleOnboardComplete(bank) {
-    const bankId = bank.membership?.["bank-id"];
-    const joined = { ...bank.membership, "bank-name": bank.name };
-    const others = memberships.filter((m) => m["bank-id"] !== bankId);
+    const bankId = bank.member?.["bank-id"];
+    const joined = { ...bank.member, "bank-name": bank.name };
+    const others = myMembers.filter((m) => m["bank-id"] !== bankId);
     rememberBank(bankId);
-    memberships = currentFirst([joined, ...others], bankId);
+    myMembers = currentFirst([joined, ...others], bankId);
     set_bank_id(bankId);
     buildAuthRoutes();
     stage = "app";
@@ -195,9 +195,9 @@
   }
 
   function switchBank(bankId) {
-    if (!memberships.some((m) => m["bank-id"] === bankId)) return;
+    if (!myMembers.some((m) => m["bank-id"] === bankId)) return;
     rememberBank(bankId);
-    memberships = currentFirst(memberships, bankId);
+    myMembers = currentFirst(myMembers, bankId);
     set_bank_id(bankId);
     buildAuthRoutes();
     push("/products");
@@ -229,7 +229,7 @@
     <!-- The router takes its routes at mount, so a bank switch remounts
          it: every page then reads the new bank rather than the props it
          was mounted with. -->
-    {#key memberships[0]?.["bank-id"]}
+    {#key myMembers[0]?.["bank-id"]}
       <Router routes={authRoutes} />
     {/key}
   </AppShell>

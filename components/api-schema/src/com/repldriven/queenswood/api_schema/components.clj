@@ -105,7 +105,7 @@
 
 (def Amount
   "Monetary amount paired with its currency — mirrors the `Amount`
-  proto in `schemas/amounts/amount.proto` (int64 minor units + ISO
+  proto in `schemas/amount/amount.proto` (int64 minor units + ISO
   4217 currency)."
   [:map {:closed true}
    [:value [:ref "MinorUnits"]]
@@ -320,11 +320,11 @@
 (def VersionId (id-schema "VersionId" "prv" (id-examples "VersionId")))
 
 (def product-type-enum
-  (enum-coercion {"current" :product-type-sub-ledger-current
-                  "savings" :product-type-sub-ledger-savings
-                  "term-deposit" :product-type-sub-ledger-term-deposit
-                  "own-funds" :product-type-sub-ledger-own-funds}
-                 :product-type-unknown))
+  (enum-coercion {"current" :account-product-type-sub-ledger-current
+                  "savings" :account-product-type-sub-ledger-savings
+                  "term-deposit" :account-product-type-sub-ledger-term-deposit
+                  "own-funds" :account-product-type-sub-ledger-own-funds}
+                 :account-product-type-unknown))
 
 (def payment-address-scheme-enum
   (enum-coercion {"scan" :payment-address-scheme-scan

@@ -106,7 +106,8 @@
   "True for a payment the adapter submitted for the platform."
   [request end-to-end-id]
   (let [intent (relay/find-intent (fdb request) end-to-end-id)]
-    (and (not (error/anomaly? intent)) (= "payment" (:kind intent)))))
+    (and (not (error/anomaly? intent))
+         (= :form3-outbound-intent-kind-payment (:kind intent)))))
 
 (defn- submission
   [request data]
@@ -136,7 +137,8 @@
                                   :payload payload}
                                  {:timeout-ms admission-timeout-ms})]
       (if (= "ACCEPTED" (:status res))
-        (avro/deserialize-same (get avro "inbound-admission") (:payload res))
+        (avro/deserialize-same (get avro "admit-inbound-payment-reply")
+                               (:payload res))
         (error/fail :payment/admission
                     {:message "The platform did not decide the admission"
                      :response (dissoc res :payload)})))))

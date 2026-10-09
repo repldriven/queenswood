@@ -68,9 +68,9 @@
   (keep :principal-id actors))
 
 (defn- owner
-  [lookup membership]
-  (let [{:keys [membership-id user-id]} membership
-        found {:membership-id membership-id :user-id user-id}
+  [lookup member]
+  (let [{:keys [member-id user-id]} member
+        found {:member-id member-id :user-id user-id}
         user (lookup user-id)]
     (cond (nil? user)
           found
@@ -88,21 +88,21 @@
           user)))
 
 (defn owners
-  "The bank's owners, one per active membership of role owner: each its
-  `membership-id` and `user-id`, with the `name` and `email` its user
+  "The bank's owners, one per active member of role owner: each its
+  `member-id` and `user-id`, with the `name` and `email` its user
   record holds, a blank name left out. An owner with no user record is
   listed without either. Answers a vector, empty when the bank has no
   active owner, or the first anomaly a read answers other than
   `:user/not-found`. `list-active` is a one-argument function from a bank
-  id to its active memberships or an anomaly, and `lookup` one from a
+  id to its active members or an anomaly, and `lookup` one from a
   user id to a `User`, nil for a user with no record, or an anomaly."
   [list-active lookup bank-id]
   (let-nom> [active (list-active bank-id)]
-    (reduce (fn [found membership]
-              (let [result (owner lookup membership)]
+    (reduce (fn [found member]
+              (let [result (owner lookup member)]
                 (if (error/anomaly? result)
                   (reduced result)
                   (conj found result))))
             []
-            (filter (fn [membership] (= :role-owner (:role membership)))
+            (filter (fn [member] (= :role-owner (:role member)))
                     active))))

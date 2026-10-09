@@ -9,12 +9,12 @@
 
 (def invitee-user-id "usr.01kprbmgcj35ptc8npmybhh4sp")
 
-(def invitee-membership-id "mem.01kprbpdwa9q5n2t7vwsx84a3n")
+(def invitee-member-id "mem.01kprbpdwa9q5n2t7vwsx84a3n")
 
 (def Actor {:kind :member :principal-id me-api/UserId :name "Ada Lovelace"})
 
-(def invited-membership
-  {:membership-id invitee-membership-id
+(def invited-member
+  {:member-id invitee-member-id
    :bank-id me-api/BankId
    :bank-name "Ada's Bank"
    :user-id invitee-user-id
@@ -28,7 +28,7 @@
    :created-at "2026-05-19T10:00:00Z"
    :updated-at "2026-05-19T10:00:00Z"})
 
-(def MembershipList {:items [me-api/Membership invited-membership]})
+(def MemberList {:items [me-api/Member invited-member]})
 
 (def Invitation
   {:invitation-id InvitationId
@@ -80,7 +80,7 @@
    :actor Actor
    :subject-user-id invitee-user-id
    :subject-name "Charles Babbage"
-   :membership-id invitee-membership-id
+   :member-id invitee-member-id
    :role-before :developer
    :role-after :admin
    :reason "Leads the payments team"
@@ -98,15 +98,15 @@
            :status 404
            :detail "Invitation not found"}})
 
-(def MembershipNotFound
+(def MemberNotFound
   {:value {:title "REJECTED"
-           :type ":membership/not-found"
+           :type ":member/not-found"
            :status 404
-           :detail "Membership not found"}})
+           :detail "Member not found"}})
 
 (def RoleNotGranted
   {:value {:title "UNAUTHORIZED"
-           :type ":membership/role-not-granted"
+           :type ":member/role-not-granted"
            :status 403
            :detail "Your role does not allow this"}})
 
@@ -116,9 +116,9 @@
            :status 409
            :detail "That address has a pending invitation"}})
 
-(def MembershipAlreadyExists
+(def MemberAlreadyExists
   {:value {:title "REJECTED"
-           :type ":membership/already-exists"
+           :type ":member/already-exists"
            :status 409
            :detail "Already a member of this bank"}})
 
@@ -140,21 +140,21 @@
            :status 409
            :detail "Invitation is not in a state that allows this"}})
 
-(def MembershipInvalidStatus
+(def MemberInvalidStatus
   {:value {:title "REJECTED"
-           :type ":membership/invalid-status"
+           :type ":member/invalid-status"
            :status 409
-           :detail "Membership is not in a state that allows this"}})
+           :detail "Member is not in a state that allows this"}})
 
-(def MembershipLastOwner
+(def MemberLastOwner
   {:value {:title "REJECTED"
-           :type ":membership/last-owner"
+           :type ":member/last-owner"
            :status 409
            :detail "Make someone else an owner first"}})
 
 (def registry
-  (examples-registry [#'InvitationNotFound #'MembershipNotFound #'RoleNotGranted
-                      #'InvitationAlreadyExists #'MembershipAlreadyExists
+  (examples-registry [#'InvitationNotFound #'MemberNotFound #'RoleNotGranted
+                      #'InvitationAlreadyExists #'MemberAlreadyExists
                       #'ReasonRequired #'InvitationAlreadyMember
-                      #'InvitationInvalidStatus #'MembershipInvalidStatus
-                      #'MembershipLastOwner]))
+                      #'InvitationInvalidStatus #'MemberInvalidStatus
+                      #'MemberLastOwner]))

@@ -76,7 +76,7 @@
    (relay/save-event config
                      {:outbox-id (str (utility/uuidv7))
                       :dedup-key dedup-key
-                      :event-name "idv-evidence"
+                      :event-name "idv-evidence-received"
                       :payload (.getBytes "probe")
                       :created-at (utility/now)})))
 
@@ -94,7 +94,8 @@
                                        {:index "ZypheOutboxEvent_by_dedup_key"})
                                       schema/pb->ZypheOutboxEvent)))
         payload (:payload event)]
-    {:evidence (avro/deserialize-same (get serde "idv-evidence") payload)
+    {:evidence (avro/deserialize-same (get serde "idv-evidence-received")
+                                      payload)
      :text (String. ^bytes payload StandardCharsets/UTF_8)}))
 
 (deftest webhook-test

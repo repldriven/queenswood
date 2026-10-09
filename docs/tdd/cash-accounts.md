@@ -136,15 +136,14 @@ reads inside its own FDB transactions, passing the live
  :currency          "GBP"      ;; ISO 4217 string
 
  :name              ;; user-friendly label
- :product-type      :product-type-sub-ledger-current
+ :product-type      :account-product-type-sub-ledger-current
  :account-type      :account-type-personal
                     ;; or -business (derived from party type)
- :account-status    :cash-account-status-opening
+ :status            :cash-account-status-opening
                     ;; -opened, -suspended, -closing, -closed,
                     ;; -refused
 
- :closing-from      ;; tag 28 — the status a closing account left
- :refusal-reason    ;; the provider's reason for its last refusal
+ :refused-reason    ;; the provider's reason for refusing the opening
 
  :payment-addresses
  [{:scheme :payment-address-scheme-scan
@@ -331,7 +330,7 @@ never larger than the total, so the total check refuses
 first and the unfiltered bound adds nothing there. Only a
 limit whose own filter names those terms binds the subtotal,
 and the micro tier seeds one: at most ten
-`:product-type-sub-ledger-term-deposit` accounts.
+`:account-product-type-sub-ledger-term-deposit` accounts.
 
 Neither count index carries a status term. A closed account
 therefore keeps consuming the cap for good, and so do the
@@ -397,12 +396,12 @@ The write that needs the payment provider records an entry on the
 bank's activity in the same transaction, from which `payment`'s
 activity event processor sends the provider's command (ADR-0033):
 
-- an opening → `account-opening`, with the holder party's
+- an opening → `cash-account-open-requested`, with the holder party's
   display name, the currency and the address schemes the
   version allows, sent as `open-payment-account`;
 - a closing of an account the provider holds →
-  `account-closing`, sent as `close-payment-account`;
-- a rotation → `account-address-rotation-requested`, with the
+  `cash-account-close-requested`, sent as `close-payment-account`;
+- a rotation → `cash-account-address-rotation-requested`, with the
   pending rotation's key, sent as `reissue-payment-address`.
 
 `events.clj` handles the `cash-account-status-changed` event
@@ -411,7 +410,7 @@ only to flip a closing account the provider never held to
 `schemes-account-event`, which the brick's second handler
 consumes: `payment-account-opened` opens the account with
 the issued addresses, provider account id and BBAN;
-`payment-account-refused` makes it `:refused`, with the
+`payment-account-open-refused` makes it `:refused`, with the
 provider's reason; `payment-account-closed` closes it;
 `payment-account-close-refused` returns it to its
 `:closing-from`, `:opened` or `:suspended`, with the reason;
@@ -511,7 +510,7 @@ Every read lives in `cash-account-query`. Ten of them:
   index before anything moves, rather than discovering the
   breach part-way through.
 - **`count-by-org-product-account-type-currency`** —
-  `CashAccount_count_by_bank_product_account_type_currency`.
+  `CashAccount_count_by_bank_product_type_account_type_currency`.
   Used by the write brick's subtotal count limit.
 - **`reduce-accounts-with-balances`** — every account in a
   bank paired with its balances, in account-id order, the

@@ -1,0 +1,140 @@
+{:name
+ "A removed person is refused on their next call, and re-invited joins anew"
+ ;; The member's token is minted once and outlives the removal: the
+ ;; members are read on every request, so the same bearer is
+ ;; refused the moment the member ends.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "removed-owner"
+   :password "removed-owner"
+   :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "removed-member"
+   :password "removed-member"
+   :as :member-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Removed Member Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]
+                    :owner-email "removed-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation-id]}
+             :auth :owner-token}
+   :as :owner-member
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:email "removed-member@queenswood.local" :role "developer"}}
+   :as :invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
+             :auth :member-token}
+   :as :first-member
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts"
+             :auth :member-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/members/{member-id}/remove"
+             :path-params {:member-id [:ref :first-member
+                                           :member-id]}
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:reason "Left the company"}}
+   :assert {:status 204}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts"
+             :auth :member-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 403
+            :problem {:type "auth/forbidden"
+                      :detail "The caller is not a member of this bank"}}}
+  {:command :api/request
+   :request {:method :get :path "/v1/me/members" :auth :member-token}
+   :assert {:status 200 :body {:items []}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/members/{member-id}/remove"
+             :path-params {:member-id [:ref :first-member
+                                           :member-id]}
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 409 :problem {:type ":member/invalid-status"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/members"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert
+   {:status 200
+    :body {:items [{:member-id [:ref :owner-member
+                                    :member-id]
+                    :role "owner"}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-events"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"page[size]" 1}}
+   :assert
+   {:status 200
+    :body {:items
+           [{:kind "member-removed"
+             :actor
+             {:kind "member" :principal-id [:ref :owner-member :user-id]}
+             :subject-user-id [:ref :first-member :user-id]
+             :member-id [:ref :first-member
+                             :member-id]
+             :role-before "developer"
+             :reason "Left the company"}]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:email "removed-member@queenswood.local" :role "viewer"}}
+   :as :second-invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :second-invitation
+                                           :invitation-id]}
+             :auth :member-token}
+   :as :second-member
+   :assert {:status 201
+            :body {:member-id [:m/mismatch
+                                   [:ref :first-member :member-id]]
+                   :user-id [:ref :first-member :user-id]
+                   :role "viewer"}}}]
+ :then [{:command :api/request
+         :request {:method :get
+                   :path "/v1/cash-accounts"
+                   :auth :member-token
+                   :headers {:bank-id [:ref :bank :bank-id]}}
+         :assert {:status 200}}]}

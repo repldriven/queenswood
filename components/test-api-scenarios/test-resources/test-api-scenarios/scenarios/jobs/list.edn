@@ -20,7 +20,7 @@
                :periodicity "daily"
                :allowed-periodicities ["daily"]
                :run-time-minutes 1020
-               :enabled true}
+               :status "active"}
               {:job-id "account-migration"
                :kind "system"
                :periodicity "daily"

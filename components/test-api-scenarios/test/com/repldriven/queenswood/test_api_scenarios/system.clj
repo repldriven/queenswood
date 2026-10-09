@@ -19,7 +19,7 @@
     [com.repldriven.queenswood.form3-webhook.interface]
     [com.repldriven.queenswood.idv.interface]
     [com.repldriven.queenswood.idv.system]
-    [com.repldriven.queenswood.membership.interface]
+    [com.repldriven.queenswood.member.interface]
     [com.repldriven.queenswood.party.interface]
     [com.repldriven.queenswood.party.system]
     [com.repldriven.queenswood.payment-provider.interface]

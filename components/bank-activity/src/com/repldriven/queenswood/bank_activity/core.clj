@@ -25,16 +25,19 @@
   200)
 
 (def ^:private schema-paths
-  {"account-opening" "schemas/bank-activity/account-opening.avsc.json"
-   "account-closing" "schemas/bank-activity/account-closing.avsc.json"
-   "account-address-rotation-requested"
-   "schemas/bank-activity/account-address-rotation-requested.avsc.json"
+  {"cash-account-open-requested"
+   "schemas/cash-account/cash-account-open-requested.avsc.json"
+   "cash-account-close-requested"
+   "schemas/cash-account/cash-account-close-requested.avsc.json"
+   "cash-account-address-rotation-requested"
+   "schemas/cash-account/cash-account-address-rotation-requested.avsc.json"
    "outbound-payment-submitted"
-   "schemas/bank-activity/outbound-payment-submitted.avsc.json"
+   "schemas/payment/outbound-payment-submitted.avsc.json"
    "inbound-payment-suspended"
-   "schemas/bank-activity/inbound-payment-suspended.avsc.json"
-   "idv-session-opening" "schemas/bank-activity/idv-session-opening.avsc.json"
-   "transaction-posted" "schemas/transactions/transaction-posted.avsc.json"})
+   "schemas/payment/inbound-payment-suspended.avsc.json"
+   "idv-session-open-requested"
+   "schemas/idv/idv-session-open-requested.avsc.json"
+   "transaction-posted" "schemas/transaction/transaction-posted.avsc.json"})
 
 (def ^:private schemas
   (delay (update-vals schema-paths

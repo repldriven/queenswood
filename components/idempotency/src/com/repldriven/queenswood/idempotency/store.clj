@@ -10,8 +10,8 @@
 (defn save
   "Persist an idempotency cache entry. `entry` is the map shape of
   the `Idempotency` proto: `:principal-id :operation :idempotency-key
-  :state :status :body :created-at :expires-at`. State is `\"pending\"`
-  for in-flight markers and `\"completed\"` for finished responses.
+  :status :fingerprint :response :expires-at :completed-at :created-at`,
+  `:response` a map of `:status`, `:headers` and `:body`.
 
   `txn-or-config` accepts either an open `fdb.record/Txn` (composes
   inside an outer transaction) or a `{:record-db :record-store}`

@@ -1,0 +1,38 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.zyphe;
+
+import "record_metadata_options.proto";
+import "schemas/outbound-intent/outbound-intent-status.proto";
+
+option java_outer_classname = "ZypheOutboundIntentProto";
+
+enum ZypheOutboundIntentKind {
+  ZYPHE_OUTBOUND_INTENT_KIND_UNKNOWN = 0;
+  ZYPHE_OUTBOUND_INTENT_KIND_CHECK = 1;
+}
+
+// A call to Zyphe the adapter has yet to make, or to hear back from.
+message ZypheOutboundIntent {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string intent_id = 1; // uuidv7
+
+  required ZypheOutboundIntentKind kind = 2;
+  required com.repldriven.queenswood.schema.outbound_intent.OutboundIntentStatus status = 3;
+  required string request = 4; // transit+json
+  repeated string subjects = 5;
+  optional string correlation_id = 6;
+
+  optional int64 sent_at = 51;
+
+  required string idempotency_key = 100; // the command's dedup key
+  required int64 created_at = 101;
+
+  optional string failure_reason = 200;
+
+  required int32 attempt_count = 201;
+  optional int64 next_attempt_at = 202;
+  optional string traceparent = 203; // W3C trace context
+}
+

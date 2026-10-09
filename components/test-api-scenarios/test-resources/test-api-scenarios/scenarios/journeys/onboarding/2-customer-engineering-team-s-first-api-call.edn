@@ -35,7 +35,7 @@
    :until {:status 200
            :body {:items [{:product-type "own-funds"
                            :currency "GBP"
-                           :account-status "opened"}]}}}
+                           :status "opened"}]}}}
   ;; Then it starts on its own customers.
   {:fixture :person :as :arthur :with {:token [:ref :exchanged :access_token]}}
   {:fixture :product
@@ -58,4 +58,4 @@
     {:items [:m/embeds
              [{:name "Arthur Current"
                :party-id [:ref :arthur :party :party-id]
-               :account-status "opened"}]]}}}]}
+               :status "opened"}]]}}}]}

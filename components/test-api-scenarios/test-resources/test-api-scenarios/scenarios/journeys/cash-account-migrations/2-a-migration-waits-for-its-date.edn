@@ -62,10 +62,10 @@
              :path-params {:job-id "account-migration"}
              :auth [:ref :bank-0 :token]}
    :assert {:status 201
-            :body {:status "succeeded"
+            :body {:status "completed"
                    :tasks [{:label "migrate"
-                            :status "succeeded"
-                            :records-processed 0}]}}}]
+                            :status "completed"
+                            :processed-count 0}]}}}]
  :then [{:command :api/request
          :request {:method :get
                    :path "/v1/cash-account-migrations/{migration-id}"

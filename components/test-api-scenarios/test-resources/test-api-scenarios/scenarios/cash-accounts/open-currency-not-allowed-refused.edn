@@ -10,8 +10,7 @@
           :as :party-0
           :with {:token [:ref :org-0 :token]
                  :display-name "Euro Holder"
-                 :given-name "Euro"
-                 :family-name "Holder"}}
+                 :legal-name "Euro Holder"}}
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}]
  :when
  [{:command :api/request

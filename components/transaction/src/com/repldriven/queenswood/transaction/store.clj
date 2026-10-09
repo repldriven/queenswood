@@ -8,7 +8,8 @@
 (def ^:private store-name "transactions")
 (def ^:private legs-store-name "transaction-legs")
 
-(def ^:private leg-sum-index "TransactionLeg_sum_amount_by_account_bucket_side")
+(def ^:private leg-sum-index
+  "TransactionLeg_sum_amount_by_bank_account_bucket_side")
 
 (def transact fdb/transact)
 (def uniqueness-violation? fdb/uniqueness-violation?)
@@ -76,7 +77,7 @@
    "Failed to find transaction by idempotency key"))
 
 (defn page-transactions
-  [txn account-id opts]
+  [txn bank-id account-id opts]
   (fdb/transact
    txn
    (fn [txn]
@@ -84,20 +85,23 @@
            leg-store (fdb/open txn legs-store-name)
            txn-store (fdb/open txn store-name)
            result (fdb/scan-records leg-store
-                                    {:prefix [account-id]
+                                    {:prefix [bank-id account-id]
                                      :after after
                                      :before before
                                      :limit limit
                                      :order order})
            legs (mapv schema/pb->TransactionLeg (:records result))
-           parents (fdb/load-records txn-store (mapv :transaction-id legs))]
+           parents (fdb/load-records txn-store
+                                     (mapv (fn [leg] [bank-id
+                                                      (:transaction-id leg)])
+                                           legs))]
        {:transactions
         (mapv (fn [leg txn-record]
                 (merge (dissoc leg :bank-id :product-type)
                        (some-> txn-record
                                schema/pb->Transaction
-                               (select-keys [:transaction-type :status
-                                             :reference]))))
+                               (select-keys [:transaction-type :reference
+                                             :created-at]))))
               legs
               parents)
         :before (:before result)
@@ -106,15 +110,15 @@
    "Failed to list account transactions"))
 
 (defn get-transactions
-  ([txn account-id]
-   (get-transactions txn account-id nil))
-  ([txn account-id opts]
+  ([txn bank-id account-id]
+   (get-transactions txn bank-id account-id nil))
+  ([txn bank-id account-id opts]
    (error/let-nom> [{:keys [transactions]}
-                    (page-transactions txn account-id opts)]
+                    (page-transactions txn bank-id account-id opts)]
      transactions)))
 
 (defn sum-legs
-  [txn account-id balance-type balance-status isolation]
+  [txn bank-id account-id balance-type balance-status isolation]
   (fdb/transact
    txn
    (fn [txn]
@@ -123,7 +127,8 @@
                  fdb/sum-records
                  fdb/sum-records-snapshot)
            group (fn [side]
-                   [account-id
+                   [bank-id
+                    account-id
                     (schema/balance-type->int balance-type)
                     (schema/balance-status->int balance-status)
                     (schema/leg-side->int side)])]

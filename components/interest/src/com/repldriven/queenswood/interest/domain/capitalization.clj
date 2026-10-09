@@ -31,7 +31,7 @@
         amount (abs accrued)]
     {:bank-id bank-id
      :idempotency-key (idempotency-key (:account-id account) as-of-date)
-     :transaction-type :transaction-type-interest-capital
+     :transaction-type :transaction-type-interest-capitalization
      :currency currency
      :reference (str "Monthly interest capitalization "
                      (utility/epoch-day->iso-date as-of-date))
@@ -49,7 +49,7 @@
   Accrual moves the interest-accrued bucket day by day; this is the
   line on the account's spendable balance."
   [bank-id account currency account-balances as-of-date]
-  (let [accrued (balances/accrued-amount account-balances currency)]
+  (let [accrued (balances/accrued-amount account-balances)]
     (when-not (zero? accrued)
       {:transaction (transaction bank-id account currency accrued as-of-date)
        :amount accrued

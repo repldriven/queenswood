@@ -33,7 +33,7 @@
 (defn handle
   [config message]
   (let [{:keys [event payload]} message]
-    (when (= "idv-session-opening" event)
+    (when (= "idv-session-open-requested" event)
       (let-nom> [data (avro/deserialize-same (get (:schemas config) event)
                                              payload)]
         (send-check config data)))))

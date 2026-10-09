@@ -41,7 +41,7 @@
              :path "/v1/rewards"
              :query-params {:account-id [:ref :account :account :account-id]}
              :auth [:ref :org-0 :token]}
-   :until {:status 200 :body {:items [{:status "due"}]}}}]
+   :until {:status 200 :body {:items [{:status "deferred"}]}}}]
  :then
  [{:command :api/request
    :request {:method :get
@@ -52,7 +52,7 @@
    {:status 200
     :body
     {:items
-     [{:kind "opening" :amount 1000 :status "due" :error [:m/regex ".+"]}]}}}
+     [{:kind "opening" :amount 1000 :status "deferred" :deferred-reason [:m/regex ".+"]}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"

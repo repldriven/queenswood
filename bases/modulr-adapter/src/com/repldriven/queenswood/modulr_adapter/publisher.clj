@@ -74,7 +74,7 @@
         payin]
     (let-nom> [amount (amount->minor-units Amount PaymentId)]
       [(utility/assoc-some
-        {:event-name "transaction-settled"
+        {:event-name "provider-payment-settled"
          :dedup-key (str PaymentId ":settled")
          :data {:scheme-transaction-id PaymentId
                 :end-to-end-id PaymentId
@@ -99,10 +99,11 @@
                 DateTime]}
         payin
         end-to-end-id (relay/reference->id (:externalReference original))]
-    (if-not (and end-to-end-id (= "payment" (:kind intent)))
+    (if-not (and end-to-end-id
+                 (= :modulr-outbound-intent-kind-payment (:kind intent)))
       (inbound payin)
       (let-nom> [amount (amount->minor-units Amount PaymentId)]
-        [{:event-name "transaction-returned"
+        [{:event-name "provider-payment-returned"
           :dedup-key (str end-to-end-id ":returned")
           :data (utility/assoc-some
                  {:end-to-end-id end-to-end-id
@@ -125,9 +126,9 @@
         {:keys [kind context]} intent
         at (epoch-millis EventTime)]
     (let-nom> [amount (amount->minor-units Amount PaymentId)]
-      (->> [(if (= "transfer" kind)
+      (->> [(if (= :modulr-outbound-intent-kind-transfer kind)
               (relay/transfer-outcome {:provider-payment-id PaymentId
-                                       :transfer-id (:dedup-key intent)
+                                       :transfer-id (:idempotency-key intent)
                                        :bank-id (:bank-id context)
                                        :status Status
                                        :at at})
@@ -146,7 +147,7 @@
   (let [{:keys [id details]} payment
         {:keys [amount currency]} details]
     (let-nom> [amount (amount->minor-units amount id)]
-      [{:event-name "transaction-held"
+      [{:event-name "provider-payment-held"
         :dedup-key (str id ":held")
         :data {:end-to-end-id end-to-end-id
                :scheme "fps"
@@ -158,7 +159,7 @@
 
 (defn- rejected
   [payment debit-credit-code creditor-bban end-to-end-id reason at]
-  [{:event-name "transaction-rejected"
+  [{:event-name "provider-payment-rejected"
     :dedup-key (str (:id payment) ":rejected")
     :data (utility/assoc-some
            {:end-to-end-id end-to-end-id

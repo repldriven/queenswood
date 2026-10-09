@@ -20,13 +20,13 @@
   stores and the API never publishes."
   {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4s5"
    :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :scheme :payment-scheme-fps
+   :scheme-type :scheme-type-fps
    :debtor-account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
    :creditor-bban "04000412345678"
    :creditor-name "Arthur Dent"
    :currency "GBP"
    :amount 2500
-   :payment-status :outbound-payment-status-completed
+   :status :outbound-payment-status-completed
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4s9"
    :reference "Towel"
    :business-day "2023-11-14"
@@ -35,20 +35,21 @@
    :idempotency-key "5b2f0f6e-outbound"})
 
 (def ^:private stored-inbound
-  {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4sa"
-   :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :scheme "fps"
-   :scheme-transaction-id "cb-txn-1"
-   :end-to-end-id "e2e-1"
+  {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :payment-id "pmt.01kprbmgcj35ptc8npmybhh4sa"
+   :status :inbound-payment-status-settled
+   :scheme-type :scheme-type-fps
    :creditor-account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
-   :currency "GBP"
-   :amount 100000
-   :payment-status :inbound-payment-status-settled
-   :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
    :debtor-name "Ford Prefect"
+   :amount 100000
+   :currency "GBP"
    :reference "Lunch"
-   :return-failure-reason "The payment could not be returned"
+   :end-to-end-id "e2e-1"
+   :scheme-transaction-id "cb-txn-1"
+   :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
    :business-day "2023-11-14"
+   :return-failed-reason "The payment could not be returned"
+   :settled-at 1700000000001
    :created-at 1700000000000
    :updated-at 1700000000001
    :scheme-payload "{}"})
@@ -67,14 +68,20 @@
    :updated-at 1700000000001
    :idempotency-key "5b2f0f6e-internal"})
 
+(def ^:private outcome-keys
+  "The keys only a failed, returned or suspended payment carries, which
+  the settled fixtures above leave out."
+  #{:failed-kind :failed-reason-code :failed-reason :returned-reason-code
+    :returned-reason :suspended-reason-code :suspended-reason})
+
 (deftest declared-keys-cover-the-fixtures-test
   (testing "each fixture carries every key its component declares"
-    (is (= (disj (set (declared-keys "OutboundPayment")) :failure :return)
-           (set (filter (set (declared-keys "OutboundPayment"))
-                        (keys stored-outbound)))))
-    (is (= (set (declared-keys "InboundPayment"))
-           (set (filter (set (declared-keys "InboundPayment"))
-                        (keys stored-inbound)))))
+    (is (= (remove outcome-keys (declared-keys "OutboundPayment"))
+           (filter (set (keys stored-outbound))
+                   (declared-keys "OutboundPayment"))))
+    (is (= (remove outcome-keys (declared-keys "InboundPayment"))
+           (filter (set (keys stored-inbound))
+                   (declared-keys "InboundPayment"))))
     (is (= (set (declared-keys "InternalPayment"))
            (set (filter (set (declared-keys "InternalPayment"))
                         (keys stored-internal)))))))
@@ -109,9 +116,10 @@
         inbound (SUT/->inbound-wire-body stored-inbound)
         internal (SUT/->internal-wire-body stored-internal)]
     (testing "every enum reaches the wire as the string the document admits"
-      (is (= "completed" (name (:payment-status outbound))))
-      (is (= "fps" (name (:scheme outbound))))
-      (is (= "settled" (name (:payment-status inbound)))))
+      (is (= "completed" (name (:status outbound))))
+      (is (= "fps" (name (:scheme-type outbound))))
+      (is (= "settled" (name (:status inbound))))
+      (is (= "fps" (name (:scheme-type inbound)))))
     (testing "and every timestamp as ISO-8601"
       (is (= "2023-11-14T22:13:20Z" (:created-at outbound)))
       (is (= "2023-11-14T22:13:20.001Z" (:updated-at inbound)))
@@ -123,36 +131,26 @@
       (is (not (contains? outbound :idempotency-key)))
       (is (not (contains? internal :idempotency-key))))))
 
-(deftest ->outbound-body-projects-a-failure-test
+(deftest ->outbound-body-publishes-an-outcome-test
   (let [failed (assoc stored-outbound
-                      :payment-status :outbound-payment-status-failed
-                      :failure-kind :outbound-payment-failure-kind-refused
-                      :failure-reason-code "NARR"
-                      :failure-reason "HTTP 400")]
-    (testing "a failed payment's kind, reason code and reason form its failure"
-      (is (= {:kind :outbound-payment-failure-kind-refused
-              :reason-code "NARR"
-              :reason "HTTP 400"}
-             (:failure (SUT/->outbound-body failed)))))
-    (testing "and reach the wire as the strings the document admits"
+                      :status :outbound-payment-status-failed
+                      :failed-kind :outbound-payment-failed-kind-refused
+                      :failed-reason-code "NARR"
+                      :failed-reason "HTTP 400")
+        returned (assoc stored-outbound
+                        :status :outbound-payment-status-returned
+                        :returned-reason-code "AC04"
+                        :returned-reason "Account closed")]
+    (testing "a failed payment carries its kind, reason code and reason"
+      (is (= ["NARR" "HTTP 400"]
+             ((juxt :failed-reason-code :failed-reason)
+              (SUT/->outbound-body failed))))
       (is (= "refused"
-             (name (get-in (SUT/->outbound-wire-body failed)
-                           [:failure :kind])))))
-    (testing "the stored fields themselves are not published"
-      (is (not (contains? (SUT/->outbound-body failed) :failure-kind))))
-    (testing "a payment that has not failed has none"
-      (is (not (contains? (SUT/->outbound-body stored-outbound) :failure))))))
-
-(deftest ->outbound-body-projects-a-return-test
-  (let [returned (assoc stored-outbound
-                        :payment-status :outbound-payment-status-returned
-                        :return-reason-code "AC04"
-                        :return-reason "Account closed")]
-    (testing "a returned payment's reason code and reason form its return"
-      (is (= {:reason-code "AC04" :reason "Account closed"}
-             (:return (SUT/->outbound-body returned)))))
-    (testing "and its status reaches the wire as the document admits"
-      (is (= "returned"
-             (name (:payment-status (SUT/->outbound-wire-body returned))))))
-    (testing "a payment that has not been returned has none"
-      (is (not (contains? (SUT/->outbound-body stored-outbound) :return))))))
+             (name (:failed-kind (SUT/->outbound-wire-body failed))))))
+    (testing "a returned one its reason code and reason"
+      (is (= ["AC04" "Account closed"]
+             ((juxt :returned-reason-code :returned-reason)
+              (SUT/->outbound-body returned)))))
+    (testing "and a payment with neither outcome carries none of them"
+      (is (empty? (select-keys (SUT/->outbound-body stored-outbound)
+                               outcome-keys))))))

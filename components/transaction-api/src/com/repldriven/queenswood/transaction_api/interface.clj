@@ -12,9 +12,23 @@
   ^{:doc
     "Malli registry of the transaction schemas, keyed by the name each
   appears under in the document's `components/schemas`:
-  `TransactionId`, `LegId`, `TransactionStatus`, `TransactionType`,
-  `LegSide`, `Transaction`, `TransactionList`. Merged into the
+  `TransactionId`, `LegId`, `TransactionType`, `LegSide`,
+  `Transaction`, `TransactionList`. Merged into the
   coercion registry in `api.clj`, so `[:ref \"X\"]` resolves them on
   any route."}
   registry
   components/registry)
+
+;; ---
+;; projections
+;; ---
+
+(defn ->body
+  "Project a leg, as the transaction brick pages it, onto the keys
+  `Transaction` declares.
+
+  Args:
+  - leg: a leg map, enriched with its transaction's type, reference and
+    creation time."
+  [leg]
+  (components/->body leg))

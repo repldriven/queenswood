@@ -270,7 +270,7 @@
                       :headers {"Authorization" (str "Bearer " token)}})
        http/res->edn
        :items
-       (filterv (fn [account] (= "opening" (:account-status account))))))
+       (filterv (fn [account] (= "opening" (:status account))))))
 
 (defn- settle
   "Wait until no account any of `banks` holds is still opening, so a
