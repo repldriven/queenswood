@@ -81,8 +81,8 @@
 (deftest expected-end-at-test
   (testing "created-at plus the prior run's duration"
     (is (= 1150
-           (SUT/expected-end-at 1000 {:created-at 100 :succeeded-at 250}))))
-  (testing "nil when the prior run never succeeded"
+           (SUT/expected-end-at 1000 {:created-at 100 :completed-at 250}))))
+  (testing "nil when the prior run never completed"
     (is (nil? (SUT/expected-end-at 1000 {:created-at 100})))
     (is (nil? (SUT/expected-end-at 1000 nil)))))
 
@@ -95,7 +95,7 @@
              started)))
     (testing "finishing carries the counts the pass reported"
       (is (= {:label "accrue"
-              :status :scheduler-task-status-succeeded
+              :status :scheduler-task-status-completed
               :started-at 1000
               :finished-at 1600
               :processed-count 12480
@@ -114,7 +114,7 @@
       ;; The migration task reports its own shape and no account
       ;; figures — better absent than a zero it never meant.
       (let [task (SUT/finished-task started 1600 {:migrated 0})]
-        (is (= :scheduler-task-status-succeeded (:status task)))
+        (is (= :scheduler-task-status-completed (:status task)))
         (is (not (contains? task :processed-count)))
         (is (not (contains? task :failed-count)))))
     (testing "failing keeps the timings and the anomaly that stopped it"
@@ -153,11 +153,11 @@
         hour (* 60 60 1000)
         run (fn [status created-at]
               {:run-id "run.1" :status status :created-at created-at})]
-    (testing "a run that succeeded or is running this period refuses another"
+    (testing "a run that completed or is running this period refuses another"
       (is (= :scheduler/period-already-run
              (error/kind (SUT/period-refusal job
                                              [(run
-                                               :scheduler-run-status-succeeded
+                                               :scheduler-run-status-completed
                                                (- noon-on-the-fifth hour))]
                                              noon-on-the-fifth))))
       (is (= "The job is already running this period"
@@ -173,11 +173,11 @@
                                     noon-on-the-fifth))))
     (testing "a run in an earlier period refuses nothing"
       (is (nil? (SUT/period-refusal job
-                                    [(run :scheduler-run-status-succeeded
+                                    [(run :scheduler-run-status-completed
                                           (- noon-on-the-fifth (* 24 hour)))]
                                     noon-on-the-fifth))))
     (testing "a schedule firing twice a day has two periods a day"
       (is (nil? (SUT/period-refusal (assoc job :schedule "0 0 0,12 * * ?")
-                                    [(run :scheduler-run-status-succeeded
+                                    [(run :scheduler-run-status-completed
                                           (- noon-on-the-fifth (* 2 hour)))]
                                     noon-on-the-fifth))))))

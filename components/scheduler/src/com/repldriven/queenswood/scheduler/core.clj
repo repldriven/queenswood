@@ -80,9 +80,9 @@
 
 ;; --- run engine -----------------------------------------------------------
 
-(defn- last-succeeded-run
+(defn- last-completed-run
   [runs]
-  (first (filter (fn [run] (= :scheduler-run-status-succeeded (:status run)))
+  (first (filter (fn [run] (= :scheduler-run-status-completed (:status run)))
                  runs)))
 
 (defn- open-run
@@ -102,7 +102,7 @@
                                run
                                :expected-end-at
                                (domain/expected-end-at (:created-at run)
-                                                       (last-succeeded-run
+                                                       (last-completed-run
                                                         runs)))
                        _ (store/save-run txn opened)]
                       opened))
@@ -119,7 +119,7 @@
   lists each task as it starts and as it ends. Refuses with
   `:scheduler/period-already-run` when the job has run, or is running,
   in the period it starts in; otherwise opens the run as running and
-  finishes it succeeded or — on the first task anomaly — failed, the
+  finishes it completed or — on the first task anomaly — failed, the
   remaining tasks skipped. `as-of-date` is today (epoch-day); the
   underlying interest tasks are idempotent and guarded by the
   daily-limit policy, so a re-run records a failed run rather than
@@ -148,8 +148,8 @@
         (if (nil? task-kind)
           (let [now (utility/now)
                 run (assoc (ran base tasks now)
-                           :status :scheduler-run-status-succeeded
-                           :succeeded-at now)]
+                           :status :scheduler-run-status-completed
+                           :completed-at now)]
             (store/save-run config run)
             (store/save-job config
                             (assoc job
@@ -192,7 +192,7 @@
 
 (defn force-start
   "Run `job-id` now with trigger source forced, in the period now falls
-  in, which a run that is running or succeeded there refuses. The run
+  in, which a run that is running or completed there refuses. The run
   records the `actor` that forced it."
   [config bank-id job-id actor]
   (let [job (store/get-job config bank-id job-id)]

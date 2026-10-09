@@ -197,7 +197,7 @@
       (is (= :cash-account-migration-run-status-running (:status run)))
       (is (true? (:dry-run run)))
       (is (= 20260801 (:business-day run)))
-      (is (number? (:started-at run))))
+      (is (number? (:created-at run))))
     (testing "closing carries the counts a reader wants before any verdict"
       (let [closed (SUT/close-run
                     run
@@ -205,21 +205,22 @@
         (is (= :cash-account-migration-run-status-completed (:status closed)))
         (is (= 9588 (:accounts-seen closed)))
         (is (= 412 (:accounts-ineligible closed)))
-        (is (number? (:finished-at closed)))))
+        (is (number? (:completed-at closed)))))
     (testing "a run that could not finish is failed, not completed"
       (let [failed (SUT/fail-run run (error/reject :some/anomaly {}))]
         (is (= :cash-account-migration-run-status-failed (:status failed)))
+        (is (number? (:failed-at failed)))
         (is (string? (:failure-reason failed)))))))
 
 (deftest preview-running-test
   (let [now 1000000000000
         minute (* 60 1000)
-        run (fn [dry-run status started-at]
+        run (fn [dry-run status created-at]
               {:run-id "run.1"
                :migration-id "mig.1"
                :dry-run dry-run
                :status status
-               :started-at started-at})
+               :created-at created-at})
         running :cash-account-migration-run-status-running]
     (testing "nil when no preview is running"
       (is (nil? (SUT/check-no-preview-running [] now)))

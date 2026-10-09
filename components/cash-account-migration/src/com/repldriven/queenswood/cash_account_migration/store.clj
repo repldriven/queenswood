@@ -57,8 +57,11 @@
 (defn- clean-run
   [run]
   (cond-> (drop-defaults run [:failure-reason] {})
-          (zero? (:finished-at run 0))
-          (dissoc :finished-at)))
+          (zero? (:completed-at run 0))
+          (dissoc :completed-at)
+
+          (zero? (:failed-at run 0))
+          (dissoc :failed-at)))
 
 (defn- clean-account-run
   "`failure-reason` is set only where an account errored, and

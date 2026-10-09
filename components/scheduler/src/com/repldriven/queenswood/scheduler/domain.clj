@@ -105,13 +105,13 @@
         :job-id (:job-id job)}))))
 
 (defn run-duration
-  "Wall-clock duration of a succeeded run, or nil for any other."
+  "Wall-clock duration of a completed run, or nil for any other."
   [run]
-  (when-let [succeeded-at (:succeeded-at run)]
-    (- succeeded-at (:created-at run))))
+  (when-let [completed-at (:completed-at run)]
+    (- completed-at (:created-at run))))
 
 (def ^:private period-holding-statuses
-  #{:scheduler-run-status-running :scheduler-run-status-succeeded})
+  #{:scheduler-run-status-running :scheduler-run-status-completed})
 
 (defn- same-slot?
   "True where `schedule` does not fire after `earlier` and by `later`,
@@ -123,7 +123,7 @@
 
 (defn period-refusal
   "A rejection when one of `runs` of `job` answers the same fire of its
-  schedule as a run starting at `now`, and is running or succeeded,
+  schedule as a run starting at `now`, and is running or completed,
   else nil. A failed run leaves its slot open to another."
   [job runs now]
   (let [{:keys [job-id schedule]} job
@@ -143,7 +143,7 @@
 
 (defn expected-end-at
   "`created-at` plus the previous successful run's duration, or nil
-  when there is no succeeded prior run to estimate from."
+  when there is no completed prior run to estimate from."
   [created-at prev-run]
   (when-let [duration (run-duration prev-run)]
     (+ created-at duration)))
@@ -162,7 +162,7 @@
   never meant."
   [task finished-at result]
   (utility/assoc-some (assoc task
-                             :status :scheduler-task-status-succeeded
+                             :status :scheduler-task-status-completed
                              :finished-at finished-at)
                       :processed-count (:accounts-processed result)
                       :failed-count (:accounts-failed result)))

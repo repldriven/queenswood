@@ -18,7 +18,7 @@
 
 (def ^:private run-status-enum
   (coercion/enum-coercion {"running" :scheduler-run-status-running
-                           "succeeded" :scheduler-run-status-succeeded
+                           "succeeded" :scheduler-run-status-completed
                            "failed" :scheduler-run-status-failed}
                           :scheduler-run-status-unknown))
 
@@ -29,7 +29,7 @@
 
 (def ^:private task-status-enum
   (coercion/enum-coercion {"running" :scheduler-task-status-running
-                           "succeeded" :scheduler-task-status-succeeded
+                           "succeeded" :scheduler-task-status-completed
                            "failed" :scheduler-task-status-failed
                            "skipped" :scheduler-task-status-skipped}
                           :scheduler-task-status-unknown))

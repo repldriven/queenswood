@@ -47,7 +47,7 @@
 (defn force-start
   "Run `job-id` now (trigger source forced), as the run for the last
   fire of its schedule. Returns the final run map or an anomaly. A run
-  of the job that is running or succeeded for that fire refuses it with
+  of the job that is running or completed for that fire refuses it with
   `:scheduler/period-already-run`; a failed one does not, so a failed
   run may be forced again. The run records the `actor` that forced it.
 

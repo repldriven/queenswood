@@ -261,12 +261,12 @@
   not count."
   [runs now]
   (when-let [running
-             (first (filter (fn [{:keys [dry-run status started-at]}]
+             (first (filter (fn [{:keys [dry-run status created-at]}]
                               (and dry-run
                                    (= :cash-account-migration-run-status-running
                                       status)
                                    (< now
-                                      (+ started-at
+                                      (+ created-at
                                          abandoned-after-ms))))
                             runs))]
     (error/reject :cash-account-migration/preview-running
@@ -285,7 +285,7 @@
    :status :cash-account-migration-run-status-running
    :dry-run dry-run?
    :business-day business-day
-   :started-at (utility/now)})
+   :created-at (utility/now)})
 
 (def moved-verdict
   "What a commit records for an account it actually moved, onto the
@@ -326,7 +326,7 @@
   (utility/assoc-some (assoc run
                              :status
                              :cash-account-migration-run-status-completed
-                             :finished-at (utility/now))
+                             :completed-at (utility/now))
                       :accounts-seen (:seen tally)
                       :accounts-moved (:moved tally)
                       :accounts-ineligible (:ineligible tally)
@@ -339,5 +339,5 @@
   [run anomaly]
   (assoc run
          :status :cash-account-migration-run-status-failed
-         :finished-at (utility/now)
+         :failed-at (utility/now)
          :failure-reason (str (error/kind anomaly))))

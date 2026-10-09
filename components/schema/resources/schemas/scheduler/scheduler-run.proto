@@ -10,7 +10,7 @@ option java_outer_classname = "SchedulerRunProto";
 enum SchedulerRunStatus {
   SCHEDULER_RUN_STATUS_UNKNOWN = 0;
   SCHEDULER_RUN_STATUS_RUNNING = 1;
-  SCHEDULER_RUN_STATUS_SUCCEEDED = 2;
+  SCHEDULER_RUN_STATUS_COMPLETED = 2;
   SCHEDULER_RUN_STATUS_FAILED = 3;
 }
 
@@ -23,7 +23,7 @@ enum SchedulerTriggerSource {
 enum SchedulerTaskStatus {
   SCHEDULER_TASK_STATUS_UNKNOWN = 0;
   SCHEDULER_TASK_STATUS_RUNNING = 1;
-  SCHEDULER_TASK_STATUS_SUCCEEDED = 2;
+  SCHEDULER_TASK_STATUS_COMPLETED = 2;
   SCHEDULER_TASK_STATUS_FAILED = 3;
   SCHEDULER_TASK_STATUS_SKIPPED = 4;
 }
@@ -51,7 +51,7 @@ message SchedulerRun {
   optional int64 expected_end_at = 7;
   repeated SchedulerTaskRun tasks = 8;
 
-  optional int64 succeeded_at = 51;
+  optional int64 completed_at = 51;
   optional int64 failed_at = 53;
 
   required int64 created_at = 101;

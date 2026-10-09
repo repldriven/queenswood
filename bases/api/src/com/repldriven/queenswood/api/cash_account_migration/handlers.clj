@@ -3,6 +3,8 @@
     [com.repldriven.queenswood.api.errors :as errors]
     [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
+    [com.repldriven.queenswood.cash-account-migration-api.interface :as
+     migration-api]
     [com.repldriven.queenswood.cash-account-migration.interface :as migrations]
 
     [com.repldriven.mono.error.interface :as error]
@@ -78,4 +80,4 @@
        :headers {"Location" (str (migration-uri {:migration-id migration-id})
                                  "/previews/"
                                  (:run-id result))}
-       :body result})))
+       :body (migration-api/->run-body result)})))

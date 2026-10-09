@@ -3,6 +3,8 @@
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
+    [com.repldriven.queenswood.cash-account-migration-api.interface :as
+     migration-api]
     [com.repldriven.queenswood.cash-account-migration.interface :as migrations]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
@@ -58,7 +60,8 @@
                                         migration-id
                                         "/previews")
                                    page
-                                   (:page windowed)
+                                   (mapv migration-api/->run-body
+                                         (:page windowed))
                                    windowed))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
@@ -75,7 +78,7 @@
                                     {:message "Migration run not found"
                                      :migration-id migration-id
                                      :run-id run-id}))]
-                 run)]
+                 (migration-api/->run-body run))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))

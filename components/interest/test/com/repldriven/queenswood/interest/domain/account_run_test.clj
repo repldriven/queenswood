@@ -38,7 +38,7 @@
     (let [done (SUT/done (fresh-run) {:amount 7})
           failed (SUT/failed (fresh-run) :interest/boom)]
       (is (SUT/done? done))
-      (is (= :interest-account-run-status-done (:status done)))
+      (is (= :interest-account-run-status-completed (:status done)))
       (is (not (SUT/done? failed)))
       (is (= :interest-account-run-status-failed (:status failed)))
       (is (= ":interest/boom" (:failure-reason failed)))))

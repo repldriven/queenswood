@@ -23,12 +23,15 @@ message CashAccountMigrationRun {
   required CashAccountMigrationRunStatus status = 4;
   required bool dry_run = 5;
   required int64 business_day = 6; // epoch day
-  required int64 started_at = 7;
-  optional int64 finished_at = 8;
-  optional int32 accounts_seen = 10;
-  optional int32 accounts_moved = 11;
-  optional int32 accounts_ineligible = 12;
-  optional int32 accounts_failed = 13;
+  optional int32 accounts_seen = 7;
+  optional int32 accounts_moved = 8;
+  optional int32 accounts_ineligible = 9;
+  optional int32 accounts_failed = 10;
+
+  optional int64 completed_at = 51;
+  optional int64 failed_at = 53;
+
+  required int64 created_at = 101;
 
   optional string failure_reason = 200;
 }

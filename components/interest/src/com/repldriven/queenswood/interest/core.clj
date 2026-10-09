@@ -85,7 +85,7 @@
              bank-id
              as-of-date
              account-kind
-             :interest-account-run-status-done)
+             :interest-account-run-status-completed)
        failed (store/count-account-runs-by-status
                config
                bank-id

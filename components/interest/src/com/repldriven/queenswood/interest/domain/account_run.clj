@@ -28,7 +28,7 @@
   account with nothing to do carries none of them."
   [account-run outcome]
   (utility/assoc-some (assoc account-run
-                             :status :interest-account-run-status-done
+                             :status :interest-account-run-status-completed
                              :updated-at (utility/now))
                       :amount (:amount outcome)
                       :principal (:principal outcome)
@@ -46,4 +46,4 @@
 
 (defn done?
   [account-run]
-  (= :interest-account-run-status-done (:status account-run)))
+  (= :interest-account-run-status-completed (:status account-run)))

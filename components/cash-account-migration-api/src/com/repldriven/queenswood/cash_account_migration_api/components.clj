@@ -110,3 +110,13 @@
                         #'MigrationIneligibility #'Migration #'MigrationList
                         #'MigrationCreate #'MigrationRun #'MigrationRunList
                         #'MigrationAccountRun #'MigrationAccountRunList]))
+
+(defn ->run-body
+  [run]
+  (let [{:keys [created-at completed-at failed-at]} run]
+    (cond-> (-> run
+                (dissoc :created-at :completed-at :failed-at)
+                (assoc :started-at created-at))
+
+            (or completed-at failed-at)
+            (assoc :finished-at (or completed-at failed-at)))))

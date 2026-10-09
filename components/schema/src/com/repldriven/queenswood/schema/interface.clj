@@ -698,7 +698,7 @@
 
 (def ^:private scheduler-run-unset
   {:expected-end-at 0
-   :succeeded-at 0
+   :completed-at 0
    :failed-at 0
    :created-by nil
    :updated-at 0

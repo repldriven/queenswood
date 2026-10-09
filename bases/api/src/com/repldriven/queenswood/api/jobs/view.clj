@@ -115,9 +115,9 @@
   outcome's time as `finished-at`, how many tasks succeeded and which
   one is running read off its tasks, and its failure reason as `error`."
   [run]
-  (let [{:keys [created-at succeeded-at failed-at failure-reason tasks]} run
+  (let [{:keys [created-at completed-at failed-at failure-reason tasks]} run
         succeeded (filter (fn [task]
-                            (= :scheduler-task-status-succeeded (:status task)))
+                            (= :scheduler-task-status-completed (:status task)))
                           tasks)
         current (some (fn [task]
                         (when (contains? #{:scheduler-task-status-running
@@ -129,12 +129,12 @@
                             (dissoc :created-at
                                     :created-by
                                     :updated-at
-                                    :succeeded-at
+                                    :completed-at
                                     :failed-at
                                     :failure-reason)
                             (assoc :started-at created-at
                                    :tasks-completed (count succeeded)
                                    :tasks (mapv task->api tasks)))
-                        :finished-at (or succeeded-at failed-at)
+                        :finished-at (or completed-at failed-at)
                         :current-task current
                         :error failure-reason)))
