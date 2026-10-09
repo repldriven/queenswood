@@ -28,13 +28,11 @@ message Membership {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string bank_id = 1;
-  required string membership_id = 2;
+  required string membership_id = 2; // mem.<uuidv7>
   required MembershipStatus status = 3;
   required Role role = 4;
   required string user_id = 5;
-  // The invitation accepted to create it, none for the bank's first owner.
   optional string invitation_id = 6;
-  // Why it was removed, as the person removing it gave it.
   optional string ended_reason = 7;
 
   optional int64 ended_at = 51;

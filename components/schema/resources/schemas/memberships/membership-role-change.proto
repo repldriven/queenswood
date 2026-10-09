@@ -14,10 +14,9 @@ message MembershipRoleChange {
 
   required string bank_id = 1;
   required string membership_id = 2;
-  required string role_change_id = 3;
+  required string role_change_id = 3; // rch.<uuidv7>
   required Role role_before = 4;
   required Role role_after = 5;
-  // Why, as the person changing it gave it.
   optional string reason = 6;
 
   required int64 created_at = 101;
