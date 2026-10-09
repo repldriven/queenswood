@@ -13,9 +13,6 @@
 (def IdentityProvider
   (coercion/identity-provider-enum-schema {:json-schema/example "google"}))
 
-(def UserStatus
-  (coercion/user-status-enum-schema {:json-schema/example "active"}))
-
 (def Role (coercion/role-enum-schema {:json-schema/example "owner"}))
 
 (def Me
@@ -31,11 +28,10 @@
    [:name [:ref "Name"]]
    [:avatar-url {:optional true} string?]
    [:identity-provider [:ref "IdentityProvider"]]
-   [:status [:ref "UserStatus"]]
    [:operator boolean?]
    [:created-at [:ref "Timestamp"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def registry
-  (components-registry [#'UserId #'MembershipId #'IdentityProvider #'UserStatus
-                        #'Role #'Me]))
+  (components-registry [#'UserId #'MembershipId #'IdentityProvider #'Role
+                        #'Me]))

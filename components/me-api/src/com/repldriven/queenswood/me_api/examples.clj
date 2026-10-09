@@ -14,7 +14,6 @@
    :name "Ada Lovelace"
    :avatar-url "https://lh3.googleusercontent.com/a/AOh14Gh7fA"
    :identity-provider :google
-   :status :active
    :created-at "2026-05-18T09:15:00Z"
    :updated-at "2026-05-18T09:15:00Z"})
 

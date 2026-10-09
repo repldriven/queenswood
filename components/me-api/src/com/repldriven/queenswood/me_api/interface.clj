@@ -14,7 +14,7 @@
   ^{:doc
     "Malli registry of the `/v1/me` schemas, keyed by the name each
   appears under in the document's `components/schemas`: `UserId`,
-  `MembershipId`, `IdentityProvider`, `UserStatus`, `Role`, `Me`.
+  `MembershipId`, `IdentityProvider`, `Role`, `Me`.
   Merged into the coercion registry in `api.clj`, so `[:ref \"X\"]`
   resolves them on any route."}
   registry

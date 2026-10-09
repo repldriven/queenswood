@@ -6,7 +6,7 @@
 
 (def ^:private user-keys
   [:user-id :issuer :sub :email :name :avatar-url :identity-provider
-   :created-at])
+   :created-at :updated-at])
 
 (defn get-me
   "Return the authenticated user and whether they are an operator. The
@@ -22,5 +22,5 @@
                            {:message "Only user JWTs may call /v1/me"}))
       {:status 200
        :body (assoc (select-keys user user-keys)
-                    :status :user-status-active
-                    :operator (contains? roles :admin))})))
+                    :operator
+                    (contains? roles :admin))})))

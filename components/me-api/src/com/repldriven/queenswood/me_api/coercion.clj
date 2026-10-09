@@ -10,13 +10,6 @@
 
 (def identity-provider-enum-schema (:enum-schema identity-provider-enum))
 
-(def ^:private user-status-enum
-  (coercion/enum-coercion {"active" :user-status-active
-                           "suspended" :user-status-suspended}
-                          :user-status-unknown))
-
-(def user-status-enum-schema (:enum-schema user-status-enum))
-
 (def ^:private role-enum
   (coercion/enum-coercion {"owner" :role-owner
                            "admin" :role-admin
