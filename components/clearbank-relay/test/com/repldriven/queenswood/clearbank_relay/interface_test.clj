@@ -23,7 +23,7 @@
   [outbox-id dedup-key]
   {:outbox-id outbox-id
    :dedup-key dedup-key
-   :event-name "transaction-settled"
+   :event-name "provider-payment-settled"
    :payload (.getBytes "avro-payload-bytes")
    :correlation-id "corr-1"
    :causation-id "caus-1"
@@ -148,7 +148,7 @@
 (defn- decode-rejection
   [config event]
   (let [{:keys [schemas]} config]
-    (avro/deserialize-same (get schemas "transaction-rejected")
+    (avro/deserialize-same (get schemas "provider-payment-rejected")
                            (:payload event))))
 
 (defn- assert-failed
@@ -159,7 +159,7 @@
                            (decode-rejection config))]
     (is (= :outbound-intent-status-failed (:status intent)))
     (is (= 1 (count events)) "one submission-rejected event")
-    (is (= "transaction-rejected" (:event-name (first events))))
+    (is (= "provider-payment-rejected" (:event-name (first events))))
     (is (= dedup-key (:end-to-end-id rejection)))
     (is (= failure-kind (:failure-kind rejection)))
     (is (= "NARR" (:reason-code rejection)))
@@ -226,7 +226,7 @@
          rejected (fn [outbox-id]
                     (assoc (event outbox-id "e2e-J:submission-rejected")
                            :event-name
-                           "transaction-rejected"))]
+                           "provider-payment-rejected"))]
      (nom-test> [_ (SUT/save-intent config (intent-of "int.10" "e2e-J"))])
      (testing "the first call fails the intent and writes the event"
        (nom-test> [failed (store/finish config
@@ -333,7 +333,7 @@
               (:reason (decoded config
                                 (outbox-event
                                  config
-                                 "open:acc.2:payment-account-refused"))))))
+                                 "open:acc.2:payment-account-open-refused"))))))
      (testing "a closed account is reported closed"
        (nom-test> [_ (SUT/save-intent
                       config

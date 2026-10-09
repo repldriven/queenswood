@@ -1,6 +1,6 @@
 {
   "type": "record",
-  "name": "Invite",
+  "name": "InviteMember",
   "namespace": "com.repldriven.queenswood.schema.member",
   "doc": "Invite an address to a bank with a role",
   "fields": [

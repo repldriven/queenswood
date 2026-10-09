@@ -25,15 +25,18 @@
   200)
 
 (def ^:private schema-paths
-  {"account-opening" "schemas/cash-account/account-opening.avsc.json"
-   "account-closing" "schemas/cash-account/account-closing.avsc.json"
-   "account-address-rotation-requested"
-   "schemas/cash-account/account-address-rotation-requested.avsc.json"
+  {"cash-account-open-requested"
+   "schemas/cash-account/cash-account-open-requested.avsc.json"
+   "cash-account-close-requested"
+   "schemas/cash-account/cash-account-close-requested.avsc.json"
+   "cash-account-address-rotation-requested"
+   "schemas/cash-account/cash-account-address-rotation-requested.avsc.json"
    "outbound-payment-submitted"
    "schemas/payment/outbound-payment-submitted.avsc.json"
    "inbound-payment-suspended"
    "schemas/payment/inbound-payment-suspended.avsc.json"
-   "idv-session-opening" "schemas/idv/idv-session-opening.avsc.json"
+   "idv-session-open-requested"
+   "schemas/idv/idv-session-open-requested.avsc.json"
    "transaction-posted" "schemas/transaction/transaction-posted.avsc.json"})
 
 (def ^:private schemas

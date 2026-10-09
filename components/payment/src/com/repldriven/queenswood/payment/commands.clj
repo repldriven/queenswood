@@ -25,7 +25,7 @@
      (->response config "internal-payment" (core/submit-internal config data)))
    "admit-inbound-payment" (fn [config data]
                              (->response config
-                                         "inbound-admission"
+                                         "admit-inbound-payment-reply"
                                          (inbound/admit-inbound config data)))
    "submit-outbound-payment" (fn [config data]
                                (->response config
@@ -66,7 +66,7 @@
       (let-nom> [data (avro/deserialize-same schema payload)
                  {:keys [debit-credit-code]} data]
         (case event
-          "transaction-settled"
+          "provider-payment-settled"
           (case debit-credit-code
             :debit-credit-code-credit
             (inbound/settle-inbound config data)
@@ -78,7 +78,7 @@
                         {:message "Unknown debit-credit-code"
                          :debit-credit-code debit-credit-code}))
 
-          "transaction-held"
+          "provider-payment-held"
           (case debit-credit-code
             :debit-credit-code-credit
             (inbound/hold-inbound config data)
@@ -90,7 +90,7 @@
                         {:message "Unknown debit-credit-code"
                          :debit-credit-code debit-credit-code}))
 
-          "transaction-rejected"
+          "provider-payment-rejected"
           (case debit-credit-code
             :debit-credit-code-credit
             (inbound/return-inbound config data)
@@ -99,7 +99,7 @@
             ;; code as the outbound path for backward compatibility.
             (outbound/reject-outbound config data))
 
-          "transaction-returned"
+          "provider-payment-returned"
           (case debit-credit-code
             :debit-credit-code-credit
             (inbound/return-suspended config data)

@@ -176,11 +176,11 @@
                                          :relationships
                                          {:payment {:data [{:id "P1"}]}}}))))
                 (let [event (outbox-event "P1:settled")]
-                  (is (= "transaction-settled" (:event-name event)))
+                  (is (= "provider-payment-settled" (:event-name event)))
                   (is (= 2500
                          (:amount (avro/deserialize-same
                                    (get (system/instance *sys* [:avro :serde])
-                                        "transaction-settled")
+                                        "provider-payment-settled")
                                    (:payload event))))))))
 
 (deftest a-resource-form3-does-not-hold-is-refused-test

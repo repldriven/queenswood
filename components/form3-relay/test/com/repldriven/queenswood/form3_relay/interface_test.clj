@@ -23,7 +23,7 @@
               :amount 150
               :currency "GBP"
               :at 1}]
-    (is (= "transaction-settled"
+    (is (= "provider-payment-settled"
            (:event-name (SUT/payment-outcome
                          (assoc base :status "delivery_confirmed")))))
     (is (= "P1:rejected"

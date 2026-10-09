@@ -645,7 +645,7 @@
                                                     (str "whe.p." suffix))
                                  _ (is (= 1 (count chosen)))]))]))))
 
-(def ^:private reward-event-name "reward-status-changed")
+(def ^:private reward-event-name "account-reward-status-changed")
 
 (def ^:private reward-kind "reward.paid")
 

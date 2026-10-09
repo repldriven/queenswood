@@ -1,6 +1,6 @@
 {
   "type": "record",
-  "name": "AccountOpening",
+  "name": "CashAccountOpenRequested",
   "namespace": "com.repldriven.queenswood.schema.cash_account",
   "doc": "A cash account the bank's payment provider is to open.",
   "fields": [

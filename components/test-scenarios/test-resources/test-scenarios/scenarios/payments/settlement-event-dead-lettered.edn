@@ -6,7 +6,7 @@
  ;; topic-schemes-payments-event-dlq. The end-to-end id is unique to the
  ;; run, so only this scenario's event can satisfy the assertion.
  :when [{:command :publish-scheme-event
-         :args ["transaction-rejected"
+         :args ["provider-payment-rejected"
                 {:end-to-end-id :e2e-no-such-payment
                  :scheme "fps"
                  :debit-credit-code :debit-credit-code-debit

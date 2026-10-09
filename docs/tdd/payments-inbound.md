@@ -31,9 +31,10 @@ kept, see [chart-of-accounts.md](chart-of-accounts.md).
   `topic-schemes-payments-event`, partitioned by the end-to-end id,
   else the transfer.
 - **The processors.** `payment/event-processor`, in
-  `financial-processors-service`, handles `transaction-settled`,
-  `transaction-held`, `transaction-rejected` and `transaction-returned`
-  carrying `debit-credit-code` credit in `events/inbound.clj`, and
+  `financial-processors-service`, handles `provider-payment-settled`,
+  `provider-payment-held`, `provider-payment-rejected` and
+  `provider-payment-returned` carrying `debit-credit-code` credit in
+  `events/inbound.clj`, and
   `payment/processor` handles `admit-inbound-payment`, which the Form3
   adapter sends unkeyed on `topic-payments-command`.
 - **What the provider declares.** `inbound: notified` where the
@@ -922,7 +923,7 @@ sequenceDiagram
     PE-->>SE: ack
 ```
 
-`transaction-returned` (credit) is deduplicated on Form3's id for the
+`provider-payment-returned` (credit) is deduplicated on Form3's id for the
 inbound, and empties suspense of the payment. A return the provider
 refuses or does not deliver is reported as `inbound-return-failed`, and
 the payment becomes `return-failed`, its money still in suspense, with

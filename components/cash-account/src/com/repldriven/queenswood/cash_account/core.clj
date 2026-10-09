@@ -46,7 +46,7 @@
     (let-nom> [schemes (domain/address-schemes product-version)]
       (bank-activity/record txn
                             {:bank-id bank-id
-                             :event-name "account-opening"
+                             :event-name "cash-account-open-requested"
                              :data {:account-id account-id
                                     :holder-name (:legal-name party)
                                     :currency currency
@@ -60,7 +60,7 @@
     (when provider-account-id
       (bank-activity/record txn
                             {:bank-id bank-id
-                             :event-name "account-closing"
+                             :event-name "cash-account-close-requested"
                              :data {:account-id account-id
                                     :provider-account-id provider-account-id}
                              :causation-id account-id
@@ -72,7 +72,7 @@
         rotation-key (:idempotency-key rotation)]
     (bank-activity/record txn
                           {:bank-id bank-id
-                           :event-name "account-address-rotation-requested"
+                           :event-name "cash-account-address-rotation-requested"
                            :data (utility/assoc-some
                                   {:account-id account-id
                                    :rotation-key rotation-key}

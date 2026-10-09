@@ -55,7 +55,7 @@
   (let [{:keys! [bank-id account-id]} (shared/context intent)]
     {:status :outbound-intent-status-failed
      :event (shared/account-event intent
-                                  "payment-account-refused"
+                                  "payment-account-open-refused"
                                   {:bank-id bank-id
                                    :account-id account-id
                                    :reason (shared/undelivered failure

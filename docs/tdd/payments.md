@@ -63,7 +63,7 @@ the bank's operations.
   inbound and each posted transaction record an entry on the bank's
   activity log, relayed onto `bank-activity-event` keyed by bank, and
   the processor sends `submit-payment`, `return-payment` and
-  `transfer-between-accounts` on the provider's one command channel,
+  `transfer-between-provider-accounts` on the provider's one command channel,
   `modulr-command` for Modulr, keyed by bank. The adapter's outbox is
   relayed onto `schemes-payments-event`, whose consumer dead-letters an
   event after five redeliveries. Each payment save co-commits a
@@ -217,7 +217,7 @@ Every value that crosses from the adapter is the platform's:
 - **Scheme.** `submit-payment` and the three scheme events carry
   `scheme` as the `PaymentScheme` value, `fps`, which
   `OutboundPayment.scheme` stores.
-- **Failure.** `transaction-rejected` carries `failure_kind`, an enum of
+- **Failure.** `provider-payment-rejected` carries `failure_kind`, an enum of
   `declined` (the scheme or the provider's assessment declined it),
   `refused` (the provider refused the submission) and `undelivered`
   (the runner gave up), and `reason_code`, an ISO 20022
@@ -254,7 +254,7 @@ provider account behind it:
   them, the provider account id as `CashAccount.provider_account_id`,
   and flips `opening → opened`, gated on `opening`.
 - **Refused.** A provider refusing the account reports
-  `payment-account-refused` with a reason, and the account moves
+  `payment-account-open-refused` with a reason, and the account moves
   `opening → refused`, a terminal status taken through the
   checklist in
   [lifecycle-transitions](../recipes/code/lifecycle-transitions.md).
@@ -329,7 +329,7 @@ expense has paid out.
   `payment-provider-transfers` store — transaction id, debtor and
   creditor cash account ids, the debtor absent for money from outside,
   amount, status `pending`, `completed` or `failed` — unique on bank,
-  transaction id and pair. It is sent as `transfer-between-accounts` on
+  transaction id and pair. It is sent as `transfer-between-provider-accounts` on
   the provider's command channel naming the cash accounts, and the
   adapter resolves each to its provider account, the one the adapter
   recorded when it opened the account or a reissue last moved it to,
@@ -346,13 +346,13 @@ each account's.
 ### Submitting to the provider
 
 - **Intent.** The adapter consumes `submit-payment` and
-  `transfer-between-accounts` into intents unique on the end-to-end id
+  `transfer-between-provider-accounts` into intents unique on the end-to-end id
   and the transfer id, and acks.
 - **Retrying as the same request.** The intent stores whatever the
   provider needs to recognise a retry as the request it already has,
   so a retry after a restart is not a second payment.
 - **Outcome.** Sent, retried with backoff, or failed, a failure
-  writing `transaction-rejected` with `failure_kind` `refused` or
+  writing `provider-payment-rejected` with `failure_kind` `refused` or
   `undelivered`.
 - **Payee check.** `submit-payment` carries the payee check made for
   this payment where the tenant names one, and an adapter whose
@@ -400,7 +400,7 @@ runs changes nothing outside it:
   and its runner opens, reissues and closes at the provider, reporting
   on `schemes-account-event`.
 - **Submits.** It consumes `submit-payment` and
-  `transfer-between-accounts` as above, signing each call as the
+  `transfer-between-provider-accounts` as above, signing each call as the
   provider requires.
 - **Reports.** It authenticates each delivery as the provider signs it
   before anything else, converts each amount exactly to minor units,

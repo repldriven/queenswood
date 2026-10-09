@@ -486,7 +486,7 @@ nothing, as
 [ADR-0034](../adr/0034-outbound-calls-go-through-a-breaker-on-their-destination.md)
 decides, and fails each pending intent past its maximum age as
 undelivered. A refusal, or a call given up, writes
-`transaction-rejected` with `failure_kind` `refused` or `undelivered`,
+`provider-payment-rejected` with `failure_kind` `refused` or `undelivered`,
 which the rejection path below handles. A sent intent no webhook
 settles within the relay's `reconcile-after-ms` is looked up at Modulr,
 on the adapter's workers, and a final status is written to the outbox
@@ -665,7 +665,7 @@ sequenceDiagram
 ```
 
 A call Modulr refused, or one the poller gave up on, writes its
-`transaction-rejected` from the poller instead, as
+`provider-payment-rejected` from the poller instead, as
 [The adapter calls Modulr](#the-adapter-calls-modulr) draws. A
 compliance notification carries no payment detail, so the handler reads
 the payment from Modulr before it writes.

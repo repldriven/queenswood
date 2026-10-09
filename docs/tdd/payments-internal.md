@@ -41,7 +41,7 @@ see [policy-evaluation.md](policy-evaluation.md).
   `payment/activity-event-processor` reads it.
 - **Mirroring.** `payment`'s `events/provider_transfer.clj` turns a
   posted transaction into `PaymentProviderTransfer` records and
-  `transfer-between-accounts` commands under `balances: per-account`,
+  `transfer-between-provider-accounts` commands under `balances: per-account`,
   as [payments.md](payments.md) describes.
 
 ## Solution

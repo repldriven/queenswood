@@ -93,9 +93,9 @@
   {:status "ACCEPTED" :payload change})
 
 (def ^:private schemas
-  (zipmap ["invite" "resend-invitation" "withdraw-invitation"
-           "accept-invitation" "decline-invitation" "change-role"
-           "remove-member" "leave-bank" "access-change"]
+  (zipmap ["invite-member" "resend-invitation" "withdraw-invitation"
+           "accept-invitation" "decline-invitation" "change-member-role"
+           "remove-member" "leave-bank" "member-command-reply"]
           (repeat ::schema)))
 
 (defn- with-avro
@@ -139,7 +139,7 @@
     (let [{:keys [response sent]} (invite-as member-auth)
           [[command data]] sent]
       (is (= 201 (:status response)))
-      (is (= "invite" command))
+      (is (= "invite-member" command))
       (is (= {:kind :actor-kind-member :principal-id user-id :role :role-admin}
              (:actor data)))
       (is (= {:bank-id bank-id

@@ -4,7 +4,7 @@
   verification session; opening one publishes a `submit-idv-check`
   command to the IDV-provider adapter, whose `idv-session-opened` event
   makes the session ready with a hand-off for the person. The adapter
-  reports what the provider established as `idv-evidence`, and each
+  reports what the provider established as `idv-evidence-received`, and each
   report is merged into the IDV and decided against the bank's
   policies: rejected, failed, in review, accepted, or still pending.
   In-review is non-terminal, so an acceptance or a rejection may still

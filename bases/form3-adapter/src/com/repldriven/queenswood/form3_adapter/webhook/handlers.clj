@@ -137,7 +137,8 @@
                                   :payload payload}
                                  {:timeout-ms admission-timeout-ms})]
       (if (= "ACCEPTED" (:status res))
-        (avro/deserialize-same (get avro "inbound-admission") (:payload res))
+        (avro/deserialize-same (get avro "admit-inbound-payment-reply")
+                               (:payload res))
         (error/fail :payment/admission
                     {:message "The platform did not decide the admission"
                      :response (dissoc res :payload)})))))

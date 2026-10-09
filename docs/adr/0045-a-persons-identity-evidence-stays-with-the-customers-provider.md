@@ -119,7 +119,7 @@ Harder:
   `claimed-identity`, as before.
 - A field carrying a read value or an identifying detail can be added to
   a party, a verification or an evidence event in any change. Reading
-  the party create's request schema and the `idv-evidence` schema
+  the party create's request schema and the `idv-evidence-received` schema
   against this list is the audit; a check in `enforce-idioms.sh`
   refusing the removed field names in `components/schema` is what would
   make it visible.

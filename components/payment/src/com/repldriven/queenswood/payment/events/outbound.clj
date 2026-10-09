@@ -217,7 +217,7 @@
       recorded)))
 
 (defn reject-outbound
-  "Process an outbound `transaction-rejected` event. Reverses the in-flight
+  "Process an outbound `provider-payment-rejected` event. Reverses the in-flight
   payment (DEBIT 1200 / CREDIT debtor) and flips the OutboundPayment to
   failed with the failure the event reports. Pending and held
   payments are reversible; an already-failed payment is an idempotent

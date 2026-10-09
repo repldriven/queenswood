@@ -72,7 +72,7 @@ against a provider's own sandbox.
   Modulr declares `balances: per-account` in
   [modulr.yml](/components/resources/resources/system/payment-providers/modulr.yml),
   so the payment's activity entry becomes a `PaymentProviderTransfer` and a
-  `transfer-between-accounts` command in
+  `transfer-between-provider-accounts` command in
   [provider_transfer.clj](/components/payment/src/com/repldriven/queenswood/payment/events/provider_transfer.clj),
   which the adapter sends to Modulr as a payment between accounts.
 - **An outbound payment reaches Modulr through two relays and a poller.**

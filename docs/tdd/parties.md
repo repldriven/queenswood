@@ -54,14 +54,14 @@ provider account per bank, which ADR-0045 requires and
   legal name, and an optional `external-reference`, unique within the
   bank.
 - **What reaches a provider and comes back.** `submit-idv-check`, and
-  the `idv-session-opening` activity it is published from, carry the
+  the `idv-session-open-requested` activity it is published from, carry the
   session's email and no name. Onfido's adapter reads the party's legal
   name by party id into the intent it keeps, since its applicant takes
   one, and its relay creates the applicant from the name and the email;
   Zyphe's run carries the party id in its `customData`. Each adapter
   grades the name read off the document against the party's, read by
   party id through `idv-provider/party-name`, and writes the grade,
-  never the name, into its `idv-evidence` outbox entry. A settled or
+  never the name, into its `idv-evidence-received` outbox entry. A settled or
   failed intent keeps only the ids and the criteria it asked for.
 - **Lifecycle.** `suspend-party`, `resume-party` and `close-party` are
   direct single-phase commands guarded on source status in `party`'s
@@ -79,7 +79,7 @@ provider account per bank, which ADR-0045 requires and
   `party-status-changed` off the parties changelog. `idv`'s
   `party-event-processor` creates the IDV, which waits pending for a
   verification session. An IDV adapter turns the provider's webhook
-  into an `idv-evidence` event on `idv-event`. `idv`'s
+  into an `idv-evidence-received` event on `idv-event`. `idv`'s
   `event-processor` moves the IDV, the
   idvs changelog relays
   `idv-status-changed` on `idvs-event`, and `party`'s
@@ -241,7 +241,7 @@ changes its criteria rather than a request changing the provider:
 ### The evidence contract
 
 The adapter reports evidence, and `idv` decides. An Avro event
-`idv-evidence` on `idv-event`, registered in both YAMLs, carries
+`idv-evidence-received` on `idv-event`, registered in both YAMLs, carries
 `bank-id` and `verification-id`, and one optional section per kind of
 evidence the provider event reported:
 
@@ -258,7 +258,7 @@ evidence the provider event reported:
 `Idv` gains an `evidence` sub-message holding the latest of each kind,
 and `criteria`, each verification and screening with its status:
 `outstanding`, `established`, `review` or `failed`. `idv`'s
-`event-processor` handles `idv-evidence` by merging it and calling
+`event-processor` handles `idv-evidence-received` by merging it and calling
 `domain/decide idv policies`. `idv` reads no person identification:
 the adapter has already compared the names, as
 [The IDV adapter contract](#the-idv-adapter-contract) describes.
@@ -360,7 +360,7 @@ runs changes nothing outside it:
   `idv-session-failed` with the reason.
 - **Reports evidence.** It authenticates each delivery from the
   provider, as the provider signs it, before anything else, maps each
-  provider result to `idv-evidence`, and writes one outbox entry per
+  provider result to `idv-evidence-received`, and writes one outbox entry per
   provider event, deduplicated on the provider's event id.
 - **Compares the name.** It grades the name read off the document
   against the party's, read through `idv-provider/party-name` by the
@@ -458,7 +458,7 @@ on the provider's page.
   `legal_name`, the one name a run is graded against.
 - **National identifiers.** None is recorded.
 - **The run's input.** `submit-idv-check` and the
-  `idv-session-opening` activity carry no name, date of birth or
+  `idv-session-open-requested` activity carry no name, date of birth or
   address. Onfido's adapter reads the party's legal name into the
   intent it keeps, and its relay creates the applicant from the name,
   split at its last space, and the email alone; Zyphe's run carries the
@@ -485,7 +485,7 @@ on the provider's page.
    declaration that does not verify `address`, and a bank create and a
    tier change refused for a tier requiring what the declaration
    lacks. Built.
-2. **Evidence.** `idv-evidence`, the IDV's evidence, `domain/decide`,
+2. **Evidence.** `idv-evidence-received`, the IDV's evidence, `domain/decide`,
    and the deployed adapter and its simulator reporting evidence. The
    scenario rigs move to that simulator and drive its decision route,
    and the name-based rejection retires from them. Proved by a scenario
@@ -657,7 +657,7 @@ The demo bank's onboarding screens follow under
 - **A check is bound to its person by name.** A hand-off reaching
   somebody of the same name verifies the wrong person, which the
   platform cannot tell from the right one.
-- **Changelogs keep what they carried.** An `idv-session-opening`
+- **Changelogs keep what they carried.** An `idv-session-open-requested`
   activity entry carries the email to the adapter, and an outbox
   changelog entry the evidence it relays, and nothing trims a
   changelog, so each keeps it.

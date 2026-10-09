@@ -1,6 +1,6 @@
 {
   "type": "record",
-  "name": "AccessChange",
+  "name": "MemberCommandReply",
   "namespace": "com.repldriven.queenswood.schema.member",
   "doc": "The records an access command wrote, by id",
   "fields": [

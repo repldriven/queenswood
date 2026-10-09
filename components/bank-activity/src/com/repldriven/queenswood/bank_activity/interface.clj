@@ -29,10 +29,10 @@
   - txn: the transaction making the change the entry records.
   - entry: a map of
     - `:bank-id`: the bank, which keys the entry when it is published.
-    - `:event-name`: an activity event — `account-opening`,
-      `account-closing`, `account-address-rotation-requested`,
+    - `:event-name`: an activity event — `cash-account-open-requested`,
+      `cash-account-close-requested`, `cash-account-address-rotation-requested`,
       `outbound-payment-submitted`, `inbound-payment-suspended`,
-      `idv-session-opening` or `transaction-posted`. Any other name is
+      `idv-session-open-requested` or `transaction-posted`. Any other name is
       `:bank-activity/unknown-event`.
     - `:data`: the event's payload, as it is at this commit; `:bank-id`
       is added to it.

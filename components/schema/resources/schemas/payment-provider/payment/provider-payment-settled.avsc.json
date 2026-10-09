@@ -1,6 +1,6 @@
 {
   "type": "record",
-  "name": "TransactionSettled",
+  "name": "ProviderPaymentSettled",
   "namespace": "com.repldriven.queenswood.schema.payment_provider.payment",
   "fields": [
     {"name": "scheme_transaction_id", "type": "string"},

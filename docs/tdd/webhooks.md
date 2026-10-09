@@ -353,7 +353,7 @@ same status.
   `VerificationSession`, by bank and session id, told by the status
   it lands on: `ready` once the session holds a hand-off, `failed`
   when the identity provider refuses its check.
-- `reward.paid` — `reward-status-changed` with `change_kind` pay,
+- `reward.paid` — `account-reward-status-changed` with `change_kind` pay,
   `Reward`, by bank and reward id. A defer, the other kind the entry
   carries, is the bank's operational problem and is not published.
 

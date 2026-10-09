@@ -23,7 +23,7 @@
     (->rejection result)
     (let [{:keys [schemas]} config]
       {:status "ACCEPTED"
-       :payload (avro/serialize (schemas "access-change")
+       :payload (avro/serialize (schemas "member-command-reply")
                                 (select-keys result
                                              [:bank-id :member-id
                                               :invitation-id]))})))
@@ -45,7 +45,7 @@
   {:user-id (:user-id data)})
 
 (def ^:private command-handlers
-  {"invite"
+  {"invite-member"
    (fn [config {:keys [bank-id email role] :as data}]
      (core/invite config bank-id {:email email :role role} (people-opts data)))
    "resend-invitation"
@@ -64,7 +64,7 @@
                                         invitation-id
                                         (proof (:proof data))
                                         (recipient-opts data)))
-   "change-role"
+   "change-member-role"
    (fn [config {:keys [bank-id member-id role] :as data}]
      (core/change-role config bank-id member-id role (people-opts data)))
    "remove-member"

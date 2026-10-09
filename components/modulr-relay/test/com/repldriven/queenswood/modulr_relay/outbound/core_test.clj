@@ -151,7 +151,7 @@
             (:status (load-intent config "int.p2"))))
      (let [event (outbox-event config "pmt.2:submission-rejected")
            data (decoded config event)]
-       (is (= "transaction-rejected" (:event-name event)))
+       (is (= "provider-payment-rejected" (:event-name event)))
        (is (= :failure-kind-refused (:failure-kind data)))
        (is (= "Bad" (:cancellation-reason data)))))))
 
@@ -193,7 +193,7 @@
               (:status (load-intent config "int.p3"))))
        (let [event (outbox-event config "P3:settled")
              data (decoded config event)]
-         (is (= "transaction-settled" (:event-name event)))
+         (is (= "provider-payment-settled" (:event-name event)))
          (is (= 250 (:amount data)))
          (is (= "pmt.3" (:end-to-end-id data))))))))
 
@@ -216,7 +216,7 @@
      (nom-test> [_ (relay/save-event config
                                      {:outbox-id "obx.p4"
                                       :dedup-key "P4:settled"
-                                      :event-name "transaction-settled"
+                                      :event-name "provider-payment-settled"
                                       :payload (.getBytes "x")
                                       :created-at 0}
                                      "pmt.4")])

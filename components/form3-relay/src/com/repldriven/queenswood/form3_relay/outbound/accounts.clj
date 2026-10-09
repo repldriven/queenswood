@@ -64,7 +64,7 @@
 (defn- account-refused
   [intent ctx reason]
   (shared/account-event intent
-                        "payment-account-refused"
+                        "payment-account-open-refused"
                         {:bank-id (:bank-id ctx)
                          :account-id (:account-id ctx)
                          :reason reason}))

@@ -17,7 +17,7 @@
   [outbox-id dedup-key]
   {:outbox-id outbox-id
    :dedup-key dedup-key
-   :event-name "idv-evidence"
+   :event-name "idv-evidence-received"
    :payload (.getBytes "avro-payload-bytes")
    :correlation-id "corr-1"
    :causation-id "caus-1"

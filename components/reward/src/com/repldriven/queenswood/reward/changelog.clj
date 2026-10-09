@@ -9,7 +9,7 @@
 
     [clojure.java.io :as io]))
 
-(def ^:private event-name "reward-status-changed")
+(def ^:private event-name "account-reward-status-changed")
 
 ;; Loaded from the classpath rather than the injected `avro/serde`: the
 ;; payload schema is a property of this brick, and `store.clj` only ever
@@ -17,7 +17,7 @@
 (def ^:private payload-schema
   (delay (avro/json->schema
           (slurp (io/resource
-                  "schemas/reward/reward-status-changed.avsc.json")))))
+                  "schemas/reward/account-reward-status-changed.avsc.json")))))
 
 (defn status-changed
   "The shared-envelope changelog bytes for a reward write. `changelog`

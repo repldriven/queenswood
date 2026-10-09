@@ -124,8 +124,9 @@
       (let-nom> [data (avro/deserialize-same schema payload)]
         (case command
           "submit-payment" (save-intent config (payment-intent data))
-          "transfer-between-accounts" (save-intent config
-                                                   (transfer-intent data))
+          "transfer-between-provider-accounts" (save-intent config
+                                                            (transfer-intent
+                                                             data))
           "open-payment-account" (save-intent config (open-intent config data))
           "close-payment-account" (save-intent config (close-intent data))
           "reissue-payment-address" (save-intent config

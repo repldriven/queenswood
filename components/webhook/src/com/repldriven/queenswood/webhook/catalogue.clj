@@ -257,7 +257,7 @@
    ;; operational problem, read from the run and the row, and not the
    ;; customer's news.
    {:kind "reward.paid"
-    :event "reward-status-changed"
+    :event "account-reward-status-changed"
     :change-kind :reward-change-kind-pay
     :published-change-kind "pay"
     :terminal-status :account-reward-status-paid

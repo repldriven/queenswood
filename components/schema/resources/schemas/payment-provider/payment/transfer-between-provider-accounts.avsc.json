@@ -1,6 +1,6 @@
 {
   "type": "record",
-  "name": "TransferBetweenAccounts",
+  "name": "TransferBetweenProviderAccounts",
   "namespace": "com.repldriven.queenswood.schema.payment_provider.payment",
   "doc": "Move money between two cash accounts' provider accounts, or credit one from outside the provider where no debtor is named, as the ledger already has. The adapter resolves each provider account from the cash account it holds, where the command does not name it.",
   "fields": [

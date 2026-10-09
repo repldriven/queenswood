@@ -61,7 +61,7 @@
            status-reason at]}]
   (case (outcome status)
     :succeeded
-    {:event-name "transaction-settled"
+    {:event-name "provider-payment-settled"
      :dedup-key (str provider-payment-id ":settled")
      :data {:scheme-transaction-id provider-payment-id
             :end-to-end-id end-to-end-id
@@ -72,7 +72,7 @@
             :timestamp-settled at}}
 
     :failed
-    {:event-name "transaction-rejected"
+    {:event-name "provider-payment-rejected"
      :dedup-key (str provider-payment-id ":rejected")
      :data {:end-to-end-id end-to-end-id
             :scheme "fps"
@@ -93,7 +93,7 @@
   [{:keys [provider-payment-id end-to-end-id amount currency reason-code
            reason status at]}]
   (when (= :succeeded (outcome status))
-    {:event-name "transaction-returned"
+    {:event-name "provider-payment-returned"
      :dedup-key (str provider-payment-id ":returned")
      :data (utility/assoc-some {:end-to-end-id end-to-end-id
                                 :scheme "fps"

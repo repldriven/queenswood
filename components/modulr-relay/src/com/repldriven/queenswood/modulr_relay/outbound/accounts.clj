@@ -45,7 +45,7 @@
   [intent reason]
   (let [{:keys! [bank-id account-id]} (shared/context intent)]
     (account-event intent
-                   "payment-account-refused"
+                   "payment-account-open-refused"
                    {:bank-id bank-id :account-id account-id :reason reason})))
 
 (defn- held

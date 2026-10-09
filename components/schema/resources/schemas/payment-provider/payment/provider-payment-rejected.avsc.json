@@ -1,6 +1,6 @@
 {
   "type": "record",
-  "name": "TransactionRejected",
+  "name": "ProviderPaymentRejected",
   "namespace": "com.repldriven.queenswood.schema.payment_provider.payment",
   "fields": [
     {"name": "end_to_end_id",              "type": "string"},

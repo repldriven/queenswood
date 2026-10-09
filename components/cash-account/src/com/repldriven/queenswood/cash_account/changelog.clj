@@ -16,8 +16,9 @@
 ;; receives a Txn, never the system config the serde arrives in.
 (def ^:private schema
   (delay (avro/json->schema
-          (slurp (io/resource
-                  "schemas/cash-account/account-status-changed.avsc.json")))))
+          (slurp
+           (io/resource
+            "schemas/cash-account/cash-account-status-changed.avsc.json")))))
 
 (defn account-changed
   "Build the shared-envelope changelog bytes for a cash-account write.

@@ -208,7 +208,7 @@ shares.
 
 ### Telling the bank
 
-The `AccountReward` row's changelog entry, `reward-status-changed`,
+The `AccountReward` row's changelog entry, `account-reward-status-changed`,
 carries the bank, the reward and account ids, the status before and
 after and a change kind of `pay` or `defer`, in a new Avro schema under
 `components/schema/resources/schemas/reward/`. A `reward-relay.yml`

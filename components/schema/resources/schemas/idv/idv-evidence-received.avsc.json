@@ -1,6 +1,6 @@
 {
   "type": "record",
-  "name": "IdvEvidence",
+  "name": "IdvEvidenceReceived",
   "namespace": "com.repldriven.queenswood.schema.idv",
   "fields": [
     {"name": "bank_id",         "type": "string"},

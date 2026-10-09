@@ -124,7 +124,7 @@
   (let [{:keys [bank-id transaction-id debtor-account-id]} transfer]
     (provider/send-command config
                            bank-id
-                           "transfer-between-accounts"
+                           "transfer-between-provider-accounts"
                            transaction-id
                            (utility/assoc-some
                             (select-keys transfer

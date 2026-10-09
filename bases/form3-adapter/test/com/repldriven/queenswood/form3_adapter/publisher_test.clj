@@ -38,7 +38,7 @@
   (testing "a confirmed admission is money arriving, keyed on Form3's id"
     (let [[{:keys [event-name dedup-key data]}]
           (SUT/admitted inbound {:attributes {:status "confirmed"}} 1)]
-      (is (= "transaction-settled" event-name))
+      (is (= "provider-payment-settled" event-name))
       (is (= "P1:settled" dedup-key))
       (is (= {:scheme-transaction-id "P1"
               :end-to-end-id "E2E-1"
@@ -58,7 +58,7 @@
                                            {:attributes {:status status
                                                          :status_reason reason}}
                                            1)))]
-    (is (= "transaction-settled"
+    (is (= "provider-payment-settled"
            (:event-name (at-status "delivery_confirmed" nil))))
     (is (= "AC04"
            (get-in (at-status "delivery_failed" "account_closed")
@@ -73,7 +73,7 @@
                        :attributes
                        {:amount "12.50" :currency "GBP" :return_code "AC04"}}
                       1)]
-    (is (= "transaction-returned" event-name))
+    (is (= "provider-payment-returned" event-name))
     (is (= "pmt.1:returned" dedup-key))
     (is (= {:reason-code "AC04" :scheme-transaction-id "R1" :amount 1250}
            (select-keys data [:reason-code :scheme-transaction-id :amount])))

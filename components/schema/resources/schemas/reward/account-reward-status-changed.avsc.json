@@ -1,6 +1,6 @@
 {
   "type": "record",
-  "name": "RewardStatusChanged",
+  "name": "AccountRewardStatusChanged",
   "namespace": "com.repldriven.queenswood.schema.reward",
   "fields": [
     {

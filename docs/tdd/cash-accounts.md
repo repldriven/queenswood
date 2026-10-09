@@ -397,12 +397,12 @@ The write that needs the payment provider records an entry on the
 bank's activity in the same transaction, from which `payment`'s
 activity event processor sends the provider's command (ADR-0033):
 
-- an opening → `account-opening`, with the holder party's
+- an opening → `cash-account-open-requested`, with the holder party's
   display name, the currency and the address schemes the
   version allows, sent as `open-payment-account`;
 - a closing of an account the provider holds →
-  `account-closing`, sent as `close-payment-account`;
-- a rotation → `account-address-rotation-requested`, with the
+  `cash-account-close-requested`, sent as `close-payment-account`;
+- a rotation → `cash-account-address-rotation-requested`, with the
   pending rotation's key, sent as `reissue-payment-address`.
 
 `events.clj` handles the `cash-account-status-changed` event
@@ -411,7 +411,7 @@ only to flip a closing account the provider never held to
 `schemes-account-event`, which the brick's second handler
 consumes: `payment-account-opened` opens the account with
 the issued addresses, provider account id and BBAN;
-`payment-account-refused` makes it `:refused`, with the
+`payment-account-open-refused` makes it `:refused`, with the
 provider's reason; `payment-account-closed` closes it;
 `payment-account-close-refused` returns it to its
 `:closing-from`, `:opened` or `:suspended`, with the reason;

@@ -61,7 +61,7 @@
         result (commands/send (:members dispatchers)
                               request
                               command
-                              "access-change"
+                              "member-command-reply"
                               data)]
     (if (= 200 (:status result)) (success (:body result)) result)))
 
@@ -404,7 +404,7 @@
         txn (config request)]
     (send-command
      request
-     "change-role"
+     "change-member-role"
      {:bank-id bank-id
       :member-id (:membership-id path)
       :role role
@@ -477,7 +477,7 @@
         {:keys [bank-id]} auth
         {:keys [email role reason]} (:body parameters)]
     (send-command request
-                  "invite"
+                  "invite-member"
                   {:bank-id bank-id
                    :email email
                    :role role

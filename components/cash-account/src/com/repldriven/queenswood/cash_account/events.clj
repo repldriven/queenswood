@@ -45,7 +45,7 @@
 
 (def ^:private provider-events
   {"payment-account-opened" core/provider-opened
-   "payment-account-refused" core/provider-refused
+   "payment-account-open-refused" core/provider-refused
    "payment-account-closed" core/provider-closed
    "payment-address-reissued" core/provider-reissued
    "payment-account-close-refused" core/provider-close-refused

@@ -1,8 +1,8 @@
 {
   "type": "record",
-  "name": "AccountAddressRotationRequested",
+  "name": "CashAccountCloseRequested",
   "namespace": "com.repldriven.queenswood.schema.cash_account",
-  "doc": "A cash account whose payment address is to be reissued.",
+  "doc": "A cash account held at the bank's payment provider, closing.",
   "fields": [
     {
       "name": "bank_id",
@@ -14,14 +14,6 @@
     },
     {
       "name": "provider_account_id",
-      "type": [
-        "null",
-        "string"
-      ],
-      "default": null
-    },
-    {
-      "name": "rotation_key",
       "type": "string"
     }
   ]

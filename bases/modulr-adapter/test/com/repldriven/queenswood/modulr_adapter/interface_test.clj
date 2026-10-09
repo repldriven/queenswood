@@ -277,7 +277,7 @@
                      :AccountBid "A1"
                      :PaymentBid "P300"
                      :ComplianceStatus "DECLINED"})
-            (is (= "transaction-rejected"
+            (is (= "provider-payment-rejected"
                    (:event-name (outbox-event "P300:rejected"))))))
          (finally (.stop modulr 0)))))
 
@@ -345,7 +345,7 @@
        ;; the adapter's own command processor making its intent
        ;; nosemgrep: brick-test-drives-pipeline
        (processor/process p
-                          (command "transfer-between-accounts"
+                          (command "transfer-between-provider-accounts"
                                    {:transfer-id "ptr.5"
                                     :bank-id "bnk.1"
                                     :transaction-id "txn.1"
@@ -362,7 +362,7 @@
        ;; the adapter's own command processor making its intent
        ;; nosemgrep: brick-test-drives-pipeline
        (processor/process p
-                          (command "transfer-between-accounts"
+                          (command "transfer-between-provider-accounts"
                                    {:transfer-id "ptr.6"
                                     :bank-id "bnk.1"
                                     :transaction-id "txn.2"

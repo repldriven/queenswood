@@ -129,7 +129,7 @@ entry's `command-channel`, keyed by bank:
 - **`payment`.** `open-payment-account`, `close-payment-account`,
   `reissue-payment-address`, `submit-payment`, `return-payment` and,
   where the provider holds each account's money,
-  `transfer-between-accounts`.
+  `transfer-between-provider-accounts`.
 - **`idv`.** `submit-idv-check`.
 - **`payee-check`.** It calls the adapter URL its `adapter-urls` names
   for the bank's provider. A provider

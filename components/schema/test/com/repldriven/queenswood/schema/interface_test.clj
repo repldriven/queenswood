@@ -13,7 +13,7 @@
   plain map, or without one, and a reward its transaction only once
   paid.
 
-  A `transaction-rejected` written with the current schema is read by a
+  A `provider-payment-rejected` written with the current schema is read by a
   consumer still on the schema at `stable-20260916112610`, which is the
   order a deploy puts them in.
 
@@ -64,7 +64,7 @@
 
 (def ^:private reply-schema
   (avro/json->schema (slurp (io/resource
-                             "schemas/cash-account/account.avsc.json"))))
+                             "schemas/cash-account/cash-account.avsc.json"))))
 
 (def ^:private opened-balance
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
@@ -411,8 +411,9 @@
 
 (def ^:private transaction-rejected-schema
   (avro/json->schema
-   (slurp (io/resource
-           "schemas/payment-provider/payment/transaction-rejected.avsc.json"))))
+   (slurp
+    (io/resource
+     "schemas/payment-provider/payment/provider-payment-rejected.avsc.json"))))
 
 (def ^:private stable-transaction-rejected-schema
   (avro/json->schema

@@ -1,6 +1,6 @@
 {
   "type": "record",
-  "name": "ChangeRole",
+  "name": "ChangeMemberRole",
   "namespace": "com.repldriven.queenswood.schema.member",
   "doc": "Set a member's role",
   "fields": [

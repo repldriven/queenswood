@@ -1,11 +1,11 @@
-cash-account: schemas/cash-account/account.avsc.json
-open-cash-account: schemas/cash-account/open-account.avsc.json
-close-cash-account: schemas/cash-account/close-account.avsc.json
-suspend-cash-account: schemas/cash-account/suspend-account.avsc.json
-resume-cash-account: schemas/cash-account/resume-account.avsc.json
-rotate-cash-account-address: schemas/cash-account/rotate-address.avsc.json
-get-cash-account: schemas/cash-account/get-account.avsc.json
-cash-account-status-changed: schemas/cash-account/account-status-changed.avsc.json
+cash-account: schemas/cash-account/cash-account.avsc.json
+open-cash-account: schemas/cash-account/open-cash-account.avsc.json
+close-cash-account: schemas/cash-account/close-cash-account.avsc.json
+suspend-cash-account: schemas/cash-account/suspend-cash-account.avsc.json
+resume-cash-account: schemas/cash-account/resume-cash-account.avsc.json
+rotate-cash-account-address: schemas/cash-account/rotate-cash-account-address.avsc.json
+get-cash-account: schemas/cash-account/get-cash-account.avsc.json
+cash-account-status-changed: schemas/cash-account/cash-account-status-changed.avsc.json
 
 party: schemas/party/party.avsc.json
 create-party: schemas/party/create-party.avsc.json
@@ -22,16 +22,16 @@ change-bank-status: schemas/bank/change-bank-status.avsc.json
 bank-status-changed: schemas/bank/bank-status-changed.avsc.json
 bank-tier-changed: schemas/bank/bank-tier-changed.avsc.json
 
-invite: schemas/member/invite.avsc.json
+invite-member: schemas/member/invite-member.avsc.json
 resend-invitation: schemas/member/resend-invitation.avsc.json
 withdraw-invitation: schemas/member/withdraw-invitation.avsc.json
 accept-invitation: schemas/member/accept-invitation.avsc.json
 decline-invitation: schemas/member/decline-invitation.avsc.json
-change-role: schemas/member/change-role.avsc.json
+change-member-role: schemas/member/change-member-role.avsc.json
 remove-member: schemas/member/remove-member.avsc.json
 leave-bank: schemas/member/leave-bank.avsc.json
 record-invitation-token: schemas/member/record-invitation-token.avsc.json
-access-change: schemas/member/access-change.avsc.json
+member-command-reply: schemas/member/member-command-reply.avsc.json
 invitation-changed: schemas/member/invitation-changed.avsc.json
 
 idv: schemas/idv/idv.avsc.json
@@ -39,7 +39,7 @@ initiate-idv: schemas/idv/initiate-idv.avsc.json
 get-idv: schemas/idv/get-idv.avsc.json
 submit-idv-check: schemas/idv/submit-idv-check.avsc.json
 idv-status-changed: schemas/idv/idv-status-changed.avsc.json
-idv-evidence: schemas/idv/idv-evidence.avsc.json
+idv-evidence-received: schemas/idv/idv-evidence-received.avsc.json
 idv-session-opened: schemas/idv/idv-session-opened.avsc.json
 idv-session-failed: schemas/idv/idv-session-failed.avsc.json
 open-idv-session: schemas/idv/open-idv-session.avsc.json
@@ -61,28 +61,28 @@ submit-outbound-payment: schemas/payment/submit-outbound-payment.avsc.json
 outbound-payment-status-changed: schemas/payment/outbound-payment-status-changed.avsc.json
 inbound-payment-status-changed: schemas/payment/inbound-payment-status-changed.avsc.json
 admit-inbound-payment: schemas/payment/admit-inbound-payment.avsc.json
-inbound-admission: schemas/payment/inbound-admission.avsc.json
+admit-inbound-payment-reply: schemas/payment/admit-inbound-payment-reply.avsc.json
 internal-payment-settled: schemas/payment/internal-payment-settled.avsc.json
 
-reward-status-changed: schemas/reward/reward-status-changed.avsc.json
+account-reward-status-changed: schemas/reward/account-reward-status-changed.avsc.json
 
 open-payment-account: schemas/payment-provider/account/open-payment-account.avsc.json
 close-payment-account: schemas/payment-provider/account/close-payment-account.avsc.json
 reissue-payment-address: schemas/payment-provider/account/reissue-payment-address.avsc.json
 payment-account-opened: schemas/payment-provider/account/payment-account-opened.avsc.json
-payment-account-refused: schemas/payment-provider/account/payment-account-refused.avsc.json
+payment-account-open-refused: schemas/payment-provider/account/payment-account-open-refused.avsc.json
 payment-account-closed: schemas/payment-provider/account/payment-account-closed.avsc.json
 payment-address-reissued: schemas/payment-provider/account/payment-address-reissued.avsc.json
 payment-account-close-refused: schemas/payment-provider/account/payment-account-close-refused.avsc.json
 payment-address-reissue-failed: schemas/payment-provider/account/payment-address-reissue-failed.avsc.json
 submit-payment: schemas/payment-provider/payment/submit-payment.avsc.json
-transaction-settled: schemas/payment-provider/payment/transaction-settled.avsc.json
-transaction-rejected: schemas/payment-provider/payment/transaction-rejected.avsc.json
-transaction-held: schemas/payment-provider/payment/transaction-held.avsc.json
-transaction-returned: schemas/payment-provider/payment/transaction-returned.avsc.json
+provider-payment-settled: schemas/payment-provider/payment/provider-payment-settled.avsc.json
+provider-payment-rejected: schemas/payment-provider/payment/provider-payment-rejected.avsc.json
+provider-payment-held: schemas/payment-provider/payment/provider-payment-held.avsc.json
+provider-payment-returned: schemas/payment-provider/payment/provider-payment-returned.avsc.json
 return-payment: schemas/payment-provider/payment/return-payment.avsc.json
 inbound-return-failed: schemas/payment-provider/payment/inbound-return-failed.avsc.json
-transfer-between-accounts: schemas/payment-provider/payment/transfer-between-accounts.avsc.json
+transfer-between-provider-accounts: schemas/payment-provider/payment/transfer-between-provider-accounts.avsc.json
 transfer-completed: schemas/payment-provider/payment/transfer-completed.avsc.json
 transfer-failed: schemas/payment-provider/payment/transfer-failed.avsc.json
 
@@ -90,9 +90,9 @@ company: schemas/company/company.avsc.json
 lookup-company: schemas/company/lookup-company.avsc.json
 
 
-account-opening: schemas/cash-account/account-opening.avsc.json
-account-closing: schemas/cash-account/account-closing.avsc.json
-account-address-rotation-requested: schemas/cash-account/account-address-rotation-requested.avsc.json
+cash-account-open-requested: schemas/cash-account/cash-account-open-requested.avsc.json
+cash-account-close-requested: schemas/cash-account/cash-account-close-requested.avsc.json
+cash-account-address-rotation-requested: schemas/cash-account/cash-account-address-rotation-requested.avsc.json
 outbound-payment-submitted: schemas/payment/outbound-payment-submitted.avsc.json
 inbound-payment-suspended: schemas/payment/inbound-payment-suspended.avsc.json
-idv-session-opening: schemas/idv/idv-session-opening.avsc.json
+idv-session-open-requested: schemas/idv/idv-session-open-requested.avsc.json

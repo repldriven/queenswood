@@ -1,5 +1,5 @@
 (ns com.repldriven.queenswood.zyphe-adapter.publisher
-  "Maps a verified Zyphe V2 webhook event to an `idv-evidence` bus-event
+  "Maps a verified Zyphe V2 webhook event to an `idv-evidence-received` bus-event
   descriptor `{:event-name :dedup-key :data}`. A document result reports
   the document and, since Zyphe reports liveness failures as its
   reasons, liveness; a proof-of-address result reports the address; an
@@ -116,7 +116,7 @@
   (let [{:keys [bankId verificationId]} (ids event)
         reported (evidence event run-name)]
     (when (and reported bankId verificationId)
-      {:event-name "idv-evidence"
+      {:event-name "idv-evidence-received"
        :dedup-key (:id event)
        :data (merge {:bank-id bankId
                      :verification-id verificationId

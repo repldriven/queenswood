@@ -80,7 +80,7 @@
     (if (not= "confirmed" (get-in admission [:attributes :status]))
       []
       (let-nom> [amount (amount->minor-units amount id)]
-        [{:event-name "transaction-settled"
+        [{:event-name "provider-payment-settled"
           :dedup-key (str id ":settled")
           :data (utility/assoc-some {:scheme-transaction-id id
                                      :end-to-end-id end_to_end_reference
@@ -107,7 +107,7 @@
   (let [{:keys [end_to_end_reference]} (:attributes payment)
         {:keys [amount currency return_code]} (:attributes ret)]
     (let-nom> [amount (amount->minor-units amount (:id ret))]
-      [{:event-name "transaction-returned"
+      [{:event-name "provider-payment-returned"
         :dedup-key (str end_to_end_reference ":returned")
         :data (utility/assoc-some {:end-to-end-id end_to_end_reference
                                    :scheme "fps"

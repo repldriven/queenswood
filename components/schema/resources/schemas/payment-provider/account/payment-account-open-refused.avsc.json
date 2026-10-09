@@ -1,6 +1,6 @@
 {
   "type": "record",
-  "name": "PaymentAccountRefused",
+  "name": "PaymentAccountOpenRefused",
   "namespace": "com.repldriven.queenswood.schema.payment_provider.account",
   "fields": [
     {

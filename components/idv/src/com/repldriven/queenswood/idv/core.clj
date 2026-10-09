@@ -67,7 +67,7 @@
   (let [{:keys [bank-id session-id]} session]
     (bank-activity/record txn
                           {:bank-id bank-id
-                           :event-name "idv-session-opening"
+                           :event-name "idv-session-open-requested"
                            :data (check-data session criteria)
                            :causation-id session-id
                            :dedup-key session-id})))

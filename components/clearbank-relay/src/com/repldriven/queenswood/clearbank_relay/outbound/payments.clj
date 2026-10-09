@@ -51,7 +51,7 @@
 
 (defn- rejected
   [intent failure-kind reason now]
-  {:event-name "transaction-rejected"
+  {:event-name "provider-payment-rejected"
    :dedup-key (str (:idempotency-key intent) ":submission-rejected")
    :data {:end-to-end-id (:idempotency-key intent)
           :scheme "fps"
