@@ -172,8 +172,7 @@
                        :role (or role owner)
                        :status active
                        :created-at now
-                       :created-by (actor-record actor)
-                       :updated-at now}
+                       :created-by (actor-record actor)}
                       :invitation-id
                       invitation-id))
 
@@ -243,8 +242,7 @@
                            :token-hash invitation-id
                            :expires-at (+ now invitation-lifetime-ms)
                            :created-at now
-                           :created-by (actor-record actor)
-                           :updated-at now}
+                           :created-by (actor-record actor)}
                           :reason
                           (some-reason reason)))))
 

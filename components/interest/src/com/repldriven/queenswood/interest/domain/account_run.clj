@@ -10,8 +10,7 @@
      :kind kind
      :account-id account-id
      :status :interest-account-run-status-pending
-     :created-at now
-     :updated-at now}))
+     :created-at now}))
 
 (defn new
   "The run to record this account's outcome on: the one an earlier

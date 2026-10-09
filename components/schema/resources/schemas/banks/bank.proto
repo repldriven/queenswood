@@ -31,7 +31,7 @@ message Bank {
   required string idempotency_key = 100;
   required int64 created_at = 101;
   required com.repldriven.queenswood.schemas.actor.Actor created_by = 102;
-  required int64 updated_at = 103;
+  optional int64 updated_at = 103;
 }
 
 // The provider of one kind a bank runs on.

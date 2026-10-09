@@ -84,8 +84,7 @@
      :balance-status (:balance-status leg)
      :credit 0
      :debit 0
-     :created-at now
-     :updated-at now}))
+     :created-at now}))
 
 (defn- apply-leg-to-balances
   [bank-id balances leg policies]
@@ -210,5 +209,4 @@
        :balance-status balance-status
        :credit 0
        :debit 0
-       :created-at now
-       :updated-at now})))
+       :created-at now})))

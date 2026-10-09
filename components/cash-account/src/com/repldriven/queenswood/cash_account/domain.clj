@@ -161,8 +161,7 @@
                      :status :cash-account-status-opening
                      :payment-addresses []
                      :created-at now
-                     :created-by (:actor data)
-                     :updated-at now}
+                     :created-by (:actor data)}
                     :idempotency-key
                     (:idempotency-key data))))))
 

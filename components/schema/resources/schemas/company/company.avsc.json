@@ -24,6 +24,6 @@
       ]
     }], "default": null},
     {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+    {"name": "updated_at", "type": ["null", {"type": "long", "logicalType": "timestamp-millis"}], "default": null}
   ]
 }

@@ -24,7 +24,7 @@
                                               (cursor/page-opts page))]
                  (cursor/page-body "/v1/cash-account-migrations"
                                    page
-                                   migrations
+                                   (mapv migration-api/->body migrations)
                                    found))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
@@ -37,7 +37,7 @@
         result (migrations/get-migration (config request) bank-id migration-id)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body result})))
+      {:status 200 :body (migration-api/->body result)})))
 
 (defn list-runs
   [request]

@@ -74,8 +74,7 @@
    :product-type :account-product-type-sub-ledger-current
    :credit 0
    :debit 0
-   :created-at 1700000000000
-   :updated-at 1700000000000})
+   :created-at 1700000000000})
 
 (deftest required-field-test
   (testing "a required field holding zero is written"

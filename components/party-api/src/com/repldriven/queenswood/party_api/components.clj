@@ -213,7 +213,7 @@
 
 (defn ->session-body
   [session]
-  (cond-> (select-keys session session-keys)
+  (cond-> (select-keys (schema/with-updated-at session) session-keys)
           (:hand-off session)
           (update :hand-off
                   (fn [{:keys [kind url expires-at]}]

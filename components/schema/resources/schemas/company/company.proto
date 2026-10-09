@@ -32,5 +32,5 @@ message Company {
   optional RegisteredOfficeAddress registered_office_address = 8;
 
   required int64 created_at = 101;
-  required int64 updated_at = 103;
+  optional int64 updated_at = 103;
 }

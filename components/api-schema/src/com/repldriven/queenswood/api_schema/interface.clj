@@ -125,6 +125,15 @@
   ([m] (coercion/enum-coercion m))
   ([m unknown-key] (coercion/enum-coercion m unknown-key)))
 
+(defn with-updated-at
+  "`m` carrying `updated-at` as a body publishes it: its own, or its
+  creation time where it was never changed.
+
+  Args:
+  - m: a record as its brick hands it back."
+  [m]
+  (coercion/with-updated-at m))
+
 (defn api-encoder
   "A function encoding a value through the `:encode/api` properties
   `schema` and everything it references carry — the same transform the

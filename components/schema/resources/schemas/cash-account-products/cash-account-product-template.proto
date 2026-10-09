@@ -23,5 +23,5 @@ message CashAccountProductTemplate {
   repeated PaymentAddressScheme allowed_payment_address_schemes = 9;
 
   required int64 created_at = 101;
-  required int64 updated_at = 103;
+  optional int64 updated_at = 103;
 }

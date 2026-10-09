@@ -453,8 +453,7 @@
               :status :member-status-active
               :invitation-id "inv.1"
               :created-at now
-              :created-by {:kind :actor-kind-member :principal-id "usr.1"}
-              :updated-at now}
+              :created-by {:kind :actor-kind-member :principal-id "usr.1"}}
              (dissoc m :member-id)))))
   (testing "new-member defaults to owner and omits a missing invitation"
     (let [m (SUT/new-member {:user-id "usr.1" :bank-id "bnk.1"} now)]
@@ -478,8 +477,7 @@
               :expires-at (+ now SUT/invitation-lifetime-ms)
               :reason "Founder handover"
               :created-at now
-              :created-by {:kind :actor-kind-operator :principal-id "ops.1"}
-              :updated-at now}
+              :created-by {:kind :actor-kind-operator :principal-id "ops.1"}}
              (dissoc inv :invitation-id)))))
   (testing "new-invitation omits a blank reason and the actor's role"
     (let [inv (SUT/new-invitation {:bank-id "bnk.1"

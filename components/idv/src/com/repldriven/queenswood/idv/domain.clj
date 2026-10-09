@@ -60,8 +60,7 @@
      :party-id party-id
      :verification-id (utility/generate-id "idv")
      :status :idv-status-pending
-     :created-at now
-     :updated-at now}))
+     :created-at now}))
 
 (defn in-review-idv
   [idv]
@@ -266,8 +265,7 @@
      :return-url return-url
      :opened-on (utility/today)
      :created-at now
-     :created-by actor
-     :updated-at now}))
+     :created-by actor}))
 
 (defn ready-session
   [session url expires-at]

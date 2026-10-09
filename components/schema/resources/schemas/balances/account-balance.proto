@@ -21,5 +21,4 @@ message AccountBalance {
   required int64 debit = 7;
 
   required int64 created_at = 101;
-  required int64 updated_at = 103;
 }

@@ -89,8 +89,7 @@
     (assoc data
            :template-id (or (:template-id data) (utility/generate-id "tpl"))
            :internal (boolean (:internal data))
-           :created-at now
-           :updated-at now)))
+           :created-at now)))
 
 ;; ---------------------------------------------------------------------------
 ;; Capability + limit checks
@@ -193,8 +192,7 @@
                :name name
                :currency currency
                :created-at now
-               :created-by (:created-by data)
-               :updated-at now}
+               :created-by (:created-by data)}
               fields)
        :effective-from effective-from
        :effective-to effective-to

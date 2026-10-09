@@ -35,7 +35,7 @@
       (errors/anomaly->response result)
       {:status 201
        :headers {"Location" (migration-uri result)}
-       :body result})))
+       :body (migration-api/->body result)})))
 
 (defn- transition
   [request f]
@@ -48,7 +48,7 @@
                   (shared.actor/actor auth))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body result})))
+      {:status 200 :body (migration-api/->body result)})))
 
 (defn approve-migration
   "Approve a migration. Moves nothing — it makes the migration work the

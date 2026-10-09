@@ -139,8 +139,7 @@
          :target-version-id (:version-id target-version)
          :idempotency-key idempotency-key
          :created-at now
-         :created-by created-by
-         :updated-at now}
+         :created-by created-by}
         :source-version-ids
         source-version-ids)
        :notified-on notified-on

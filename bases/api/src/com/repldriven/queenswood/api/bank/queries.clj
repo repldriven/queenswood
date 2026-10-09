@@ -4,6 +4,7 @@
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
+    [com.repldriven.queenswood.api-schema.interface :as api-schema]
     [com.repldriven.queenswood.bank-query.interface :as banks]
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]
@@ -25,7 +26,7 @@
   of its accounts as the account routes return one."
   [request bank]
   (let [recorded (into {} (map (juxt :kind :provider)) (:providers bank))]
-    (cond-> (assoc bank
+    (cond-> (assoc (api-schema/with-updated-at bank)
                    :providers
                    (into {}
                          (map (fn [{:keys [kind default]}]

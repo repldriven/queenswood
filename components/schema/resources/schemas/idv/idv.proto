@@ -100,5 +100,5 @@ message Idv {
   optional int64 cancelled_at = 55;
 
   required int64 created_at = 101;
-  required int64 updated_at = 103;
+  optional int64 updated_at = 103;
 }

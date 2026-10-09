@@ -23,9 +23,11 @@
            {:keys [registry company-number]} company
            existing (load-company store registry company-number)
            now (utility/now)
-           saved (assoc company
-                        :created-at (or (:created-at existing) now)
-                        :updated-at now)]
+           saved (if existing
+                   (assoc company
+                          :created-at (:created-at existing)
+                          :updated-at now)
+                   (assoc company :created-at now))]
        (fdb/save-record store (schema/Company->java saved))
        saved))
    :company/save

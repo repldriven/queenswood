@@ -173,10 +173,8 @@
     },
     {
       "name": "updated_at",
-      "type": {
-        "type": "long",
-        "logicalType": "timestamp-millis"
-      }
+      "type": ["null", {"type": "long", "logicalType": "timestamp-millis"}],
+      "default": null
     },
     {
       "name": "refused_reason",

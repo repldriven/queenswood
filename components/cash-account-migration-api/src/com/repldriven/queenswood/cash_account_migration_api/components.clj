@@ -120,3 +120,7 @@
 
             (or completed-at failed-at)
             (assoc :finished-at (or completed-at failed-at)))))
+
+(defn ->body
+  [migration]
+  (schema/with-updated-at migration))

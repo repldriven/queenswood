@@ -35,7 +35,7 @@ message EmailDelivery {
 
   required string idempotency_key = 100; // the changelog entry that asked for it
   required int64 created_at = 101;
-  required int64 updated_at = 103;
+  optional int64 updated_at = 103;
 
   optional string failure_reason = 200;
 

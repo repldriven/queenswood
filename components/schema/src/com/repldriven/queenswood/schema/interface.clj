@@ -283,6 +283,9 @@
      (nil? (:interest-terms version))
      (dissoc :interest-terms)
 
+     (zero? (:updated-at version 0))
+     (dissoc :updated-at)
+
      (some? (:interest-terms version))
      (update :interest-terms plain-interest)
 
@@ -322,9 +325,15 @@
   (CashAccountProductProto$CashAccountProduct/parseFrom
    (CashAccountProduct->pb m)))
 
-(def ^{:doc "Parse CashAccountProductTemplate protobuf bytes into a map."}
-     pb->CashAccountProductTemplate
-  cash-account-products/pb->CashAccountProductTemplate)
+(defn pb->CashAccountProductTemplate
+  "Parse CashAccountProductTemplate protobuf bytes into a map, an
+  `updated-at` present only when set.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset (cash-account-products/pb->CashAccountProductTemplate input)
+                 {:updated-at 0}))
 
 (defn CashAccountProductTemplate->pb
   "Serialise a CashAccountProductTemplate map to protobuf bytes.
@@ -345,7 +354,10 @@
    (CashAccountProductTemplate->pb m)))
 
 (def ^:private company-unset
-  {:jurisdiction "" :incorporated-on 0 :registered-office-address nil})
+  {:jurisdiction ""
+   :incorporated-on 0
+   :registered-office-address nil
+   :updated-at 0})
 
 (def ^:private address-unset
   {:address-line-1 "" :locality "" :postal-code "" :country ""})
@@ -402,7 +414,8 @@
   (IdempotencyProto$Idempotency/parseFrom (Idempotency->pb m)))
 
 (def ^:private bank-unset
-  {:status-changed-at 0
+  {:updated-at 0
+   :status-changed-at 0
    :status-changed-by nil
    :tier-changed-at 0
    :tier-changed-by nil})
@@ -484,7 +497,7 @@
   - input: protobuf bytes."
   [input]
   (without-unset (idv/pb->Idv input)
-                 {:accepted-at 0 :rejected-at 0 :cancelled-at 0}))
+                 {:accepted-at 0 :rejected-at 0 :cancelled-at 0 :updated-at 0}))
 
 (defn Idv->pb
   "Serialise an Idv map to protobuf bytes.
@@ -512,7 +525,7 @@
   [input]
   (reduce plain-embedded
           (without-unset (idv/pb->IdvSession input)
-                         {:hand-off nil :failure-reason ""})
+                         {:hand-off nil :failure-reason "" :updated-at 0})
           [:hand-off :created-by]))
 
 (defn IdvSession->pb
@@ -531,9 +544,15 @@
   [m]
   (IdvSessionProto$IdvSession/parseFrom (IdvSession->pb m)))
 
-(def ^{:doc "Parse CashAccountMigration protobuf bytes into a Clojure map."}
-     pb->CashAccountMigration
-  cash-account-migrations/pb->CashAccountMigration)
+(defn pb->CashAccountMigration
+  "Parse CashAccountMigration protobuf bytes into a Clojure map, an
+  `updated-at` present only when set.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset (cash-account-migrations/pb->CashAccountMigration input)
+                 {:updated-at 0}))
 
 (defn CashAccountMigration->pb
   "Serialise a CashAccountMigration map to protobuf bytes.
@@ -645,9 +664,14 @@
   [m]
   (InterestRunProto$InterestRun/parseFrom (InterestRun->pb m)))
 
-(def ^{:doc "Parse InterestAccountRun protobuf bytes into a Clojure map."}
-     pb->InterestAccountRun
-  interest/pb->InterestAccountRun)
+(defn pb->InterestAccountRun
+  "Parse InterestAccountRun protobuf bytes into a Clojure map, an
+  `updated-at` present only when set.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset (interest/pb->InterestAccountRun input) {:updated-at 0}))
 
 (defn InterestAccountRun->pb
   "Serialise an InterestAccountRun map to protobuf bytes.
@@ -756,7 +780,8 @@
    :close-requested-by nil
    :closed-at 0
    :address-rotated-at 0
-   :address-rotated-by nil})
+   :address-rotated-by nil
+   :updated-at 0})
 
 (defn pb->CashAccount
   "Parse CashAccount protobuf bytes into a Clojure map. Strips the
@@ -793,18 +818,13 @@
   (CashAccountProto$CashAccount/parseFrom (CashAccount->pb m)))
 
 (defn pb->LedgerAccount
-  "Parse LedgerAccount protobuf bytes into a Clojure map, dropping the
-  proto2 default `:sub-ledger-kind-unknown` emitted for an unset
-  optional `sub_ledger_kind` so callers see `:sub-ledger-kind` only on
-  control accounts that carry a real cohort.
+  "Parse LedgerAccount protobuf bytes into a Clojure map, an `updated-at`
+  present only when set.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [account (ledger-accounts/pb->LedgerAccount input)]
-    (cond-> account
-            (= :sub-ledger-kind-unknown (:sub-ledger-kind account))
-            (dissoc :sub-ledger-kind))))
+  (without-unset (ledger-accounts/pb->LedgerAccount input) {:updated-at 0}))
 
 (defn LedgerAccount->pb
   "Serialise a LedgerAccount map to protobuf bytes.
@@ -1336,7 +1356,8 @@
    :removed-reason ""
    :left-at 0
    :left-by nil
-   :invitation-id ""})
+   :invitation-id ""
+   :updated-at 0})
 
 (defn pb->Member
   "Parse Member protobuf bytes into a Clojure map. A removal's or a
@@ -1416,7 +1437,8 @@
    :withdrawn-at 0
    :withdrawn-by nil
    :resent-at 0
-   :resent-by nil})
+   :resent-by nil
+   :updated-at 0})
 
 (def ^:private invitation-actors
   [:created-by :accepted-by :declined-by :withdrawn-by :resent-by])
@@ -1636,7 +1658,8 @@
    :sent-at 0
    :next-attempt-at 0
    :traceparent ""
-   :failure-reason ""})
+   :failure-reason ""
+   :updated-at 0})
 
 (defn pb->EmailDelivery
   "Parse EmailDelivery protobuf bytes into a Clojure map. Each optional
@@ -1671,7 +1694,7 @@
   emails/EmailKind-label2val)
 
 (def ^:private circuit-breaker-unset
-  {:next-probe-at 0 :cool-down-ms 0 :opened-at 0})
+  {:next-probe-at 0 :cool-down-ms 0 :opened-at 0 :updated-at 0})
 
 (defn pb->CircuitBreaker
   "Parse CircuitBreaker protobuf bytes into a Clojure map. `next-probe-at`,

@@ -6,11 +6,13 @@
 
 (defn- closed-breaker
   [breaker destination now]
-  {:destination destination
-   :status closed
-   :failure-count 0
-   :created-at (or (:created-at breaker) now)
-   :updated-at now})
+  (cond-> {:destination destination
+           :status closed
+           :failure-count 0
+           :created-at (or (:created-at breaker) now)}
+
+          breaker
+          (assoc :updated-at now)))
 
 (defn- open
   [breaker now cool-down-ms]
@@ -73,8 +75,11 @@
        :else
        (let [failures (inc failures)
              counted (assoc (or breaker (closed-breaker nil destination now))
-                            :failure-count failures
-                            :updated-at now)]
-         (if (>= failures failure-threshold)
-           (open counted now cool-down-ms)
-           counted))))))
+                            :failure-count
+                            failures)
+             recorded (if (>= failures failure-threshold)
+                        (open counted now cool-down-ms)
+                        (assoc counted :updated-at now))]
+         (cond-> recorded
+                 (nil? breaker)
+                 (dissoc :updated-at)))))))

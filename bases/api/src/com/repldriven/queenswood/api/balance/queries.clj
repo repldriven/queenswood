@@ -2,6 +2,7 @@
   (:require
     [com.repldriven.queenswood.api.errors :as errors]
 
+    [com.repldriven.queenswood.api-schema.interface :as api-schema]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -19,7 +20,10 @@
                  [found (cash-accounts/get-account-balances config
                                                             bank-id
                                                             account-id)]
-                 (set/rename-keys found {:balances :items}))]
+                 (-> found
+                     (update :balances
+                             (partial mapv api-schema/with-updated-at))
+                     (set/rename-keys {:balances :items})))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))
@@ -47,5 +51,5 @@
                                    "Balance not found")}
 
      :else
-     {:status 200 :body result})))
+     {:status 200 :body (api-schema/with-updated-at result)})))
 

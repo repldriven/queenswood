@@ -34,7 +34,7 @@
       ]
     }], "default": null},
     {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "updated_at", "type": ["null", {"type": "long", "logicalType": "timestamp-millis"}], "default": null},
     {"name": "member", "type": ["null", {
       "type": "record",
       "name": "Member",
@@ -47,7 +47,7 @@
                                   "name": "Role",
                                   "symbols": ["ROLE_UNKNOWN", "ROLE_OWNER"]}},
         {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
-        {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+        {"name": "updated_at", "type": ["null", {"type": "long", "logicalType": "timestamp-millis"}], "default": null}
       ]
     }], "default": null},
     {"name": "owner_invitation_id", "type": ["null", "string"], "default": null}

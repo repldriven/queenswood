@@ -30,7 +30,6 @@
               :kind-id "inv.test"
               :idempotency-key "evt.test"
               :created-at now
-              :updated-at now
               :attempt-count 0
               :next-attempt-at now}
              (dissoc written :delivery-id)))

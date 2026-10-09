@@ -60,8 +60,7 @@
                            :name bank-name
                            :status bank-status
                            :tier tier
-                           :created-at now
-                           :updated-at now}
+                           :created-at now}
                           :company-binding
                           company-binding))))
 

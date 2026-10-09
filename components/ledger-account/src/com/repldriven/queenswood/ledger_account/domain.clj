@@ -64,7 +64,7 @@
   `{:credit :debit}` of the balances it is derived from, in place of a
   stored row."
   [account {:keys [balance-status mirror?]} {:keys [credit debit]}]
-  (let [{:keys [bank-id ledger-account-id created-at updated-at]} account]
+  (let [{:keys [bank-id ledger-account-id created-at]} account]
     {:bank-id bank-id
      :account-id ledger-account-id
      :product-type :account-product-type-general-ledger
@@ -72,8 +72,7 @@
      :balance-status balance-status
      :credit (if mirror? debit credit)
      :debit (if mirror? credit debit)
-     :created-at created-at
-     :updated-at updated-at}))
+     :created-at created-at}))
 
 (defn chart-number
   "The chart number, as a string, for a `code` role — the
@@ -132,8 +131,7 @@
              :currency currency
              :ledger-account-id (utility/generate-id "led")
              :status :ledger-account-status-open
-             :created-at now
-             :updated-at now))))
+             :created-at now))))
 
 (defn opening-balance
   "The single default-posted balance bucket a ledger account other than

@@ -23,7 +23,6 @@
      :kind-id invitation-id
      :idempotency-key changelog-event-id
      :created-at now
-     :updated-at now
      :attempt-count 0
      :next-attempt-at now}))
 

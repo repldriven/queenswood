@@ -140,6 +140,7 @@
         template (cond-> template
                          (and (not (error/anomaly? existing))
                               (:created-at existing))
-                         (assoc :created-at (:created-at existing)))]
+                         (assoc :created-at (:created-at existing)
+                                :updated-at (:created-at template)))]
     (let-nom> [_ (store/save-template config template)]
       template)))

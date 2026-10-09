@@ -38,3 +38,7 @@
         ([extra-props]
          (into [:enum (merge enum-props extra-props)]
                enum-values)))})))
+
+(defn with-updated-at
+  [m]
+  (assoc m :updated-at (or (:updated-at m) (:created-at m))))

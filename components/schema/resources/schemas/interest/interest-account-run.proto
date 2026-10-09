@@ -30,7 +30,7 @@ message InterestAccountRun {
   optional int64 carry_delta = 9; // closing less opening carry, millionths of a minor unit
 
   required int64 created_at = 101;
-  required int64 updated_at = 103;
+  optional int64 updated_at = 103;
 
   optional string failure_reason = 200;
 }

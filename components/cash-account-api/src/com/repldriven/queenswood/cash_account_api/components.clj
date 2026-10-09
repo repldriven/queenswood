@@ -69,9 +69,15 @@
         refusal (or refused-reason
                     (when (= :address-rotation-status-failed (:status rotation))
                       (:failed-reason rotation)))]
-    (select-keys (cond-> (assoc account :account-status status)
+    (select-keys (cond-> (-> account
+                             schema/with-updated-at
+                             (assoc :account-status status))
                          refusal
                          (assoc :refusal-reason refusal)
+
+                         (:balances account)
+                         (update :balances
+                                 (partial mapv schema/with-updated-at))
 
                          (:transactions account)
                          (update :transactions
