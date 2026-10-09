@@ -7,7 +7,7 @@ import "schemas/banks/bank.proto";
 import "schemas/cash-accounts/types.proto";
 import "schemas/party/party.proto";
 import "schemas/policies/types.proto";
-import "schemas/schemes/scheme.proto";
+import "schemas/schemes/types.proto";
 import "schemas/types/product-type.proto";
 
 option java_outer_classname = "CapabilityProto";

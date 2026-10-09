@@ -5,7 +5,7 @@ package com.repldriven.queenswood.schemas.policies;
 import "record_metadata_options.proto";
 import "schemas/actor/actor.proto";
 import "schemas/cash-accounts/types.proto";
-import "schemas/schemes/scheme.proto";
+import "schemas/schemes/types.proto";
 
 option java_outer_classname = "PolicyBindingProto";
 

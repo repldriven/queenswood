@@ -9,7 +9,7 @@ import "schemas/cash-accounts/types.proto";
 import "schemas/party/party.proto";
 import "schemas/policies/capability.proto";
 import "schemas/policies/types.proto";
-import "schemas/schemes/scheme.proto";
+import "schemas/schemes/types.proto";
 import "schemas/transactions/transaction.proto";
 import "schemas/types/product-type.proto";
 

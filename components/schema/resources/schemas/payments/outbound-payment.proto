@@ -4,7 +4,7 @@ package com.repldriven.queenswood.schemas.payments;
 
 import "record_metadata_options.proto";
 import "schemas/actor/actor.proto";
-import "schemas/schemes/scheme.proto";
+import "schemas/schemes/types.proto";
 
 option java_outer_classname = "OutboundPaymentProto";
 

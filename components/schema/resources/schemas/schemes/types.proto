@@ -2,13 +2,9 @@ syntax = "proto2";
 
 package com.repldriven.queenswood.schemas.schemes;
 
-option java_outer_classname = "SchemeProto";
+option java_outer_classname = "SchemeTypesProto";
 
 enum SchemeType {
   SCHEME_TYPE_UNKNOWN = 0;
   SCHEME_TYPE_FPS = 1;
-}
-
-message Scheme {
-  required SchemeType type = 1;
 }
