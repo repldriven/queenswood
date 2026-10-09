@@ -65,8 +65,6 @@
     }
   });
 
-  const readSplit = $derived(splitName(target?.["display-name"]));
-
   // Read mode fetches the party's names; the list summary the drawer is
   // handed only carries the display name. Guard against a stale
   // response landing after the user has moved to a different party.
@@ -82,9 +80,7 @@
     });
   });
 
-  const readFirst = $derived(detail?.["given-name"] ?? readSplit.first);
-  const readMiddle = $derived(detail?.["middle-names"] ?? "");
-  const readLast = $derived(detail?.["family-name"] ?? readSplit.last);
+  const readLegalName = $derived(detail?.["legal-name"] ?? "");
   const readReference = $derived(
     detail?.["external-reference"] ?? target?.["external-reference"] ?? "",
   );
@@ -228,9 +224,7 @@
     <section class="drawer-section">
       <h3 class="drawer-section-title">Identity</h3>
       <dl class="detail-list">
-        <dt>First name</dt>    <dd class:empty={!readFirst}>{readFirst || "—"}</dd>
-        <dt>Middle names</dt>  <dd class:empty={!readMiddle}>{readMiddle || "—"}</dd>
-        <dt>Last name</dt>     <dd class:empty={!readLast}>{readLast || "—"}</dd>
+        <dt>Legal name</dt>    <dd class:empty={!readLegalName}>{readLegalName || "—"}</dd>
         <dt>Your reference</dt> <dd class="mono" class:empty={!readReference}>{readReference || "—"}</dd>
       </dl>
       <p class="notice">

@@ -12,19 +12,19 @@
 
 (defn new-party
   [data]
-  (let [{:keys [bank-id party-type display-name actor]} data
-        now (utility/now)
+  (let [{:keys [bank-id party-type legal-name actor]} data
         status (if (= :party-type-person party-type)
                  :party-status-pending
                  :party-status-active)]
     (assoc-some {:bank-id bank-id
                  :party-id (utility/generate-id "pty")
-                 :display-name display-name
+                 :legal-name legal-name
                  :status status
                  :party-type party-type
-                 :created-at now
-                 :created-by (actor-record actor)
-                 :updated-at now}
+                 :created-at (utility/now)
+                 :created-by (actor-record actor)}
+                :display-name
+                (:display-name data)
                 :idempotency-key
                 (:idempotency-key data)
                 :external-reference

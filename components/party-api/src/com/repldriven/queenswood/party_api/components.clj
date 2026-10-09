@@ -53,8 +53,8 @@
    [:external-reference {:optional true} [:ref "ExternalReference"]]])
 
 (def PartyDetail
-  "Party-by-id detail: the summary fields, and the person's names where
-  `embed[person-identification]` asks for them."
+  "Party-by-id detail: the summary fields, and the party's legal name
+  where `embed[person-identification]` asks for it."
   [:map {:json-schema/example examples/Party}
    [:bank-id [:ref "BankId"]]
    [:party-id [:ref "PartyId"]]
@@ -65,21 +65,17 @@
    [:external-reference {:optional true} [:maybe [:ref "ExternalReference"]]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at [:ref "Timestamp"]]
-   [:given-name {:optional true} [:maybe :string]]
-   [:middle-names {:optional true} [:maybe :string]]
-   [:family-name {:optional true} [:maybe :string]]])
+   [:legal-name {:optional true} [:maybe :string]]])
 
 (def PartyEmbedQuery
   "Nested `embed` deepObject query parameter for the party detail
   endpoint. Wire form is `embed[person-identification]=true`, nested
   into `{:person-identification …}` by the `nest-bracket-query-params`
-  interceptor before validation. Set, it opts the person's names into
-  the response; omitted, the GET returns just the summary party."
+  interceptor before validation. Set, it opts the party's legal name
+  into the response; omitted, the GET returns just the summary party."
   [:map {:closed true}
    [:person-identification
-    {:optional true
-     :json-schema/description
-     "Embed the person's given, middle and family names"}
+    {:optional true :json-schema/description "Embed the party's legal name"}
     boolean?]])
 
 (def CreatePartyResponse [:ref "Party"])
@@ -186,17 +182,23 @@
 
 (def ^:private party-keys (into [] (comp (filter vector?) (map first)) Party))
 
+(defn- shown
+  [party]
+  (let [{:keys [created-at updated-at]} party]
+    (-> party
+        (set/rename-keys {:party-type :type})
+        (assoc :updated-at (or updated-at created-at)))))
+
 (defn ->body
   [party]
-  (select-keys (set/rename-keys party {:party-type :type}) party-keys))
+  (select-keys (shown party) party-keys))
 
 (def ^:private party-detail-keys
   (into [] (comp (filter vector?) (map first)) PartyDetail))
 
 (defn ->detail-body
   [party]
-  (select-keys (set/rename-keys party {:party-type :type})
-               party-detail-keys))
+  (select-keys (shown party) party-detail-keys))
 
 (def ^:private encode-party
   (schema/api-encoder Party (merge schema/registry registry)))

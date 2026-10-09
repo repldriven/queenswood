@@ -85,7 +85,7 @@
   (core/name-match run-name read-name))
 
 (defn party-name
-  "The full name a person party was registered with, which a run for it
+  "The legal name a person party was registered with, which a run for it
   is graded against: nil where `party-id` is blank or names no person,
   or an anomaly where it cannot be read.
 

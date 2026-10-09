@@ -30,8 +30,6 @@
     [com.repldriven.queenswood.schemas.party :as party]
     [com.repldriven.queenswood.schemas.payee_check :as payee-check]
     [com.repldriven.queenswood.schemas.payments :as payments]
-    [com.repldriven.queenswood.schemas.person_identification :as
-     person-identification]
     [com.repldriven.queenswood.schemas.policies :as policies]
     [com.repldriven.queenswood.schemas.rewards :as rewards]
     [com.repldriven.queenswood.schemas.scheduler :as scheduler]
@@ -73,8 +71,6 @@
      SchedulerRunProto$SchedulerRun)
     (com.repldriven.queenswood.schemas.banks BankProto$Bank)
     (com.repldriven.queenswood.schemas.party PartyProto$Party)
-    (com.repldriven.queenswood.schemas.person_identification
-     PersonNameProto$PersonName)
     (com.repldriven.queenswood.schemas.payments
      InboundPaymentProto$InboundPayment
      InternalPaymentProto$InternalPayment
@@ -433,7 +429,8 @@
   (BankProto$Bank/parseFrom (Bank->pb m)))
 
 (def ^:private party-unset
-  {:external-reference ""
+  {:display-name ""
+   :external-reference ""
    :merged-into-party-id ""
    :activated-at 0
    :rejected-at 0
@@ -445,7 +442,8 @@
    :closed-by nil
    :merged-at 0
    :merged-by nil
-   :idempotency-key ""})
+   :idempotency-key ""
+   :updated-at 0})
 
 (def ^:private party-actors
   [:created-by :suspended-by :resumed-by :closed-by :merged-by])
@@ -473,26 +471,6 @@
   - m: Party map matching the generated schema."
   [m]
   (PartyProto$Party/parseFrom (Party->pb m)))
-
-(def ^{:doc "Parse PersonName protobuf bytes into a Clojure map."}
-     pb->PersonName
-  person-identification/pb->PersonName)
-
-(defn PersonName->pb
-  "Serialise a PersonName map to protobuf bytes.
-
-  Args:
-  - m: PersonName map matching the generated schema."
-  [m]
-  (proto/->pb (person-identification/new-PersonName m)))
-
-(defn PersonName->java
-  "Parse a PersonName map into the generated Java protobuf class.
-
-  Args:
-  - m: PersonName map matching the generated schema."
-  [m]
-  (PersonNameProto$PersonName/parseFrom (PersonName->pb m)))
 
 (defn pb->Idv
   "Parse Idv protobuf bytes into a Clojure map, without a `:completed-at`

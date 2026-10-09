@@ -20,6 +20,7 @@
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
    :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
    :party-type :party-type-person
+   :legal-name "Arthur Phillip Dent"
    :display-name "Arthur Dent"
    :status :party-status-merged
    :merged-into-party-id "pty.01kprbmgcj35ptc8npmybhh4sa"
@@ -43,7 +44,9 @@
     (testing "every declared key survives, value and all"
       (is (= (select-keys shown declared-keys) body)))
     (testing "the stored idempotency key does not reach a body"
-      (is (not (contains? body :idempotency-key)))))
+      (is (not (contains? body :idempotency-key))))
+    (testing "nor the legal name, which only the embedded detail shows"
+      (is (not (contains? body :legal-name)))))
   (testing "an optional key the record lacks stays absent"
     (is (not (contains? (SUT/->body (dissoc stored :merged-into-party-id))
                         :merged-into-party-id)))))

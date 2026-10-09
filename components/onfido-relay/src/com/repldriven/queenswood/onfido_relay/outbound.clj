@@ -97,16 +97,21 @@
        (sort-by (fn [workflow] (count (covers workflow))))
        first))
 
-(defn- full-first-name
-  [first-name middle-names]
-  (if (str/blank? middle-names)
-    first-name
-    (str/trim (str first-name " " middle-names))))
+(defn- split-name
+  "An applicant's first and last names from a legal name, split at its
+  last space: Onfido takes them apart, and its report is the only use it
+  makes of them."
+  [legal-name]
+  (let [words (str/split (str/trim legal-name) #"\s+")]
+    (if (next words)
+      [(str/join " " (butlast words)) (last words)]
+      [legal-name legal-name])))
 
 (defn applicant
   [data]
-  (let [{:keys! [first-name last-name] :keys [middle-names email]} data]
-    (utility/assoc-some {:first_name (full-first-name first-name middle-names)
+  (let [{:keys! [legal-name] :keys [email]} data
+        [first-name last-name] (split-name legal-name)]
+    (utility/assoc-some {:first_name first-name
                          :last_name last-name}
                         :email
                         (when-not (str/blank? email) email))))

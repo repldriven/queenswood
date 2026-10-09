@@ -492,9 +492,8 @@
         payload (cond-> {:bank-id bank-real-id
                          :party-type :party-type-person
                          :actor scenario-operator
-                         :display-name (str "Scenario Person " counter)
-                         :given-name "Scenario"
-                         :family-name (str "Person" counter)}
+                         :legal-name (str "Scenario Person" counter)
+                         :display-name (str "Scenario Person " counter)}
 
                         reference-marker
                         (assoc :external-reference (name reference-marker)))
@@ -611,9 +610,8 @@
         party-payload {:bank-id bank-real-id
                        :party-type :party-type-person
                        :actor scenario-operator
-                       :display-name (str "Scenario Customer " counter)
-                       :given-name "Scenario"
-                       :family-name (str "Customer" counter)}
+                       :legal-name (str "Scenario Customer" counter)
+                       :display-name (str "Scenario Customer " counter)}
         party-result (party/new-party bank party-payload)
         party-result (if (error/anomaly? party-result)
                        party-result

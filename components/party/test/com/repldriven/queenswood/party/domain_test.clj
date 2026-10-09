@@ -18,7 +18,7 @@
   [party-id status]
   {:bank-id "bnk.test"
    :party-id party-id
-   :display-name "Test Party"
+   :legal-name "Test Party"
    :status status
    :party-type :party-type-person
    :created-at 0

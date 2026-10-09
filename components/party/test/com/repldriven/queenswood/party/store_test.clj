@@ -24,7 +24,7 @@
   [bank-id party-id idempotency-key]
   {:bank-id bank-id
    :party-id party-id
-   :display-name "Idempotency Test Party"
+   :legal-name "Idempotency Test Party"
    :status :party-status-pending
    :party-type :party-type-person
    :created-at (utility/now)

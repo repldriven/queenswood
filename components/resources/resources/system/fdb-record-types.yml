@@ -229,6 +229,11 @@ stores:
     record-type: Party
     primary-key: [bank_id, party_id]
     indexes:
+      - name: Party_by_party_id
+        added: 1
+        modified: 1
+        field: party_id
+        unique: true
       - name: Party_by_idempotency_key
         added: 1
         modified: 1
@@ -239,9 +244,6 @@ stores:
         modified: 1
         fields: [bank_id, external_reference]
         unique: true
-  person-names:
-    record-type: PersonName
-    indexes: []
   inbound-payments:
     record-type: InboundPayment
     primary-key: [bank_id, payment_id]

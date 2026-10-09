@@ -78,8 +78,6 @@
     components/bank-query {:local/root "components/bank-query"}
     components/party {:local/root "components/party"}
     components/party-query {:local/root "components/party-query"}
-    components/person-identification {:local/root
-                                      "components/person-identification"}
     components/policy {:local/root "components/policy"}
     components/resources {:local/root "components/resources"}
     components/reward {:local/root "components/reward"}

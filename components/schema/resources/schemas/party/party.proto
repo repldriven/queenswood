@@ -30,11 +30,12 @@ message Party {
 
   required string bank_id = 1;
   required string party_id = 2; // pty.<uuidv7>
-  required string display_name = 3;
-  required PartyStatus status = 4;
-  required PartyType party_type = 5;
-  optional string external_reference = 6;
-  optional string merged_into_party_id = 7;
+  required string legal_name = 3;
+  optional string display_name = 4;
+  required PartyStatus status = 5;
+  required PartyType party_type = 6;
+  optional string external_reference = 7;
+  optional string merged_into_party_id = 8;
 
   optional int64 activated_at = 51;
   optional int64 rejected_at = 53;
@@ -50,5 +51,5 @@ message Party {
   optional string idempotency_key = 100;
   required int64 created_at = 101;
   required com.repldriven.queenswood.schemas.actor.Actor created_by = 102;
-  required int64 updated_at = 103;
+  optional int64 updated_at = 103;
 }

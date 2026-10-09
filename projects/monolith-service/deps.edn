@@ -84,8 +84,6 @@
   component/payment {:local/root "../../components/payment"}
   component/payment-query {:local/root "../../components/payment-query"}
   component/reward-query {:local/root "../../components/reward-query"}
-  component/person-identification {:local/root
-                                   "../../components/person-identification"}
   component/policy {:local/root "../../components/policy"}
   component/resources {:local/root "../../components/resources"}
   component/reward {:local/root "../../components/reward"}

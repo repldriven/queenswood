@@ -1,8 +1,6 @@
 (ns com.repldriven.queenswood.idv-provider.core
   (:require
     [com.repldriven.queenswood.party-query.interface :as party-query]
-    [com.repldriven.queenswood.person-identification.interface :as
-     person-identification]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
 
@@ -75,8 +73,6 @@
 (defn party-name
   [txn party-id]
   (when-not (str/blank? party-id)
-    (let-nom> [identification (person-identification/get-person-identification
-                               txn
-                               party-id)]
-      (let [{:keys [given-name middle-names family-name]} identification]
-        (full-name given-name middle-names family-name)))))
+    (let-nom> [party (party-query/get-party-by-id txn party-id)]
+      (when (= :party-type-person (:party-type party))
+        (:legal-name party)))))

@@ -55,8 +55,6 @@
   component/email {:local/root "../../components/email"}
   component/member-query {:local/root "../../components/member-query"}
   component/party-query {:local/root "../../components/party-query"}
-  component/person-identification {:local/root
-                                   "../../components/person-identification"}
   component/policy {:local/root "../../components/policy"}
   component/resources {:local/root "../../components/resources"}
   component/schema {:local/root "../../components/schema"}

@@ -19,8 +19,7 @@
                             {:bank-id "bnk.1"
                              :verification-id verification-id
                              :party-id "pty.1"
-                             :first-name "Arthur"
-                             :last-name "Dent"
+                             :legal-name "Arthur Dent"
                              :verifications []
                              :screenings []})})
 

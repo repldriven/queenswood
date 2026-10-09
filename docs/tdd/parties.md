@@ -19,7 +19,7 @@ tenant's web or mobile app, and what the platform keeps about a person
 once the person's identity evidence stays with the provider, per
 [ADR-0045](../adr/0045-a-persons-identity-evidence-stays-with-the-customers-provider.md).
 
-In scope: the `party`, `person-identification` and `idv` bricks; the
+In scope: the `party` and `idv` bricks; the
 `idv-action-accept` capability and the verifications and screenings its
 denies name; the provider declaration and the check that it meets a
 bank's policies; the IDV adapter contract, covering evidence, sessions
@@ -47,14 +47,16 @@ provider account per bank, which ADR-0045 requires and
   party start `active`. `party-query` holds the reads and
   `match-name`, which normalises and tokenises two names and answers
   `:match`, `:close-match` or `:no-match`.
-- **Person identification.** `person-identification` holds a person's
-  given, middle and family names as a `PersonName`, and nothing else
-  about them. `POST /v1/parties` takes the names and an optional
-  `external-reference`, unique within the bank.
+- **Legal name.** Every `Party` carries a `legal_name`, a person's as
+  they registered it and an organisation's as it is registered, and
+  nothing else about a person; `display_name` is optional, a name the
+  party goes by. `POST /v1/parties` takes the names, joined into the
+  legal name, and an optional `external-reference`, unique within the
+  bank.
 - **What reaches a provider and comes back.** `submit-idv-check`, and
   the `idv-session-opening` activity it is published from, carry the
-  person's names and the session's email. Onfido's relay creates its
-  applicant from the names and the email, and Zyphe's run carries the
+  person's legal name and the session's email. Onfido's relay creates
+  its applicant from the name and the email, and Zyphe's run carries the
   party id in its `customData`. Each adapter grades the name read off
   the document against the party's, read by party id through
   `idv-provider/party-name`, and writes the grade, never the name, into
@@ -450,15 +452,15 @@ on the provider's page.
   `:party/identification-rejected` retires with the identifiers' index.
   The party read returns the names and the reference, and its
   `embed[address]` and `embed[national-identifier]` retire.
-- **Person identification.** `person-identification` keeps the three
-  names as a `PersonName` in a `person-names` store of its own.
+- **Legal name.** The party keeps the names joined as its
+  `legal_name`, the one name a run is graded against.
 - **National identifiers.** None is recorded.
 - **The run's input.** `submit-idv-check` and the
-  `idv-session-opening` activity carry the person's names and no date
-  of birth or address. Onfido's relay creates its applicant from the
-  names and the email alone, and Zyphe's run carries the party id in
-  its `customData`, so each adapter can read the party's name back when
-  the result arrives.
+  `idv-session-opening` activity carry the person's legal name and no
+  date of birth or address. Onfido's relay creates its applicant from
+  the name, split at its last space, and the email alone, and Zyphe's
+  run carries the party id in its `customData`, so each adapter can
+  read the party's name back when the result arrives.
 - **Evidence.** `IdvDocumentEvidence` holds no name read off a
   document, only `IdvNameMatch name_match`, how it compares. An outbox
   entry's payload, the bus and `Idv.evidence` therefore carry none.
@@ -468,7 +470,7 @@ on the provider's page.
   intent, so the email and the names stay only while the provider may
   still need them.
 - **Logs and traces.** No adapter logs or adds to a span any field of a
-  provider's result, and `party`, `person-identification` and `idv` log
+  provider's result, and `party` and `idv` log
   ids and statuses, never a name.
 
 ### First slices

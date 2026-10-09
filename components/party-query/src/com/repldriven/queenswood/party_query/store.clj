@@ -18,6 +18,20 @@
    :party/get
    "Failed to load party"))
 
+(defn get-party-by-id
+  [txn party-id]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (some-> (fdb/query-record (fdb/open txn store-name)
+                               "Party"
+                               "party_id"
+                               party-id
+                               {:index "Party_by_party_id"})
+             schema/pb->Party))
+   :party/get-by-id
+   "Failed to load party by id"))
+
 (defn find-party-by-idempotency-key
   [txn bank-id idempotency-key]
   (fdb/transact

@@ -48,7 +48,7 @@
                             {:bank-id bank-id
                              :event-name "account-opening"
                              :data {:account-id account-id
-                                    :holder-name (:display-name party)
+                                    :holder-name (:legal-name party)
                                     :currency currency
                                     :address-schemes schemes}
                              :causation-id account-id

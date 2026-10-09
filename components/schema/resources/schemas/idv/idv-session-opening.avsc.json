@@ -17,19 +17,7 @@
       "type": "string"
     },
     {
-      "name": "first_name",
-      "type": "string"
-    },
-    {
-      "name": "middle_names",
-      "type": [
-        "null",
-        "string"
-      ],
-      "default": null
-    },
-    {
-      "name": "last_name",
+      "name": "legal_name",
       "type": "string"
     },
     {

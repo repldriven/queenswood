@@ -226,6 +226,7 @@
                            txn
                            {:bank-id bank-id
                             :party-type :party-type-organization
+                            :legal-name bank-name
                             :display-name bank-name
                             :actor actor}
                            {:policies policies})

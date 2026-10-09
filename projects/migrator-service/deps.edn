@@ -33,7 +33,6 @@
         component/idv {:local/root "../../components/idv"}
         component/onfido-relay {:local/root "../../components/onfido-relay"}
         component/party {:local/root "../../components/party"}
-        component/person-identification {:local/root "../../components/person-identification"}
         component/zyphe-relay {:local/root "../../components/zyphe-relay"}
         component/resources {:local/root "../../components/resources"}
         component/schema {:local/root "../../components/schema"}

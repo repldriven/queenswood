@@ -76,7 +76,7 @@
              :openapi {:operationId "RetrieveParty"
                        :description
                        (str "Set `embed[person-identification]` to include "
-                            "the person's names with the party. A merged "
+                            "the party's legal name with it. A merged "
                             "party names the party it was merged into.")
                        :parameters ^:replace
                                    [shared.parameters/ref-party-id
@@ -85,7 +85,7 @@
              :parameters {:query get-party-query-schema}
              :responses
              {200 {:description
-                   "The party, with the names where the request embeds them."
+                   "The party, with its legal name where the request embeds it."
                    :body [:ref "PartyDetail"]}
               404 (ErrorResponse [#'PartyNotFound])}
              :handler queries/get-party}}]

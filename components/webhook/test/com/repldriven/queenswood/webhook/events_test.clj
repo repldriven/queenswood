@@ -436,6 +436,7 @@
     {:bank-id bank-id
      :party-id party-id
      :party-type :party-type-person
+     :legal-name "Arthur Dent"
      :display-name "Arthur Dent"
      :status status
      :idempotency-key (str "ik-" party-id)

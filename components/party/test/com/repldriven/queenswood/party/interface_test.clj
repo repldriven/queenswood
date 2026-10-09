@@ -30,7 +30,7 @@
   [idempotency-key]
   {:bank-id test-bank-id
    :party-type :party-type-organization
-   :display-name "Retried Organisation"
+   :legal-name "Retried Organisation"
    :actor {:kind :actor-kind-operator :principal-id "queenswood-admin"}
    :idempotency-key idempotency-key})
 

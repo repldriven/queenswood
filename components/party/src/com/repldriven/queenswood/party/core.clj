@@ -5,31 +5,12 @@
 
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.party-query.interface :as q]
-    [com.repldriven.queenswood.person-identification.interface :as person-id]
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
-(defn- create-person
-  [txn data]
-  (store/transact
-   txn
-   (fn [txn]
-     (let [party (domain/new-party data)
-           {:keys [bank-id party-id status]} party
-           pi (person-id/new-person-identification data party-id)]
-       (let-nom>
-         [_ (person-id/save-person-identification txn pi)
-          result (store/save-party
-                  txn
-                  party
-                  {:bank-id bank-id
-                   :party-id party-id
-                   :status-after status})]
-         result)))))
-
-(defn- create-internal
+(defn- create
   [txn data]
   (store/transact
    txn
@@ -85,9 +66,7 @@
      (let [result (or-already-created
                    txn
                    data
-                   (if (= :party-type-person (:party-type data))
-                     (create-person txn data)
-                     (create-internal txn data)))]
+                   (create txn data))]
        (if (store/uniqueness-violation? result)
          (error/reject :party/external-reference-taken
                        {:message "A party already has this external reference"

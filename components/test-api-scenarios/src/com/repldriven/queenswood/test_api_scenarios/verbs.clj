@@ -299,9 +299,9 @@
                                    :query-params {"embed[person-identification]"
                                                   "true"}
                                    :auth auth})
-        {:keys [given-name middle-names family-name]} body]
-    {:givenNames (str/join " " (remove str/blank? [given-name middle-names]))
-     :familyName family-name
+        words (str/split (:legal-name body) #" ")]
+    {:givenNames (str/join " " (butlast words))
+     :familyName (last words)
      :dateOfBirth "1970-01-01"}))
 
 (defn- open-session

@@ -20,14 +20,6 @@
     },
     {
       "name": "display_name",
-      "type": "string"
-    },
-    {
-      "name": "given_name",
-      "type": "string"
-    },
-    {
-      "name": "middle_names",
       "type": [
         "null",
         "string"
@@ -35,7 +27,7 @@
       "default": null
     },
     {
-      "name": "family_name",
+      "name": "legal_name",
       "type": "string"
     },
     {

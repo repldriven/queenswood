@@ -95,8 +95,7 @@
                          {:bank-id "bnk.a"
                           :verification-id "idv.1"
                           :party-id "pty.1"
-                          :first-name "Arthur"
-                          :last-name "Dent"
+                          :legal-name "Arthur Dent"
                           :session-id "ses.1"
                           :verifications []
                           :screenings []})))

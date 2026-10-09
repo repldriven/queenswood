@@ -12,19 +12,16 @@
       "type": "string"
     },
     {
-      "name": "party_type",
-      "type": {
-        "type": "enum",
-        "name": "PartyType",
-        "symbols": [
-          "PARTY_TYPE_PERSON",
-          "PARTY_TYPE_INTERNAL"
-        ]
-      }
+      "name": "legal_name",
+      "type": "string"
     },
     {
       "name": "display_name",
-      "type": "string"
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
     },
     {
       "name": "status",
@@ -43,6 +40,25 @@
       }
     },
     {
+      "name": "party_type",
+      "type": {
+        "type": "enum",
+        "name": "PartyType",
+        "symbols": [
+          "PARTY_TYPE_PERSON",
+          "PARTY_TYPE_INTERNAL"
+        ]
+      }
+    },
+    {
+      "name": "merged_into_party_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
       "name": "created_at",
       "type": {
         "type": "long",
@@ -51,16 +67,12 @@
     },
     {
       "name": "updated_at",
-      "type": {
-        "type": "long",
-        "logicalType": "timestamp-millis"
-      }
-    },
-    {
-      "name": "merged_into_party_id",
       "type": [
         "null",
-        "string"
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
       ],
       "default": null
     }
