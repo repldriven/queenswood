@@ -42,4 +42,13 @@
    {:status 200
     :body {:items [{:delivery-id [:ref :test-delivery :delivery-id]
                     :status "delivered"
-                    :last-response-status 200}]}}}]}
+                    :attempt-count 1}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path
+             "/v1/webhook-endpoints/{endpoint-id}/deliveries/{delivery-id}/attempts"
+             :path-params {:endpoint-id [:ref :registered :endpoint
+                                         :endpoint-id]
+                           :delivery-id [:ref :test-delivery :delivery-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200 :body {:items [{:response-status 200}]}}}]}

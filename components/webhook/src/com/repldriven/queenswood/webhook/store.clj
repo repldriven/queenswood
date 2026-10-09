@@ -254,25 +254,6 @@
    :webhook-delivery-attempt/find-by-delivery
    "Failed to find webhook delivery attempts by delivery"))
 
-(defn find-last-attempts
-  "Each delivery's latest attempt, as a map from delivery id to attempt,
-  its scans issued together. A delivery not yet attempted is absent."
-  [txn bank-id delivery-ids]
-  (fdb/transact
-   txn
-   (fn [txn]
-     (into {}
-           (keep (fn [[delivery-id records]]
-                   (when-let [record (peek records)]
-                     [delivery-id (schema/pb->WebhookDeliveryAttempt record)])))
-           (map vector
-                delivery-ids
-                (fdb/scan-prefixes (fdb/open txn attempts-store-name)
-                                   (mapv (fn [id] [bank-id id]) delivery-ids)
-                                   most-attempts-read))))
-   :webhook-delivery-attempt/find-last
-   "Failed to find webhook deliveries' last attempts"))
-
 (def ^:private delivery-pending :webhook-delivery-status-pending)
 (def ^:private delivery-in-flight :webhook-delivery-status-in-flight)
 

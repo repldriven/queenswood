@@ -348,12 +348,17 @@
                                                        (:endpoint-id endpoint))
          matching (filterv (fn [delivery]
                              (domain/matches-filters? delivery filters))
-                           deliveries)
-         last-attempts (store/find-last-attempts txn
-                                                 bank-id
-                                                 (mapv :delivery-id matching))]
-        {:deliveries (mapv (fn [delivery]
-                             (domain/with-last-attempt
-                              delivery
-                              (get last-attempts (:delivery-id delivery))))
-                           matching)})))))
+                           deliveries)]
+        {:deliveries matching})))))
+
+(defn get-attempts
+  [txn bank-id endpoint-id delivery-id]
+  (store/transact
+   txn
+   (fn [txn]
+     (let-nom>
+       [_ (load-endpoint txn bank-id endpoint-id)
+        found (store/find-delivery txn bank-id delivery-id)
+        _ (domain/ensure-delivery-found found bank-id endpoint-id delivery-id)
+        attempts (store/find-attempts-by-delivery txn bank-id delivery-id)]
+       {:attempts attempts}))))

@@ -657,8 +657,9 @@ that lands.
   under a notification id the tenant has already seen, which is the
   repeat the signing convention exists to let it recognise.
 
-Reads take no key: get and list endpoints, and list an endpoint's
-deliveries with filters on kind, outcome and time.
+Reads take no key: get and list endpoints, list an endpoint's
+deliveries with filters on kind, outcome and time, and list a
+delivery's attempts at `GET .../deliveries/{delivery-id}/attempts`.
 
 `POST .../enable` takes an optional `since`. Without it the endpoint
 resumes from the next change; with it, every notification for the
@@ -740,8 +741,8 @@ type in the `schema` brick's `interface.clj`.
   a join back to the notification.
 - `WebhookDeliveryAttempt` — attempt id, delivery id, when it was
   made, the response status or why the call failed before one, and how
-  long the call took. Keyed under its delivery, so the history reads each listed
-  delivery's last attempt in one round trip. A re-send is a new
+  long the call took. Keyed under its delivery, so a delivery's
+  attempts read in the order made from one range. A re-send is a new
   delivery of the same notification, so "recorded alongside the
   original attempts" is satisfied by rows that survive rather than by a
   history a counter discards. The operator's dispute case reads

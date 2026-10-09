@@ -252,6 +252,28 @@
                               :body [:ref "WebhookDeliveryList"]}
                          404 (ErrorResponse [#'WebhookEndpointNotFound])}
              :handler queries/list-deliveries}}]
+     ["/deliveries/{delivery-id}/attempts"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+       :parameters {:path {:delivery-id [:ref "WebhookDeliveryId"]}}
+       :get {:summary "List a webhook delivery's attempts"
+             :openapi {:operationId "ListWebhookDeliveryAttempts"
+                       :description
+                       (str "Each call made to deliver the notification, "
+                            "in the order made, with the status the "
+                            "endpoint answered or why the call failed. "
+                            "Returns 404 for a delivery that belongs to "
+                            "another endpoint.")
+                       :parameters ^:replace
+                                   [shared.parameters/ref-endpoint-id
+                                    shared.parameters/ref-delivery-id
+                                    shared.parameters/ref-page
+                                    shared.parameters/ref-bank-id-header]}
+             :parameters {:query shared.parameters/page-query}
+             :responses {200 {:description "The delivery's attempts."
+                              :body [:ref "WebhookDeliveryAttemptList"]}
+                         404 (ErrorResponse [#'WebhookEndpointNotFound
+                                             #'WebhookDeliveryNotFound])}
+             :handler queries/list-attempts}}]
      ["/deliveries/{delivery-id}/resend"
       {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
        :parameters {:path {:delivery-id [:ref "WebhookDeliveryId"]}}

@@ -506,14 +506,6 @@
      _ (check-capability :webhook-endpoint-action-manage policies)]
     endpoint))
 
-(defn with-last-attempt
-  "`delivery` with what its last attempt's call answered: the response
-  status, or the error when the call failed before one arrived."
-  [delivery attempt]
-  (utility/assoc-some delivery
-                      :last-response-status (:response-status attempt)
-                      :last-error (:failed-reason attempt)))
-
 (defn delivered-delivery?
   [delivery]
   (= delivery-delivered (:status delivery)))

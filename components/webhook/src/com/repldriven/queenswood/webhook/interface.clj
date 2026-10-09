@@ -271,9 +271,8 @@
    (core/resend-window txn bank-id endpoint-id data actor opts)))
 
 (defn get-deliveries
-  "An endpoint's delivery history, in creation order, each delivery with
-  what its last attempt's call answered. Returns `{:deliveries [...]}`
-  or an anomaly.
+  "An endpoint's delivery history, in creation order. Returns
+  `{:deliveries [...]}` or an anomaly.
 
   Args:
   - txn: FDB transaction or config map.
@@ -286,6 +285,20 @@
    (core/get-deliveries txn bank-id endpoint-id))
   ([txn bank-id endpoint-id filters]
    (core/get-deliveries txn bank-id endpoint-id filters)))
+
+(defn get-attempts
+  "A delivery's attempts, in the order they were made. Returns
+  `{:attempts [...]}`, or a `:webhook-endpoint/not-found` or
+  `:webhook-delivery/not-found` rejection, the second also for a
+  delivery to another endpoint.
+
+  Args:
+  - txn: FDB transaction or config map.
+  - bank-id: owning bank id.
+  - endpoint-id: endpoint id.
+  - delivery-id: delivery id."
+  [txn bank-id endpoint-id delivery-id]
+  (core/get-attempts txn bank-id endpoint-id delivery-id))
 
 ;; ---
 ;; the resources as the API publishes them
@@ -304,13 +317,20 @@
 
 (defn ->delivery-body
   "Project a stored delivery onto the keys `WebhookDelivery` declares.
-  The runner's claim — its lease and the replica holding it — is not
-  among them.
 
   Args:
   - delivery: a delivery as this brick hands it back."
   [delivery]
   (components/->delivery-body delivery))
+
+(defn ->attempt-body
+  "Project a stored delivery attempt onto the keys
+  `WebhookDeliveryAttempt` declares.
+
+  Args:
+  - attempt: an attempt as this brick hands it back."
+  [attempt]
+  (components/->attempt-body attempt))
 
 ;; ---
 ;; the notification resource

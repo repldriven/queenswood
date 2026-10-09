@@ -237,14 +237,7 @@
                      (is (= 42 (:duration-ms one-attempt))))
                  attempts (SUT/find-attempts-by-delivery config bank-id "whd.1")
                  _ (testing "a delivery's attempts are read in order"
-                     (is (= ["wha.1" "wha.2"] (mapv :attempt-id attempts))))
-                 last-attempts (SUT/find-last-attempts config
-                                                       bank-id
-                                                       ["whd.1" "whd.2"
-                                                        "whd.3"])
-                 _ (testing "each delivery's last attempt, none for the unsent"
-                     (is (= {"whd.1" "wha.2" "whd.2" "wha.3"}
-                            (update-vals last-attempts :attempt-id))))]))))
+                     (is (= ["wha.1" "wha.2"] (mapv :attempt-id attempts))))]))))
 
 (deftest a-pending-backlog-does-not-starve-the-reclaim-test
   (with-test-system

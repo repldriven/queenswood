@@ -27,6 +27,11 @@
                     "whn"
                     examples/WebhookNotificationId))
 
+(def WebhookDeliveryAttemptId
+  (schema/id-schema "WebhookDeliveryAttemptId"
+                    "wha"
+                    examples/WebhookDeliveryAttemptId))
+
 (def WebhookEndpointStatus
   (coercion/endpoint-status-enum-schema {:json-schema/example "enabled"}))
 
@@ -134,26 +139,39 @@
    [:endpoint-id [:ref "WebhookEndpointId"]]
    [:status [:ref "WebhookDeliveryStatus"]]
    [:kind [:ref "WebhookNotificationKind"]]
-   [:attempts {:optional true} int?]
-   [:next-attempt-at {:optional true} [:ref "Timestamp"]]
-   [:last-response-status {:optional true} int?]
-   [:last-error {:optional true} string?]
+   [:delivered-at {:optional true} [:ref "Timestamp"]]
+   [:failed-at {:optional true} [:ref "Timestamp"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:attempt-count nat-int?]
+   [:next-attempt-at {:optional true} [:ref "Timestamp"]]])
 
 (def ^:private delivery-keys
   (into [] (comp (filter vector?) (map first)) WebhookDelivery))
 
 (defn ->delivery-body
-  "Project a stored delivery onto the keys `WebhookDelivery` declares,
-  its attempt count as `attempts`. The next attempt is shown only while
-  one is pending: in flight it is when the claim lapses."
   [delivery]
-  (let [{:keys [status attempt-count]} delivery]
-    (select-keys (cond-> (assoc delivery :attempts attempt-count)
-                         (not= :webhook-delivery-status-pending status)
-                         (dissoc :next-attempt-at))
-                 delivery-keys)))
+  (select-keys delivery delivery-keys))
+
+(def WebhookDeliveryAttempt
+  [:map {:json-schema/example examples/attempt}
+   [:bank-id [:ref "BankId"]]
+   [:delivery-id [:ref "WebhookDeliveryId"]]
+   [:attempt-id [:ref "WebhookDeliveryAttemptId"]]
+   [:response-status {:optional true} int?]
+   [:failed-reason {:optional true} string?]
+   [:duration-ms nat-int?]
+   [:created-at [:ref "Timestamp"]]])
+
+(def ^:private attempt-keys
+  (into [] (comp (filter vector?) (map first)) WebhookDeliveryAttempt))
+
+(defn ->attempt-body
+  [attempt]
+  (select-keys attempt attempt-keys))
+
+(def WebhookDeliveryAttemptList
+  (schema/list-schema "WebhookDeliveryAttempt"
+                      examples/WebhookDeliveryAttemptList))
 
 (def WebhookDeliveryFilterQuery
   "Nested `filter` deepObject query parameter on the delivery history.
@@ -177,12 +195,13 @@
 
 (def ^:private endpoint-registry
   (components-registry
-   [#'WebhookAddress #'WebhookDelivery #'WebhookDeliveryFilterQuery
-    #'WebhookDeliveryId #'WebhookDeliveryList #'WebhookDeliveryStatus
-    #'WebhookEndpoint #'WebhookEndpointEnableRequest #'WebhookEndpointId
-    #'WebhookEndpointList #'WebhookEndpointRegistration #'WebhookEndpointRequest
-    #'WebhookEndpointSecretRotation #'WebhookEndpointStatus
-    #'WebhookNotificationId #'WebhookNotificationKind
+   [#'WebhookAddress #'WebhookDelivery #'WebhookDeliveryAttempt
+    #'WebhookDeliveryAttemptId #'WebhookDeliveryAttemptList
+    #'WebhookDeliveryFilterQuery #'WebhookDeliveryId #'WebhookDeliveryList
+    #'WebhookDeliveryStatus #'WebhookEndpoint #'WebhookEndpointEnableRequest
+    #'WebhookEndpointId #'WebhookEndpointList #'WebhookEndpointRegistration
+    #'WebhookEndpointRequest #'WebhookEndpointSecretRotation
+    #'WebhookEndpointStatus #'WebhookNotificationId #'WebhookNotificationKind
     #'WebhookResendWindowRequest #'WebhookSigningSecret]))
 
 ;; ---------------------------------------------------------------------------

@@ -30,6 +30,7 @@
     [:post (str base "/{endpoint-id}/rotate-secret")]
     [:post (str base "/{endpoint-id}/test-notification")]
     [:get (str base "/{endpoint-id}/deliveries")]
+    [:get (str base "/{endpoint-id}/deliveries/{delivery-id}/attempts")]
     [:post (str base "/{endpoint-id}/deliveries/{delivery-id}/resend")]
     [:post (str base "/{endpoint-id}/resend")]})
 

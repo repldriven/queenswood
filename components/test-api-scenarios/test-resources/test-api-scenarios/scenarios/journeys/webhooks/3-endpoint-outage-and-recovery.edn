@@ -31,7 +31,8 @@
              :auth [:ref :bank-0 :token]}
    :until {:status 200
            :body {:items [:m/embeds
-                          [{:status "pending" :last-response-status 503}]]}}}
+                          [{:status "pending"
+                            :attempt-count [:m/any-of 1 2 3 4 5 6]}]]}}}
   {:command :webhook/receiver-answers
    :address [:ref :hook :receiver :address]
    :status 200}]
