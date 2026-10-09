@@ -19,9 +19,7 @@
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
-    [com.repldriven.mono.utility.interface :as utility]
-
-    [clojure.set :as set]))
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (def ^:private invitations-path "/v1/invitations")
 
@@ -65,7 +63,7 @@
     (if (= 200 (:status result)) (success (:body result)) result)))
 
 (defn- actor
-  "The principal as an access event records it: the caller as an actor,
+  "The principal as an audit event records it: the caller as an actor,
   a member with the role of the member the call resolved to."
   [auth]
   (let [actor (shared.actor/actor auth)]
@@ -509,23 +507,21 @@
                   (invitation-change request ok))))
 
 (defn- ->audit-event
-  "An access event as the bank's audit log shows it, its actor and
+  "An audit event as the bank's audit log shows it, its actor and
   subject named."
-  [access-event names]
-  (-> access-event
-      (set/rename-keys {:access-event-id :audit-event-id})
+  [audit-event names]
+  (-> audit-event
       (update :actor names/->actor names)
       (utility/assoc-some :subject-name
-                          (get names (:subject-user-id access-event)))))
+                          (get names (:subject-user-id audit-event)))))
 
-(defn- audit-events
-  [txn access-events]
+(defn- named-audit-events
+  [txn events]
   (let-nom> [names (names/user-names
                     (lookup txn)
-                    (concat (names/actor-ids (map :actor access-events))
-                            (keep :subject-user-id access-events)))]
-    (mapv (fn [access-event] (->audit-event access-event names))
-          access-events)))
+                    (concat (names/actor-ids (map :actor events))
+                            (keep :subject-user-id events)))]
+    (mapv (fn [event] (->audit-event event names)) events)))
 
 (defn list-audit-events
   [request]
@@ -534,11 +530,11 @@
         {:keys [page]} (:query parameters)
         txn (config request)]
     (respond (let-nom> [bank (banks/get-bank txn bank-id)
-                        access-events (members/list-access-events txn bank)
-                        windowed (cursor/window access-events
-                                                :access-event-id
+                        events (members/list-audit-events txn bank)
+                        windowed (cursor/window events
+                                                :audit-event-id
                                                 :desc
                                                 page)
-                        named (audit-events txn (:page windowed))]
+                        named (named-audit-events txn (:page windowed))]
                (cursor/page-body audit-events-path page named windowed))
              ok)))

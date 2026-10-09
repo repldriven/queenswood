@@ -227,12 +227,12 @@
 ;; history
 ;; ---
 
-(defn list-access-events
+(defn list-audit-events
   "A bank's access history, newest first, read from the records each act
   was recorded on: its creation from `bank`, each invitation's creation,
   latest resend, acceptance, refusal or withdrawal, each role change, and
   each member's removal or departure. Each event carries
-  `:access-event-id`, an id that sorts as the events happened, `:kind`,
+  `:audit-event-id`, an id that sorts as the events happened, `:kind`,
   `:actor` and `:occurred-at`; an invitation's carry its id, address and
   role as `role-after`; a member's carry the user, member id and
   `role-before`, and a role change `role-after`.
@@ -243,4 +243,4 @@
 
   Returns a vector of event maps or an anomaly."
   [txn bank]
-  (core/list-access-events txn bank))
+  (core/list-audit-events txn bank))

@@ -16,7 +16,7 @@
 (defn new-bank
   "Provision a new bank with a service-account client, an organization
   party, and a default chart of ledger accounts per currency, and bind
-  the tier policies to it, recording a bank-created access event in the
+  the tier policies to it, recording a bank-created audit event in the
   actor's name. When `:member` is supplied, also create the owner
   member, and when `:owner-invitation` is supplied, a pending owner
   invitation in the actor's name, in the same transaction. The client

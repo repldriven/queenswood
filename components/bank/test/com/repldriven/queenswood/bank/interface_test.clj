@@ -147,13 +147,13 @@
                    _ (is (= :role-owner (:role member)))
                    _ (is (nil? owner-invitation-id))
                    stored (bank-query/get-bank config bank-id)
-                   access-events (q/list-access-events config stored)
-                   _ (is (= [:access-event-kind-bank-created]
-                            (mapv :kind access-events)))
+                   audit-events (q/list-audit-events config stored)
+                   _ (is (= [:audit-event-kind-bank-created]
+                            (mapv :kind audit-events)))
                    _ (is (= {:kind :actor-kind-member :principal-id user-id}
-                            (:actor (first access-events))))
+                            (:actor (first audit-events))))
                    _ (is (= (:member-id member)
-                            (:member-id (first access-events))))
+                            (:member-id (first audit-events))))
                    invitations (q/list-invitations-by-bank config bank-id)
                    _ (is (empty? invitations))
                    listed (q/list-by-user config user-id)
@@ -196,12 +196,12 @@
                    _ (is (= "Owner@Example.com" (:email (first invitations))))
                    _ (is (= operator (:created-by (first invitations))))
                    stored (bank-query/get-bank config bank-id)
-                   access-events (q/list-access-events config stored)
+                   audit-events (q/list-audit-events config stored)
                    _ (testing "newest first, so the bank-created event is older"
-                       (is (= [:access-event-kind-invitation-created
-                               :access-event-kind-bank-created]
-                              (mapv :kind access-events))))
-                   _ (is (every? #(= operator (:actor %)) access-events))]))
+                       (is (= [:audit-event-kind-invitation-created
+                               :audit-event-kind-bank-created]
+                              (mapv :kind audit-events))))
+                   _ (is (every? #(= operator (:actor %)) audit-events))]))
      (testing "the owner invitation's creation is on the invitations changelog"
        (let [seen (atom [])]
          (nom-test> [_ (fdb/process-changelog

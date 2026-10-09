@@ -240,7 +240,7 @@ it.
 
 The access history the PRD's "What is recorded" reads is built on read
 from these records and the `Bank`'s own `created_at` and `created_by`,
-by `member-query`'s `list-access-events`: the bank's creation, each
+by `member-query`'s `list-audit-events`: the bank's creation, each
 invitation's creation, latest resend, acceptance, refusal and
 withdrawal, each role change, and each member's removal or
 departure, newest first. Each event's id is `aev.` and an encoding of
@@ -265,7 +265,7 @@ for member. On the system diagram the API writes only
   `list-active-by-user`, `list-active-by-bank`, `find-by-id`,
   `find-user-member`, `find-invitation`, `find-invitation-for-recipient`,
   `list-invitations-by-bank`, `list-pending-invitations-by-email` and
-  `list-access-events`, over the three stores, and
+  `list-audit-events`, over the three stores, and
   the pure `new-invitation-token` and `token-hash`, so the email adapter
   and the processor hash alike. The `api` base, `auth.clj` included,
   requires only this brick, which `enforce-idioms.sh`'s query-only check

@@ -249,15 +249,15 @@
                  _ (SUT/save-role-change
                     config
                     (assoc change :bank-id "bnk.store.other"))
-                 found (q/list-access-events config
-                                             {:bank-id bank-id
-                                              :created-at 0
-                                              :created-by owner-actor})
+                 found (q/list-audit-events config
+                                            {:bank-id bank-id
+                                             :created-at 0
+                                             :created-by owner-actor})
                  _ (testing "a role change reads back as its bank's history"
-                     (is (= [:access-event-kind-role-changed
-                             :access-event-kind-bank-created]
+                     (is (= [:audit-event-kind-role-changed
+                             :audit-event-kind-bank-created]
                             (mapv :kind found)))
-                     (is (= {:kind :access-event-kind-role-changed
+                     (is (= {:kind :audit-event-kind-role-changed
                              :actor owner-actor
                              :member-id "mem.subject"
                              :role-before :role-viewer

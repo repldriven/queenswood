@@ -135,7 +135,7 @@
                     (filter #(= :invitation-status-pending (:status %))))
               invitations)))))
 
-(defn list-access-events
+(defn list-audit-events
   [txn bank]
   (let [{:keys [bank-id]} bank]
     (store/transact
@@ -145,6 +145,6 @@
          [members (store/list-by-bank txn bank-id)
           invitations (store/list-all-invitations-by-bank txn bank-id)
           role-changes (store/list-role-changes-by-bank txn bank-id)]
-         (domain/access-events bank members invitations role-changes)))
-     :access-event/list
-     "Failed to list access events")))
+         (domain/audit-events bank members invitations role-changes)))
+     :audit-event/list
+     "Failed to list audit events")))

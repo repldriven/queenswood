@@ -79,8 +79,8 @@
 (defn- access-history
   "The access history of a bank created at time zero by the operator."
   [config bank-id]
-  (q/list-access-events config
-                        {:bank-id bank-id :created-at 0 :created-by operator}))
+  (q/list-audit-events config
+                       {:bank-id bank-id :created-at 0 :created-by operator}))
 
 (defn- kinds
   [events]
@@ -171,11 +171,11 @@
                                {:user-id "usr.accept.second"})
                  history (access-history config bank-id)
                  _ (testing "every act reads back from its record, newest first"
-                     (is (= [:access-event-kind-invitation-accepted
-                             :access-event-kind-invitation-created
-                             :access-event-kind-invitation-accepted
-                             :access-event-kind-invitation-created
-                             :access-event-kind-bank-created]
+                     (is (= [:audit-event-kind-invitation-accepted
+                             :audit-event-kind-invitation-created
+                             :audit-event-kind-invitation-accepted
+                             :audit-event-kind-invitation-created
+                             :audit-event-kind-bank-created]
                             (kinds history)))
                      (is (= {:kind :actor-kind-member
                              :principal-id "usr.accept.invitee"}
@@ -219,8 +219,8 @@
                  _ (testing "and writes neither the member nor a change"
                      (is (= first-at (:updated-at loaded)))
                      (is (= :role-developer (:role loaded)))
-                     (is (= [:access-event-kind-role-changed
-                             :access-event-kind-bank-created]
+                     (is (= [:audit-event-kind-role-changed
+                             :audit-event-kind-bank-created]
                             (kinds history))))]))))
 
 (deftest expiry-is-read-and-never-written-test
@@ -346,9 +346,8 @@
                  history-b (access-history config "bnk.reach.b")
                  _ (testing "and nothing is written"
                      (is (= target loaded))
-                     (is (= [:access-event-kind-bank-created]
-                            (kinds history-a)))
-                     (is (= [:access-event-kind-bank-created]
+                     (is (= [:audit-event-kind-bank-created] (kinds history-a)))
+                     (is (= [:audit-event-kind-bank-created]
                             (kinds history-b))))]))))
 
 (defn- latched
@@ -401,8 +400,8 @@
                  _ (testing "and the bank keeps one owner and one role change"
                      (is (= [:role-admin :role-owner]
                             (sort (map :role members))))
-                     (is (= [:access-event-kind-role-changed
-                             :access-event-kind-bank-created]
+                     (is (= [:audit-event-kind-role-changed
+                             :audit-event-kind-bank-created]
                             (kinds history))))]))))
 
 (deftest concurrent-accepts-by-one-person-write-one-member-test

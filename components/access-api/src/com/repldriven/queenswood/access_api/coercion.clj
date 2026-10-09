@@ -22,15 +22,15 @@
 
 (def ^:private audit-event-kind-enum
   (coercion/enum-coercion
-   {"bank-created" :access-event-kind-bank-created
-    "invitation-created" :access-event-kind-invitation-created
-    "invitation-resent" :access-event-kind-invitation-resent
-    "invitation-accepted" :access-event-kind-invitation-accepted
-    "invitation-declined" :access-event-kind-invitation-declined
-    "invitation-withdrawn" :access-event-kind-invitation-withdrawn
-    "role-changed" :access-event-kind-role-changed
-    "member-removed" :access-event-kind-member-removed
-    "member-left" :access-event-kind-member-left}
-   :access-event-kind-unknown))
+   {"bank-created" :audit-event-kind-bank-created
+    "invitation-created" :audit-event-kind-invitation-created
+    "invitation-resent" :audit-event-kind-invitation-resent
+    "invitation-accepted" :audit-event-kind-invitation-accepted
+    "invitation-declined" :audit-event-kind-invitation-declined
+    "invitation-withdrawn" :audit-event-kind-invitation-withdrawn
+    "role-changed" :audit-event-kind-role-changed
+    "member-removed" :audit-event-kind-member-removed
+    "member-left" :audit-event-kind-member-left}
+   :audit-event-kind-unknown))
 
 (def audit-event-kind-enum-schema (:enum-schema audit-event-kind-enum))

@@ -18,7 +18,7 @@ In scope: the `bank` command processor and the `bank-query` read
 brick; the status enum and the tier label; the multi-brick atomic
 create flow (service-account client, org party, ledger chart,
 own-funds house accounts, tier bindings, scheduled jobs, owner
-member, the bank-created access event and the owner invitation);
+member, the bank-created audit event and the owner invitation);
 the tier and status changes; the enrich-on-read pattern.
 
 Out of scope: the service-account and JWT mechanics — see
@@ -28,7 +28,7 @@ chart [chart-of-accounts.md](chart-of-accounts.md), product
 publish [cash-account-products.md](cash-account-products.md),
 account opening [cash-accounts.md](cash-accounts.md), policy
 bindings [policy-evaluation.md](policy-evaluation.md), members,
-invitations and access events [members.md](members.md).
+invitations and audit events [members.md](members.md).
 
 ## Background
 
@@ -212,7 +212,7 @@ user, a member, or else as an operator with principal id
 11. **Seed the scheduled jobs** — `scheduler/seed-jobs`,
     idempotent on `[bank-id job-id]`.
 12. **Create the owner member** *(`:member`)*.
-13. **Record the bank-created access event** —
+13. **Record the bank-created audit event** —
     `member/record-bank-created` in the actor's name, naming
     the owner member when there is one.
 14. **Invite the owner** *(`:owner-invitation`)* —

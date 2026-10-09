@@ -136,21 +136,20 @@
    :created-at 4000
    :created-by operator})
 
-(deftest access-events-test
-  (let [events
-        (SUT/access-events bank [founding joining] [accepted] [demotion])]
+(deftest audit-events-test
+  (let [events (SUT/audit-events bank [founding joining] [accepted] [demotion])]
     (testing "every act reads back from its record, newest first"
-      (is (= [:access-event-kind-member-removed
-              :access-event-kind-role-changed
-              :access-event-kind-invitation-accepted
-              :access-event-kind-invitation-created
-              :access-event-kind-bank-created]
+      (is (= [:audit-event-kind-member-removed
+              :audit-event-kind-role-changed
+              :audit-event-kind-invitation-accepted
+              :audit-event-kind-invitation-created
+              :audit-event-kind-bank-created]
              (mapv :kind events))))
     (testing "each id is an audit event id, sorting as the events happened"
       (is (every? #(re-matches #"aev\.[0-9a-hjkmnp-tv-z]{26}" %)
-                  (map :access-event-id events)))
-      (is (= (map :access-event-id events)
-             (sort #(compare %2 %1) (map :access-event-id events)))))
+                  (map :audit-event-id events)))
+      (is (= (map :audit-event-id events)
+             (sort #(compare %2 %1) (map :audit-event-id events)))))
     (testing "the bank's creation names its first owner at the role it began"
       (is (= {:actor operator
               :subject-user-id "usr.founder"
@@ -179,8 +178,8 @@
                            :occurred-at])))))
   (testing "acts at the same instant read in the order they happen"
     (let [events
-          (SUT/access-events (assoc bank :created-at 2000) [] [accepted] [])]
-      (is (= [:access-event-kind-invitation-accepted
-              :access-event-kind-invitation-created
-              :access-event-kind-bank-created]
+          (SUT/audit-events (assoc bank :created-at 2000) [] [accepted] [])]
+      (is (= [:audit-event-kind-invitation-accepted
+              :audit-event-kind-invitation-created
+              :audit-event-kind-bank-created]
              (mapv :kind events))))))
