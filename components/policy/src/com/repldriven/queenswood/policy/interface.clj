@@ -28,9 +28,10 @@
 
   Args:
   - config: FDB config map (`:record-db` / `:record-store`).
-  - policy-id: policy id string."
-  [config policy-id]
-  (core/archive-policy config policy-id))
+  - policy-id: policy id string.
+  - actor: who archived it, stamped as `archived-by`."
+  [config policy-id actor]
+  (core/archive-policy config policy-id actor))
 
 (defn get-policy
   "Load a policy by id. Returns the policy map or a

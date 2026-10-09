@@ -28,10 +28,10 @@
   "Archive a policy: a terminal lifecycle state that removes it from
   evaluation. Rejects `:policy/still-bound` when the policy still has
   bindings. Returns the archived policy map or an anomaly."
-  [config policy-id]
+  [config policy-id actor]
   (let-nom> [policy (store/get-policy config policy-id)
              bindings (store/get-bindings-for-policy config policy-id)
-             archived (domain/archive policy bindings)
+             archived (domain/archive policy bindings actor)
              _ (store/save-policy config archived)]
     archived))
 

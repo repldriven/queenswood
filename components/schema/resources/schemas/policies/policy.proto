@@ -3,6 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.policies;
 
 import "record_metadata_options.proto";
+import "schemas/actor/actor.proto";
 import "schemas/policies/capability.proto";
 import "schemas/policies/limit.proto";
 import "schemas/policies/types.proto";
@@ -30,6 +31,7 @@ message Policy {
   map<string, string> labels = 8;
 
   optional int64 archived_at = 51;
+  optional com.repldriven.queenswood.schemas.actor.Actor archived_by = 52;
 
   required int64 created_at = 101;
   optional int64 updated_at = 103;

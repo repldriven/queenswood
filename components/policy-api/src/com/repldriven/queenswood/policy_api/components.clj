@@ -66,6 +66,6 @@
   [policy]
   (let [{:keys [status created-at updated-at]} policy]
     (-> policy
-        (dissoc :status :archived-at)
+        (dissoc :status :archived-at :archived-by)
         (assoc :enabled (= :policy-status-active status)
                :updated-at (or updated-at created-at)))))

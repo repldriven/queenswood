@@ -199,11 +199,13 @@
 
 (defn refused-account
   [account reason]
-  (assoc-some (assoc account
-                     :status :cash-account-status-refused
-                     :updated-at (utility/now))
-              :failure-reason
-              reason))
+  (let [now (utility/now)]
+    (assoc-some (assoc account
+                       :status :cash-account-status-refused
+                       :refused-at now
+                       :updated-at now)
+                :refused-reason
+                reason)))
 
 (defn close-account
   [account balances actor policies]
@@ -233,15 +235,17 @@
     (let [now (utility/now)]
       (assoc account
              :status :cash-account-status-closing
-             :closed-at now
-             :closed-by actor
+             :close-requested-at now
+             :close-requested-by actor
              :updated-at now))))
 
 (defn closed-account
   [account]
-  (assoc account
-         :status :cash-account-status-closed
-         :updated-at (utility/now)))
+  (let [now (utility/now)]
+    (assoc account
+           :status :cash-account-status-closed
+           :closed-at now
+           :updated-at now)))
 
 (defn- suspended-when-closed?
   [account]
@@ -251,7 +255,7 @@
 (defn close-refused-account
   [account]
   (-> account
-      (dissoc :closed-at :closed-by)
+      (dissoc :close-requested-at :close-requested-by)
       (assoc :status (if (suspended-when-closed? account)
                        :cash-account-status-suspended
                        :cash-account-status-opened)
@@ -313,8 +317,8 @@
       (assoc account
              :rotation {:idempotency-key rotation-key
                         :status :address-rotation-status-pending}
-             :rotated-at now
-             :rotated-by (:actor data)
+             :address-rotated-at now
+             :address-rotated-by (:actor data)
              :updated-at now))))
 
 (defn reissue-failed-account
@@ -323,7 +327,7 @@
       (update :rotation
               assoc-some
               :status :address-rotation-status-failed
-              :failure-reason reason)
+              :failed-reason reason)
       (assoc :updated-at (utility/now))))
 
 (defn reissued-account

@@ -614,7 +614,7 @@
      (testing "archiving an unbound policy persists the archived status"
        (nom-test> [created (new-policy! config)
                    policy-id (:policy-id created)
-                   archived (SUT/archive-policy config policy-id)
+                   archived (SUT/archive-policy config policy-id operator)
                    _ (is (= :policy-status-archived (:status archived)))
                    loaded (SUT/get-policy config policy-id)
                    _ (is (= :policy-status-archived (:status loaded))
@@ -625,7 +625,7 @@
              _ (SUT/new-binding
                 config
                 {:policy-id policy-id :target a-bank-target :actor operator})
-             result (SUT/archive-policy config policy-id)
+             result (SUT/archive-policy config policy-id operator)
              loaded (SUT/get-policy config policy-id)]
          (is (error/anomaly? result))
          (is (= :policy/still-bound (error/kind result)))
@@ -634,7 +634,7 @@
      (testing "an archived policy cannot gain a new binding"
        (let [created (new-policy! config)
              policy-id (:policy-id created)
-             _ (SUT/archive-policy config policy-id)
+             _ (SUT/archive-policy config policy-id operator)
              result (SUT/new-binding config
                                      {:policy-id policy-id
                                       :target a-bank-target
@@ -670,12 +670,13 @@
                                             {:policy-id policy-id
                                              :target a-bank-target
                                              :actor operator})
-                   _ (let [blocked (SUT/archive-policy config policy-id)]
+                   _ (let [blocked
+                           (SUT/archive-policy config policy-id operator)]
                        (is (error/anomaly? blocked))
                        (is (= :policy/still-bound (error/kind blocked))
                            "bound policy can't be archived"))
                    _ (SUT/remove-binding config (:binding-id binding))
-                   archived (SUT/archive-policy config policy-id)
+                   archived (SUT/archive-policy config policy-id operator)
                    _ (is (= :policy-status-archived (:status archived))
                          "archives once unbound")])))))
 

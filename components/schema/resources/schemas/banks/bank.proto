@@ -23,6 +23,11 @@ message Bank {
   repeated BankProvider providers = 5;
   optional BankCompanyBinding company_binding = 6;
 
+  optional int64 status_changed_at = 51;
+  optional com.repldriven.queenswood.schemas.actor.Actor status_changed_by = 52;
+  optional int64 tier_changed_at = 53;
+  optional com.repldriven.queenswood.schemas.actor.Actor tier_changed_by = 54;
+
   required string idempotency_key = 100;
   required int64 created_at = 101;
   required com.repldriven.queenswood.schemas.actor.Actor created_by = 102;

@@ -315,7 +315,8 @@
                                     tier
                                     new-tier-policies
                                     policies
-                                    declaration)
+                                    declaration
+                                    (:actor opts))
         _ (unbind-tier-policies txn bank-id)
         _ (bind-policies txn bank-id new-tier-policies (:actor opts))
         entry (changelog/tier-changed {:bank-id bank-id
@@ -331,10 +332,10 @@
   (store/transact
    txn
    (fn [txn]
-     (let [{:keys [identity-provider audience]} opts]
+     (let [{:keys [identity-provider audience actor]} opts]
        (let-nom>
          [bank (bank-query/get-bank txn bank-id)
-          updated (domain/change-status bank new-status)
+          updated (domain/change-status bank new-status actor)
           ;; Swap the service-account client's audience BEFORE the FDB
           ;; write, same rationale as `new-bank`'s IDP call: an IDP
           ;; failure aborts the transaction cleanly rather than leaving

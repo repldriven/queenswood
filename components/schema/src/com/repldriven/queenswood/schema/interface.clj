@@ -401,19 +401,20 @@
   [m]
   (IdempotencyProto$Idempotency/parseFrom (Idempotency->pb m)))
 
-(defn pb->Bank
-  "Parse Bank protobuf bytes into a Clojure map. Strips `created-by`
-  and `idempotency-key` when unset — a bank created before they were
-  recorded leaves both unset, and one created by no command the
-  second."
-  [input]
-  (let [bank (banks/pb->Bank input)]
-    (cond-> bank
-            (nil? (:created-by bank))
-            (dissoc :created-by)
+(def ^:private bank-unset
+  {:status-changed-at 0
+   :status-changed-by nil
+   :tier-changed-at 0
+   :tier-changed-by nil})
 
-            (= "" (:idempotency-key bank))
-            (dissoc :idempotency-key))))
+(defn pb->Bank
+  "Parse Bank protobuf bytes into a Clojure map, a status or tier
+  change's `_at` and `_by` present only when set, and its actors plain
+  maps."
+  [input]
+  (reduce plain-embedded
+          (without-unset (banks/pb->Bank input) bank-unset)
+          [:created-by :status-changed-by :tier-changed-by]))
 
 (defn Bank->pb
   "Serialise a Bank map to protobuf bytes.
@@ -744,22 +745,24 @@
 (def ^:private cash-account-unset
   {:bban ""
    :rotation nil
-   :failure-reason ""
+   :refused-reason ""
    :opened-at 0
+   :refused-at 0
    :suspended-at 0
    :suspended-by nil
    :resumed-at 0
    :resumed-by nil
+   :close-requested-at 0
+   :close-requested-by nil
    :closed-at 0
-   :closed-by nil
-   :rotated-at 0
-   :rotated-by nil})
+   :address-rotated-at 0
+   :address-rotated-by nil})
 
 (defn pb->CashAccount
   "Parse CashAccount protobuf bytes into a Clojure map. Strips the
   optional fields an account was never given, as they deserialise as
-  proto2 defaults: an empty `bban` or `failure-reason`, no `rotation` or
-  a rotation's empty `failure-reason`, and a transition's zero `_at` and
+  proto2 defaults: an empty `bban` or `refused-reason`, no `rotation` or
+  a rotation's empty `failed-reason`, and a transition's zero `_at` and
   absent `_by`. Downstream
   read sites use `(when (:bban account) ...)` to tell an account with
   addresses from one without. An embedded message is a plain map."
@@ -768,10 +771,10 @@
                         (without-unset (cash-accounts/pb->CashAccount input)
                                        cash-account-unset)
                         [:rotation :created-by :suspended-by :resumed-by
-                         :closed-by :rotated-by])]
+                         :close-requested-by :address-rotated-by])]
     (cond-> account
             (:rotation account)
-            (update :rotation without-unset {:failure-reason ""}))))
+            (update :rotation without-unset {:failed-reason ""}))))
 
 (defn CashAccount->pb
   "Serialise a CashAccount map to protobuf bytes.
@@ -1232,16 +1235,20 @@
   (PaymentProviderTransferProto$PaymentProviderTransfer/parseFrom
    (PaymentProviderTransfer->pb m)))
 
-(def ^:private policy-unset {:description "" :archived-at 0 :updated-at 0})
+(def ^:private policy-unset
+  {:description "" :archived-at 0 :archived-by nil :updated-at 0})
 
 (defn pb->Policy
   "Parse Policy protobuf bytes into a Clojure map, a `description`,
-  `archived-at` and `updated-at` present only when set.
+  `archived-at`, `archived-by` and `updated-at` present only when set,
+  and `archived-by` a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (without-unset (policies/pb->Policy input) policy-unset))
+  (-> (policies/pb->Policy input)
+      (without-unset policy-unset)
+      (plain-embedded :archived-by)))
 
 (defn Policy->pb
   "Serialise a Policy map to protobuf bytes.

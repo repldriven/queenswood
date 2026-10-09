@@ -90,7 +90,8 @@
   - tier: tier name (string) selecting `tier=<name>`-labelled
     policies to bind.
   - opts: map; `:idv-providers` (required) is the `idv-provider/providers`
-    instance, whose entry for the bank gives the declaration checked."
+    instance, whose entry for the bank gives the declaration checked,
+    and `:actor` who changed the tier, stamped as `tier-changed-by`."
   [txn bank-id tier opts]
   (core/change-tier txn bank-id tier opts))
 
@@ -112,6 +113,7 @@
     used to update the client's audience; `:audience` (string) is the
     `aud` claim to stamp on tokens for the target status — bank-api
     resolves this from its status→audience config, same as the
-    `create-bank` pattern."
+    `create-bank` pattern; `:actor` is who changed the status, stamped
+    as `status-changed-by`."
   [txn bank-id new-status opts]
   (core/change-status txn bank-id new-status opts))

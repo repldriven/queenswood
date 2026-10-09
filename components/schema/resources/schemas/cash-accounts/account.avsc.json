@@ -179,7 +179,7 @@
       }
     },
     {
-      "name": "failure_reason",
+      "name": "refused_reason",
       "type": [
         "null",
         "string"

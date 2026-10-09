@@ -77,13 +77,14 @@
 
 (defn- change-bank-status
   [config data]
-  (let [{:keys [bank-id status audience]} data
+  (let [{:keys [bank-id status audience actor]} data
         result (core/change-status config
                                    bank-id
                                    status
                                    {:identity-provider (:identity-provider
                                                         config)
-                                    :audience audience})]
+                                    :audience audience
+                                    :actor actor})]
     (if (error/anomaly? result)
       result
       (->response config {:bank result}))))

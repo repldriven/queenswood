@@ -46,7 +46,7 @@
   "Transition a policy to the archived lifecycle state. Rejects when
   the policy still has `bindings` — archival is for a policy no longer
   bound to anything, so the operator unbinds first."
-  [policy bindings]
+  [policy bindings actor]
   (if (seq bindings)
     (error/reject :policy/still-bound
                   {:message "Cannot archive a policy that is still bound"
@@ -56,6 +56,7 @@
       (assoc policy
              :status :policy-status-archived
              :archived-at now
+             :archived-by actor
              :updated-at now))))
 
 (defn new-binding

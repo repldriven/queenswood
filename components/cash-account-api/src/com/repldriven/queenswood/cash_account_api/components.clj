@@ -65,10 +65,10 @@
 
 (defn ->body
   [account]
-  (let [{:keys [status failure-reason rotation]} account
-        refusal (or failure-reason
+  (let [{:keys [status refused-reason rotation]} account
+        refusal (or refused-reason
                     (when (= :address-rotation-status-failed (:status rotation))
-                      (:failure-reason rotation)))]
+                      (:failed-reason rotation)))]
     (select-keys (cond-> (assoc account :account-status status)
                          refusal
                          (assoc :refusal-reason refusal)

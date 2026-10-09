@@ -112,6 +112,8 @@
 
 (def ^:private test-bank {:bank-id "bnk.1" :status :bank-status-live})
 
+(def ^:private operator {:kind :actor-kind-operator :principal-id "ops.1"})
+
 (def ^:private new-tier-policies [{:policy-id "pol.new"}])
 
 (deftest change-tier-test
@@ -120,15 +122,18 @@
                                 "growth"
                                 new-tier-policies
                                 permissive-policies
-                                idv-provider)]
+                                idv-provider
+                                operator)]
       (is (= "growth" (:tier bank)))
+      (is (= operator (:tier-changed-by bank)))
       (is (= "bnk.1" (:bank-id bank)))))
   (testing "rejects a bank that isn't test or live"
     (let [r (SUT/change-tier (assoc test-bank :status :bank-status-unknown)
                              "growth"
                              new-tier-policies
                              permissive-policies
-                             idv-provider)]
+                             idv-provider
+                             operator)]
       (is (error/rejection? r))
       (is (= :bank/invalid-status (error/kind r)))))
   (testing "rejects a tier with no matching policies"
@@ -136,7 +141,8 @@
                              "unknown-tier"
                              []
                              permissive-policies
-                             idv-provider)]
+                             idv-provider
+                             operator)]
       (is (error/rejection? r))
       (is (= :bank/unknown-tier (error/kind r)))))
   (testing "rejects a tier requiring what the identity provider lacks"
@@ -144,23 +150,26 @@
                              "address"
                              address-tier-policies
                              permissive-policies
-                             idv-provider)]
+                             idv-provider
+                             operator)]
       (is (error/rejection? r))
       (is (= :idv/unsupported-criteria (error/kind r)))
       (is (= [:idv-verification-address] (:unmet (error/payload r)))))))
 
 (deftest change-status-test
   (testing "flips status"
-    (let [bank (SUT/change-status test-bank :bank-status-test)]
+    (let [bank (SUT/change-status test-bank :bank-status-test operator)]
       (is (= :bank-status-test (:status bank)))
+      (is (= operator (:status-changed-by bank)))
       (is (= "bnk.1" (:bank-id bank)))))
   (testing "rejects a bank that isn't test or live"
     (let [r (SUT/change-status (assoc test-bank :status :bank-status-unknown)
-                               :bank-status-test)]
+                               :bank-status-test
+                               operator)]
       (is (error/rejection? r))
       (is (= :bank/invalid-status (error/kind r)))))
   (testing "rejects flipping to the same status"
-    (let [r (SUT/change-status test-bank :bank-status-live)]
+    (let [r (SUT/change-status test-bank :bank-status-live operator)]
       (is (error/rejection? r))
       (is (= :bank/invalid-status (error/kind r))))))
 

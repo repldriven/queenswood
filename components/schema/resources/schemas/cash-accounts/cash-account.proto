@@ -51,7 +51,7 @@ enum AddressRotationStatus {
 message AddressRotation {
   required string idempotency_key = 1;
   required AddressRotationStatus status = 2;
-  optional string failure_reason = 3;
+  optional string failed_reason = 3;
 }
 
 // A bank's account held by a party under a product version.
@@ -74,21 +74,22 @@ message CashAccount {
   repeated RetiredPaymentAddress retired_payment_addresses = 14;
   optional string provider_account_id = 15;
   optional AddressRotation rotation = 16;
+  optional string refused_reason = 17;
 
   optional int64 opened_at = 51;
-  optional int64 suspended_at = 53;
-  optional com.repldriven.queenswood.schemas.actor.Actor suspended_by = 54;
-  optional int64 resumed_at = 55;
-  optional com.repldriven.queenswood.schemas.actor.Actor resumed_by = 56;
-  optional int64 closed_at = 57;
-  optional com.repldriven.queenswood.schemas.actor.Actor closed_by = 58;
-  optional int64 rotated_at = 59;
-  optional com.repldriven.queenswood.schemas.actor.Actor rotated_by = 60;
+  optional int64 refused_at = 53;
+  optional int64 suspended_at = 55;
+  optional com.repldriven.queenswood.schemas.actor.Actor suspended_by = 56;
+  optional int64 resumed_at = 57;
+  optional com.repldriven.queenswood.schemas.actor.Actor resumed_by = 58;
+  optional int64 close_requested_at = 59;
+  optional com.repldriven.queenswood.schemas.actor.Actor close_requested_by = 60;
+  optional int64 closed_at = 61;
+  optional int64 address_rotated_at = 63;
+  optional com.repldriven.queenswood.schemas.actor.Actor address_rotated_by = 64;
 
   optional string idempotency_key = 100;
   required int64 created_at = 101;
   required com.repldriven.queenswood.schemas.actor.Actor created_by = 102;
   required int64 updated_at = 103;
-
-  optional string failure_reason = 200;
 }

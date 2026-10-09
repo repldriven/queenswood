@@ -243,7 +243,8 @@
                               "bank"
                               {:bank-id bank-id
                                :status status
-                               :audience (get audiences-by-status status)})]
+                               :audience (get audiences-by-status status)
+                               :actor (shared.actor/actor auth)})]
     (if (not= 200 (:status result))
       result
       (let [bank (bank-with-secret request bank-id)]
