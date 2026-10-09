@@ -108,11 +108,6 @@ function postAll(items, pathOf, bodyOf, bearer, status, what) {
   return out;
 }
 
-function nationalInsurance(i) {
-  const n = (Date.now() * 1000 + i) % 1000000;
-  return `TN${String(n).padStart(6, "0")}A`;
-}
-
 function createBank(admin) {
   const res = postRetried(
     "/v1/banks",
@@ -163,24 +158,9 @@ function createProduct(bearer, rateBps) {
 // returning their ids.
 export function createParties(n, bearer) {
   const people = Array.from({ length: n }, (_, i) => ({
-    type: "person",
+    "party-type": "person",
     "display-name": `Perf Person ${i}`,
-    "given-name": "Perf",
-    "family-name": `Person${i}`,
-    "date-of-birth": "1970-01-01",
-    nationality: "GB",
-    address: {
-      "building-number": "1",
-      street: "Load Lane",
-      town: "Testford",
-      postcode: "TF1 1AA",
-      country: "GBR",
-    },
-    "national-identifier": {
-      type: "national-insurance",
-      value: nationalInsurance(i),
-      "issuing-country": "GB",
-    },
+    "legal-name": `Perf Person${i}`,
   }));
   const parties = postAll(
     people,
@@ -226,7 +206,7 @@ export function createParties(n, bearer) {
           body: JSON.stringify({
             outcome: "match",
             givenNames: "Perf",
-            familyName: parties[i].person["family-name"],
+            familyName: `Person${i}`,
             dateOfBirth: "1970-01-01",
           }),
           params: {

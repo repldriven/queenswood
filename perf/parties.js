@@ -52,34 +52,11 @@ export function setup() {
   return freshBank();
 }
 
-// A national insurance number unique within the run, which is all a
-// fresh bank needs.
-function nationalInsurance() {
-  const vu = String(exec.vu.idInTest).padStart(4, "0");
-  const n = String(exec.vu.iterationInScenario).padStart(5, "0");
-  return `TN${vu}${n}A`;
-}
-
 function person(familyName) {
   return {
-    type: "person",
+    "party-type": "person",
     "display-name": `Perf ${familyName}`,
-    "given-name": "Perf",
-    "family-name": familyName,
-    "date-of-birth": "1970-01-01",
-    nationality: "GB",
-    address: {
-      "building-number": "1",
-      street: "Load Lane",
-      town: "Testford",
-      postcode: "TF1 1AA",
-      country: "GBR",
-    },
-    "national-identifier": {
-      type: "national-insurance",
-      value: nationalInsurance(),
-      "issuing-country": "GB",
-    },
+    "legal-name": `Perf ${familyName}`,
   };
 }
 
