@@ -41,7 +41,7 @@
 (def
   ^{:doc
     "The `RewardStatus` `:enum` schema, coercing between the wire
-  strings (`due`, `paid`) and the internal keywords. Called with the
+  strings (`deferred`, `paid`) and the internal keywords. Called with the
   schema's properties, or with none."}
   reward-status-enum-schema
   coercion/reward-status-enum-schema)

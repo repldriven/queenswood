@@ -8,9 +8,7 @@
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]
     [com.repldriven.queenswood.transaction-api.interface :as
-     transaction-api]
-
-    [com.repldriven.mono.utility.interface :as utility]))
+     transaction-api]))
 
 (def RewardId (schema/id-schema "RewardId" "rwd" examples/RewardId))
 
@@ -22,19 +20,19 @@
 
 (def Reward
   [:map {:json-schema/example examples/Reward}
-   [:reward-id [:ref "RewardId"]]
    [:bank-id [:ref "BankId"]]
+   [:reward-id [:ref "RewardId"]]
+   [:status [:ref "RewardStatus"]]
+   [:kind [:ref "RewardKind"]]
    [:account-id [:ref "CashAccountId"]]
-   [:party-id {:optional true} [:maybe [:ref "PartyId"]]]
    [:product-id [:ref "ProductId"]]
    [:version-id [:ref "VersionId"]]
-   [:kind [:ref "RewardKind"]]
    [:amount [:ref "MinorUnits"]]
    [:currency [:ref "Currency"]]
-   [:status [:ref "RewardStatus"]]
-   [:transaction-id {:optional true} [:maybe [:ref "TransactionId"]]]
-   [:error {:optional true} [:maybe string?]]
-   [:paid-at {:optional true} [:maybe [:ref "Timestamp"]]]
+   [:transaction-id {:optional true} [:ref "TransactionId"]]
+   [:deferred-reason {:optional true} string?]
+   [:deferred-at {:optional true} [:ref "Timestamp"]]
+   [:paid-at {:optional true} [:ref "Timestamp"]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 
@@ -54,10 +52,7 @@
 
 (defn ->body
   [reward]
-  (let [{:keys [deferred-reason]} reward]
-    (utility/assoc-some (select-keys reward reward-keys)
-                        :error
-                        deferred-reason)))
+  (select-keys reward reward-keys))
 
 (def ^:private wire-registry
   "What the wire encoder resolves a `$ref` against: the shared schemas,

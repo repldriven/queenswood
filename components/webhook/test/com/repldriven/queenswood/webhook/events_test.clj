@@ -743,7 +743,7 @@
                      (is (= "pay" (:change-kind body)))
                      (is (= "Reward" (:resource-type body)))
                      (is (= reward-id (:resource-id body)))
-                     (is (= "due" (:status-before body)))
+                     (is (= "deferred" (:status-before body)))
                      (is (= "paid" (:status-after body)))
                      (is (= 5000 (get-in body [:data :amount])))
                      (is (= "acc.events.rewarded"

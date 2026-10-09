@@ -336,8 +336,8 @@ and is built.
   (status, product type), what a version promises, the legs a reward
   posts, and the rows a paid and a deferred reward leave.
 - `test-api-scenarios` — the opening-reward scenario above, and one
-  opening an account on an unfunded bank whose reward reads `due` with
-  why; the simulate route funding the house account and refusing
+  opening an account on an unfunded bank whose reward reads `deferred` with
+  its reason; the simulate route funding the house account and refusing
   nothing; the twelve rewritten funding steps still passing.
 - `webhook` — `reward.paid` delivered once for a `pay` and never for a
   `defer`, in `events_test.clj`.
@@ -371,8 +371,8 @@ and is built.
 
 ## Known Limitations
 
-- **A due reward waits.** A reward the house account could not cover
-  is left `due`, visible on the read routes, and nothing pays it once
+- **A deferred reward waits.** A reward the house account could not
+  cover is left `deferred`, visible on the read routes, and nothing pays it once
   the bank is funded. Paying it when own funds are credited needs an
   event for that posting, which the event per posting below would give
   the processor to listen to.
@@ -392,7 +392,7 @@ and is built.
   deferred.
 - **The house account must hold the currency.** A version in a currency
   the bank was not created with has no house account to pay from, and
-  every reward under it is left `due`.
+  every reward under it is left `deferred`.
 
 ## References
 

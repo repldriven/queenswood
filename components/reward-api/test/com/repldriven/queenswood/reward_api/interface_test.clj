@@ -19,7 +19,6 @@
   {:reward-id "rwd.01kprbmgcj35ptc8npmybhh4t1"
    :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
    :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
-   :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
    :product-id "prd.01kprbmgcj35ptc8npmybhh4se"
    :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
    :kind :reward-kind-opening
