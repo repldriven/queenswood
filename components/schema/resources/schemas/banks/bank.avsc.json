@@ -35,12 +35,12 @@
     }], "default": null},
     {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
     {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "membership", "type": ["null", {
+    {"name": "member", "type": ["null", {
       "type": "record",
-      "name": "Membership",
-      "doc": "The owner membership created with the bank",
+      "name": "Member",
+      "doc": "The owner member created with the bank",
       "fields": [
-        {"name": "membership_id", "type": "string"},
+        {"name": "member_id", "type": "string"},
         {"name": "user_id",       "type": "string"},
         {"name": "bank_id",       "type": "string"},
         {"name": "role", "type": {"type": "enum",

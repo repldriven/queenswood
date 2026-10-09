@@ -6,7 +6,7 @@
 
     [com.repldriven.queenswood.bank-query.interface :as bank-query]
     [com.repldriven.queenswood.circuit-breaker.interface :as circuit-breaker]
-    [com.repldriven.queenswood.membership-query.interface :as memberships]
+    [com.repldriven.queenswood.member-query.interface :as members]
     [com.repldriven.queenswood.user.interface :as user]
 
     [com.repldriven.mono.avro.interface :as avro]
@@ -52,7 +52,7 @@
     (store/transact
      config
      (fn [txn]
-       (let [invitation (memberships/find-invitation txn bank-id kind-id)]
+       (let [invitation (members/find-invitation txn bank-id kind-id)]
          (if (= :invitation/not-found (error/kind invitation))
            nil
            (let-nom> [invitation invitation
@@ -111,7 +111,7 @@
   `:smtp-outcome` where the send was made."
   [config delivery context]
   (let [{:keys [invitation]} context
-        {:keys [token token-hash]} (memberships/new-invitation-token)
+        {:keys [token token-hash]} (members/new-invitation-token)
         recorded (record-token config delivery invitation token-hash)]
     (if-not (:accepted recorded)
       recorded

@@ -95,7 +95,7 @@
     (is (= {:status :bank-status-test :tier "micro" :currencies ["GBP"]}
            (select-keys data [:status :tier :currencies])))
     (is (= "queenswood-test" (:audience data)))
-    (is (not (contains? data :membership)) "an operator is not the owner")))
+    (is (not (contains? data :member)) "an operator is not the owner")))
 
 (deftest create-sends-the-providers-named-test
   (let [data (SUT/create-bank-data (create-request {:providers {:payment

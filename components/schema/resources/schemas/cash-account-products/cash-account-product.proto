@@ -3,7 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.cash_account_products;
 
 import "record_metadata_options.proto";
-import "schemas/memberships/actor.proto";
+import "schemas/members/actor.proto";
 import "schemas/cash-account-products/types.proto";
 import "schemas/types/product-type.proto";
 
@@ -110,12 +110,12 @@ message CashAccountProduct {
   optional int64 effective_to = 18; // epoch day
 
   optional int64 published_at = 51;
-  optional com.repldriven.queenswood.schemas.memberships.Actor published_by = 52;
+  optional com.repldriven.queenswood.schemas.members.Actor published_by = 52;
   optional int64 discarded_at = 53;
-  optional com.repldriven.queenswood.schemas.memberships.Actor discarded_by = 54;
+  optional com.repldriven.queenswood.schemas.members.Actor discarded_by = 54;
 
   optional string idempotency_key = 100;
   required int64 created_at = 101;
-  required com.repldriven.queenswood.schemas.memberships.Actor created_by = 102;
+  required com.repldriven.queenswood.schemas.members.Actor created_by = 102;
   required int64 updated_at = 103;
 }

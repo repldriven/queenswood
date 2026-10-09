@@ -16,12 +16,12 @@ system:
           topic: topic-banks-command-response
           acks: all
           linger.ms: 0
-      memberships-command-response:
+      members-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-memberships-command-response
+          topic: topic-members-command-response
           acks: all
           linger.ms: 0
       parties-command-response:
@@ -70,10 +70,10 @@ system:
           topic: topic-banks-command-dlq
           acks: all
           linger.ms: 0
-      memberships-command-dlq:
+      members-command-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-memberships-command-dlq
+          topic: topic-members-command-dlq
           acks: all
           linger.ms: 0
       parties-command-dlq:
@@ -135,15 +135,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: bank-service-banks-command
-      memberships-command:
+      members-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
-        topics: [topic-memberships-command]
-        dead-letter-producer: !system/local-ref producers.memberships-command-dlq
+        topics: [topic-members-command]
+        dead-letter-producer: !system/local-ref producers.members-command-dlq
         max-redeliveries: 5
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: membership-service-memberships-command
+          group.id: member-service-members-command
       parties-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
@@ -227,8 +227,8 @@ system:
       system/component-kind: kafka/message-bus-producers
       banks-command-response:
         producer: !system/local-ref producers.banks-command-response
-      memberships-command-response:
-        producer: !system/local-ref producers.memberships-command-response
+      members-command-response:
+        producer: !system/local-ref producers.members-command-response
       parties-command-response:
         producer: !system/local-ref producers.parties-command-response
       idvs-command-response:
@@ -244,8 +244,8 @@ system:
       banks-command:
         consumer: !system/local-ref consumers.banks-command
         timeout: 500
-      memberships-command:
-        consumer: !system/local-ref consumers.memberships-command
+      members-command:
+        consumer: !system/local-ref consumers.members-command
         timeout: 500
       parties-command:
         consumer: !system/local-ref consumers.parties-command
@@ -299,7 +299,7 @@ system:
   payment-provider: !include system/payment-provider.yml
   idv-provider: !include system/idv-provider.yml
   banks: !include system/bank.yml
-  memberships: !include system/membership.yml
+  members: !include system/member.yml
   parties: !include system/party.yml
   cash-accounts: !include system/cash-account.yml
   idv: !include system/idv.yml

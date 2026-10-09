@@ -2,7 +2,7 @@
   "Bank write side: provisions a bank with a service-account client,
   an organization party, a default chart of bank-owned ledger accounts
   per currency, tier-specific policy bindings, the bank-created access
-  event, and, when asked, the owner membership and a pending owner
+  event, and, when asked, the owner member and a pending owner
   invitation — all in one transaction.
 
   Reads live in `bank-bank-query`; `bank-api` requires the query
@@ -17,13 +17,13 @@
   "Provision a new bank with a service-account client, an organization
   party, and a default chart of ledger accounts per currency, and bind
   the tier policies to it, recording a bank-created access event in the
-  actor's name. When `:membership` is supplied, also create the owner
-  membership, and when `:owner-invitation` is supplied, a pending owner
+  actor's name. When `:member` is supplied, also create the owner
+  member, and when `:owner-invitation` is supplied, a pending owner
   invitation in the actor's name, in the same transaction. The client
   is created once that transaction has committed, so a create that
   fails there leaves a bank without one, which a create sent again
   under the same key creates. Returns
-  `{:bank {…} :membership <map-or-nil> :owner-invitation-id <id-or-nil>}`
+  `{:bank {…} :member <map-or-nil> :owner-invitation-id <id-or-nil>}`
   or an anomaly. The service-account secret is not returned — callers
   needing one mint it via `identity-provider/rotate-secret` after
   creation.
@@ -49,16 +49,16 @@
     for the new client; `:company-binding` (map, optional) is the
     confirmed legal-entity snapshot to bind the bank to (onboarding) —
     creation is rejected `:bank/company-not-active` unless its
-    `:company-status` is active; `:membership` (map, optional) is
-    `{:user-id … :role …}` for the owner membership, and a user may own
+    `:company-status` is active; `:member` (map, optional) is
+    `{:user-id … :role …}` for the owner member, and a user may own
     any number of banks; `:owner-invitation` (map, optional) is
     `{:email …}` for the owner invitation, refused as
-    `membership/invite` refuses it; `:actor` (map, required) is
+    `member/invite` refuses it; `:actor` (map, required) is
     `{:kind … :principal-id …}`, who creates the bank;
     `:idempotency-key` (string, required) is the command envelope's id,
     recorded on the bank with the actor as `:created-by`, and a create
     by the same principal under a key that has already made a bank
-    returns that bank, the creator's owner membership and the owner
+    returns that bank, the creator's owner member and the owner
     invitation's id, writing nothing;
     `:policies` overrides the platform policies used for the capability
     check."

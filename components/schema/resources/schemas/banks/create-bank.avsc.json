@@ -35,10 +35,10 @@
     {"name": "currencies", "type": {"type": "array", "items": "string"}},
     {"name": "audience", "type": ["null", "string"], "default": null,
      "doc": "JWT aud claim for the bank's service-account client, resolved by bank-api from its status->audience config"},
-    {"name": "membership", "type": ["null", {
+    {"name": "member", "type": ["null", {
       "type": "record",
-      "name": "MembershipSpec",
-      "doc": "The owner membership to create with the bank, when a person creates it",
+      "name": "MemberSpec",
+      "doc": "The owner member to create with the bank, when a person creates it",
       "fields": [
         {"name": "user_id", "type": "string"},
         {"name": "role", "type": {"type": "enum",

@@ -53,7 +53,7 @@
   component/payment-provider {:local/root "../../components/payment-provider"}
   component/company {:local/root "../../components/company"}
   component/email {:local/root "../../components/email"}
-  component/membership-query {:local/root "../../components/membership-query"}
+  component/member-query {:local/root "../../components/member-query"}
   component/party-query {:local/root "../../components/party-query"}
   component/person-identification {:local/root
                                    "../../components/person-identification"}

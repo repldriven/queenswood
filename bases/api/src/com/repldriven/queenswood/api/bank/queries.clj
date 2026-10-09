@@ -7,7 +7,7 @@
     [com.repldriven.queenswood.bank-query.interface :as banks]
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]
-    [com.repldriven.queenswood.membership-query.interface :as memberships]
+    [com.repldriven.queenswood.member-query.interface :as memberships]
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))

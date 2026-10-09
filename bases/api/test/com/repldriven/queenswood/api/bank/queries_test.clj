@@ -36,7 +36,7 @@
 
 (defn- membership
   [membership-id bank-id user-id role]
-  {:membership-id membership-id :bank-id bank-id :user-id user-id :role role})
+  {:member-id membership-id :bank-id bank-id :user-id user-id :role role})
 
 (def ^:private active-memberships
   {owned-bank-id

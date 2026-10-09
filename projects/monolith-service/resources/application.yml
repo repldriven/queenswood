@@ -13,8 +13,8 @@ system:
         - cash-accounts-command
         - cash-accounts-command-response
         - invitations-event
-        - memberships-command
-        - memberships-command-response
+        - members-command
+        - members-command-response
         - parties-command
         - parties-command-response
         - idvs-command
@@ -49,7 +49,7 @@ system:
   idv-provider: !include system/idv-provider.yml
   banks: !include system/bank.yml
   cash-accounts: !include system/cash-account.yml
-  memberships: !include system/membership.yml
+  members: !include system/member.yml
   parties: !include system/party.yml
   payments: !include system/payment.yml
   rewards: !include system/reward.yml
@@ -72,7 +72,7 @@ system:
   companies-dispatcher: !include system/company-dispatcher.yml
   idvs-relay: !include system/idv-relay.yml
   invitations-relay: !include system/invitation-relay.yml
-  memberships-dispatcher: !include system/membership-dispatcher.yml
+  members-dispatcher: !include system/member-dispatcher.yml
   parties-dispatcher: !include system/party-dispatcher.yml
   idvs-dispatcher: !include system/idv-dispatcher.yml
   parties-relay: !include system/party-relay.yml
@@ -110,7 +110,7 @@ system:
       dispatchers:
         banks: !system/ref banks-dispatcher.dispatcher
         cash-accounts: !system/ref cash-accounts-dispatcher.dispatcher
-        memberships: !system/ref memberships-dispatcher.dispatcher
+        members: !system/ref members-dispatcher.dispatcher
         parties: !system/ref parties-dispatcher.dispatcher
         idvs: !system/ref idvs-dispatcher.dispatcher
         payments: !system/ref payments-dispatcher.dispatcher

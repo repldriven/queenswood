@@ -20,8 +20,8 @@ system:
   kafka: !include system/kafka-all-test.yml
   keycloak: !include system/keycloak.yml
   keycloak-container: !include system/keycloak-container-test.yml
-  memberships: !include system/membership.yml
-  memberships-dispatcher: !include system/membership-dispatcher.yml
+  members: !include system/member.yml
+  members-dispatcher: !include system/member-dispatcher.yml
   message-bus: !include system/message-bus-test.yml
   clearbank-adapter: !include system/clearbank-adapter.yml
   clearbank-adapter-relay: !include system/clearbank-adapter-relay.yml

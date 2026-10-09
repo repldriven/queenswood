@@ -9,9 +9,9 @@
     [com.repldriven.queenswood.cash-account.interface :as cash-accounts]
     [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
-    [com.repldriven.queenswood.membership-query.interface :as
-     membership-query]
-    [com.repldriven.queenswood.membership.interface :as memberships]
+    [com.repldriven.queenswood.member-query.interface :as
+     member-query]
+    [com.repldriven.queenswood.member.interface :as members]
     [com.repldriven.queenswood.party.interface :as party]
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.scheduler.interface :as scheduler]
@@ -156,11 +156,11 @@
 (defn- new-owner-invitation
   [txn bank-id actor owner-invitation]
   (when owner-invitation
-    (memberships/invite txn
-                        bank-id
-                        {:email (:email owner-invitation) :role :role-owner}
-                        {:actor actor
-                         :reason owner-invitation-reason})))
+    (members/invite txn
+                    bank-id
+                    {:email (:email owner-invitation) :role :role-owner}
+                    {:actor actor
+                     :reason owner-invitation-reason})))
 
 (defn choose-providers
   [offered requested]
@@ -172,23 +172,23 @@
 
 (defn- replay
   "What the create that made `bank` returned: the bank, the creator's
-  owner membership where the create asked for one, and the owner
+  owner member where the create asked for one, and the owner
   invitation's id where it sent one."
-  [txn bank membership owner-invitation]
+  [txn bank member owner-invitation]
   (let [{:keys [bank-id]} bank]
     (let-nom>
-      [memberships (when membership
-                     (membership-query/list-by-bank txn bank-id))
+      [members (when member
+                 (member-query/list-by-bank txn bank-id))
        invitations (when owner-invitation
-                     (membership-query/list-invitations-by-bank txn
-                                                                bank-id))]
+                     (member-query/list-invitations-by-bank txn
+                                                            bank-id))]
       {:bank (dissoc bank :created-by :idempotency-key)
-       :membership (earliest :membership-id
-                             (filter (fn [m]
-                                       (and (= (:user-id membership)
-                                               (:user-id m))
-                                            (= :role-owner (:role m))))
-                                     memberships))
+       :member (earliest :member-id
+                         (filter (fn [m]
+                                   (and (= (:user-id member)
+                                           (:user-id m))
+                                        (= :role-owner (:role m))))
+                                 members))
        :owner-invitation-id (:invitation-id
                              (earliest :invitation-id
                                        (filter (fn [i]
@@ -199,10 +199,10 @@
 
 (defn- create-bank
   [txn bank-name bank-status tier currencies actor opts]
-  (let [{:keys [idv-provider payment-provider company-binding membership
+  (let [{:keys [idv-provider payment-provider company-binding member
                 owner-invitation idempotency-key]}
         opts
-        {:keys [user-id role]} membership]
+        {:keys [user-id role]} member]
     (let-nom>
       [policies (or (:policies opts)
                     (policy/get-effective-policies txn {}))
@@ -238,15 +238,15 @@
                              actor)
        _ (bind-policies txn bank-id tier-policies)
        _ (scheduler/seed-jobs txn bank-id)
-       owner (when membership
-               (memberships/new-membership txn
-                                           {:user-id user-id
-                                            :bank-id bank-id
-                                            :role role
-                                            :actor actor}))
+       owner (when member
+               (members/new-member txn
+                                   {:user-id user-id
+                                    :bank-id bank-id
+                                    :role role
+                                    :actor actor}))
        invitation (new-owner-invitation txn bank-id actor owner-invitation)]
       {:bank bank
-       :membership owner
+       :member owner
        :owner-invitation-id (:invitation-id invitation)})))
 
 (defn- issue-client
@@ -263,7 +263,7 @@
 
 (defn new-bank
   [txn bank-name bank-status tier currencies opts]
-  (let [{:keys [identity-provider membership owner-invitation actor
+  (let [{:keys [identity-provider member owner-invitation actor
                 idempotency-key audience]}
         opts]
     (let-nom>
@@ -283,7 +283,7 @@
                                               (:principal-id actor)
                                               idempotency-key)]
             (if existing
-              (replay txn existing membership owner-invitation)
+              (replay txn existing member owner-invitation)
               (create-bank txn
                            bank-name
                            bank-status

@@ -3,7 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.banks;
 
 import "record_metadata_options.proto";
-import "schemas/memberships/actor.proto";
+import "schemas/members/actor.proto";
 
 option java_outer_classname = "BankProto";
 
@@ -25,7 +25,7 @@ message Bank {
 
   required string idempotency_key = 100;
   required int64 created_at = 101;
-  required com.repldriven.queenswood.schemas.memberships.Actor created_by = 102;
+  required com.repldriven.queenswood.schemas.members.Actor created_by = 102;
   required int64 updated_at = 103;
 }
 

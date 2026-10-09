@@ -69,8 +69,8 @@
 
 (defn- owner
   [lookup membership]
-  (let [{:keys [membership-id user-id]} membership
-        found {:membership-id membership-id :user-id user-id}
+  (let [{:keys [member-id user-id]} membership
+        found {:membership-id member-id :user-id user-id}
         user (lookup user-id)]
     (cond (nil? user)
           found

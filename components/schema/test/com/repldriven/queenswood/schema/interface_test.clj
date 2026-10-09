@@ -6,8 +6,8 @@
   The reply schema is hand-maintained — nothing generates it from the
   proto — which is what these round-trips are for.
 
-  The access records read back what was written, and a membership
-  written before a membership could end reads as active. An inbound
+  The access records read back what was written, and a member
+  written before a member could end reads as active. An inbound
   payment reads back its creditor account and transaction only when it
   carries them. A product version reads back its opening reward as a
   plain map, or without one, and a reward its transaction only once
@@ -169,28 +169,28 @@
 
 (def ^:private owner
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :membership-id "mem.01kprbmgcj35ptc8npmybhh4t0"
-   :status :membership-status-active
+   :member-id "mem.01kprbmgcj35ptc8npmybhh4t0"
+   :status :member-status-active
    :role :role-owner
    :user-id "usr.01kprbmgcj35ptc8npmybhh4t1"
    :created-at 1700000000000
    :created-by member-actor
    :updated-at 1700000000000})
 
-(deftest membership-record-round-trip-test
-  (testing "an active membership keeps who created it"
-    (is (= owner (SUT/pb->Membership (SUT/Membership->pb owner)))))
-  (testing "a removed membership keeps who removed it, when and why"
+(deftest member-record-round-trip-test
+  (testing "an active member keeps who created it"
+    (is (= owner (SUT/pb->Member (SUT/Member->pb owner)))))
+  (testing "a removed member keeps who removed it, when and why"
     (let [ended (assoc owner
                        :role :role-viewer
-                       :status :membership-status-removed
+                       :status :member-status-removed
                        :ended-at 1700000000500
                        :ended-by member-actor
                        :ended-reason "Left the company"
                        :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2")]
-      (is (= ended (SUT/pb->Membership (SUT/Membership->pb ended))))
-      (is (= (SUT/membership-status->pb-enum :membership-status-removed)
-             (.getStatus (SUT/Membership->java ended)))))))
+      (is (= ended (SUT/pb->Member (SUT/Member->pb ended))))
+      (is (= (SUT/member-status->pb-enum :member-status-removed)
+             (.getStatus (SUT/Member->java ended)))))))
 
 (def ^:private pending-invitation
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
@@ -232,9 +232,9 @@
                            :withdrawn-reason "Sent to the wrong address")]
       (is (= withdrawn (SUT/pb->Invitation (SUT/Invitation->pb withdrawn)))))))
 
-(deftest membership-role-change-record-round-trip-test
+(deftest member-role-change-record-round-trip-test
   (let [change {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-                :membership-id "mem.01kprbmgcj35ptc8npmybhh4t5"
+                :member-id "mem.01kprbmgcj35ptc8npmybhh4t5"
                 :role-change-id "rch.01kprbmgcj35ptc8npmybhh4t4"
                 :role-before :role-viewer
                 :role-after :role-admin
@@ -242,14 +242,13 @@
                 :created-by member-actor}]
     (testing "a role change carries the roles either side and who moved it"
       (is (= change
-             (SUT/pb->MembershipRoleChange (SUT/MembershipRoleChange->pb
-                                            change))))
-      (is (some? (SUT/MembershipRoleChange->java change))))
+             (SUT/pb->MemberRoleChange (SUT/MemberRoleChange->pb change))))
+      (is (some? (SUT/MemberRoleChange->java change))))
     (testing "and the reason when one was given"
       (let [with-reason (assoc change :reason "Leads the team")]
         (is (= with-reason
-               (SUT/pb->MembershipRoleChange (SUT/MembershipRoleChange->pb
-                                              with-reason))))))))
+               (SUT/pb->MemberRoleChange (SUT/MemberRoleChange->pb
+                                          with-reason))))))))
 
 (deftest email-delivery-record-round-trip-test
   (testing "a pending delivery carries no message id, send or failure"

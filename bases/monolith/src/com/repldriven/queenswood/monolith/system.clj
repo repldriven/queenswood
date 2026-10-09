@@ -15,7 +15,7 @@
     [com.repldriven.queenswood.form3-simulator.interface]
     [com.repldriven.queenswood.form3-webhook.interface]
     [com.repldriven.queenswood.idv.interface]
-    [com.repldriven.queenswood.membership.interface]
+    [com.repldriven.queenswood.member.interface]
     [com.repldriven.queenswood.modulr-adapter.interface]
     [com.repldriven.queenswood.modulr-relay.interface]
     [com.repldriven.queenswood.modulr-simulator.interface]

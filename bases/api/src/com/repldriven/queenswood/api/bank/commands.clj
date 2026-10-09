@@ -152,8 +152,8 @@
       :actor (shared.actor/actor auth)}
      :company-binding (when company
                         (->binding (:registry-id company) company))
-     :membership (when person?
-                   {:user-id (:principal-id auth) :role :role-owner})
+     :member (when person?
+               {:user-id (:principal-id auth) :role :role-owner})
      :owner-invitation (when owner-email {:email owner-email})
      :providers (mapv (fn [[kind provider]]
                         {:kind (clojure.core/name kind) :provider provider})
@@ -170,16 +170,16 @@
 (defn- created-bank
   "The created bank with its fresh client secret, and whichever of the
   owner invitation and the creator's owner membership the create wrote."
-  [request {:keys [bank-id owner-invitation-id membership]}]
+  [request {:keys [bank-id owner-invitation-id member]}]
   (let-nom> [bank (bank-with-secret request bank-id)
              invitation (owner-invitation request bank-id owner-invitation-id)]
     (utility/assoc-some bank
                         :owner-invitation
                         invitation
                         :membership
-                        (when membership
+                        (when member
                           (access-handlers/founding-membership
-                           membership
+                           member
                            (get-in request [:auth :user])
                            bank)))))
 

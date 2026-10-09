@@ -21,7 +21,7 @@
     [com.repldriven.queenswood.schemas.idv :as idv]
     [com.repldriven.queenswood.schemas.interest :as interest]
     [com.repldriven.queenswood.schemas.ledger_accounts :as ledger-accounts]
-    [com.repldriven.queenswood.schemas.memberships :as memberships]
+    [com.repldriven.queenswood.schemas.members :as members]
     [com.repldriven.queenswood.schemas.form3 :as form3]
     [com.repldriven.queenswood.schemas.modulr :as modulr]
     [com.repldriven.queenswood.schemas.onfido :as onfido]
@@ -98,14 +98,14 @@
      UserProto$User
      UserProto$IdentityProvider
      UserProto$UserStatus)
-    (com.repldriven.queenswood.schemas.memberships
+    (com.repldriven.queenswood.schemas.members
      ActorProto$ActorKind
      InvitationProto$Invitation
      InvitationProto$InvitationStatus
-     MembershipProto$Membership
-     MembershipProto$MembershipStatus
-     MembershipProto$Role
-     MembershipRoleChangeProto$MembershipRoleChange)
+     MemberProto$Member
+     MemberProto$MemberStatus
+     MemberProto$Role
+     MemberRoleChangeProto$MemberRoleChange)
     (com.repldriven.queenswood.schemas.webhooks
      WebhookDeliveryProto$WebhookDelivery
      WebhookDeliveryAttemptProto$WebhookDeliveryAttempt
@@ -1313,66 +1313,66 @@
   (UserProto$UserStatus/forNumber
    (user-status->int user-status)))
 
-(def ^:private membership-unset
+(def ^:private member-unset
   {:ended-at 0 :ended-by nil :ended-reason "" :invitation-id ""})
 
-(defn pb->Membership
-  "Parse Membership protobuf bytes into a Clojure map. `ended-at`,
+(defn pb->Member
+  "Parse Member protobuf bytes into a Clojure map. `ended-at`,
   `ended-by`, `ended-reason` and `invitation-id` are present only when
   set, and `created-by` and `ended-by` are plain maps.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (-> (memberships/pb->Membership input)
-      (without-unset membership-unset)
+  (-> (members/pb->Member input)
+      (without-unset member-unset)
       (plain-embedded :created-by)
       (plain-embedded :ended-by)))
 
-(defn Membership->pb
-  "Serialise a Membership map to protobuf bytes.
+(defn Member->pb
+  "Serialise a Member map to protobuf bytes.
 
   Args:
-  - m: Membership map matching the generated schema."
+  - m: Member map matching the generated schema."
   [m]
-  (proto/->pb (memberships/new-Membership m)))
+  (proto/->pb (members/new-Member m)))
 
-(defn Membership->java
-  "Parse a Membership map into the generated Java protobuf class.
+(defn Member->java
+  "Parse a Member map into the generated Java protobuf class.
 
   Args:
-  - m: Membership map matching the generated schema."
+  - m: Member map matching the generated schema."
   [m]
-  (MembershipProto$Membership/parseFrom (Membership->pb m)))
+  (MemberProto$Member/parseFrom (Member->pb m)))
 
-(def ^{:doc "Map of Membership Role label to protobuf int value."} role->int
-  memberships/Role-label2val)
+(def ^{:doc "Map of Member Role label to protobuf int value."} role->int
+  members/Role-label2val)
 
 (defn role->pb-enum
-  "Convert a membership role keyword to the protobuf enum value,
+  "Convert a member role keyword to the protobuf enum value,
   for use in FDB index queries.
 
   Args:
   - role: `:role-*` keyword."
   [role]
-  (MembershipProto$Role/forNumber (role->int role)))
+  (MemberProto$Role/forNumber (role->int role)))
 
-(def ^{:doc "Map of MembershipStatus label to protobuf int value."}
-     membership-status->int
-  memberships/MembershipStatus-label2val)
+(def ^{:doc "Map of MemberStatus label to protobuf int value."}
+     member-status->int
+  members/MemberStatus-label2val)
 
-(defn membership-status->pb-enum
-  "Convert a membership-status keyword to the protobuf enum value, for
+(defn member-status->pb-enum
+  "Convert a member-status keyword to the protobuf enum value, for
   use in FDB index queries.
 
   Args:
-  - membership-status: `:membership-status-*` keyword."
-  [membership-status]
-  (MembershipProto$MembershipStatus/forNumber
-   (membership-status->int membership-status)))
+  - member-status: `:member-status-*` keyword."
+  [member-status]
+  (MemberProto$MemberStatus/forNumber
+   (member-status->int member-status)))
 
 (def ^{:doc "Map of ActorKind label to protobuf int value."} actor-kind->int
-  memberships/ActorKind-label2val)
+  members/ActorKind-label2val)
 
 (defn actor-kind->pb-enum
   "Convert an actor-kind keyword to the protobuf enum value, for use in
@@ -1407,7 +1407,7 @@
   - input: protobuf bytes."
   [input]
   (reduce plain-embedded
-          (without-unset (memberships/pb->Invitation input) invitation-unset)
+          (without-unset (members/pb->Invitation input) invitation-unset)
           invitation-actors))
 
 (defn Invitation->pb
@@ -1416,7 +1416,7 @@
   Args:
   - m: Invitation map matching the generated schema."
   [m]
-  (proto/->pb (memberships/new-Invitation m)))
+  (proto/->pb (members/new-Invitation m)))
 
 (defn Invitation->java
   "Parse an Invitation map into the generated Java protobuf class.
@@ -1428,7 +1428,7 @@
 
 (def ^{:doc "Map of InvitationStatus label to protobuf int value."}
      invitation-status->int
-  memberships/InvitationStatus-label2val)
+  members/InvitationStatus-label2val)
 
 (defn invitation-status->pb-enum
   "Convert an invitation-status keyword to the protobuf enum value, for
@@ -1440,34 +1440,34 @@
   (InvitationProto$InvitationStatus/forNumber
    (invitation-status->int invitation-status)))
 
-(defn pb->MembershipRoleChange
-  "Parse MembershipRoleChange protobuf bytes into a Clojure map. `reason`
+(defn pb->MemberRoleChange
+  "Parse MemberRoleChange protobuf bytes into a Clojure map. `reason`
   is present only when set, and `created-by` is a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (-> (memberships/pb->MembershipRoleChange input)
+  (-> (members/pb->MemberRoleChange input)
       (without-unset {:reason ""})
       (plain-embedded :created-by)))
 
-(defn MembershipRoleChange->pb
-  "Serialise a MembershipRoleChange map to protobuf bytes.
+(defn MemberRoleChange->pb
+  "Serialise a MemberRoleChange map to protobuf bytes.
 
   Args:
-  - m: MembershipRoleChange map matching the generated schema."
+  - m: MemberRoleChange map matching the generated schema."
   [m]
-  (proto/->pb (memberships/new-MembershipRoleChange m)))
+  (proto/->pb (members/new-MemberRoleChange m)))
 
-(defn MembershipRoleChange->java
-  "Parse a MembershipRoleChange map into the generated Java protobuf
+(defn MemberRoleChange->java
+  "Parse a MemberRoleChange map into the generated Java protobuf
   class.
 
   Args:
-  - m: MembershipRoleChange map matching the generated schema."
+  - m: MemberRoleChange map matching the generated schema."
   [m]
-  (MembershipRoleChangeProto$MembershipRoleChange/parseFrom
-   (MembershipRoleChange->pb m)))
+  (MemberRoleChangeProto$MemberRoleChange/parseFrom
+   (MemberRoleChange->pb m)))
 
 (defn pb->WebhookEndpoint
   "Parse WebhookEndpoint protobuf bytes into a Clojure map. Drops

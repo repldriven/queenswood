@@ -32,12 +32,12 @@ system:
           topic: topic-cash-accounts-command
           acks: all
           linger.ms: 0
-      memberships-command:
+      members-command:
         schemas: !system/local-ref schemas
         schema: !keyword command
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          topic: topic-memberships-command
+          topic: topic-members-command
           acks: all
           linger.ms: 0
       parties-command:
@@ -110,13 +110,13 @@ system:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: !join ["api-service-cash-accounts-command-response-", !random-uuid ""]
           auto.offset.reset: latest
-      memberships-command-response:
+      members-command-response:
         schemas: !system/local-ref schemas
         schema: !keyword command-response
-        topics: [topic-memberships-command-response]
+        topics: [topic-members-command-response]
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
-          group.id: !join ["api-service-memberships-command-response-", !random-uuid ""]
+          group.id: !join ["api-service-members-command-response-", !random-uuid ""]
           auto.offset.reset: latest
       parties-command-response:
         schemas: !system/local-ref schemas
@@ -166,8 +166,8 @@ system:
         producer: !system/local-ref producers.companies-command
       cash-accounts-command:
         producer: !system/local-ref producers.cash-accounts-command
-      memberships-command:
-        producer: !system/local-ref producers.memberships-command
+      members-command:
+        producer: !system/local-ref producers.members-command
       parties-command:
         producer: !system/local-ref producers.parties-command
       idvs-command:
@@ -189,8 +189,8 @@ system:
       cash-accounts-command-response:
         consumer: !system/local-ref consumers.cash-accounts-command-response
         timeout: 500
-      memberships-command-response:
-        consumer: !system/local-ref consumers.memberships-command-response
+      members-command-response:
+        consumer: !system/local-ref consumers.members-command-response
         timeout: 500
       parties-command-response:
         consumer: !system/local-ref consumers.parties-command-response
@@ -216,7 +216,7 @@ system:
   banks: !include system/bank-dispatcher.yml
   companies: !include system/company-dispatcher.yml
   cash-accounts: !include system/cash-account-dispatcher.yml
-  memberships: !include system/membership-dispatcher.yml
+  members: !include system/member-dispatcher.yml
   parties: !include system/party-dispatcher.yml
   idvs: !include system/idv-dispatcher.yml
   payments: !include system/payment-dispatcher.yml
@@ -261,7 +261,7 @@ system:
       dispatchers:
         banks: !system/ref banks.dispatcher
         cash-accounts: !system/ref cash-accounts.dispatcher
-        memberships: !system/ref memberships.dispatcher
+        members: !system/ref members.dispatcher
         parties: !system/ref parties.dispatcher
         idvs: !system/ref idvs.dispatcher
         payments: !system/ref payments.dispatcher

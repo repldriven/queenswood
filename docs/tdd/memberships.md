@@ -1,7 +1,7 @@
 # Memberships
 
 > **Status: proposal.** The three slices are implemented: the records,
-> the `membership` processor and its `membership-query` sibling, the
+> the `member` processor and its `member-query` sibling, the
 > changelog an invitation writes, the `Bank-Id` header, the four levels,
 > the access routes, and the console's screens with the accept screen an
 > emailed link opens. Background describes slice 1 as first built,
@@ -19,9 +19,9 @@ the organisation it is for, how a role reaches the gate every route
 already has, where each write lives, and the order the design is proved
 in.
 
-In scope: the `Membership`, `Invitation` and `MembershipRoleChange`
-records and the access history read from them; the `membership`
-processor's commands, the `membership-query` reads and the domain rules
+In scope: the `Member`, `Invitation` and `MemberRoleChange`
+records and the access history read from them; the `member`
+processor's commands, the `member-query` reads and the domain rules
 — who may do what to whom, and never ownerless; the invitation
 changelog; the request header that names the organisation; the role
 levels on the `api` base's gates and the sweep that puts one on every
@@ -42,10 +42,10 @@ and the organisation's starting state, which [banks.md](banks.md) covers.
 What exists is slice 1, the API, as the sections below describe it,
 and the console as first built:
 
-- **The records.** `Membership`, `Invitation`, `MembershipRoleChange`
-  and the `Actor` they share, under `schemas/memberships/`, declared in
+- **The records.** `Member`, `Invitation`, `MemberRoleChange`
+  and the `Actor` they share, under `schemas/members/`, declared in
   [fdb-record-types.yml](/components/resources/resources/system/fdb-record-types.yml).
-- **The `membership` brick.** The rules in `domain.clj` and one FDB
+- **The `member` brick.** The rules in `domain.clj` and one FDB
   transaction per write in `core.clj`. `user` still upserts a `User` on
   every authenticated user request.
 - **The `api` base.** `auth.clj` resolves the `Bank-Id` header and the
@@ -70,7 +70,7 @@ and the console as first built:
   withdraws and resends, showing an invitation's link once in the `ui`
   brick's `TokenBox`. `api.mjs` sends `Bank-Id` on every call.
 - **Every access write is synchronous.** The `api` base calls the
-  `membership` interface directly for reads and writes alike, one FDB
+  `member` interface directly for reads and writes alike, one FDB
   transaction each, and the `bank` processor calls it inside `new-bank`.
   No membership store writes a changelog entry.
 
@@ -126,7 +126,7 @@ The header is declared once, as a `components.parameters` entry beside
 it. The console's request wrapper sends it on every call once an
 organisation is chosen.
 
-The principal also carries `:membership`, the active membership the
+The principal also carries `:member`, the active membership the
 header resolved to, so a handler that records an actor reads the
 membership id off the request rather than finding it again.
 
@@ -182,7 +182,7 @@ detail.
 refused, in the spelling a client matches on:
 
 - `auth/forbidden`, 403, when a role refuses at the edge.
-- `:membership/role-not-granted`, 403, when a role refuses in
+- `:member/role-not-granted`, 403, when a role refuses in
   `domain.clj` because the rule depends on the target.
 - `:policy/denied`, 403, or `:policy/limit-exceeded`, 429, when a policy
   refuses.
@@ -192,7 +192,7 @@ anomaly kind has, as [service-apis.md](service-apis.md) records.
 
 ### Records
 
-Three record types under `schemas/memberships/`, registered where every
+Three record types under `schemas/members/`, registered where every
 record type is: the record-type union, the FDB record-type declaration,
 and the `pb->`, `->pb` and `->java` trio in the `schema` brick's
 `interface.clj`. Each act a person or an operator performs is recorded
@@ -200,17 +200,17 @@ on the record it changes, as an `_at` and `_by` pair, as
 [ADR-0046](../adr/0046-who-did-what-is-recorded-on-the-record.md) has
 it.
 
-- **`Membership`** — bank id, membership id (prefix `mem`), status
+- **`Member`** — bank id, membership id (prefix `mem`), status
   (active, removed or left), role, user id, the invitation accepted to
   create it, the reason given for a removal as `ended_reason`,
   `ended_at` and `ended_by`, and `created_by` beside the timestamps.
-  The primary key is `[bank_id, membership_id]`, so a bank's members
+  The primary key is `[bank_id, member_id]`, so a bank's members
   scan contiguously and a bank-scoped read finds no other bank's
-  membership. `Membership_by_user`, unique on
-  `[user_id, membership_id]`, lists a person's memberships and finds one
-  of their own by id for the routes under `/v1/me`, which hold no bank.
-  A person removed and invited again holds a new membership and the
-  ended one stays, so one active membership per person per bank is a
+  member. `Member_by_user`, unique on `[user_id, member_id]`, lists a
+  person's members, one per bank, and finds one of their own by id for
+  the routes under `/v1/me`, which hold no bank. A person removed and
+  invited again holds a new member and the ended one stays, so one
+  active member per person per bank is a
   rule in `domain.clj`, checked inside the transaction that writes.
 - **`Invitation`** — bank id, invitation id (prefix `inv`), status
   (pending, accepted, declined, withdrawn, expired), role, email as the
@@ -226,9 +226,9 @@ it.
   bank's invitations. Until an email is sent the token hash holds the
   invitation id: the unique index needs a distinct value per
   invitation, and no SHA-256 hex digest equals an id.
-- **`MembershipRoleChange`** — bank id, membership id, role change id
+- **`MemberRoleChange`** — bank id, membership id, role change id
   (prefix `rch`), the role before and after, a reason, `created_at` and
-  `created_by`, keyed `[bank_id, membership_id, role_change_id]`. A
+  `created_by`, keyed `[bank_id, member_id, role_change_id]`. A
   membership's role changes any number of times and the membership
   keeps only the latest, so each change is a record of its own.
 - **`Actor`** — a message the three share: kind (member or operator)
@@ -238,7 +238,7 @@ it.
 
 The access history the PRD's "What is recorded" reads is built on read
 from these records and the `Bank`'s own `created_at` and `created_by`,
-by `membership-query`'s `list-access-events`: the bank's creation, each
+by `member-query`'s `list-access-events`: the bank's creation, each
 invitation's creation, latest resend, acceptance, refusal and
 withdrawal, each role change, and each membership's removal or
 departure, newest first. Each event's id is `aev.` and an encoding of
@@ -249,7 +249,7 @@ every kind's fields, growing with each new kind.
 
 ### A processor and a query brick
 
-Membership and invitation writes are commands, because an invitation
+Member and invitation writes are commands, because an invitation
 now has a reader: the email adapter reacts to its creation, which is the
 reaction property [ADR-0018](../adr/0018-command-writes-are-earned.md) says
 earns a command, and invitation flows are the trigger that ADR names
@@ -259,31 +259,31 @@ for membership. On the system diagram the API writes only
 [ADR-0017](../adr/0017-query-write-brick-split.md) and
 [processor-bricks.md](processor-bricks.md) describe:
 
-- **`membership-query`** — `list-by-user`, `list-by-bank`,
+- **`member-query`** — `list-by-user`, `list-by-bank`,
   `list-active-by-user`, `list-active-by-bank`, `find-by-id`,
-  `find-user-membership`, `find-invitation`, `find-invitation-for-recipient`,
+  `find-user-member`, `find-invitation`, `find-invitation-for-recipient`,
   `list-invitations-by-bank`, `list-pending-invitations-by-email` and
   `list-access-events`, over the three stores, and
   the pure `new-invitation-token` and `token-hash`, so the email adapter
   and the processor hash alike. The `api` base, `auth.clj` included,
   requires only this brick, which `enforce-idioms.sh`'s query-only check
   then holds.
-- **`membership`** — `commands.clj`, `core.clj`, `domain.clj`,
+- **`member`** — `commands.clj`, `core.clj`, `domain.clj`,
   `store.clj`, `changelog.clj`, `system.clj` and `interface.clj`,
-  reading through `membership-query` inside its own transaction.
-  `system.clj` registers `membership/processor`, which
-  `system/membership.yml` wraps in `command-processor/command-processor`
-  on `memberships-command` and `memberships-command-response`, and
+  reading through `member-query` inside its own transaction.
+  `system.clj` registers `member/processor`, which
+  `system/member.yml` wraps in `command-processor/command-processor`
+  on `members-command` and `members-command-response`, and
   `operational-processors-service` includes. The interface keeps
-  `new-membership`, `record-bank-created` and `invite` for `new-bank`'s
+  `new-member`, `record-bank-created` and `invite` for `new-bank`'s
   transaction.
 
 The commands are `invite`, `resend-invitation`, `withdraw-invitation`,
 `accept-invitation`, `decline-invitation`, `change-role`,
 `remove-member`, `leave` and `record-invitation-token`, each an Avro
-payload under `schemas/memberships/` registered in
+payload under `schemas/members/` registered in
 [avro-schemas.yml](/components/resources/resources/system/avro-schemas.yml),
-each replying with the record it wrote as the Avro `membership` or
+each replying with the record it wrote as the Avro `member` or
 `invitation`. The actor, the bank and the proof are what the base
 establishes and the command carries:
 
@@ -305,12 +305,12 @@ the other's write and is refused.
 and writes one to the `invitations` changelog for a create or a
 resend — `changelog.clj` builds `invitation-created` and
 `invitation-resent` from
-`schemas/memberships/invitation-changed.avsc.json` — and none for
+`schemas/members/invitation-changed.avsc.json` — and none for
 another transition, which nothing reacts to. `new-bank` calls `invite`
 with the live transaction, so an owner invitation's entry commits with
 the bank. A `changelog-relay` handler and runner for the `invitations`
 store, consumer id `invitations-relay`, publish to `invitations-event`
-from `exclusive-dispatchers-service`, and `system/membership-relay.yml`
+from `exclusive-dispatchers-service`, and `system/invitation-relay.yml`
 does the same for the monolith and the test rigs. The topics are
 declared in `kafka-topics.yml` and `kafka-all-test.yml`.
 
@@ -318,8 +318,8 @@ declared in `kafka-topics.yml` and `kafka-all-test.yml`.
 graph LR
     SPA["console SPA<br/>Bank-Id on every call"]
     API["api<br/>authenticate resolves bank and level<br/>authorize intersects"]
-    BQ["membership-query<br/>reads"]
-    BM["membership processor<br/>Membership, Invitation, MembershipRoleChange"]
+    BQ["member-query<br/>reads"]
+    BM["member processor<br/>Member, Invitation, MemberRoleChange"]
     BU["user"]
     BB["bank processor<br/>new-bank writes the owner invitation"]
     RL["changelog relay"]
@@ -382,19 +382,19 @@ list, and a recipient route without the token answers 404
 Guards in `domain.clj`, each the first binding of its `let-nom>`:
 
 - **Create** refuses a role the actor may not grant — an admin naming
-  owner (`:membership/role-not-granted`, 403 as an unauthorized
+  owner (`:member/role-not-granted`, 403 as an unauthorized
   anomaly), an operator's invitation with no reason
   (`:invitation/reason-required`, 422), an address held by an active
   member (`:invitation/already-member`, 409), and an address with a
   pending invitation in this bank (`:invitation/already-exists`, 409).
 - **Accept** requires pending and unexpired, refuses an active member
-  of the same bank (`:membership/already-exists`, 409), and writes the
+  of the same bank (`:member/already-exists`, 409), and writes the
   membership with the invitation's role, the invitation as accepted
   with the accepting user, and the event, in one transaction.
 - **Decline** requires pending.
 - **Withdraw** requires pending, and **resend** pending or expired. Both
   refuse an actor who may not grant the invitation's role
-  (`:membership/role-not-granted`), so an admin cannot withdraw or
+  (`:member/role-not-granted`), so an admin cannot withdraw or
   resend an owner invitation. Resend resets the token hash, sets a
   fresh `expires_at` and writes `invitation-resent`.
 - **Record a token** requires pending and unexpired, and the
@@ -414,11 +414,11 @@ A refused source state is `:invitation/invalid-status`, carrying
 
 ### Managing people
 
-Three transitions on a membership, all through the `membership`
+Three transitions on a membership, all through the `member`
 interface and each writing the membership and its event together:
 
 - **Change role** — by an owner, to any role; by an admin, from and to
-  admin, developer or viewer. Refused `:membership/role-not-granted`
+  admin, developer or viewer. Refused `:member/role-not-granted`
   otherwise. A change to the role already held runs the same guards,
   answers the member, and saves nothing and records no event.
 - **Remove** — by an owner, anyone; by an admin, an admin, developer or
@@ -430,7 +430,7 @@ interface and each writing the membership and its event together:
 **Never ownerless.** Before any of the three ends or demotes an owner,
 `domain.clj` counts the bank's other active owners in the same
 transaction and refuses when there are none:
-`:membership/last-owner`, mapped to 409, whose message says to make
+`:member/last-owner`, mapped to 409, whose message says to make
 someone else an owner first. The rule takes the bank's active
 memberships as an argument, so the count is read inside the
 transaction that writes and a concurrent demotion of the other owner
@@ -439,7 +439,7 @@ function through the same routes, which is why the PRD's "never needs
 a bypass" holds without a flag.
 
 A removed person is refused from their next action because
-`user-auth` lists memberships on every request: the ended membership no
+`user-auth` lists members on every request: the ended member no
 longer resolves a bank, and the header naming it is refused as any
 non-member's would be.
 
@@ -454,7 +454,7 @@ the person as actor beside the owner membership.
 **By the operator.** `CreateBankRequest` gains an optional
 `owner-email`, and the command carries it with the actor. `new-bank`
 writes a pending owner invitation in the operator's name in the same
-transaction as the bank, through the `membership` write brick, so its
+transaction as the bank, through the `member` write brick, so its
 `invitation-created` entry commits with the bank and the owner is
 emailed like any invitee. It writes none when the field is absent. The
 response carries the invitation beside the credential, and the
@@ -569,11 +569,11 @@ its guard in the base's `exempt-writes`, so the router coverage test
   so a second application converges and records nothing.
 
 Rejection mapping in the `api` base's override table:
-`:membership/last-owner`, `:membership/invalid-status`,
+`:member/last-owner`, `:member/invalid-status`,
 `:invitation/invalid-status` and `:invitation/already-member` to 409.
-`:invitation/already-exists` and `:membership/already-exists` fall to
+`:invitation/already-exists` and `:member/already-exists` fall to
 409 by name, `:invitation/not-found` to 404 by name, and
-`:membership/role-not-granted` to 403 as an unauthorized anomaly.
+`:member/role-not-granted` to 403 as an unauthorized anomaly.
 
 Every request and response body is a named component under `$ref`,
 with examples, and the exported document is validated by the `api`
@@ -629,7 +629,7 @@ Slice 1, the API:
 
 1. The records: the proto changes, the declaration, the `schema` brick
    trio, `just force-prep`, and the guard green under `just test-all`.
-2. The `membership` brick: domain rules and their tests, the store's
+2. The `member` brick: domain rules and their tests, the store's
    new indexes, the transactions for invite, accept, decline, withdraw,
    resend, change-role, remove and leave, and the history read.
 3. The `bank` brick: the sole-membership check removed, the owner
@@ -653,11 +653,11 @@ owner's, is in a response slice 1 answers.
 Slice 3, the split, lands before any email is sent, and ends with every
 access scenario green over the bus:
 
-1. `membership-query`: the reads and the token helpers moved out of
-   `membership`, and every read caller in the `api` base, `bank-query`
+1. `member-query`: the reads and the token helpers moved out of
+   `member`, and every read caller in the `api` base, `bank-query`
    and the tests pointed at it.
-2. `membership` as a processor: the commands, their Avro payloads and
-   replies, `system/membership.yml`, and the kinds registered from the
+2. `member` as a processor: the commands, their Avro payloads and
+   replies, `system/member.yml`, and the kinds registered from the
    operational-processors and monolith bases.
 3. The invitation changelog: `invitation-changed.avsc.json`,
    `changelog.clj`, `save-invitation`'s entry, the relay handler and
@@ -666,7 +666,7 @@ access scenario green over the bus:
    nothing, the base's omitted token paths and `create-bank`'s
    `token_hash` go, a new invitation's token hash is its id, and
    `record-invitation-token` is added with its guard.
-5. The `api` base: the `memberships` dispatcher, the access handlers
+5. The `api` base: the `members` dispatcher, the access handlers
    sending commands, the recipient proof hashed in the base, and every
    service and test rig's YAML carrying the new channels.
 6. The console: the invite drawer and the resend action without the
@@ -676,7 +676,7 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 
 ### Tests
 
-- **The `membership` brick** covers the who-may-do-what rules across
+- **The `member` brick** covers the who-may-do-what rules across
   every actor level, target role and new role; the ownerless guard
   with one owner, two owners and an operator actor; expiry against a
   passed clock; the one-pending and already-member rules; the token
@@ -687,7 +687,7 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   it wrote, with a superseded `expires_at` refused; the command dispatch
   and its replies; and the `invitations` changelog carrying one entry
   for a create and one for a resend and none for an accept.
-- **The `membership-query` brick** covers the reads against records the
+- **The `member-query` brick** covers the reads against records the
   tests write through its own store, and the token hash.
 - **The `api` base** holds that the router refuses a bare `org` gate
   and a stacked level, beside its existing check for a scheme naming no
@@ -706,7 +706,7 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   [outbound-email.md](outbound-email.md)'s; a viewer refused a write
   and a developer refused the people routes, each with
   `auth/forbidden`; an admin refused inviting an owner, and refused
-  withdrawing and resending one with `:membership/role-not-granted`;
+  withdrawing and resending one with `:member/role-not-granted`;
   the last owner refused leaving, then leaving once an admin is
   promoted; a removed person refused on their next call; one person
   owning one organisation and viewing another, switched by the header,
@@ -826,7 +826,7 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 - [processor-bricks.md](processor-bricks.md) — the processor and query
   brick shape the split follows.
 - [ADR-0017](../adr/0017-query-write-brick-split.md) — Query and write
-  brick split, the `membership-query` sibling.
+  brick split, the `member-query` sibling.
 - [ADR-0018](../adr/0018-command-writes-are-earned.md) — Command writes
   are earned, reaction being the property access writes earn.
 - [ADR-0021](../adr/0021-changelog-relay.md) — Changelog relay, which

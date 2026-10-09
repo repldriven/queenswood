@@ -3,7 +3,7 @@
     [com.repldriven.queenswood.api.auth :as SUT]
     [com.repldriven.queenswood.api.errors :as errors]
 
-    [com.repldriven.queenswood.membership-query.interface :as memberships]
+    [com.repldriven.queenswood.member-query.interface :as memberships]
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.error.interface :as error]
@@ -129,10 +129,7 @@
    :name "Ada Lovelace"})
 
 (def ^:private membership-row
-  {:membership-id "mem.abc"
-   :user-id "usr-1"
-   :bank-id "bank-abc"
-   :role :role-owner})
+  {:member-id "mem.abc" :user-id "usr-1" :bank-id "bank-abc" :role :role-owner})
 
 (def ^:private user-claims
   {:azp console-client-id

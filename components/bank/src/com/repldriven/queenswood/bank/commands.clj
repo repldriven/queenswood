@@ -26,18 +26,18 @@
   (if (error/anomaly? result)
     result
     (let [{:keys [schemas]} config
-          {:keys [bank membership owner-invitation-id]} result]
+          {:keys [bank member owner-invitation-id]} result]
       {:status "ACCEPTED"
        :payload (avro/serialize (schemas "bank")
                                 (assoc bank
-                                       :membership membership
+                                       :member member
                                        :owner-invitation-id
                                        owner-invitation-id))})))
 
 (defn- create-bank
   [config data]
   (let [{:keys [name status tier currencies audience company-binding
-                membership owner-invitation actor idempotency-key]}
+                member owner-invitation actor idempotency-key]}
         data]
     (->response config
                 (let-nom> [chosen (core/choose-providers
@@ -56,7 +56,7 @@
                                   :providers chosen
                                   :audience audience
                                   :company-binding company-binding
-                                  :membership membership
+                                  :member member
                                   :owner-invitation owner-invitation
                                   :actor actor
                                   :idempotency-key idempotency-key})))))

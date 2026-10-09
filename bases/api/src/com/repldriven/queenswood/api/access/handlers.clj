@@ -3,7 +3,7 @@
   invitations, the bank's memberships and invitations, and its audit
   log. A write is a command to the
   `membership` processor, whose reply names the records it wrote, read
-  back through `membership-query`.
+  back through `member-query`.
 
   See [ADR-0018](../../../../../../../docs/adr/0018-command-writes-are-earned.md)."
   (:require
@@ -15,7 +15,7 @@
     [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
-    [com.repldriven.queenswood.membership-query.interface :as memberships]
+    [com.repldriven.queenswood.member-query.interface :as memberships]
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -52,12 +52,12 @@
     (success result)))
 
 (defn- send-command
-  "Send `command` to the `membership` processor and, when it is accepted,
+  "Send `command` to the `member` processor and, when it is accepted,
   answer `(success change)` with the ids its reply names; otherwise the
   refusal's response."
   [request command data success]
   (let [{:keys [dispatchers]} request
-        result (commands/send (:memberships dispatchers)
+        result (commands/send (:members dispatchers)
                               request
                               command
                               "access-change"
@@ -120,8 +120,9 @@
   [membership user bank-name invitation names]
   (let [{:keys [invitation-id]} membership]
     (-> (select-keys membership
-                     [:membership-id :bank-id :user-id :role :created-at
+                     [:member-id :bank-id :user-id :role :created-at
                       :updated-at])
+        (set/rename-keys {:member-id :membership-id})
         (assoc :created-organisation (nil? invitation-id))
         (utility/assoc-some :bank-name bank-name
                             :name (:name user)
@@ -289,10 +290,10 @@
      {:invitation-id invitation-id
       :user-id (:principal-id auth)
       :proof (proof-data (proof request))}
-     (fn [{:keys [bank-id membership-id]}]
+     (fn [{:keys [bank-id member-id]}]
        (respond (let-nom> [membership (memberships/find-by-id txn
                                                               bank-id
-                                                              membership-id)]
+                                                              member-id)]
                   (named-membership txn membership))
                 (created my-membership-uri))))))
 
@@ -323,15 +324,15 @@
   "The membership when it is active and `k` of it is `v`, otherwise the
   not-found rejection, so a membership elsewhere reads as none at all."
   [membership k v]
-  (let [{:keys [membership-id status]} membership]
-    (if (and (= v (get membership k)) (= :membership-status-active status))
+  (let [{:keys [member-id status]} membership]
+    (if (and (= v (get membership k)) (= :member-status-active status))
       membership
-      (membership-not-found membership-id))))
+      (membership-not-found member-id))))
 
 (defn- page-memberships
   [txn path page active]
-  (let-nom> [windowed (cursor/window (sort-by :membership-id active)
-                                     :membership-id
+  (let-nom> [windowed (cursor/window (sort-by :member-id active)
+                                     :member-id
                                      :asc
                                      page)
              listed (named-memberships txn (:page windowed))]
@@ -352,7 +353,7 @@
   (let [{:keys [auth parameters]} request
         {:keys [membership-id]} (:path parameters)
         txn (config request)]
-    (respond (let-nom> [found (memberships/find-user-membership
+    (respond (let-nom> [found (memberships/find-user-member
                                txn
                                (:principal-id auth)
                                membership-id)
@@ -365,8 +366,8 @@
   (let [{:keys [auth parameters]} request
         {:keys [membership-id]} (:path parameters)]
     (send-command request
-                  "leave-membership"
-                  {:membership-id membership-id
+                  "leave-bank"
+                  {:member-id membership-id
                    :user-id (:principal-id auth)}
                   no-content)))
 
@@ -404,14 +405,14 @@
      request
      "change-role"
      {:bank-id bank-id
-      :membership-id (:membership-id path)
+      :member-id (:membership-id path)
       :role role
       :actor (actor auth)
       :reason reason}
-     (fn [{:keys [membership-id]}]
+     (fn [{:keys [member-id]}]
        (respond (let-nom> [changed (memberships/find-by-id txn
                                                            bank-id
-                                                           membership-id)]
+                                                           member-id)]
                   (named-membership txn changed))
                 ok)))))
 
@@ -423,7 +424,7 @@
     (send-command request
                   "remove-member"
                   {:bank-id bank-id
-                   :membership-id (:membership-id path)
+                   :member-id (:membership-id path)
                    :actor (actor auth)
                    :reason (:reason body)}
                   no-content)))
@@ -514,7 +515,8 @@
   subject named."
   [access-event names]
   (-> access-event
-      (set/rename-keys {:access-event-id :audit-event-id})
+      (set/rename-keys {:access-event-id :audit-event-id
+                        :member-id :membership-id})
       (update :actor names/->actor names)
       (utility/assoc-some :subject-name
                           (get names (:subject-user-id access-event)))))

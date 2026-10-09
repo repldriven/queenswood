@@ -1,5 +1,5 @@
 (ns ^:eftest/synchronized com.repldriven.queenswood.bank.interface-test
-  "What the API scenario suite can't see: that the owner membership and
+  "What the API scenario suite can't see: that the owner member and
   the owner invitation commit atomically with the bank, the bank's
   creation leading its access history, that a failure after the last write rolls every earlier
   write back, that the service-account client is created only once the
@@ -18,8 +18,8 @@
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
-    [com.repldriven.queenswood.membership.interface :as memberships]
-    [com.repldriven.queenswood.membership-query.interface :as q]
+    [com.repldriven.queenswood.member.interface :as members]
+    [com.repldriven.queenswood.member-query.interface :as q]
     [com.repldriven.queenswood.party-query.interface :as party-query]
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.scheduler.interface :as scheduler]
@@ -80,16 +80,16 @@
 
 (def ^:private ^:dynamic *fail-bank-created?* false)
 
-(def ^:private real-new-membership memberships/new-membership)
+(def ^:private real-new-member members/new-member)
 
-(defn- probed-new-membership
+(defn- probed-new-member
   [txn-or-config input]
   (if-let [created *created-bank-id*]
     (do (reset! created (:bank-id input))
         (if *fail-bank-created?*
           (error/fail :test/injected {:message "Injected after every write"})
-          (real-new-membership txn-or-config input)))
-    (real-new-membership txn-or-config input)))
+          (real-new-member txn-or-config input)))
+    (real-new-member txn-or-config input)))
 
 (deftest create-bank-schema-test
   (let [create-schema (avro/json->schema
@@ -124,27 +124,27 @@
                   _ (is (= "bnk.schema" (:bank-id decoded)))
                   _ (is (nil? (:owner-invitation-id decoded)))]))))
 
-(deftest new-bank-with-membership-test
+(deftest new-bank-with-member-test
   (with-test-system
    [sys "classpath:bank/application-test.yml"]
    (let [config (fdb-config sys)
          idp (identity-provider/local-provider {})
          user-id "usr.test-onboard"
-         membership {:user-id user-id :role :role-owner}
+         member {:user-id user-id :role :role-owner}
          person {:kind :actor-kind-member :principal-id user-id}]
      (testing
-       "creates the bank and owner membership in one transaction, its
+       "creates the bank and owner member in one transaction, its
         history opening with the bank's creation, the person as actor"
-       (nom-test> [{:keys [bank membership owner-invitation-id]}
+       (nom-test> [{:keys [bank member owner-invitation-id]}
                    (create-bank config
                                 idp
                                 "Acme Bank"
-                                {:membership membership :actor person})
+                                {:member member :actor person})
                    bank-id (:bank-id bank)
                    _ (is (re-find #"^bnk\." bank-id))
-                   _ (is (= user-id (:user-id membership)))
-                   _ (is (= bank-id (:bank-id membership)))
-                   _ (is (= :role-owner (:role membership)))
+                   _ (is (= user-id (:user-id member)))
+                   _ (is (= bank-id (:bank-id member)))
+                   _ (is (= :role-owner (:role member)))
                    _ (is (nil? owner-invitation-id))
                    stored (bank-query/get-bank config bank-id)
                    access-events (q/list-access-events config stored)
@@ -152,20 +152,19 @@
                             (mapv :kind access-events)))
                    _ (is (= {:kind :actor-kind-member :principal-id user-id}
                             (:actor (first access-events))))
-                   _ (is (= (:membership-id membership)
-                            (:membership-id (first access-events))))
+                   _ (is (= (:member-id member)
+                            (:member-id (first access-events))))
                    invitations (q/list-invitations-by-bank config bank-id)
                    _ (is (empty? invitations))
                    listed (q/list-by-user config user-id)
                    _ (is (= 1 (count listed)))]))
-     (testing
-       "a second bank for the same user commits a second owner membership"
-       (nom-test> [{:keys [bank membership]}
-                   (create-bank config
-                                idp
-                                "Acme Again"
-                                {:membership membership :actor person})
-                   _ (is (= (:bank-id bank) (:bank-id membership)))
+     (testing "a second bank for the same user commits a second owner member"
+       (nom-test> [{:keys [bank member]} (create-bank config
+                                                      idp
+                                                      "Acme Again"
+                                                      {:member member
+                                                       :actor person})
+                   _ (is (= (:bank-id bank) (:bank-id member)))
                    listed (q/list-by-user config user-id)
                    _ (is (= 2 (count listed)))
                    _ (is (= 2 (count (set (map :bank-id listed)))))
@@ -180,13 +179,13 @@
      (testing
        "records the bank's creation and one pending owner invitation, both
         in the operator's name"
-       (nom-test> [{:keys [bank membership owner-invitation-id]}
+       (nom-test> [{:keys [bank member owner-invitation-id]}
                    (create-bank config
                                 idp
                                 "Invited Bank"
                                 {:owner-invitation invitation :actor operator})
                    bank-id (:bank-id bank)
-                   _ (is (nil? membership))
+                   _ (is (nil? member))
                    _ (is (re-find #"^inv\." owner-invitation-id))
                    invitations (q/list-invitations-by-bank config bank-id)
                    _ (is (= [owner-invitation-id]
@@ -224,25 +223,25 @@
          user-id "usr.rollback"
          created (atom nil)]
      (testing "a failure after the last write leaves nothing behind"
-       ;; The owner membership is `new-bank`'s final write when no owner
+       ;; The owner member is `new-bank`'s final write when no owner
        ;; invitation is given, so failing there leaves every other write —
        ;; the seeded jobs included — behind the rollback. `fdb/transact`
        ;; rolls its transaction back when the body returns an anomaly; this
        ;; is the evidence.
-       (let [r (with-redefs [memberships/new-membership probed-new-membership]
+       (let [r (with-redefs [members/new-member probed-new-member]
                  (binding [*created-bank-id* created
                            *fail-bank-created?* true]
-                   (SUT/new-bank
-                    config
-                    "Rollback Bank"
-                    :bank-status-test
-                    "micro"
-                    ["GBP"]
-                    {:identity-provider idp
-                     :idv-provider idv-provider
-                     :membership {:user-id user-id :role :role-owner}
-                     :actor {:kind :actor-kind-member :principal-id user-id}
-                     :idempotency-key "ik-rollback"})))
+                   (SUT/new-bank config
+                                 "Rollback Bank"
+                                 :bank-status-test
+                                 "micro"
+                                 ["GBP"]
+                                 {:identity-provider idp
+                                  :idv-provider idv-provider
+                                  :member {:user-id user-id :role :role-owner}
+                                  :actor {:kind :actor-kind-member
+                                          :principal-id user-id}
+                                  :idempotency-key "ik-rollback"})))
              bank-id @created]
          (is (error/anomaly? r))
          (is (= :test/injected (error/kind r)))

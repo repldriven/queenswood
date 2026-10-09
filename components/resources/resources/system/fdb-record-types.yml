@@ -198,14 +198,14 @@ stores:
         modified: 1
         fields: [bank_id, kind, account_id, carry_delta]
         type: sum
-  memberships:
-    record-type: Membership
-    primary-key: [bank_id, membership_id]
+  members:
+    record-type: Member
+    primary-key: [bank_id, member_id]
     indexes:
-      - name: Membership_by_user
+      - name: Member_by_user
         added: 1
         modified: 1
-        fields: [user_id, membership_id]
+        fields: [user_id, member_id]
         unique: true
   banks:
     record-type: Bank
@@ -482,9 +482,9 @@ stores:
         modified: 1
         field: token_hash
         unique: true
-  membership-role-changes:
-    record-type: MembershipRoleChange
-    primary-key: [bank_id, membership_id, role_change_id]
+  member-role-changes:
+    record-type: MemberRoleChange
+    primary-key: [bank_id, member_id, role_change_id]
     indexes: []
   email-deliveries:
     record-type: EmailDelivery

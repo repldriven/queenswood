@@ -60,9 +60,9 @@ has no local account to verify; and bounce handling.
 - **The command dispatcher.** mono's `command` brick sends a command
   and awaits its reply. The `api` base's `commands/send` is the one
   caller today.
-- **The invitation.** `Invitation` under `schemas/memberships/`, and
+- **The invitation.** `Invitation` under `schemas/members/`, and
   the link's token minted and hashed by
-  `membership/new-invitation-token`, whose plaintext the API returns.
+  `member/new-invitation-token`, whose plaintext the API returns.
 
 ## Proposed Solution
 
@@ -78,7 +78,7 @@ is.
 ### The flow
 
 The invitation and its `invitation-created` or `invitation-resent`
-changelog entry commit together, in the `membership` processor's
+changelog entry commit together, in the `member` processor's
 transaction, or the `bank` processor's for a new bank's owner, as
 [memberships.md](memberships.md) describes. Three hops follow.
 
@@ -145,11 +145,11 @@ sequenceDiagram
     participant ER as external-adapters-service<br/>email/outbound-runner
     end
     box rgba(165, 216, 255, 0.45)
-    participant MC as topic-memberships-command<br/>partition-key = invitation
-    participant MR as topic-memberships-command-response
+    participant MC as topic-members-command<br/>partition-key = invitation
+    participant MR as topic-members-command-response
     end
     box rgba(208, 191, 255, 0.45)
-    participant MP as operational-processors-service<br/>membership/processor
+    participant MP as operational-processors-service<br/>member/processor
     end
     box rgba(233, 236, 239, 0.5)
     participant X as Mail server
@@ -220,7 +220,7 @@ named for the protocol rather than a provider:
 [ADR-0020](../adr/0020-providers-are-deployment-facts.md) keeps the
 provider in the `smtp/client` configuration. It acts on its own
 `EmailDelivery` records, and reads across domains the way the webhook
-component does, through `membership-query`, `bank-query` and `user`.
+component does, through `member-query`, `bank-query` and `user`.
 
 Two component kinds, registered from `system.clj`:
 
@@ -265,7 +265,7 @@ For each claimed delivery the runner:
    whether a newer delivery about the invitation was written. An
    invitation that is no longer pending, or one with a newer delivery,
    marks this one superseded and nothing is sent.
-2. Mints a token with `membership-query/new-invitation-token`, the one
+2. Mints a token with `member-query/new-invitation-token`, the one
    place the token's length and hash are decided.
 3. Sends `record-invitation-token` with the bank id, invitation id,
    the invitation's `expires_at` as read and the hash, and awaits the
@@ -288,9 +288,9 @@ token exists in the runner's memory and the message, and nowhere else.
 
 ### The command
 
-`record-invitation-token` is a `membership` processor command on the
-`memberships-command` topic, its Avro payload
-`schemas/memberships/record-invitation-token.avsc.json` registered in
+`record-invitation-token` is a `member` processor command on the
+`members-command` topic, its Avro payload
+`schemas/members/record-invitation-token.avsc.json` registered in
 `avro-schemas.yml`. The guard is in [memberships.md](memberships.md). The runner holds a
 dispatcher for the topic and its reply topic, as the `api` base does.
 
@@ -319,7 +319,7 @@ included by `external-adapters-service` and `monolith-service`:
 - `outbound-runner`, with its id minted per replica, so the group
   needs no single-replica pin under
   [ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md). It takes the
-  dispatcher of the shared `system/membership-dispatcher.yml` group,
+  dispatcher of the shared `system/member-dispatcher.yml` group,
   the client of the `smtp` group, and `console-url`, which is
   `http://localhost:5173` under the dev and test profiles and
   `!env CONSOLE_URL` otherwise.
@@ -380,13 +380,13 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
 
 ### The first slice
 
-1. The `membership` processor and `membership-query` split, the
+1. The `member` processor and `member-query` split, the
    invitation changelog and its relay runner, and the token leaving the
    API, under [memberships.md](memberships.md)'s slice 3.
 2. The records: `EmailDelivery` under a version bump, and the guard
    green under `just test-all`.
 3. The `email` brick: the event processor, the runner, the message, and
-   `record-invitation-token` in the `membership` processor.
+   `record-invitation-token` in the `member` processor.
 4. The wiring: `system/email.yml`, the external-adapters base and
    project, and Mailpit in the monolith's dev profile.
 5. The accept screen, under [memberships.md](memberships.md).
@@ -402,7 +402,7 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
   processor writing one delivery for a repeated event id; the claim
   under a live and a lapsed claim; and finding a newer delivery, against
   FDB under `with-test-system`.
-- **The `membership` brick** covers `record-invitation-token` refusing
+- **The `member` brick** covers `record-invitation-token` refusing
   a superseded `expires_at`, an expired and a non-pending invitation,
   and replacing an earlier hash.
 - **API scenarios** in `test-api-scenarios/scenarios/access/`, with
@@ -422,11 +422,11 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
   send that succeeds and an acknowledgement that fails send the email
   again on redelivery, and a mail server that is down holds the
   subscription rather than a row.
-- **The membership processor sending the email.** Rejected: the send is
+- **The member processor sending the email.** Rejected: the send is
   a call outside the platform, which the adapter makes after recording
-  the intent, and membership would learn what an invitation is
+  the intent, and the member brick would learn what an invitation is
   delivered by.
-- **The token minted by the API or the membership processor** and
+- **The token minted by the API or the member processor** and
   carried to the adapter. Rejected: the plaintext would sit on the bus
   or in a store, since only the hash is kept.
 - **A second hash on the invitation**, one shown to the inviter and one
@@ -459,7 +459,7 @@ Google Cloud refuses outbound port 25 and allows submission on 587 and
 - [webhooks.md](webhooks.md) — the claimed-intent runner this adapter
   copies.
 - [processor-bricks.md](processor-bricks.md) — the command the
-  `membership` processor adds.
+  `member` processor adds.
 - [transaction-processing.md](transaction-processing.md) — intent
   before the external call.
 - [outbound-delivery.md](outbound-delivery.md) — the mail server's

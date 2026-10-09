@@ -57,7 +57,7 @@
   component/idempotency {:local/root "../../components/idempotency"}
   component/idv-query {:local/root "../../components/idv-query"}
   component/ledger-account {:local/root "../../components/ledger-account"}
-  component/membership-query {:local/root "../../components/membership-query"}
+  component/member-query {:local/root "../../components/member-query"}
   component/bank-query {:local/root "../../components/bank-query"}
   component/interest {:local/root "../../components/interest"}
   component/scheduler {:local/root "../../components/scheduler"}

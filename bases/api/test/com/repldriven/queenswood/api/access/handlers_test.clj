@@ -7,7 +7,7 @@
   claim, and `GET /v1/me/invitations` lists nothing for an email that
   claim does not verify.
 
-  The command send and its Avro coding, and the `membership-query`,
+  The command send and its Avro coding, and the `member-query`,
   `user` and `bank-query` components, are stood in for, so no system is
   booted. A stand-in answers only on the test's own thread: a scenario
   running beside this namespace reaches the real function."
@@ -16,7 +16,7 @@
     [com.repldriven.queenswood.api.auth :as auth]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
-    [com.repldriven.queenswood.membership-query.interface :as memberships]
+    [com.repldriven.queenswood.member-query.interface :as memberships]
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.avro.interface :as avro]
@@ -37,7 +37,7 @@
   {:principal-type :user
    :principal-id user-id
    :bank-id bank-id
-   :membership {:membership-id membership-id :bank-id bank-id :role :role-admin}
+   :membership {:member-id membership-id :bank-id bank-id :role :role-admin}
    :roles #{:user auth/org-viewer auth/org-developer auth/org-admin}})
 
 (def ^:private operator-auth
@@ -74,7 +74,7 @@
     (fn [] (binding [*stand-ins* stand-ins] (f)))))
 
 (def ^:private change
-  {:bank-id bank-id :membership-id membership-id :invitation-id invitation-id})
+  {:bank-id bank-id :member-id membership-id :invitation-id invitation-id})
 
 (defn- commanding
   "Stand-ins answering every command with `reply`, called with the command
@@ -95,12 +95,12 @@
 (def ^:private schemas
   (zipmap ["invite" "resend-invitation" "withdraw-invitation"
            "accept-invitation" "decline-invitation" "change-role"
-           "remove-member" "leave-membership" "access-change"]
+           "remove-member" "leave-bank" "access-change"]
           (repeat ::schema)))
 
 (defn- with-avro
   [request]
-  (assoc request :avro schemas :dispatchers {:memberships ::dispatcher}))
+  (assoc request :avro schemas :dispatchers {:members ::dispatcher}))
 
 (defn- invitation
   [actor]
@@ -170,7 +170,7 @@
             {#'banks/get-bank (fn [_ _] {:name "Ada's Bank"})
              #'users/find-by-id find-person
              #'memberships/find-by-id
-             (fn [& _] {:membership-id membership-id :bank-id bank-id})
+             (fn [& _] {:member-id membership-id :bank-id bank-id})
              #'memberships/find-invitation-for-recipient
              (fn [_ _ proof]
                (reset! seen proof)

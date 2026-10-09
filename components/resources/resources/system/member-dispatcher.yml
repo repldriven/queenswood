@@ -1,0 +1,6 @@
+dispatcher: !system/component
+  system/component-kind: command/dispatcher
+  bus: !system/ref message-bus.bus
+  command-channel: !keyword members-command
+  command-response-channel: !keyword members-command-response
+  timeout-ms: !include system/command-timeout-ms.yml
