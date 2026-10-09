@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.onfido-adapter.commands
   (:require
+    [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
     [com.repldriven.queenswood.onfido-relay.interface :as relay]
 
     [com.repldriven.mono.avro.interface :as avro]
@@ -10,22 +11,27 @@
 
 (defn- submit-idv-check-intent
   "Persist the outbound Onfido submission as a pending intent in one FDB
-  transaction, then ack. The out-of-transaction runner starts or
-  resumes the Onfido workflow run. A redelivered command (same session)
-  dedupes at the unique index."
+  transaction, then ack. Onfido's applicant takes a name, so the intent
+  carries the party's legal name, which the command does not. The
+  out-of-transaction runner starts or resumes the Onfido workflow run. A
+  redelivered command (same session) dedupes at the unique index."
   [config data]
   (let [{:keys [record-db record-store]} config
         fdb-config {:record-db record-db :record-store record-store}
-        {:keys [verification-id session-id]} data
-        res (relay/save-intent fdb-config
-                               {:intent-id (str (utility/uuidv7))
-                                :idempotency-key (or session-id verification-id)
-                                :kind :onfido-outbound-intent-kind-check
-                                :subjects [verification-id]
-                                :request (pr-str data)
-                                :status :outbound-intent-status-pending
-                                :attempt-count 0
-                                :created-at (utility/now)})]
+        {:keys [verification-id session-id party-id]} data
+        legal-name (idv-provider/party-name fdb-config party-id)
+        res (if (error/anomaly? legal-name)
+              legal-name
+              (relay/save-intent
+               fdb-config
+               {:intent-id (str (utility/uuidv7))
+                :idempotency-key (or session-id verification-id)
+                :kind :onfido-outbound-intent-kind-check
+                :subjects [verification-id]
+                :request (pr-str (assoc data :legal-name legal-name))
+                :status :outbound-intent-status-pending
+                :attempt-count 0
+                :created-at (utility/now)}))]
     (cond
      (not (error/anomaly? res))
      {:status "ACCEPTED"}

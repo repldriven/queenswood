@@ -43,12 +43,11 @@
                 (idv-provider/for-bank providers bank))))))
 
 (defn- check-data
-  [session party criteria]
+  [session criteria]
   (let [{:keys [verification-id party-id session-id channel return-url email]}
         session]
     (utility/assoc-some {:verification-id verification-id
                          :party-id party-id
-                         :legal-name (:legal-name party)
                          :session-id session-id
                          :verifications (keep (fn [c]
                                                 (when (:verification c)
@@ -64,12 +63,12 @@
                         :email email)))
 
 (defn- record-opening
-  [txn session party criteria]
+  [txn session criteria]
   (let [{:keys [bank-id session-id]} session]
     (bank-activity/record txn
                           {:bank-id bank-id
                            :event-name "idv-session-opening"
-                           :data (check-data session party criteria)
+                           :data (check-data session criteria)
                            :causation-id session-id
                            :dedup-key session-id})))
 
@@ -189,7 +188,6 @@
                                        data
                                        policies
                                        opened-today)
-          party (party-query/get-party txn bank-id party-id)
           session (store/save-session txn
                                       (domain/new-session idv data)
                                       nil)
@@ -198,7 +196,6 @@
                             (assoc session
                                    :channel (:channel data)
                                    :email (:email data))
-                            party
                             criteria)]
          session))
      :idv/open-session

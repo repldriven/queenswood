@@ -30,8 +30,7 @@
    :kind :zyphe-outbound-intent-kind-check
    :request (pr-str {:bank-id "bnk.1"
                      :verification-id dedup-key
-                     :party-id "pty.1"
-                     :legal-name "Ada Lovelace"})
+                     :party-id "pty.1"})
    :status :outbound-intent-status-pending
    :attempt-count 0
    :created-at (utility/now)})

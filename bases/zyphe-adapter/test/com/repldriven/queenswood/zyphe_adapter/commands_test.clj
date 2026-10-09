@@ -19,7 +19,6 @@
                             {:bank-id "bnk.1"
                              :verification-id verification-id
                              :party-id "pty.1"
-                             :legal-name "Arthur Dent"
                              :verifications []
                              :screenings []})})
 

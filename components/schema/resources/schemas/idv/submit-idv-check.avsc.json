@@ -16,10 +16,6 @@
       "type": "string"
     },
     {
-      "name": "legal_name",
-      "type": "string"
-    },
-    {
       "name": "session_id",
       "type": [
         "null",

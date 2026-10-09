@@ -95,8 +95,7 @@
                                         :verification-id "idv.1"
                                         :session-id "ses.1"
                                         :party-id "pty.1"
-                                        :email "ada@example.com"
-                                        :legal-name "Ada Lovelace"})]
+                                        :email "ada@example.com"})]
     (testing "the person is identified by party id and email, never by name"
       (is (= [{:type "EXTERNAL_ID" :externalId "pty.1"}] (:credentials body)))
       (is (= "ada@example.com" (:email body)))

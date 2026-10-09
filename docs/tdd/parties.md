@@ -55,13 +55,14 @@ provider account per bank, which ADR-0045 requires and
   bank.
 - **What reaches a provider and comes back.** `submit-idv-check`, and
   the `idv-session-opening` activity it is published from, carry the
-  person's legal name and the session's email. Onfido's relay creates
-  its applicant from the name and the email, and Zyphe's run carries the
-  party id in its `customData`. Each adapter grades the name read off
-  the document against the party's, read by party id through
-  `idv-provider/party-name`, and writes the grade, never the name, into
-  its `idv-evidence` outbox entry. A settled or failed intent keeps
-  only the ids and the criteria it asked for.
+  session's email and no name. Onfido's adapter reads the party's legal
+  name by party id into the intent it keeps, since its applicant takes
+  one, and its relay creates the applicant from the name and the email;
+  Zyphe's run carries the party id in its `customData`. Each adapter
+  grades the name read off the document against the party's, read by
+  party id through `idv-provider/party-name`, and writes the grade,
+  never the name, into its `idv-evidence` outbox entry. A settled or
+  failed intent keeps only the ids and the criteria it asked for.
 - **Lifecycle.** `suspend-party`, `resume-party` and `close-party` are
   direct single-phase commands guarded on source status in `party`'s
   `domain.clj`, per
@@ -456,11 +457,12 @@ on the provider's page.
   `legal_name`, the one name a run is graded against.
 - **National identifiers.** None is recorded.
 - **The run's input.** `submit-idv-check` and the
-  `idv-session-opening` activity carry the person's legal name and no
-  date of birth or address. Onfido's relay creates its applicant from
-  the name, split at its last space, and the email alone, and Zyphe's
-  run carries the party id in its `customData`, so each adapter can
-  read the party's name back when the result arrives.
+  `idv-session-opening` activity carry no name, date of birth or
+  address. Onfido's adapter reads the party's legal name into the
+  intent it keeps, and its relay creates the applicant from the name,
+  split at its last space, and the email alone; Zyphe's run carries the
+  party id in its `customData`, so each adapter can read the party's
+  name back when the result arrives.
 - **Evidence.** `IdvDocumentEvidence` holds no name read off a
   document, only `IdvNameMatch name_match`, how it compares. An outbox
   entry's payload, the bus and `Idv.evidence` therefore carry none.
