@@ -134,12 +134,21 @@
 
 (deftest transfer-outcome-test
   (let [pending {:transfer-id "ptr.1"
-                 :status :provider-transfer-status-pending}]
-    (is (= :provider-transfer-status-failed
-           (:status (SUT/transfer-outcome pending
-                                          :provider-transfer-status-failed
-                                          "Insufficient funds"))))
-    (is (nil? (SUT/transfer-outcome
-               (assoc pending :status :provider-transfer-status-completed)
-               :provider-transfer-status-failed
-               nil)))))
+                 :status :payment-provider-transfer-status-pending}]
+    (let [failed (SUT/transfer-outcome pending
+                                       :payment-provider-transfer-status-failed
+                                       "Insufficient funds")]
+      (is (= :payment-provider-transfer-status-failed (:status failed)))
+      (is (= "Insufficient funds" (:failed-reason failed)))
+      (is (= (:failed-at failed) (:updated-at failed))))
+    (let [completed (SUT/transfer-outcome
+                     pending
+                     :payment-provider-transfer-status-completed
+                     nil)]
+      (is (= (:completed-at completed) (:updated-at completed)))
+      (is (not (contains? completed :failed-reason))))
+    (is (nil?
+         (SUT/transfer-outcome
+          (assoc pending :status :payment-provider-transfer-status-completed)
+          :payment-provider-transfer-status-failed
+          nil)))))

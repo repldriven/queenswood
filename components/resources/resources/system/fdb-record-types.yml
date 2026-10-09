@@ -585,16 +585,12 @@ stores:
         added: 1
         modified: 1
         field: status
-  provider-transfers:
-    record-type: ProviderTransfer
+  payment-provider-transfers:
+    record-type: PaymentProviderTransfer
     primary-key: [bank_id, transfer_id]
     indexes:
-      - name: ProviderTransfer_by_transaction_pair
+      - name: PaymentProviderTransfer_by_transaction_pair
         added: 1
         modified: 1
-        fields: [transaction_id, debtor_account_id, creditor_account_id]
+        fields: [bank_id, transaction_id, debtor_account_id, creditor_account_id]
         unique: true
-      - name: ProviderTransfer_by_status
-        added: 1
-        modified: 1
-        fields: [status, created_at]

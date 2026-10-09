@@ -40,7 +40,7 @@ see [policy-evaluation.md](policy-evaluation.md).
   `topic-bank-activity-event`, partitioned by bank, where
   `payment/activity-event-processor` reads it.
 - **Mirroring.** `payment`'s `events/provider_transfer.clj` turns a
-  posted transaction into `ProviderTransfer` records and
+  posted transaction into `PaymentProviderTransfer` records and
   `transfer-between-accounts` commands under `balances: per-account`,
   as [payments.md](payments.md) describes.
 
@@ -70,7 +70,7 @@ its key.
 
 ```mermaid
 stateDiagram-v2
-    state "ProviderTransfer, one per netted pair" as PT {
+    state "PaymentProviderTransfer, one per netted pair" as PT {
         [*] --> pending: transaction-posted<br/>netted and recorded
         pending --> completed: transfer-completed
         pending --> failed: transfer-failed<br/>logged at ERROR, the ledger stands
@@ -340,19 +340,19 @@ sequenceDiagram
     end
     alt a posted default leg on an account other than the scheme's and 1100, or one that does not net to zero
     critical transact
-    AP->>DB: read the ProviderTransfers already recorded for the transaction
+    AP->>DB: read the PaymentProviderTransfers already recorded for the transaction
     alt none recorded
     opt a leg's account not cached
     AP->>DB: read the CashAccounts behind the legs not cached, in one batch
     end
     loop each netted pair
-    AP->>DB: save a ProviderTransfer, pending
+    AP->>DB: save a PaymentProviderTransfer, pending
     end
     else recorded, a redelivery
     Note over AP: the recorded transfers, nothing saved
     end
     end
-    loop each ProviderTransfer still pending
+    loop each PaymentProviderTransfer still pending
     AP->>MC: transfer-between-accounts, debtor and creditor accounts
     end
     else no posted default leg, or the scheme's own settlement
@@ -376,14 +376,14 @@ sequenceDiagram
 
 The activity event processor nets the transaction's posted default legs
 per party: the debtor's cash account owes, the creditor's is owed, and
-the pair becomes one `ProviderTransfer`, unique on transaction and pair.
-The bank's providers, its 1100 and own-funds account, and an account's
-party once it has a provider account never change, so each is read
-once and cached for an hour. A posting with no posted default leg, as
-an outbound's reservation, or whose posted default legs are only on the
-account the scheme moved the money through and on 1100 and net to zero,
-as the scheme's own settlement, moves no money whatever its accounts'
-parties, so it reads and records nothing.
+the pair becomes one `PaymentProviderTransfer`, unique on bank,
+transaction and pair. The bank's providers, its 1100 and own-funds
+account, and an account's party once it has a provider account never
+change, so each is read once and cached for an hour. A posting with no
+posted default leg, as an outbound's reservation, or whose posted
+default legs are only on the account the scheme moved the money through
+and on 1100 and net to zero, as the scheme's own settlement, moves no
+money whatever its accounts' parties, so it reads and records nothing.
 
 A `transaction-posted` delivered again, because a send failed or the
 process stopped before the ack, finds its transfers recorded, saves
@@ -546,9 +546,9 @@ sequenceDiagram
     end
     SE->>PE: transfer-completed
     critical transact
-    PE->>DB: read the ProviderTransfer
+    PE->>DB: read the PaymentProviderTransfer
     alt still pending
-    PE->>DB: save the ProviderTransfer, completed
+    PE->>DB: save the PaymentProviderTransfer, completed
     else finished, a redelivery
     Note over PE: nothing saved
     end
@@ -586,10 +586,11 @@ reconcile.
 ## Known Limitations
 
 - **A failed mirror leaves the balances apart.** Nothing retries a
-  failed `ProviderTransfer` or compares the provider's balances with the
-  ledger. A `transaction-posted` whose handler keeps failing, as when the
-  command cannot be sent, is dead-lettered once its retries run out and
-  its offset committed past it, leaving its `ProviderTransfer` pending.
+  failed `PaymentProviderTransfer` or compares the provider's balances
+  with the ledger. A `transaction-posted` whose handler keeps failing, as
+  when the command cannot be sent, is dead-lettered once its retries run
+  out and its offset committed past it, leaving its
+  `PaymentProviderTransfer` pending.
 - **A bank's activity is serial.** A bank's activity log is read by one
   relay runner and its entries by one consumer, so one bank's mirrors
   are sent in order and at the rate that consumer reaches.

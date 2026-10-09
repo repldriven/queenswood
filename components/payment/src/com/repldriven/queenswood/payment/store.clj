@@ -11,7 +11,7 @@
 (def ^:private internal-payments-store-name "internal-payments")
 (def ^:private outbound-payments-store-name "outbound-payments")
 (def ^:private inbound-payments-store-name "inbound-payments")
-(def ^:private provider-transfers-store-name "provider-transfers")
+(def ^:private provider-transfers-store-name "payment-provider-transfers")
 
 (def transact fdb/transact)
 (def uniqueness-violation? fdb/uniqueness-violation?)
@@ -91,17 +91,18 @@
    "Failed to save inbound payment"))
 
 (defn transfers-for-transaction
-  "The provider transfers recorded for `transaction-id`."
-  [txn transaction-id]
+  "`bank-id`'s provider transfers recorded for `transaction-id`."
+  [txn bank-id transaction-id]
   (fdb/transact
    txn
    (fn [txn]
-     (mapv schema/pb->ProviderTransfer
-           (fdb/query-records (fdb/open txn provider-transfers-store-name)
-                              "ProviderTransfer"
-                              "transaction_id"
-                              transaction-id
-                              {:index "ProviderTransfer_by_transaction_pair"})))
+     (mapv schema/pb->PaymentProviderTransfer
+           (fdb/query-records-compound
+            (fdb/open txn provider-transfers-store-name)
+            "PaymentProviderTransfer"
+            [["bank_id" bank-id]
+             ["transaction_id" transaction-id]]
+            {:index "PaymentProviderTransfer_by_transaction_pair"})))
    :payment/transfers-for-transaction
    "Failed to read a transaction's provider transfers"))
 
@@ -113,7 +114,7 @@
      (some-> (fdb/load-record (fdb/open txn provider-transfers-store-name)
                               bank-id
                               transfer-id)
-             schema/pb->ProviderTransfer))
+             schema/pb->PaymentProviderTransfer))
    :payment/get-transfer
    "Failed to read a provider transfer"))
 
@@ -123,7 +124,7 @@
    txn
    (fn [txn]
      (fdb/save-record (fdb/open txn provider-transfers-store-name)
-                      (schema/ProviderTransfer->java transfer)))
+                      (schema/PaymentProviderTransfer->java transfer)))
    :payment/save-transfer
    "Failed to save a provider transfer"))
 

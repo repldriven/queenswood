@@ -325,17 +325,16 @@ expense has paid out.
   does not; and the bank's own funds for any other GL account and
   whatever the legs leave unbalanced. It pairs the nets into
   transfers, so a scheme's own settlement nets to nothing.
-- **The record.** Each transfer is a `ProviderTransfer` in the
-  `provider-transfers` store — transaction id, debtor and creditor cash
-  account ids, the debtor absent for money from outside, amount, status
-  `pending`, `completed` or `failed` — unique on transaction id and
-  pair. It is sent as `transfer-between-accounts` on the provider's
-  command channel naming the cash accounts, and the adapter resolves
-  each to its provider account, the one the adapter recorded when it
-  opened the account or a reissue last moved it to, holding the
-  transfer behind an account's opening. The adapter reports
-  `transfer-completed` or `transfer-failed` on
-  `schemes-payments-event`.
+- **The record.** Each transfer is a `PaymentProviderTransfer` in the
+  `payment-provider-transfers` store — transaction id, debtor and
+  creditor cash account ids, the debtor absent for money from outside,
+  amount, status `pending`, `completed` or `failed` — unique on bank,
+  transaction id and pair. It is sent as `transfer-between-accounts` on
+  the provider's command channel naming the cash accounts, and the
+  adapter resolves each to its provider account, the one the adapter
+  recorded when it opened the account or a reissue last moved it to,
+  holding the transfer behind an account's opening. The adapter reports
+  `transfer-completed` or `transfer-failed` on `schemes-payments-event`.
 - **A failed transfer.** The ledger is not reversed: the customer's
   payment stands, and the failure is logged at ERROR with the
   transaction id for the bank to reconcile.

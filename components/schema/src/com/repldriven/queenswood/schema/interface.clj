@@ -77,7 +77,7 @@
      InboundPaymentProto$InboundPayment
      InternalPaymentProto$InternalPayment
      OutboundPaymentProto$OutboundPayment
-     ProviderTransferProto$ProviderTransfer)
+     PaymentProviderTransferProto$PaymentProviderTransfer)
     (com.repldriven.queenswood.schemas.payee_check
      PayeeCheckProto$PayeeCheck)
     (com.repldriven.queenswood.schemas.clearbank
@@ -1123,10 +1123,6 @@
   (ZypheOutboundIntentProto$ZypheOutboundIntent/parseFrom
    (ZypheOutboundIntent->pb m)))
 
-(def ^{:doc "Map of ProviderTransferStatus keyword to its proto enum int."}
-     provider-transfer-status->int
-  payments/ProviderTransferStatus-label2val)
-
 (def ^{:doc "Parse ModulrOutboxEvent protobuf bytes into a Clojure map."}
      pb->ModulrOutboxEvent
   modulr/pb->ModulrOutboxEvent)
@@ -1186,37 +1182,42 @@
   (Form3OutboundIntentProto$Form3OutboundIntent/parseFrom
    (Form3OutboundIntent->pb m)))
 
-(defn pb->ProviderTransfer
-  "Parse ProviderTransfer protobuf bytes into a Clojure map, stripping
-  the optional `debtor-account-id` and `failure-reason` when they
-  deserialise as the proto2 empty-string default.
+(def ^:private payment-provider-transfer-unset
+  {:debtor-account-id ""
+   :failed-reason ""
+   :completed-at 0
+   :failed-at 0
+   :updated-at 0})
+
+(defn pb->PaymentProviderTransfer
+  "Parse PaymentProviderTransfer protobuf bytes into a Clojure map. Each
+  optional field is present only when set: a debtor where the money came
+  from inside the provider, and an outcome's `_at` and a failed one's
+  reason.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [transfer (payments/pb->ProviderTransfer input)]
-    (cond-> transfer
-            (= "" (:debtor-account-id transfer))
-            (dissoc :debtor-account-id)
+  (without-unset (payments/pb->PaymentProviderTransfer input)
+                 payment-provider-transfer-unset))
 
-            (= "" (:failure-reason transfer))
-            (dissoc :failure-reason))))
-
-(defn ProviderTransfer->pb
-  "Serialise a ProviderTransfer map to protobuf bytes.
+(defn PaymentProviderTransfer->pb
+  "Serialise a PaymentProviderTransfer map to protobuf bytes.
 
   Args:
-  - m: ProviderTransfer map matching the generated schema."
+  - m: PaymentProviderTransfer map matching the generated schema."
   [m]
-  (proto/->pb (payments/new-ProviderTransfer m)))
+  (proto/->pb (payments/new-PaymentProviderTransfer m)))
 
-(defn ProviderTransfer->java
-  "Parse a ProviderTransfer map into the generated Java protobuf class.
+(defn PaymentProviderTransfer->java
+  "Parse a PaymentProviderTransfer map into the generated Java protobuf
+  class.
 
   Args:
-  - m: ProviderTransfer map matching the generated schema."
+  - m: PaymentProviderTransfer map matching the generated schema."
   [m]
-  (ProviderTransferProto$ProviderTransfer/parseFrom (ProviderTransfer->pb m)))
+  (PaymentProviderTransferProto$PaymentProviderTransfer/parseFrom
+   (PaymentProviderTransfer->pb m)))
 
 (def ^{:doc "Parse Policy protobuf bytes into a Clojure map."} pb->Policy
   policies/pb->Policy)
