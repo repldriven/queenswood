@@ -35,20 +35,21 @@
    :idempotency-key "5b2f0f6e-outbound"})
 
 (def ^:private stored-inbound
-  {:payment-id "pmt.01kprbmgcj35ptc8npmybhh4sa"
-   :bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-   :scheme "fps"
-   :scheme-transaction-id "cb-txn-1"
-   :end-to-end-id "e2e-1"
+  {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+   :payment-id "pmt.01kprbmgcj35ptc8npmybhh4sa"
+   :status :inbound-payment-status-settled
+   :scheme-type :scheme-type-fps
    :creditor-account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
-   :currency "GBP"
-   :amount 100000
-   :payment-status :inbound-payment-status-settled
-   :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
    :debtor-name "Ford Prefect"
+   :amount 100000
+   :currency "GBP"
    :reference "Lunch"
-   :return-failure-reason "The payment could not be returned"
+   :end-to-end-id "e2e-1"
+   :scheme-transaction-id "cb-txn-1"
+   :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
    :business-day "2023-11-14"
+   :return-failed-reason "The payment could not be returned"
+   :settled-at 1700000000001
    :created-at 1700000000000
    :updated-at 1700000000001
    :scheme-payload "{}"})
@@ -75,6 +76,16 @@
       (assoc :payment-status (:status stored-outbound)
              :scheme :payment-scheme-fps)))
 
+(def ^:private shown-inbound
+  "The stored inbound payment under the keys a body uses: its `status` as
+  `payment-status`, its scheme type as the scheme's name, and its failed
+  return's reason as `return-failure-reason`."
+  (-> stored-inbound
+      (dissoc :status :scheme-type :return-failed-reason)
+      (assoc :payment-status (:status stored-inbound)
+             :scheme "fps"
+             :return-failure-reason (:return-failed-reason stored-inbound))))
+
 (deftest declared-keys-cover-the-fixtures-test
   (testing "each fixture carries every key its component declares"
     (is (= (disj (set (declared-keys "OutboundPayment")) :failure :return)
@@ -82,7 +93,7 @@
                         (keys shown-outbound)))))
     (is (= (set (declared-keys "InboundPayment"))
            (set (filter (set (declared-keys "InboundPayment"))
-                        (keys stored-inbound)))))
+                        (keys shown-inbound)))))
     (is (= (set (declared-keys "InternalPayment"))
            (set (filter (set (declared-keys "InternalPayment"))
                         (keys stored-internal)))))))
@@ -107,7 +118,7 @@
 (deftest ->body-keeps-every-declared-key-test
   (is (= (select-keys shown-outbound (declared-keys "OutboundPayment"))
          (SUT/->outbound-body stored-outbound)))
-  (is (= (select-keys stored-inbound (declared-keys "InboundPayment"))
+  (is (= (select-keys shown-inbound (declared-keys "InboundPayment"))
          (SUT/->inbound-body stored-inbound)))
   (is (= (select-keys stored-internal (declared-keys "InternalPayment"))
          (SUT/->internal-body stored-internal))))

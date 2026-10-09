@@ -12,11 +12,6 @@
 
 (def transact fdb/transact)
 
-(defn- in-bank
-  [bank-id payment]
-  (when (= bank-id (:bank-id payment))
-    payment))
-
 (defn- oldest-first
   [payments]
   (vec (sort-by (juxt :created-at :payment-id) payments)))
@@ -113,10 +108,10 @@
   (fdb/transact
    txn
    (fn [txn]
-     (some->> (fdb/load-record (fdb/open txn inbound-payments-store-name)
-                               payment-id)
-              schema/pb->InboundPayment
-              (in-bank bank-id)))
+     (some-> (fdb/load-record (fdb/open txn inbound-payments-store-name)
+                              bank-id
+                              payment-id)
+             schema/pb->InboundPayment))
    :payment/find-inbound-payment
    "Failed to find inbound payment"))
 
@@ -132,7 +127,7 @@
 
 (defn- open-with-status
   [txn end-to-end-id status]
-  (filterv (fn [payment] (= status (:payment-status payment)))
+  (filterv (fn [payment] (= status (:status payment)))
            (by-end-to-end-id txn end-to-end-id)))
 
 (defn- open-holds
@@ -218,10 +213,10 @@
              store
              "InboundPayment"
              [["bank_id" bank-id]
-              ["payment_status"
+              ["status"
                (fdb/enum-value store
                                "InboundPayment"
-                               "payment_status"
+                               "status"
                                (schema/inbound-payment-status->int status))]]
              {:index "InboundPayment_by_bank_status_created_at"})
             (map schema/pb->InboundPayment)

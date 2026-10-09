@@ -244,6 +244,7 @@ stores:
     indexes: []
   inbound-payments:
     record-type: InboundPayment
+    primary-key: [bank_id, payment_id]
     indexes:
       - name: InboundPayment_by_scheme_transaction_id
         added: 1
@@ -262,7 +263,7 @@ stores:
       - name: InboundPayment_by_bank_status_created_at
         added: 1
         modified: 1
-        fields: [bank_id, payment_status, created_at]
+        fields: [bank_id, status, created_at]
   outbound-payments:
     record-type: OutboundPayment
     primary-key: [bank_id, payment_id]

@@ -195,7 +195,7 @@
           txn
           suspended
           {:change-kind :inbound-payment-change-kind-suspend
-           :status-before (:payment-status held)})
+           :status-before (:status held)})
        _ (record-suspended txn suspended creditor-account-id)]
       suspended)))
 
@@ -260,7 +260,7 @@
                 txn
                 released
                 {:change-kind :inbound-payment-change-kind-release
-                 :status-before (:payment-status held)})]
+                 :status-before (:status held)})]
             released))))))
 
 (defn- record-admitted-settlement
@@ -302,7 +302,7 @@
           txn
           settled
           {:change-kind :inbound-payment-change-kind-settle
-           :status-before (:payment-status admitted)})]
+           :status-before (:status admitted)})]
       settled)))
 
 (defn- admit
@@ -492,7 +492,7 @@
           existing
           (do (log/infof "Inbound hold already recorded: %s"
                          {:end-to-end-id end-to-end-id
-                          :payment-status (:payment-status existing)})
+                          :status (:status existing)})
               existing)
 
           (and account (not (checks/operable? account)))
@@ -553,7 +553,7 @@
                          txn
                          returned
                          {:change-kind :inbound-payment-change-kind-return
-                          :status-before (:payment-status held)})]
+                          :status-before (:status held)})]
              (log/infof "Inbound held transaction returned: %s"
                         {:end-to-end-id end-to-end-id})
              returned))))
@@ -577,16 +577,16 @@
                       {:message "No inbound payment carries the returned id"
                        :scheme-transaction-id scheme-transaction-id})
 
-          (= :inbound-payment-status-returned (:payment-status payment))
+          (= :inbound-payment-status-returned (:status payment))
           (do (log/infof "Inbound payment return already processed: %s"
                          {:payment-id (:payment-id payment)})
               payment)
 
-          (not= :inbound-payment-status-suspended (:payment-status payment))
+          (not= :inbound-payment-status-suspended (:status payment))
           (error/fail :payment/return-inbound
                       {:message "Cannot return an inbound payment not suspended"
                        :payment-id (:payment-id payment)
-                       :payment-status (:payment-status payment)})
+                       :status (:status payment)})
 
           :else
           (let [{:keys [bank-id currency]} payment]
@@ -617,7 +617,7 @@
                   txn
                   returned
                   {:change-kind :inbound-payment-change-kind-return
-                   :status-before (:payment-status payment)})]
+                   :status-before (:status payment)})]
               (log/infof "Suspended inbound payment returned: %s"
                          {:payment-id (:payment-id payment)})
               returned)))))
@@ -642,11 +642,11 @@
                        "No inbound payment carries the failed return's id"
                        :scheme-transaction-id scheme-transaction-id})
 
-          (or (not= :inbound-payment-status-suspended (:payment-status payment))
-              (:return-failure-reason payment))
+          (or (not= :inbound-payment-status-suspended (:status payment))
+              (:return-failed-reason payment))
           (do (log/infof "Inbound return failure already processed: %s"
                          {:payment-id (:payment-id payment)
-                          :payment-status (:payment-status payment)})
+                          :status (:status payment)})
               payment)
 
           :else
@@ -658,7 +658,7 @@
                   txn
                   failed
                   {:change-kind :inbound-payment-change-kind-return-failed
-                   :status-before (:payment-status payment)})]
+                   :status-before (:status payment)})]
               (log/warnf "Suspended inbound payment not returned: %s"
                          {:payment-id (:payment-id payment) :reason reason})
               failed)))))

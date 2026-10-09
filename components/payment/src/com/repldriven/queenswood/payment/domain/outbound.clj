@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.payment.domain.outbound
   (:require
     [com.repldriven.queenswood.payment.domain.checks :as checks]
+    [com.repldriven.queenswood.payment.domain.scheme :as scheme]
 
     [com.repldriven.queenswood.policy.interface :as policy]
 
@@ -80,21 +81,6 @@
        :reference
        reference))))
 
-(def ^:private scheme-types
-  "Each scheme's name, as a provider declares it and an adapter is told
-  it, by its `SchemeType`."
-  {:scheme-type-fps "fps"})
-
-(defn scheme-name
-  [scheme-type]
-  (scheme-types scheme-type))
-
-(defn- scheme-type
-  [scheme]
-  (some (fn [[scheme-type scheme-name]]
-          (when (= scheme scheme-name) scheme-type))
-        scheme-types))
-
 (defn new-outbound-payment
   [data business-day transaction-id]
   (let [{:keys [idempotency-key bank-id debtor-account-id
@@ -106,7 +92,7 @@
      {:bank-id bank-id
       :payment-id (utility/generate-id "pmt")
       :status :outbound-payment-status-pending
-      :scheme-type (scheme-type scheme)
+      :scheme-type (scheme/scheme-type scheme)
       :debtor-account-id debtor-account-id
       :creditor-name creditor-name
       :creditor-bban creditor-bban

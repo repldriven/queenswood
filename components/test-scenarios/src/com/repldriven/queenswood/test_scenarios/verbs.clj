@@ -1445,7 +1445,7 @@
                                     (or (nil? account-id)
                                         (= account-id
                                            (:creditor-account-id p))))))
-                     (map :payment-status))
+                     (map :status))
                payments))))
    []
    (for [{bank-id :real-id} (vals banks)

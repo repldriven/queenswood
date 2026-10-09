@@ -23,7 +23,7 @@
   (assoc changelog
          :bank-id (:bank-id payment)
          :payment-id (:payment-id payment)
-         :status-after (or (:status payment) (:payment-status payment))
+         :status-after (:status payment)
          :updated-at (or (:updated-at payment) (:created-at payment))))
 
 (defn save-internal-payment

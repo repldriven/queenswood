@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.payment.domain.checks :as checks]
     [com.repldriven.queenswood.payment.domain.internal :as internal]
     [com.repldriven.queenswood.payment.domain.outbound :as outbound]
+    [com.repldriven.queenswood.payment.domain.scheme :as scheme]
     [com.repldriven.queenswood.payment.provider :as provider]
     [com.repldriven.queenswood.payment.store :as store]
 
@@ -136,7 +137,7 @@
                                   :reference
                                   reference
                                   :scheme
-                                  (outbound/scheme-name scheme-type))
+                                  (scheme/scheme-name scheme-type))
                            :causation-id payment-id
                            :dedup-key payment-id})))
 

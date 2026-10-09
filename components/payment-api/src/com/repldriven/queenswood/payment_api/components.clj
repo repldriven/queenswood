@@ -152,6 +152,8 @@
 
 (def ^:private scheme-names {:scheme-type-fps :payment-scheme-fps})
 
+(def ^:private inbound-scheme-names {:scheme-type-fps "fps"})
+
 (defn ->outbound-body
   [payment]
   (let [{:keys [status scheme-type]} payment]
@@ -166,7 +168,18 @@
 
 (defn ->inbound-body
   [payment]
-  (select-keys payment inbound-payment-keys))
+  (let [{:keys [status scheme-type created-at updated-at
+                return-failed-reason]}
+        payment]
+    (utility/assoc-some (select-keys (assoc payment
+                                            :payment-status status
+                                            :scheme (inbound-scheme-names
+                                                     scheme-type)
+                                            :updated-at (or updated-at
+                                                            created-at))
+                                     inbound-payment-keys)
+                        :return-failure-reason
+                        return-failed-reason)))
 
 (defn ->internal-body
   [payment]

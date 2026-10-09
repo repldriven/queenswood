@@ -801,43 +801,34 @@
   [m]
   (LedgerAccountProto$LedgerAccount/parseFrom (LedgerAccount->pb m)))
 
+(def ^:private inbound-payment-unset
+  {:creditor-account-id ""
+   :debtor-name ""
+   :reference ""
+   :transaction-id ""
+   :suspended-reason-code ""
+   :suspended-reason ""
+   :return-failed-reason ""
+   :admitted-at 0
+   :held-at 0
+   :settled-at 0
+   :suspended-at 0
+   :returned-at 0
+   :return-failed-at 0
+   :updated-at 0})
+
 (defn pb->InboundPayment
-  "Parse InboundPayment protobuf bytes into a Clojure map, stripping
-  every optional string that deserialises as the proto2 empty-string
-  default so each key is present only when the record carries a real
-  value: a suspended inbound credits no account, a held or returned one
-  posts no transaction, the scheme supplies `debtor-name` and
-  `reference` only when the debtor's bank sent them, and only a suspended
-  or returned one carries a `suspense-reason-code` and `suspense-reason`,
-  and only a suspended one the provider did not send back a
-  `return-failure-reason`.
+  "Parse InboundPayment protobuf bytes into a Clojure map. Each optional
+  field is present only when set: a suspended inbound credits no account,
+  a held or admitted one posts no transaction, the scheme supplies
+  `debtor-name` and `reference` only when the debtor's bank sent them,
+  each state's `_at` only once the payment reached it, a suspended one's
+  reason code and reason, and a failed return's reason.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (let [payment (payments/pb->InboundPayment input)]
-    (cond->
-     payment
-     (= "" (:creditor-account-id payment))
-     (dissoc :creditor-account-id)
-
-     (= "" (:transaction-id payment))
-     (dissoc :transaction-id)
-
-     (= "" (:debtor-name payment))
-     (dissoc :debtor-name)
-
-     (= "" (:reference payment))
-     (dissoc :reference)
-
-     (= "" (:suspense-reason-code payment))
-     (dissoc :suspense-reason-code)
-
-     (= "" (:suspense-reason payment))
-     (dissoc :suspense-reason)
-
-     (= "" (:return-failure-reason payment))
-     (dissoc :return-failure-reason))))
+  (without-unset (payments/pb->InboundPayment input) inbound-payment-unset))
 
 (defn InboundPayment->pb
   "Serialise an InboundPayment map to protobuf bytes.

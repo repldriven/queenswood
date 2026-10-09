@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.payment.domain.inbound
   (:require
     [com.repldriven.queenswood.payment.domain.checks :as checks]
+    [com.repldriven.queenswood.payment.domain.scheme :as scheme]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.utility.interface :as utility]))
@@ -43,29 +44,49 @@
        :reference
        reference))))
 
-(defn new-inbound-payment
-  [data creditor-account-id bank-id business-day transaction-id]
+(defn- arrived
+  "An inbound as it arrives in `status`, recording when it reached it."
+  [data bank-id business-day status at-key]
   (let [{:keys [scheme-transaction-id end-to-end-id scheme
                 currency amount debtor-name reference]}
         data
         now (utility/now)]
-    (utility/assoc-some
-     {:payment-id (utility/generate-id "pmt")
-      :scheme-transaction-id scheme-transaction-id
-      :end-to-end-id end-to-end-id
-      :scheme scheme
-      :creditor-account-id creditor-account-id
-      :bank-id bank-id
-      :business-day business-day
-      :currency currency
-      :amount amount
-      :transaction-id transaction-id
-      :payment-status :inbound-payment-status-settled
-      :debtor-name debtor-name
-      :created-at now
-      :updated-at now}
-     :reference
-     reference)))
+    (utility/assoc-some {:bank-id bank-id
+                         :payment-id (utility/generate-id "pmt")
+                         :status status
+                         :scheme-type (scheme/scheme-type scheme)
+                         :amount amount
+                         :currency currency
+                         :end-to-end-id end-to-end-id
+                         :scheme-transaction-id scheme-transaction-id
+                         :business-day business-day
+                         at-key now
+                         :created-at now}
+                        :debtor-name
+                        debtor-name
+                        :reference
+                        reference)))
+
+(defn- moved
+  [payment status at-key]
+  (let [now (utility/now)]
+    (assoc payment
+           :status
+           status
+           at-key
+           now
+           :updated-at
+           now)))
+
+(defn new-inbound-payment
+  [data creditor-account-id bank-id business-day transaction-id]
+  (assoc (arrived data
+                  bank-id
+                  business-day
+                  :inbound-payment-status-settled
+                  :settled-at)
+         :creditor-account-id creditor-account-id
+         :transaction-id transaction-id))
 
 (defn inbound-suspense->transaction
   "DEBIT 1100 cash-at-correspondent / CREDIT 2500 suspense — an inbound
@@ -100,30 +121,15 @@
   `suspended` and no creditor, the credit posted to 2500 suspense, and the
   ISO 20022 reason it was parked for."
   [data bank-id business-day transaction-id refusal]
-  (let [{:keys [scheme-transaction-id end-to-end-id scheme
-                currency amount debtor-name reference]}
-        data
-        now (utility/now)]
-    (utility/assoc-some
-     {:payment-id (utility/generate-id "pmt")
-      :scheme-transaction-id scheme-transaction-id
-      :end-to-end-id end-to-end-id
-      :scheme scheme
-      :bank-id bank-id
-      :business-day business-day
-      :currency currency
-      :amount amount
-      :transaction-id transaction-id
-      :payment-status :inbound-payment-status-suspended
-      :suspense-reason-code (:reason-code refusal)
-      :created-at now
-      :updated-at now}
-     :debtor-name
-     debtor-name
-     :reference
-     reference
-     :suspense-reason
-     (:reason refusal))))
+  (utility/assoc-some (assoc (arrived data
+                                      bank-id
+                                      business-day
+                                      :inbound-payment-status-suspended
+                                      :suspended-at)
+                             :transaction-id transaction-id
+                             :suspended-reason-code (:reason-code refusal))
+                      :suspended-reason
+                      (:reason refusal)))
 
 (defn held-inbound-payment
   "A held inbound — recorded `held` with the creditor resolved by BBAN, no
@@ -131,26 +137,13 @@
   webhook carries no scheme transaction id, so a placeholder is generated;
   it is replaced with the real one on release."
   [data creditor-account-id bank-id business-day]
-  (let [{:keys [end-to-end-id scheme currency amount debtor-name reference]}
-        data
-        now (utility/now)]
-    (utility/assoc-some
-     {:payment-id (utility/generate-id "pmt")
-      :scheme-transaction-id (str "held-" (utility/uuidv7))
-      :end-to-end-id end-to-end-id
-      :scheme scheme
-      :creditor-account-id creditor-account-id
-      :bank-id bank-id
-      :business-day business-day
-      :currency currency
-      :amount amount
-      :payment-status :inbound-payment-status-held
-      :created-at now
-      :updated-at now}
-     :debtor-name
-     debtor-name
-     :reference
-     reference)))
+  (assoc (arrived data
+                  bank-id
+                  business-day
+                  :inbound-payment-status-held
+                  :held-at)
+         :creditor-account-id creditor-account-id
+         :scheme-transaction-id (str "held-" (utility/uuidv7))))
 
 (defn release-count
   [today-count held business-day]
@@ -187,21 +180,19 @@
   "Transition a held inbound to `settled` on release: stamp the real scheme
   transaction id and the posted transaction id."
   [held scheme-transaction-id transaction-id]
-  (assoc held
-         :payment-status :inbound-payment-status-settled
+  (assoc (moved held :inbound-payment-status-settled :settled-at)
          :scheme-transaction-id scheme-transaction-id
-         :transaction-id transaction-id
-         :updated-at (utility/now)))
+         :transaction-id transaction-id))
 
 (defn suspended-from-held
   [held scheme-transaction-id transaction-id refusal]
-  (utility/assoc-some (assoc held
-                             :payment-status :inbound-payment-status-suspended
+  (utility/assoc-some (assoc (moved held
+                                    :inbound-payment-status-suspended
+                                    :suspended-at)
                              :scheme-transaction-id scheme-transaction-id
                              :transaction-id transaction-id
-                             :suspense-reason-code (:reason-code refusal)
-                             :updated-at (utility/now))
-                      :suspense-reason
+                             :suspended-reason-code (:reason-code refusal))
+                      :suspended-reason
                       (:reason refusal)))
 
 (def ^:private closed-statuses
@@ -241,9 +232,13 @@
   admission carries no scheme transaction id, so a placeholder is
   generated; the settlement replaces it."
   [data creditor-account-id bank-id business-day]
-  (assoc (held-inbound-payment data creditor-account-id bank-id business-day)
-         :scheme-transaction-id (str "admitted-" (utility/uuidv7))
-         :payment-status :inbound-payment-status-admitted))
+  (assoc (arrived data
+                  bank-id
+                  business-day
+                  :inbound-payment-status-admitted
+                  :admitted-at)
+         :creditor-account-id creditor-account-id
+         :scheme-transaction-id (str "admitted-" (utility/uuidv7))))
 
 (defn admitted-inbound->transaction
   "DEBIT 1100 cash-at-correspondent / CREDIT creditor — settle an admitted
@@ -285,17 +280,18 @@
   "Transition a held inbound to `returned` on decline — the funds went back
   to the remitter, so nothing posts on our books."
   [held]
-  (assoc held
-         :payment-status :inbound-payment-status-returned
-         :updated-at (utility/now)))
+  (moved held :inbound-payment-status-returned :returned-at))
 
 (defn return-failed-inbound-payment
   "A suspended inbound the provider did not send back: it stays suspended,
   carrying why."
   [payment reason]
-  (-> payment
-      (utility/assoc-some :return-failure-reason reason)
-      (assoc :updated-at (utility/now))))
+  (let [now (utility/now)]
+    (utility/assoc-some (assoc payment
+                               :return-failed-at now
+                               :updated-at now)
+                        :return-failed-reason
+                        reason)))
 
 (defn returns-inbound?
   "True where the provider declares that an inbound may be returned."
@@ -307,15 +303,15 @@
   sender, for the reason it was parked."
   [payment]
   (let [{:keys [payment-id end-to-end-id scheme-transaction-id amount
-                currency suspense-reason-code suspense-reason]}
+                currency suspended-reason-code suspended-reason]}
         payment]
     {:payment-id payment-id
      :end-to-end-id end-to-end-id
      :scheme-transaction-id scheme-transaction-id
      :amount amount
      :currency currency
-     :reason-code suspense-reason-code
-     :reason suspense-reason}))
+     :reason-code suspended-reason-code
+     :reason suspended-reason}))
 
 (defn inbound-return->transaction
   "DEBIT 2500 suspense / CREDIT 1100 cash-at-correspondent — a suspended
