@@ -10,9 +10,6 @@
 
 (def LegId (schema/id-schema "LegId" "leg" "leg.01kprbmgcj35ptc8npmybhh4sc"))
 
-(def TransactionStatus
-  (coercion/transaction-status-enum-schema {:json-schema/example "posted"}))
-
 (def TransactionType
   (coercion/transaction-type-enum-schema {:json-schema/example
                                           "internal-transfer"}))
@@ -24,7 +21,6 @@
    [:leg-id [:ref "LegId"]]
    [:transaction-id [:ref "TransactionId"]]
    [:transaction-type [:ref "TransactionType"]]
-   [:status [:ref "TransactionStatus"]]
    ;; A leg targets any account in the shared account-id space: a
    ;; customer/house cash account (acc.) or a bank-owned ledger
    ;; control/detail account (led.) added by control fan-out.
@@ -39,15 +35,13 @@
 
 (def TransactionList (list-schema "Transaction" nil))
 
+(def ^:private transaction-keys
+  (into [] (comp (filter vector?) (map first)) Transaction))
+
 (defn ->body
   [leg]
-  (assoc leg
-         :status
-         (if (= :balance-status-posted (:balance-status leg))
-           :transaction-status-posted
-           :transaction-status-pending)))
+  (select-keys leg transaction-keys))
 
 (def registry
-  (components-registry [#'TransactionId #'LegId #'TransactionStatus
-                        #'TransactionType #'LegSide #'Transaction
-                        #'TransactionList]))
+  (components-registry [#'TransactionId #'LegId #'TransactionType #'LegSide
+                        #'Transaction #'TransactionList]))

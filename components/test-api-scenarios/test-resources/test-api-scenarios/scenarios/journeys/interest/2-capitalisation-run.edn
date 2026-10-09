@@ -41,7 +41,7 @@
    :until
    {:status 200
     :body {:items [:m/embeds
-                   [{:transaction-type "interest-capital"
+                   [{:transaction-type "interest-capitalization"
                      :side "credit"
                      :balance-status "posted"}]]}}}
   {:command :api/request

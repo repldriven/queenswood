@@ -8,12 +8,10 @@
 (def SimulateInboundTransferResponse
   {:account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
-   :status "posted"
-   :transaction-type "internal-transfer"
+   :transaction-type "inbound-transfer"
    :currency "GBP"
    :reference "Simulated inbound transfer"
    :created-at "2025-01-01T00:00:00Z"
-   :updated-at "2025-01-01T00:00:00Z"
    :legs [{:leg-id "leg.01kprbmgcj35ptc8npmybhh4sc"
            :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
            :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"

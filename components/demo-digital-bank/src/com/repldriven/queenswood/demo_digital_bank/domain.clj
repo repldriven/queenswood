@@ -495,7 +495,7 @@
    "inbound-transfer" "Received"
    "internal-transfer" "Saved"
    "interest-accrual" "Interest earned"
-   "interest-capital" "Interest earned"
+   "interest-capitalization" "Interest earned"
    "reward" "Rewards"
    "fee" "Fees"})
 
