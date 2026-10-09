@@ -336,11 +336,16 @@ logged with its reason and counted in the run's summary, and reports no
 
 `await.clj` is the API runner's one loop: it re-runs a step until its
 assertion holds or a deadline passes, and `:api/poll`,
-`:mail/await-invitation`, `:idv/verify` and the invariants' settle all
-use it. The timeout is one config key, `await-timeout-ms`, in the rig's
-YAML. `:wait` is for a token's expiry only. `:webhook/await-delivery`
-uses the same loop, so a delivery's wait reaches past the relay to the
-bus, the webhook consumer's commit, the runner's poll and its call.
+`:mail/await-invitation` and `:idv/verify` use it. The timeout is one
+config key, `await-timeout-ms`, in the rig's YAML. `:wait` is for a
+token's expiry only. `:webhook/await-delivery` uses the same loop, so a
+delivery's wait reaches past the relay to the bus, the webhook
+consumer's commit, the runner's poll and its call.
+
+The invariants wait for nothing. The API runner asserts the
+trial-balance tie from one `GET /v1/ledger-accounts`, which reads the
+chart in one transaction, and leaves the control reconciliation to the
+domain runner, which reads both sides in one snapshot.
 
 ### Webhook delivery
 

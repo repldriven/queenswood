@@ -170,19 +170,17 @@
 (defn list-accounts-with-balances
   "Return the bank's chart paired with each account's balances, as a
   vector of `{:account LedgerAccount :balances [Balance ...]}` in
-  account-id order, or an anomaly. One merged scan of the two stores,
-  so a chart of any size costs a page per store rather than a
-  transaction per account; a control account's balances are its one
-  default-posted balance summed from its sub-ledger, as `get-balances`
-  returns.
+  account-id order, or an anomaly. Read in one transaction, so every
+  balance is as of one moment and the chart's trial balance ties: the
+  stored balances in one round trip, and a derived account's balances
+  its one balance summed from its sub-ledger or its legs, as
+  `get-balances` returns.
 
   Args:
-  - config: map with `:record-db` and `:record-store`. The scan pages
-    in transactions of its own, so it takes the config rather than a
-    transaction.
+  - txn: FDB transaction or config map.
   - bank-id: owning bank id."
-  [config bank-id]
-  (core/list-accounts-with-balances config bank-id))
+  [txn bank-id]
+  (core/list-accounts-with-balances txn bank-id))
 
 (defn account-class
   "The class of the account in a `code` role, from the thousand
