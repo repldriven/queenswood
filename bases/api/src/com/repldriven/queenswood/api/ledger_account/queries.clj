@@ -2,7 +2,6 @@
   (:require
     [com.repldriven.queenswood.api.errors :as errors]
 
-    [com.repldriven.queenswood.api-schema.interface :as api-schema]
     [com.repldriven.queenswood.balance-query.interface :as balances]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
 
@@ -21,7 +20,6 @@
   [account]
   (let [{:keys [code]} account]
     (-> account
-        api-schema/with-updated-at
         (set/rename-keys {:ledger-account-id :account-id})
         (assoc :gl-code (ledger-accounts/chart-number code)
                :gl-account-type (ledger-accounts/account-class code)
@@ -99,10 +97,7 @@
                                     {:message "Ledger account not found"
                                      :account-id account-id}))
                   found (ledger-accounts/get-balances config bank-id account)]
-                 (-> found
-                     (update :balances
-                             (partial mapv api-schema/with-updated-at))
-                     (set/rename-keys {:balances :items})))]
+                 (set/rename-keys found {:balances :items}))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))

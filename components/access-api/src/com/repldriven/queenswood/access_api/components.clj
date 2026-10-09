@@ -59,7 +59,7 @@
    [:invited-by {:optional true} [:ref "Actor"]]
    [:invited-email {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def MembershipList (list-schema "Membership" examples/MembershipList))
 
@@ -81,7 +81,7 @@
    [:accepted-by-user-id {:optional true} [:ref "UserId"]]
    [:accepted-email {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def InvitationList (list-schema "Invitation" examples/InvitationList))
 

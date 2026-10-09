@@ -34,7 +34,7 @@
    [:status [:ref "UserStatus"]]
    [:operator boolean?]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def registry
   (components-registry [#'UserId #'MembershipId #'IdentityProvider #'UserStatus

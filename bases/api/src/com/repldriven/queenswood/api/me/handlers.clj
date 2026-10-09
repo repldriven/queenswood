@@ -23,5 +23,4 @@
       {:status 200
        :body (assoc (select-keys user user-keys)
                     :status :user-status-active
-                    :updated-at (or (:updated-at user) (:created-at user))
                     :operator (contains? roles :admin))})))

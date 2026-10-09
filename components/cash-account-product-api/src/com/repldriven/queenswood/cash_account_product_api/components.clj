@@ -64,7 +64,7 @@
    [:effective-from [:ref "BusinessDay"]]
    [:effective-to {:optional true} [:ref "BusinessDay"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]
    [:published-at {:optional true} [:ref "Timestamp"]]
    [:discarded-at {:optional true} [:ref "Timestamp"]]])
 
@@ -81,7 +81,7 @@
   (let [opening (some (fn [{:keys [kind] :as terms}]
                         (when (= :reward-kind-opening kind) terms))
                       (:reward-terms version))]
-    (cond-> (assoc (select-keys (schema/with-updated-at version) version-keys)
+    (cond-> (assoc (select-keys version version-keys)
                    :interest-rate-bps
                    (or (get-in version
                                [:interest-terms :steps 0 :bands 0 :rate-bps])

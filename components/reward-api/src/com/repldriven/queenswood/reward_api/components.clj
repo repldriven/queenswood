@@ -36,7 +36,7 @@
    [:error {:optional true} [:maybe string?]]
    [:paid-at {:optional true} [:maybe [:ref "Timestamp"]]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def RewardList
   [:map {:json-schema/example (:value examples/RewardList)}
@@ -54,11 +54,8 @@
 
 (defn ->body
   [reward]
-  (let [{:keys [deferred-reason created-at updated-at]} reward]
-    (utility/assoc-some (select-keys (assoc reward
-                                            :updated-at
-                                            (or updated-at created-at))
-                                     reward-keys)
+  (let [{:keys [deferred-reason]} reward]
+    (utility/assoc-some (select-keys reward reward-keys)
                         :error
                         deferred-reason)))
 

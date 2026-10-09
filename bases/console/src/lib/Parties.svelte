@@ -130,7 +130,7 @@
           <Td>{p.type === "person" ? "customer" : (p.type ?? "")}</Td>
           <Td><Badge tone={toneFor(p.status)}>{p.status}</Badge></Td>
           <Td muted>{formatRelative(p["created-at"])}</Td>
-          <Td muted>{formatRelative(p["updated-at"])}</Td>
+          <Td muted>{formatRelative(p["updated-at"] ?? p["created-at"])}</Td>
           <Td align="right" muted>—</Td>
         </Tr>
       {/each}

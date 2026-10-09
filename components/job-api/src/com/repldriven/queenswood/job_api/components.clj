@@ -59,7 +59,7 @@
    [:last-run-at {:optional true} [:ref "Timestamp"]]
    [:next-run-at {:optional true} [:ref "Timestamp"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def JobList (list-schema "Job" examples/JobList))
 

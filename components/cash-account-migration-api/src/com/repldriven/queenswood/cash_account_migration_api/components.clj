@@ -45,7 +45,7 @@
    [:notified-on {:optional true} [:ref "BusinessDay"]]
    [:due-on {:optional true} [:ref "BusinessDay"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]
    [:approved-at {:optional true} [:ref "Timestamp"]]
    [:completed-at {:optional true} [:ref "Timestamp"]]
    [:cancelled-at {:optional true} [:ref "Timestamp"]]])
@@ -120,7 +120,3 @@
 
             (or completed-at failed-at)
             (assoc :finished-at (or completed-at failed-at)))))
-
-(defn ->body
-  [migration]
-  (schema/with-updated-at migration))

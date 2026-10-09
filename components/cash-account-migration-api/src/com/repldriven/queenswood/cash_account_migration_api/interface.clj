@@ -27,15 +27,6 @@
   registry
   components/registry)
 
-(defn ->body
-  "Project a stored migration onto the keys `Migration` publishes: its
-  creation time as `updated-at` where it has never changed.
-
-  Args:
-  - migration: a migration as `cash-account-migration` hands it back."
-  [migration]
-  (components/->body migration))
-
 (defn ->run-body
   "Project a stored run onto the keys `MigrationRun` publishes: its
   creation as `started-at`, and its completion or failure as

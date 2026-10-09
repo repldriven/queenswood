@@ -110,7 +110,7 @@
    [:return-failure-reason {:optional true} [:maybe string?]]
    [:business-day [:ref "BusinessDay"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def InboundPaymentList
   (schema/list-schema "InboundPayment" (:value examples/InboundPaymentList)))
@@ -168,15 +168,11 @@
 
 (defn ->inbound-body
   [payment]
-  (let [{:keys [status scheme-type created-at updated-at
-                return-failed-reason]}
-        payment]
+  (let [{:keys [status scheme-type return-failed-reason]} payment]
     (utility/assoc-some (select-keys (assoc payment
                                             :payment-status status
                                             :scheme (inbound-scheme-names
-                                                     scheme-type)
-                                            :updated-at (or updated-at
-                                                            created-at))
+                                                     scheme-type))
                                      inbound-payment-keys)
                         :return-failure-reason
                         return-failed-reason)))

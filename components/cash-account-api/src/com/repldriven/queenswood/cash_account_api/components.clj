@@ -53,7 +53,7 @@
    [:available-balance {:optional true} [:ref "SignedAmount"]]
    [:transactions {:optional true} [:vector [:ref "Transaction"]]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def RetiredPaymentAddress
   [:map {:closed true}
@@ -69,15 +69,9 @@
         refusal (or refused-reason
                     (when (= :address-rotation-status-failed (:status rotation))
                       (:failed-reason rotation)))]
-    (select-keys (cond-> (-> account
-                             schema/with-updated-at
-                             (assoc :account-status status))
+    (select-keys (cond-> (assoc account :account-status status)
                          refusal
                          (assoc :refusal-reason refusal)
-
-                         (:balances account)
-                         (update :balances
-                                 (partial mapv schema/with-updated-at))
 
                          (:transactions account)
                          (update :transactions

@@ -31,7 +31,7 @@
    [:limits [:vector [:ref "Limit"]]]
    [:labels [:map-of string? string?]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def PolicyList (list-schema "Policy" examples/PolicyList))
 
@@ -64,8 +64,7 @@
 
 (defn ->body
   [policy]
-  (let [{:keys [status created-at updated-at]} policy]
+  (let [{:keys [status]} policy]
     (-> policy
         (dissoc :status :archived-at :archived-by)
-        (assoc :enabled (= :policy-status-active status)
-               :updated-at (or updated-at created-at)))))
+        (assoc :enabled (= :policy-status-active status)))))

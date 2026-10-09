@@ -66,7 +66,7 @@
      [:ref "Owner"]]]
    [:client-id [:ref "BankId"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def BankList (list-schema "Bank" examples/BankList))
 
@@ -102,7 +102,7 @@
    [:membership {:optional true} [:ref "Membership"]]
    [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def ChangeBankTierRequest
   [:map {:closed true :json-schema/example examples/ChangeBankTierRequest}
@@ -131,7 +131,7 @@
    [:client-secret string?]
    [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def Provider
   [:map

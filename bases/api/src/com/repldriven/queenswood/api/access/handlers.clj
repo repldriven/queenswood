@@ -14,7 +14,6 @@
     [com.repldriven.queenswood.api.errors :as errors]
     [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
-    [com.repldriven.queenswood.api-schema.interface :as api-schema]
     [com.repldriven.queenswood.bank-query.interface :as banks]
     [com.repldriven.queenswood.member-query.interface :as memberships]
     [com.repldriven.queenswood.user.interface :as users]
@@ -120,7 +119,7 @@
 (defn- ->membership
   [membership user bank-name invitation names]
   (let [{:keys [invitation-id]} membership]
-    (-> (select-keys (api-schema/with-updated-at membership)
+    (-> (select-keys membership
                      [:member-id :bank-id :user-id :role :created-at
                       :updated-at])
         (set/rename-keys {:member-id :membership-id})
@@ -183,7 +182,7 @@
 
 (defn- ->invitation
   [invitation names accepted-email]
-  (-> (select-keys (api-schema/with-updated-at invitation)
+  (-> (select-keys invitation
                    [:invitation-id :bank-id :email :role :status :expires-at
                     :reason :created-at :updated-at])
       (assoc :invited-by (names/->actor (:created-by invitation) names))

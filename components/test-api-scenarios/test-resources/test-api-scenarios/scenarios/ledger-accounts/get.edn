@@ -30,4 +30,4 @@
                    :status "open"
                    :posted-balance [:m/absent]
                    :created-at [:m/regex ".+"]
-                   :updated-at [:m/regex ".+"]}}}]}
+                   :updated-at [:m/absent]}}}]}

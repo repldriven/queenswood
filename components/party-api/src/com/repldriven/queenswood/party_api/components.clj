@@ -25,7 +25,7 @@
    [:merged-into-party-id {:optional true} [:maybe [:ref "PartyId"]]]
    [:external-reference {:optional true} [:maybe [:ref "ExternalReference"]]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def ExternalReference
   "The customer's own id for the person, unique within the bank."
@@ -64,7 +64,7 @@
    [:merged-into-party-id {:optional true} [:maybe [:ref "PartyId"]]]
    [:external-reference {:optional true} [:maybe [:ref "ExternalReference"]]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]
    [:legal-name {:optional true} [:maybe :string]]])
 
 (def PartyEmbedQuery
@@ -149,7 +149,7 @@
    [:hand-off {:optional true} [:ref "HandOff"]]
    [:failure-reason {:optional true} [:maybe string?]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def VerificationCriterion
   [:map {:json-schema/example examples/VerificationCriterion}
@@ -184,10 +184,7 @@
 
 (defn- shown
   [party]
-  (let [{:keys [created-at updated-at]} party]
-    (-> party
-        (set/rename-keys {:party-type :type})
-        (assoc :updated-at (or updated-at created-at)))))
+  (set/rename-keys party {:party-type :type}))
 
 (defn ->body
   [party]
@@ -213,7 +210,7 @@
 
 (defn ->session-body
   [session]
-  (cond-> (select-keys (schema/with-updated-at session) session-keys)
+  (cond-> (select-keys session session-keys)
           (:hand-off session)
           (update :hand-off
                   (fn [{:keys [kind url expires-at]}]

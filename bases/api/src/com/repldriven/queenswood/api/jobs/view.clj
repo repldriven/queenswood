@@ -67,12 +67,11 @@
   monthly job's day of the month and a time of day, the cadences its
   tasks allow, and its status as `enabled`."
   [job]
-  (let [{:keys [schedule status task-kinds created-at updated-at]} job]
+  (let [{:keys [schedule status task-kinds]} job]
     (-> job
         (dissoc :schedule :status :updated-by)
         (merge (schedule->cadence schedule))
         (assoc :enabled (= :scheduler-job-status-active status)
-               :updated-at (or updated-at created-at)
                :allowed-periodicities (allowed-cadences task-kinds
                                                         (utility/now))))))
 

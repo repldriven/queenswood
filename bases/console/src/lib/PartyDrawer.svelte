@@ -95,7 +95,7 @@
     });
   }
   const readCreated = $derived(fmtDate(target?.["created-at"]));
-  const readUpdated = $derived(formatRelative(target?.["updated-at"]));
+  const readUpdated = $derived(formatRelative(target?.["updated-at"] ?? target?.["created-at"]));
 
   // bank-api status → Badge tone. Matches Parties.svelte.
   const TONE = {
@@ -141,7 +141,7 @@
 
   const subFor = $derived(
     mode === "read"
-      ? `${target?.type ?? ""} · updated ${formatRelative(target?.["updated-at"])}`
+      ? `${target?.type ?? ""} · updated ${formatRelative(target?.["updated-at"] ?? target?.["created-at"])}`
       : "Register the person by name. They give their date of birth, address and documents to the identity provider when you open a verification session. Status starts as pending until the check completes.",
   );
 

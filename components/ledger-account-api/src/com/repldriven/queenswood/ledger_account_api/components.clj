@@ -31,7 +31,7 @@
    ;; Present on the list (derived server-side); absent on the single-get.
    [:posted-balance {:optional true} [:ref "SignedAmount"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def TrialBalanceEntry
   "One currency's trial balance — total debits against total credits
@@ -56,7 +56,7 @@
    [:credit nat-int?]
    [:debit nat-int?]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def LedgerBalanceList
   [:map
