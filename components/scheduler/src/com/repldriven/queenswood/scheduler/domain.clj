@@ -53,13 +53,13 @@
   the minute past the hour, so sixty or more names no minute, and any
   other's is minutes past midnight, so a day's worth or more names no
   time."
-  [periodicity run-time-minutes]
+  [periodicity run-time-mins]
   (let [limit (if (= :scheduler-periodicity-hourly periodicity) 60 1440)]
-    (when-not (and (nat-int? run-time-minutes) (< run-time-minutes limit))
+    (when-not (and (nat-int? run-time-mins) (< run-time-mins limit))
       (error/reject :scheduler/run-time-not-allowed
                     {:message "Run time is outside what the periodicity allows"
                      :periodicity periodicity
-                     :run-time-minutes run-time-minutes
+                     :run-time-mins run-time-mins
                      :limit limit}))))
 
 (defn monthly-day-or-default
@@ -72,15 +72,15 @@
 
 (defn ->cron
   "Quartz 6-field cron expression for a periodicity firing at
-  `run-time-minutes` past midnight (UTC). Hourly fires every hour at
+  `run-time-mins` past midnight (UTC). Hourly fires every hour at
   that many minutes past it; daily fires every day; monthly on the
   first or last day (per `monthly-day`, default first — Quartz `L` is
   the last day of the month); yearly on Jan 1. Seconds are always 0."
-  ([periodicity run-time-minutes]
-   (->cron periodicity run-time-minutes nil))
-  ([periodicity run-time-minutes monthly-day]
-   (let [h (quot run-time-minutes 60)
-         m (mod run-time-minutes 60)]
+  ([periodicity run-time-mins]
+   (->cron periodicity run-time-mins nil))
+  ([periodicity run-time-mins monthly-day]
+   (let [h (quot run-time-mins 60)
+         m (mod run-time-mins 60)]
      (case periodicity
        :scheduler-periodicity-hourly (format "0 %d * * * ?" m)
        :scheduler-periodicity-daily (format "0 %d %d * * ?" m h)
@@ -95,15 +95,14 @@
        :scheduler-periodicity-yearly (format "0 %d %d 1 1 ?" m h)))))
 
 (defn system?
-  "True when `job` is a platform-owned (system) job. Unknown / unset
-  kinds count as user."
+  "True when `job` is a platform-owned (system) job."
   [job]
   (= :scheduler-job-kind-system (:kind job)))
 
 (def ^:private system-locked-edits
   "Fields a system job's fixed cadence does not allow the operator to
   change — only the time of day is editable."
-  #{:periodicity :monthly-day :enabled})
+  #{:periodicity :monthly-day :status})
 
 (defn validate-system-edits
   "Rejects when a system job's `edits` touch a cadence-locked field."
@@ -117,11 +116,10 @@
       :job-id (:job-id job)})))
 
 (defn run-duration
-  "Wall-clock duration of a completed run, or nil if it lacks a
-  finish."
+  "Wall-clock duration of a succeeded run, or nil for any other."
   [run]
-  (when (and (:started-at run) (:finished-at run))
-    (- (:finished-at run) (:started-at run))))
+  (when-let [succeeded-at (:succeeded-at run)]
+    (- succeeded-at (:created-at run))))
 
 (defn period-start
   "The epoch-ms instant the period holding `epoch-ms` begins, in UTC: its
@@ -146,11 +144,11 @@
   [job runs now]
   (let [{:keys [job-id periodicity]} job
         period (period-start periodicity now)
-        holding (first (filter (fn [{:keys [status started-at]}]
+        holding (first (filter (fn [{:keys [status created-at]}]
                                  (and (contains? period-holding-statuses status)
                                       (= period
                                          (period-start periodicity
-                                                       started-at))))
+                                                       created-at))))
                                runs))]
     (when holding
       (error/reject :scheduler/period-already-run
@@ -162,11 +160,11 @@
                      :run-id (:run-id holding)}))))
 
 (defn expected-end-at
-  "`started-at` plus the previous successful run's duration, or nil
-  when there is no completed prior run to estimate from."
-  [started-at prev-run]
+  "`created-at` plus the previous successful run's duration, or nil
+  when there is no succeeded prior run to estimate from."
+  [created-at prev-run]
   (when-let [duration (run-duration prev-run)]
-    (+ started-at duration)))
+    (+ created-at duration)))
 
 (defn started-task
   "A task the run has just reached."
@@ -184,22 +182,21 @@
   (utility/assoc-some (assoc task
                              :status :scheduler-task-status-succeeded
                              :finished-at finished-at)
-                      :records-processed (:accounts-processed result)
-                      :records-failed (:accounts-failed result)))
+                      :processed-count (:accounts-processed result)
+                      :failed-count (:accounts-failed result)))
 
 (defn failed-task
   "Closes a task with the anomaly that stopped it, and the counts its
-  payload carries where it carries them. The message is the same one
-  the run carries, repeated here so a reader hovering one task need not
-  correlate it with the run's own error."
+  payload carries where it carries them. The reason is the one the run
+  carries too."
   [task finished-at anomaly]
   (let [{:keys [accounts-processed accounts-failed]} (error/payload anomaly)]
     (utility/assoc-some (assoc task
                                :status :scheduler-task-status-failed
                                :finished-at finished-at
-                               :error (error/format-anomaly anomaly))
-                        :records-processed accounts-processed
-                        :records-failed accounts-failed)))
+                               :failure-reason (error/format-anomaly anomaly))
+                        :processed-count accounts-processed
+                        :failed-count accounts-failed)))
 
 (defn skipped-tasks
   "The tasks after a failure, which the run never reached. Recorded

@@ -60,7 +60,7 @@
                   windowed (cursor/window runs :run-id :desc page)]
                  (cursor/page-body (str "/v1/jobs/" job-id "/runs")
                                    page
-                                   (:page windowed)
+                                   (mapv view/run->api (:page windowed))
                                    windowed))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
@@ -79,7 +79,7 @@
                                     {:message "Scheduled run not found"
                                      :job-id job-id
                                      :run-id run-id}))]
-                 run)]
+                 (view/run->api run))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))

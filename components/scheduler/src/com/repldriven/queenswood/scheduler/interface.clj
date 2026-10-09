@@ -3,7 +3,7 @@
   capitalize, future account-migration) seeded into a bank at
   provisioning and editable by the operator within task-defined
   periodicity limits. The `:bank-scheduler/runner` system component
-  keeps a cronut trigger per enabled job in step with the job rows, at
+  keeps a cronut trigger per active job in step with the job rows, at
   startup and every minute after, so a bank created after it started,
   a job added to `jobs.edn` after the bank, and an edit made through
   the API in another JVM all reach the live scheduler; FDB is the
@@ -47,31 +47,34 @@
   the final run map or an anomaly. A run of the job that is running or
   succeeded in that period refuses it with
   `:scheduler/period-already-run`; a failed one does not, so a failed
-  run may be forced again.
+  run may be forced again. The run records the `actor` that forced it.
 
   Args:
   - config: FDB+interfaces map.
   - bank-id: the bank owning the job.
-  - job-id: the job to run."
-  [config bank-id job-id]
-  (core/force-start config bank-id job-id))
+  - job-id: the job to run.
+  - actor: who forced the run."
+  [config bank-id job-id actor]
+  (core/force-start config bank-id job-id actor))
 
 (defn update-schedule
-  "Edit a job's `:periodicity`, `:monthly-day`, `:run-time-minutes`,
-  and/or `:enabled`, within the periodicities its tasks allow. Persists,
-  recomputes next-run, and updates the live trigger when `config` has
-  `:scheduler`. System jobs have a fixed cadence — only `:run-time-minutes`
-  is editable; touching `:periodicity` / `:monthly-day` / `:enabled` on
-  one is rejected. Returns the updated job or an anomaly.
+  "Edit a job's `:periodicity`, `:monthly-day`, `:run-time-mins`,
+  and/or `:status`, within the periodicities its tasks allow, recording
+  who did as `updated-by`. Persists, recomputes next-run, and updates
+  the live trigger when `config` has `:scheduler`. System jobs have a
+  fixed cadence — only `:run-time-mins` is editable; touching
+  `:periodicity` / `:monthly-day` / `:status` on one is rejected.
+  Returns the updated job or an anomaly.
 
   Args:
   - config: FDB+interfaces map.
   - bank-id: the bank owning the job.
   - job-id: the job to edit.
-  - edits: map of any of `:periodicity` `:monthly-day` `:run-time-minutes`
-    `:enabled`."
-  [config bank-id job-id edits]
-  (core/update-schedule config bank-id job-id edits))
+  - edits: map of any of `:periodicity` `:monthly-day` `:run-time-mins`
+    `:status`.
+  - actor: who made the edit."
+  [config bank-id job-id edits actor]
+  (core/update-schedule config bank-id job-id edits actor))
 
 (defn list-jobs
   "One page of `bank-id`'s scheduled jobs, in job-id order. Returns

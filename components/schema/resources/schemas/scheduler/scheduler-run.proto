@@ -3,6 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.scheduler;
 
 import "record_metadata_options.proto";
+import "schemas/actor/actor.proto";
 
 option java_outer_classname = "SchedulerRunProto";
 
@@ -24,61 +25,38 @@ enum SchedulerTaskStatus {
   SCHEDULER_TASK_STATUS_RUNNING = 1;
   SCHEDULER_TASK_STATUS_SUCCEEDED = 2;
   SCHEDULER_TASK_STATUS_FAILED = 3;
-  // A task the run never reached, because an earlier one failed. Not a
-  // failure of its own, and distinguishable from one — without it a
-  // reader can only infer "not completed" from tasks_completed.
   SCHEDULER_TASK_STATUS_SKIPPED = 4;
 }
 
-// One task within a run. A run's tasks are ordered as the job lists
-// them, so position is the sequence and needs no index of its own.
-//
-// records_processed / records_failed are what the task's own pass
-// reports, in whatever it counts — accounts, for every task there is
-// today. Deliberately not named for accounts: the scheduler runs batch
-// passes and has no business knowing what a pass iterates. A task
-// needing more than two counts is the point to replace these with a
-// per-kind summary rather than to keep widening them.
 message SchedulerTaskRun {
   required string label = 1;
   required SchedulerTaskStatus status = 2;
-  optional int64 started_at = 3;
-  optional int64 finished_at = 4;
-  optional string error = 5;
-  // Optional for the same reason as tasks_completed below: a pass that
-  // processed nothing writes a zero, and protojure drops a zero from
-  // the wire.
-  optional int32 records_processed = 6;
-  optional int32 records_failed = 7;
+  optional int32 processed_count = 3;
+  optional int32 failed_count = 4;
+  optional int64 started_at = 5;
+  optional int64 finished_at = 6;
+  optional string failure_reason = 7;
 }
 
-// One execution of a SchedulerJob. run_id is a uuidv7 (time-ordered).
-// Progress is task-granular: tasks_completed / tasks_total, with the
-// current task's label; expected_end_at is started_at + the previous
-// successful run's duration (absent on the first run).
+// One run of a scheduler job.
 message SchedulerRun {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string bank_id = 1;
-  required string run_id = 2;
-  required string job_id = 3;
-  required SchedulerRunStatus status = 4;
-  required SchedulerTriggerSource trigger_source = 5;
-  required int64 started_at = 6;
-  optional int64 finished_at = 7;
-  // Optional, not required: protojure omits a zero int on the wire, and a
-  // proto2 `required` field missing from the bytes fails the Java parse
-  // used to bridge into FDB. tasks_completed is 0 at the start of a run,
-  // and tasks_total is 0 for a job with no tasks. Optional decodes an
-  // unset value back to 0.
-  optional int32 tasks_total = 8;
-  optional int32 tasks_completed = 9;
-  optional string current_task = 10;
-  optional int64 expected_end_at = 11;
-  optional string error = 12;
+  required string run_id = 2; // uuidv7
+  required SchedulerRunStatus status = 3;
+  required SchedulerTriggerSource trigger_source = 4;
+  required string job_id = 5;
+  required int32 tasks_total = 6;
+  optional int64 expected_end_at = 7;
+  repeated SchedulerTaskRun tasks = 8;
 
-  // What each task did, in job order. tasks_completed says how far the
-  // run got; this says what happened on the way — which task was slow,
-  // which failed, which never ran, and how much each one moved.
-  repeated SchedulerTaskRun tasks = 13;
+  optional int64 succeeded_at = 51;
+  optional int64 failed_at = 53;
+
+  required int64 created_at = 101;
+  optional com.repldriven.queenswood.schemas.actor.Actor created_by = 102;
+  optional int64 updated_at = 103;
+
+  optional string failure_reason = 200;
 }

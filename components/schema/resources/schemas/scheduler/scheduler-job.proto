@@ -3,25 +3,29 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.scheduler;
 
 import "record_metadata_options.proto";
+import "schemas/actor/actor.proto";
 
 option java_outer_classname = "SchedulerJobProto";
 
-// The preset operations a job can run, in order. Wired to domain
-// functions by the bank-scheduler task registry.
+enum SchedulerJobStatus {
+  SCHEDULER_JOB_STATUS_UNKNOWN = 0;
+  SCHEDULER_JOB_STATUS_ACTIVE = 1;
+  SCHEDULER_JOB_STATUS_PAUSED = 2;
+}
+
+enum SchedulerJobKind {
+  SCHEDULER_JOB_KIND_UNKNOWN = 0;
+  SCHEDULER_JOB_KIND_USER = 1;
+  SCHEDULER_JOB_KIND_SYSTEM = 2;
+}
+
 enum SchedulerTaskKind {
   SCHEDULER_TASK_KIND_UNKNOWN = 0;
   SCHEDULER_TASK_KIND_ACCRUE = 1;
   SCHEDULER_TASK_KIND_CAPITALIZE = 2;
   SCHEDULER_TASK_KIND_ACCOUNT_MIGRATION = 3;
-  // No longer run: the reward processor pays a reward when the account
-  // opens. Kept so a job row written with it still reads.
-  SCHEDULER_TASK_KIND_REWARD = 4;
 }
 
-// How often a job runs. A job's editable periodicity is constrained by
-// the intersection of its tasks' allowed periodicities (accrue is
-// daily-only; capitalize allows daily/monthly/yearly). For an hourly
-// job run_time_minutes is the minute past the hour.
 enum SchedulerPeriodicity {
   SCHEDULER_PERIODICITY_UNKNOWN = 0;
   SCHEDULER_PERIODICITY_DAILY = 1;
@@ -30,53 +34,29 @@ enum SchedulerPeriodicity {
   SCHEDULER_PERIODICITY_HOURLY = 4;
 }
 
-// For a monthly job, which day of the month it fires on. UNKNOWN is
-// treated as FIRST so jobs predating this field keep firing on the 1st.
 enum SchedulerMonthlyDay {
   SCHEDULER_MONTHLY_DAY_UNKNOWN = 0;
   SCHEDULER_MONTHLY_DAY_FIRST = 1;
   SCHEDULER_MONTHLY_DAY_LAST = 2;
 }
 
-// Who owns a job. USER jobs are operator-editable (cadence + time).
-// SYSTEM jobs are platform-defined (e.g. account migration) with a
-// fixed cadence — only the time of day is editable, and they cannot be
-// paused. UNKNOWN is treated as USER for back-compat.
-enum SchedulerJobKind {
-  SCHEDULER_JOB_KIND_UNKNOWN = 0;
-  SCHEDULER_JOB_KIND_USER = 1;
-  SCHEDULER_JOB_KIND_SYSTEM = 2;
-}
-
-// A per-bank scheduled job — an ordered sequence of tasks run on a
-// schedule. Seeded from a resource at bank provisioning, then editable
-// (time + periodicity, within the task constraints) by the operator.
+// A bank's sequence of tasks run on a schedule.
 message SchedulerJob {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
   required string bank_id = 1;
   required string job_id = 2;
   required string name = 3;
-  repeated SchedulerTaskKind task_kinds = 4;
-  required SchedulerPeriodicity periodicity = 5;
-  // Minutes past midnight, UTC. Optional, not required: protojure omits a
-  // zero value on the wire (00:00), and a proto2 `required` field missing
-  // from the bytes fails the Java parse used to bridge into FDB. Optional
-  // decodes an unset value back to 0 (midnight).
-  optional int32 run_time_minutes = 6;
-  // Optional, not required: protojure omits a false bool on the wire, and
-  // a proto2 `required` field missing from the bytes fails the Java parse
-  // used to bridge into FDB. Optional decodes an unset value back to
-  // false, so a disabled (paused) job round-trips cleanly.
-  optional bool enabled = 7;
-  optional int64 last_run_at = 8;
-  optional int64 next_run_at = 9;
-  required int64 created_at = 10;
-  required int64 updated_at = 11;
-  // For monthly jobs: fire on the first or last day. Ignored for other
-  // periodicities. Unset → first.
-  optional SchedulerMonthlyDay monthly_day = 12;
-  // User (operator-editable) vs system (platform-fixed cadence). Unset →
-  // user.
-  optional SchedulerJobKind kind = 13;
+  required SchedulerJobStatus status = 4;
+  required SchedulerJobKind kind = 5;
+  repeated SchedulerTaskKind task_kinds = 6;
+  required SchedulerPeriodicity periodicity = 7;
+  optional SchedulerMonthlyDay monthly_day = 8;
+  required int32 run_time_mins = 9; // past midnight UTC, or past the hour when hourly
+  optional int64 last_run_at = 10;
+  optional int64 next_run_at = 11;
+
+  required int64 created_at = 101;
+  optional int64 updated_at = 103;
+  optional com.repldriven.queenswood.schemas.actor.Actor updated_by = 104;
 }

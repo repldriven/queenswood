@@ -8,51 +8,6 @@
 
 (def transact fdb/transact)
 
-;; proto2 emits 0 / "" for unset optionals; drop them so callers see a key
-;; only when a real value is present.
-(defn- clean-job
-  [job]
-  (cond-> job
-          (zero? (:last-run-at job 0))
-          (dissoc :last-run-at)
-
-          (zero? (:next-run-at job 0))
-          (dissoc :next-run-at)))
-
-(defn- clean-task
-  "One task as it comes back off the wire. `pb->` hands embedded
-  messages back as protojure records, which reitit cannot coerce, so
-  each becomes a plain map — and the proto2 defaults an unset field
-  decodes to are dropped rather than reported as a real zero."
-  [task]
-  (cond-> (into {} task)
-          (zero? (:started-at task 0))
-          (dissoc :started-at)
-
-          (zero? (:finished-at task 0))
-          (dissoc :finished-at)
-
-          (= "" (:error task ""))
-          (dissoc :error)))
-
-(defn- clean-run
-  [run]
-  (cond-> run
-          (zero? (:finished-at run 0))
-          (dissoc :finished-at)
-
-          (zero? (:expected-end-at run 0))
-          (dissoc :expected-end-at)
-
-          (= "" (:current-task run ""))
-          (dissoc :current-task)
-
-          (= "" (:error run ""))
-          (dissoc :error)
-
-          :always
-          (update :tasks (fn [tasks] (mapv clean-task tasks)))))
-
 ;; --- jobs -----------------------------------------------------------------
 
 (defn save-job
@@ -71,8 +26,7 @@
    txn
    (fn [txn]
      (some-> (fdb/load-record (fdb/open txn jobs-store) bank-id job-id)
-             schema/pb->SchedulerJob
-             clean-job))
+             schema/pb->SchedulerJob))
    :scheduler/get-job
    {:message "Failed to load scheduler job"
     :bank-id bank-id
@@ -90,7 +44,7 @@
                                      :before before
                                      :limit limit
                                      :order :asc})]
-       {:jobs (mapv (comp clean-job schema/pb->SchedulerJob) (:records result))
+       {:jobs (mapv schema/pb->SchedulerJob (:records result))
         :before (:before result)
         :after (:after result)}))
    :scheduler/list-jobs
@@ -103,7 +57,7 @@
   (fdb/transact
    txn
    (fn [txn]
-     (mapv (comp clean-job schema/pb->SchedulerJob)
+     (mapv schema/pb->SchedulerJob
            (:records (fdb/scan-records (fdb/open txn jobs-store)
                                        {:limit 10000 :order :asc}))))
    :scheduler/list-all-jobs
@@ -127,8 +81,7 @@
    txn
    (fn [txn]
      (some-> (fdb/load-record (fdb/open txn runs-store) bank-id run-id)
-             schema/pb->SchedulerRun
-             clean-run))
+             schema/pb->SchedulerRun))
    :scheduler/get-run
    {:message "Failed to load scheduler run"
     :bank-id bank-id
@@ -145,7 +98,7 @@
      (->> (fdb/scan-records (fdb/open txn runs-store)
                             {:prefix [bank-id] :limit 10000 :order :desc})
           :records
-          (map (comp clean-run schema/pb->SchedulerRun))
+          (map schema/pb->SchedulerRun)
           (filter #(= job-id (:job-id %)))
           vec))
    :scheduler/list-runs-by-job

@@ -1,6 +1,6 @@
 # Scheduled runs
 
-> **Status: proposal.** The scheduler, its jobs API, the four task kinds
+> **Status: proposal.** The scheduler, its jobs API, the three task kinds
 > and the resumable interest pass, which closes only when complete,
 > exist. The Proposed Solution is the build list, and
 > [First slice](#first-slice) says what comes first.
@@ -29,7 +29,7 @@ progress route for an interest run in flight.
   [jobs.edn](/components/resources/resources/scheduler/jobs.edn). The
   `bank-scheduler/runner` in the
   [scheduler](/components/scheduler/src/com/repldriven/queenswood/scheduler/core.clj)
-  brick registers an in-memory Quartz trigger per enabled job and
+  brick registers an in-memory Quartz trigger per active job and
   reconciles the triggers against the rows every minute. It runs in
   `exclusive-dispatchers-service` at one replica, and in the monolith.
 - **A run takes today's date when it fires.** `run-job` reads
@@ -63,7 +63,7 @@ progress route for an interest run in flight.
   accounts FAILED, and the pass returns `:interest/run-incomplete`
   without posting the bank's side or writing the `InterestRun` record.
   A second pass for the date posts the FAILED accounts and closes. The
-  run records the task failed with `records_failed`, and its period
+  run records the task failed with `failed_count`, and its period
   stays open for an operator to force it again.
 - **Migrations are a work list.** `run-due-migrations` commits every
   approved migration that is due. It owes nothing per date, so the next

@@ -10,8 +10,8 @@
   :name "Daily interest"
   :task-kinds [:scheduler-task-kind-accrue :scheduler-task-kind-capitalize]
   :periodicity :scheduler-periodicity-daily
-  :run-time-minutes 1020 ; 17:00 UTC
-  :enabled true
+  :run-time-mins 1020 ; 17:00 UTC
+  :status :scheduler-job-status-active
   :kind :scheduler-job-kind-user}
  ;; System job: account migration runs every day at 00:00 UTC. It
  ;; commits every migration that is approved and due, and is the only
@@ -20,6 +20,6 @@
   :name "Account migration"
   :task-kinds [:scheduler-task-kind-account-migration]
   :periodicity :scheduler-periodicity-daily
-  :run-time-minutes 0
-  :enabled true
+  :run-time-mins 0
+  :status :scheduler-job-status-active
   :kind :scheduler-job-kind-system}]

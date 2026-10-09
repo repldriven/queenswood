@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.api.jobs.view :as view]
 
     [com.repldriven.queenswood.api.errors :as errors]
+    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
     [com.repldriven.queenswood.scheduler.interface :as scheduler]
 
@@ -18,12 +19,15 @@
         {:keys [bank-id]} auth
         {:keys [job-id]} (:path parameters)
         config {:record-db record-db :record-store record-store}
-        result (scheduler/force-start config bank-id job-id)]
+        result (scheduler/force-start config
+                                      bank-id
+                                      job-id
+                                      (shared.actor/actor auth))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 201
        :headers {"Location" (str "/v1/jobs/" job-id "/runs/" (:run-id result))}
-       :body result})))
+       :body (view/run->api result)})))
 
 (defn update-schedule
   "Edit a job's schedule — any of `:periodicity`, `:run-time-minutes`,
@@ -36,7 +40,21 @@
         {:keys [path body]} parameters
         {:keys [job-id]} path
         config {:record-db record-db :record-store record-store}
-        result (scheduler/update-schedule config bank-id job-id body)]
+        {:keys [run-time-minutes enabled]} body
+        edits (cond-> (dissoc body :run-time-minutes :enabled)
+                      (some? run-time-minutes)
+                      (assoc :run-time-mins run-time-minutes)
+
+                      (some? enabled)
+                      (assoc :status
+                             (if enabled
+                               :scheduler-job-status-active
+                               :scheduler-job-status-paused)))
+        result (scheduler/update-schedule config
+                                          bank-id
+                                          job-id
+                                          edits
+                                          (shared.actor/actor auth))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body (view/job->api result)})))

@@ -663,9 +663,25 @@
   (InterestAccountRunProto$InterestAccountRun/parseFrom
    (InterestAccountRun->pb m)))
 
-(def ^{:doc "Parse SchedulerJob protobuf bytes into a Clojure map."}
-     pb->SchedulerJob
-  scheduler/pb->SchedulerJob)
+(def ^:private scheduler-job-unset
+  {:monthly-day :scheduler-monthly-day-unknown
+   :last-run-at 0
+   :next-run-at 0
+   :updated-at 0
+   :updated-by nil})
+
+(defn pb->SchedulerJob
+  "Parse SchedulerJob protobuf bytes into a Clojure map. A monthly job's
+  `monthly-day`, a run's `last-run-at` and `next-run-at`, and an edit's
+  `updated-at` and `updated-by` are present only when set, the actor a
+  plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (scheduler/pb->SchedulerJob input)
+      (without-unset scheduler-job-unset)
+      (plain-embedded :updated-by)))
 
 (defn SchedulerJob->pb
   "Serialise a SchedulerJob map to protobuf bytes.
@@ -683,9 +699,33 @@
   [m]
   (SchedulerJobProto$SchedulerJob/parseFrom (SchedulerJob->pb m)))
 
-(def ^{:doc "Parse SchedulerRun protobuf bytes into a Clojure map."}
-     pb->SchedulerRun
-  scheduler/pb->SchedulerRun)
+(def ^:private scheduler-run-unset
+  {:expected-end-at 0
+   :succeeded-at 0
+   :failed-at 0
+   :created-by nil
+   :updated-at 0
+   :failure-reason ""})
+
+(def ^:private scheduler-task-run-unset
+  {:started-at 0 :finished-at 0 :failure-reason ""})
+
+(defn pb->SchedulerRun
+  "Parse SchedulerRun protobuf bytes into a Clojure map, each task a
+  plain map. An optional field is present only when set: the expected
+  end, the outcome's `_at`, a forced run's `created-by`, a failed run's
+  `failure-reason`, and a task's timings and failure.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (scheduler/pb->SchedulerRun input)
+      (without-unset scheduler-run-unset)
+      (plain-embedded :created-by)
+      (update :tasks
+              (fn [tasks]
+                (mapv (fn [task] (without-unset task scheduler-task-run-unset))
+                      tasks)))))
 
 (defn SchedulerRun->pb
   "Serialise a SchedulerRun map to protobuf bytes.

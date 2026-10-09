@@ -263,7 +263,7 @@ and kept, since each holds for every job:
 
 - **Hourly.** `SCHEDULER_PERIODICITY_HOURLY` in
   [scheduler-job.proto](/components/schema/resources/schemas/scheduler/scheduler-job.proto);
-  `->cron` answers `0 m * * * ?` for it, where `run-time-minutes` is
+  `->cron` answers `0 m * * * ?` for it, where `run-time-mins` is
   the minute past the hour and the schedule guard refuses sixty or
   more; the jobs API's coercion and view order learn the word. No
   seeded task allows it.

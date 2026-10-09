@@ -60,7 +60,7 @@
   (testing "hourly fires every hour at that minute past it"
     (is (= "0 15 * * * ?" (SUT/->cron :scheduler-periodicity-hourly 15)))
     (is (= "0 0 * * * ?" (SUT/->cron :scheduler-periodicity-hourly 0))))
-  (testing "run-time-minutes splits into hour/minute; 120 = 02:00"
+  (testing "run-time-mins splits into hour/minute; 120 = 02:00"
     (is (= "0 0 2 * * ?" (SUT/->cron :scheduler-periodicity-daily 120))))
   (testing "monthly defaults to the 1st"
     (is (= "0 30 6 1 * ?" (SUT/->cron :scheduler-periodicity-monthly 390))))
@@ -94,25 +94,26 @@
   (let [system {:job-id "account-migration" :kind :scheduler-job-kind-system}
         user {:job-id "daily-interest" :kind :scheduler-job-kind-user}]
     (testing "editing only the time of a system job is allowed (nil)"
-      (is (nil? (SUT/validate-system-edits system {:run-time-minutes 300}))))
-    (testing "a system job rejects cadence / enabled edits"
+      (is (nil? (SUT/validate-system-edits system {:run-time-mins 300}))))
+    (testing "a system job rejects cadence / status edits"
       (doseq [edit [{:periodicity :scheduler-periodicity-daily}
                     {:monthly-day :scheduler-monthly-day-first}
-                    {:enabled false}]]
+                    {:status :scheduler-job-status-paused}]]
         (let [result (SUT/validate-system-edits system edit)]
           (is (error/rejection? result))
           (is (= :scheduler/system-job-locked (error/kind result))))))
     (testing "a user job allows any edit (nil)"
-      (is (nil? (SUT/validate-system-edits user
-                                           {:periodicity
-                                            :scheduler-periodicity-monthly
-                                            :enabled false}))))))
+      (is (nil? (SUT/validate-system-edits
+                 user
+                 {:periodicity :scheduler-periodicity-monthly
+                  :status :scheduler-job-status-paused}))))))
 
 (deftest expected-end-at-test
-  (testing "started-at plus the prior run's duration"
-    (is (= 1150 (SUT/expected-end-at 1000 {:started-at 100 :finished-at 250}))))
-  (testing "nil when the prior run never finished"
-    (is (nil? (SUT/expected-end-at 1000 {:started-at 100})))
+  (testing "created-at plus the prior run's duration"
+    (is (= 1150
+           (SUT/expected-end-at 1000 {:created-at 100 :succeeded-at 250}))))
+  (testing "nil when the prior run never succeeded"
+    (is (nil? (SUT/expected-end-at 1000 {:created-at 100})))
     (is (nil? (SUT/expected-end-at 1000 nil)))))
 
 (deftest task-recording-test
@@ -123,15 +124,12 @@
               :started-at 1000}
              started)))
     (testing "finishing carries the counts the pass reported"
-      ;; The pass counts accounts; the run records them as records,
-      ;; because the scheduler has no business knowing what a pass
-      ;; iterates over.
       (is (= {:label "accrue"
               :status :scheduler-task-status-succeeded
               :started-at 1000
               :finished-at 1600
-              :records-processed 12480
-              :records-failed 3}
+              :processed-count 12480
+              :failed-count 3}
              (SUT/finished-task started
                                 1600
                                 {:accounts-processed 12480
@@ -140,15 +138,15 @@
       (let [task (SUT/finished-task started
                                     1600
                                     {:accounts-processed 0 :accounts-failed 0})]
-        (is (= 0 (:records-processed task)))
-        (is (= 0 (:records-failed task)))))
+        (is (= 0 (:processed-count task)))
+        (is (= 0 (:failed-count task)))))
     (testing "a task with nothing to count carries no counts at all"
       ;; The migration task reports its own shape and no account
       ;; figures — better absent than a zero it never meant.
       (let [task (SUT/finished-task started 1600 {:migrated 0})]
         (is (= :scheduler-task-status-succeeded (:status task)))
-        (is (not (contains? task :records-processed)))
-        (is (not (contains? task :records-failed)))))
+        (is (not (contains? task :processed-count)))
+        (is (not (contains? task :failed-count)))))
     (testing "failing keeps the timings and the anomaly that stopped it"
       (let [task (SUT/failed-task started
                                   1600
@@ -156,8 +154,8 @@
                                                 {:message "no such account"}))]
         (is (= :scheduler-task-status-failed (:status task)))
         (is (= 1600 (:finished-at task)))
-        (is (string? (:error task)))
-        (is (not (contains? task :records-failed)))))
+        (is (string? (:failure-reason task)))
+        (is (not (contains? task :failed-count)))))
     (testing "an incomplete pass records the counts it carries"
       (let [task (SUT/failed-task started
                                   1600
@@ -165,8 +163,8 @@
                                               {:message "accounts failed"
                                                :accounts-processed 5
                                                :accounts-failed 4}))]
-        (is (= 5 (:records-processed task)))
-        (is (= 4 (:records-failed task)))))))
+        (is (= 5 (:processed-count task)))
+        (is (= 4 (:failed-count task)))))))
 
 (deftest skipped-tasks-test
   (testing "tasks after a failure are recorded as skipped, in order"
@@ -199,8 +197,8 @@
 (deftest period-refusal-test
   (let [job {:job-id "daily-interest" :periodicity :scheduler-periodicity-daily}
         hour (* 60 60 1000)
-        run (fn [status started-at]
-              {:run-id "run.1" :status status :started-at started-at})]
+        run (fn [status created-at]
+              {:run-id "run.1" :status status :created-at created-at})]
     (testing "a run that succeeded or is running this period refuses another"
       (is (= :scheduler/period-already-run
              (error/kind (SUT/period-refusal job

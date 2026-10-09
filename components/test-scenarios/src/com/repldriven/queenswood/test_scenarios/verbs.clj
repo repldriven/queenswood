@@ -1180,7 +1180,8 @@
 (defmethod dispatch :force-start-job
   [{:keys [bank banks] :as ctx} {[model-bank job-id] :args}]
   (let [{bank-real-id :real-id} (get banks model-bank)
-        result (scheduler/force-start bank bank-real-id job-id)]
+        result
+        (scheduler/force-start bank bank-real-id job-id scenario-operator)]
     (-> ctx
         (update :counter inc)
         (track result))))

@@ -49,7 +49,7 @@
 
 (defn- job-cron
   [job]
-  (domain/->cron (:periodicity job) (:run-time-minutes job) (:monthly-day job)))
+  (domain/->cron (:periodicity job) (:run-time-mins job) (:monthly-day job)))
 
 (declare register!)
 
@@ -101,11 +101,11 @@
                       [runs (store/list-runs-by-job txn
                                                     (:bank-id run)
                                                     (:job-id run))
-                       _ (domain/period-refusal job runs (:started-at run))
+                       _ (domain/period-refusal job runs (:created-at run))
                        opened (utility/assoc-some
                                run
                                :expected-end-at
-                               (domain/expected-end-at (:started-at run)
+                               (domain/expected-end-at (:created-at run)
                                                        (last-succeeded-run
                                                         runs)))
                        _ (store/save-run txn opened)]
@@ -113,58 +113,59 @@
                   :scheduler/open-run
                   "Failed to open scheduler run"))
 
+(defn- ran
+  "`run` as it stands after a save: with `tasks`, changed at `now`."
+  [run tasks now]
+  (assoc run :tasks tasks :updated-at now))
+
 (defn run-job
-  "Execute `job`'s tasks sequentially, recording a `SchedulerRun` with
-  task-granular progress. Refuses with `:scheduler/period-already-run`
-  when the job has run, or is running, in the period it starts in;
-  otherwise opens the run as running, advances
-  `tasks-completed` / `current-task` after each task, and finishes
-  succeeded or — on the first task anomaly — failed (remaining tasks are
-  skipped). `as-of-date` is today (epoch-day); the underlying interest
-  tasks are idempotent and guarded by the daily-limit policy, so a
-  re-run records a failed run rather than double-posting. Returns the
-  final run map, or the task anomaly on failure."
-  [config bank-id job trigger-source]
-  (let [run-id (str (utility/uuidv7))
-        started-at (utility/now)
+  "Execute `job`'s tasks sequentially, recording a `SchedulerRun` that
+  lists each task as it starts and as it ends. Refuses with
+  `:scheduler/period-already-run` when the job has run, or is running,
+  in the period it starts in; otherwise opens the run as running and
+  finishes it succeeded or — on the first task anomaly — failed, the
+  remaining tasks skipped. `as-of-date` is today (epoch-day); the
+  underlying interest tasks are idempotent and guarded by the
+  daily-limit policy, so a re-run records a failed run rather than
+  double-posting. A forced run records the `actor` that forced it.
+  Returns the final run map, or the task anomaly on failure."
+  [config bank-id job trigger-source actor]
+  (let [created-at (utility/now)
         as-of-date (utility/today)
         task-kinds (vec (:task-kinds job))
-        unopened {:bank-id bank-id
-                  :run-id run-id
-                  :job-id (:job-id job)
-                  :trigger-source trigger-source
-                  :started-at started-at
-                  :tasks-total (count task-kinds)}]
+        unopened (utility/assoc-some {:bank-id bank-id
+                                      :run-id (str (utility/uuidv7))
+                                      :status :scheduler-run-status-running
+                                      :trigger-source trigger-source
+                                      :job-id (:job-id job)
+                                      :tasks-total (count task-kinds)
+                                      :tasks []
+                                      :created-at created-at}
+                                     :created-by
+                                     (some-> actor
+                                             (select-keys [:kind
+                                                           :principal-id])))]
     (let-nom>
-      [opened (open-run config
-                        job
-                        (assoc unopened
-                               :status :scheduler-run-status-running
-                               :tasks-completed 0
-                               :current-task (task-label (first task-kinds))))
-       base (utility/assoc-some unopened
-                                :expected-end-at
-                                (:expected-end-at opened))]
+      [base (open-run config job unopened)]
       (loop [[task-kind & more] task-kinds
-             completed 0
              tasks []]
         (if (nil? task-kind)
-          (let [run (assoc base
+          (let [now (utility/now)
+                run (assoc (ran base tasks now)
                            :status :scheduler-run-status-succeeded
-                           :tasks-completed completed
-                           :tasks tasks
-                           :finished-at (utility/now))]
+                           :succeeded-at now)]
             (store/save-run config run)
             (store/save-job config
                             (assoc job
-                                   :last-run-at started-at
+                                   :last-run-at created-at
                                    :next-run-at (scheduler/next-fire-at
                                                  (job-cron job)
-                                                 started-at)
-                                   :updated-at (utility/now)))
+                                                 created-at)))
             run)
           (let [label (task-label task-kind)
                 task (domain/started-task label (utility/now))
+                _ (store/save-run config
+                                  (ran base (conj tasks task) (utility/now)))
                 run-fn (get-in task-registry [task-kind :run])
                 result (if run-fn
                          (run-fn config bank-id as-of-date)
@@ -173,35 +174,31 @@
                                         :task-kind task-kind}))
                 finished-at (utility/now)]
             (if (error/anomaly? result)
-              (let [run (assoc base
+              (let [now (utility/now)
+                    run (assoc (ran base
+                                    (into (conj tasks
+                                                (domain/failed-task task
+                                                                    finished-at
+                                                                    result))
+                                          (domain/skipped-tasks
+                                           (map task-label more)))
+                                    now)
                                :status :scheduler-run-status-failed
-                               :tasks-completed completed
-                               :current-task label
-                               :tasks (into (conj tasks
-                                                  (domain/failed-task
-                                                   task
-                                                   finished-at
-                                                   result))
-                                            (domain/skipped-tasks
-                                             (map task-label more)))
-                               :finished-at (utility/now)
-                               :error (error/format-anomaly result))]
+                               :failed-at now
+                               :failure-reason (error/format-anomaly result))]
                 (store/save-run config run)
                 result)
-              (let [tasks (conj tasks
-                                (domain/finished-task task finished-at result))]
-                (store/save-run config
-                                (assoc base
-                                       :status :scheduler-run-status-running
-                                       :tasks-completed (inc completed)
-                                       :current-task label
-                                       :tasks tasks))
-                (recur more (inc completed) tasks)))))))))
+              (recur more
+                     (conj tasks
+                           (domain/finished-task task
+                                                 finished-at
+                                                 result))))))))))
 
 (defn force-start
   "Run `job-id` now with trigger source forced, in the period now falls
-  in, which a run that is running or succeeded there refuses."
-  [config bank-id job-id]
+  in, which a run that is running or succeeded there refuses. The run
+  records the `actor` that forced it."
+  [config bank-id job-id actor]
   (let [job (store/get-job config bank-id job-id)]
     (cond
      (error/anomaly? job)
@@ -212,17 +209,16 @@
                    {:bank-id bank-id :job-id job-id})
 
      :else
-     (run-job config bank-id job :scheduler-trigger-source-forced))))
-
-;; --- editing --------------------------------------------------------------
+     (run-job config bank-id job :scheduler-trigger-source-forced actor))))
 
 (defn update-schedule
-  "Edit a job's periodicity / run-time / enabled flag, within the
-  periodicities its tasks allow. Persists the change, recomputes
-  `next-run-at`, and reflects it on the live trigger when a scheduler is
-  present in `config`."
+  "Edit a job's periodicity, run time, status or monthly day, within
+  the periodicities its tasks allow, recording the `actor` who did.
+  Persists the change, recomputes `next-run-at`, and reflects it on the
+  live trigger when a scheduler is present in `config`."
   [config bank-id job-id
-   {:keys [periodicity run-time-minutes enabled monthly-day] :as edits}]
+   {:keys [periodicity run-time-mins status monthly-day] :as edits}
+   actor]
   (let [job (store/get-job config bank-id job-id)]
     (cond
      (error/anomaly? job)
@@ -234,21 +230,25 @@
 
      :else
      (let [periodicity (or periodicity (:periodicity job))
-           run-time-minutes (or run-time-minutes (:run-time-minutes job))
-           enabled (if (some? enabled) enabled (:enabled job))
+           run-time-mins (or run-time-mins (:run-time-mins job))
+           status (or status (:status job))
            monthly-day (or monthly-day (:monthly-day job))]
        (let-nom> [_ (domain/validate-system-edits job edits)
                   _ (domain/validate-periodicity (:task-kinds job) periodicity)
-                  _ (domain/validate-run-time periodicity run-time-minutes)]
+                  _ (domain/validate-run-time periodicity run-time-mins)]
          (let [now (utility/now)
-               cron (domain/->cron periodicity run-time-minutes monthly-day)
-               updated (assoc job
-                              :periodicity periodicity
-                              :run-time-minutes run-time-minutes
-                              :enabled enabled
-                              :monthly-day monthly-day
-                              :next-run-at (scheduler/next-fire-at cron now)
-                              :updated-at now)
+               cron (domain/->cron periodicity run-time-mins monthly-day)
+               updated (utility/assoc-some
+                        (assoc job
+                               :periodicity periodicity
+                               :run-time-mins run-time-mins
+                               :status status
+                               :next-run-at (scheduler/next-fire-at cron now)
+                               :updated-at now
+                               :updated-by (select-keys actor
+                                                        [:kind :principal-id]))
+                        :monthly-day
+                        monthly-day)
                result (store/save-job config updated)]
            (if (error/anomaly? result)
              result
@@ -264,13 +264,12 @@
   fields, the bank, the next fire and the timestamps."
   [bank-id template now]
   (let [cron (domain/->cron (:periodicity template)
-                            (:run-time-minutes template)
+                            (:run-time-mins template)
                             (:monthly-day template))]
     (assoc template
            :bank-id bank-id
            :next-run-at (scheduler/next-fire-at cron now)
-           :created-at now
-           :updated-at now)))
+           :created-at now)))
 
 (defn seed-jobs
   "Seed the bank's default scheduled jobs (FDB only — no triggers).
@@ -314,7 +313,7 @@
   "What a trigger runs: the job as its row reads now, not as it read
   when the trigger was registered, so an edit made elsewhere is honoured
   at the next fire even before the reconcile that re-registers it. A
-  row that has gone, or been disabled, runs nothing."
+  row that has gone, or been paused, runs nothing."
   [config bank-id job-id]
   (let [job (store/get-job config bank-id job-id)]
     (cond
@@ -328,18 +327,22 @@
      (log/info "Scheduler skipped a job whose row has gone"
                {:bank-id bank-id :job-id job-id})
 
-     (not (:enabled job))
-     (log/info "Scheduler skipped a job that is no longer enabled"
+     (not= :scheduler-job-status-active (:status job))
+     (log/info "Scheduler skipped a job that is paused"
                {:bank-id bank-id :job-id job-id})
 
      :else
      (do (log/info "Scheduler running a job"
                    {:bank-id bank-id :job-id job-id})
-         (run-job config bank-id job :scheduler-trigger-source-scheduled)))))
+         (run-job config
+                  bank-id
+                  job
+                  :scheduler-trigger-source-scheduled
+                  nil)))))
 
 (defn- register!
   "Make the live trigger for `job` match its row: registered on the
-  row's cron where the job is enabled, and absent where it is not.
+  row's cron where the job is active, and absent where it is not.
   `:triggers` remembers what this JVM registered, keyed by trigger id,
   so an unchanged row costs nothing. A `config` with no `:triggers`
   registers without remembering, which the next reconcile corrects."
@@ -347,7 +350,8 @@
   (let [sched (:scheduler config)
         triggers (:triggers config)
         id (trigger-id job)
-        want (when (:enabled job) (job-cron job))
+        want (when (= :scheduler-job-status-active (:status job))
+               (job-cron job))
         have (when triggers (get @triggers id))]
     (cond
      (and want (not= want have))
@@ -375,9 +379,9 @@
 
 (defn reconcile!
   "Make the live triggers match the job rows: seed a job the rows lack
-  for a bank that has any, register a trigger for every enabled job
+  for a bank that has any, register a trigger for every active job
   that has none or whose cron changed, and remove one for a job that is
-  disabled. The rows are the truth, wherever they were written — a bank
+  paused. The rows are the truth, wherever they were written — a bank
   created after this runner started, a job added to `jobs.edn` after
   the bank, and an edit made through the API in another JVM all reach
   the live scheduler here. Run at start and every minute after.
