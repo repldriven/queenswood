@@ -31,4 +31,4 @@
    :assert {:status 200
             :body {:party-id [:ref :party :party-id]
                    :account-type "business"
-                   :account-status "opened"}}}]}
+                   :status "opened"}}}]}

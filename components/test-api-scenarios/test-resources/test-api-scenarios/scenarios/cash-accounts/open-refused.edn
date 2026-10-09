@@ -31,7 +31,7 @@
    :request {:method :get :path "/v1/cash-accounts" :auth :bank-a-token}
    :until {:status 200
            :body {:items [{:product-type "own-funds"
-                           :account-status "opened"}]}}}]
+                           :status "opened"}]}}}]
  :when
  [{:command :api/request
    :request
@@ -48,7 +48,7 @@
    :as :account
    :assert
    {:status 201
-    :body {:account-status "opening" :payment-addresses [] :bban [:m/absent]}}}]
+    :body {:status "opening" :payment-addresses [] :bban [:m/absent]}}}]
  :then
  [{:command :api/poll
    :request {:method :get
@@ -56,7 +56,7 @@
              :path-params {:account-id [:ref :account :account-id]}
              :auth :bank-a-token}
    :until {:status 200
-           :body {:account-status "refused"
-                  :refusal-reason "The account was declined"
+           :body {:status "refused"
+                  :refused-reason "The account was declined"
                   :payment-addresses []
                   :bban [:m/absent]}}}]}

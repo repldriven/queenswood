@@ -263,7 +263,7 @@ provider account behind it:
   flips `closing → closed`. A close the provider refuses, or the
   adapter gives up on, reports `payment-account-close-refused` with a
   reason, and the account returns to the status it closed from,
-  `opened` or `suspended`, with the reason as its `refusal-reason`.
+  `opened` or `suspended`.
 - **Rotating.** `rotate-cash-account-address` sends
   `reissue-payment-address`, and the account keeps its address until
   the adapter reports `payment-address-reissued` with the new one and,
@@ -272,7 +272,8 @@ provider account behind it:
   account, opens a new one, moves the balance across and closes the
   old one. A reissue the provider refuses, or the adapter gives up on,
   reports `payment-address-reissue-failed`: the account keeps its
-  addresses, with the reason as its `refusal-reason`. An adapter that
+  addresses, and its `rotation` fails with the reason as its
+  `failed_reason`. An adapter that
   blocked the old provider account unblocks it first; one whose
   balance has moved and whose only failure is the old account's close
   reports the reissue, leaving the old account blocked and logged.

@@ -25,7 +25,7 @@
              :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:account-id [:ref :account-0 :account :account-id]
-                   :account-status "suspended"}}}
+                   :status "suspended"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-accounts/{account-id}/resume"
@@ -33,4 +33,4 @@
              :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:account-id [:ref :account-0 :account :account-id]
-                   :account-status "opened"}}}]}
+                   :status "opened"}}}]}

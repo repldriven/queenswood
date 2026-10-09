@@ -62,7 +62,7 @@ binding of its `let-nom>`, before any capability or limit check:
          (error/reject :cash-account/invalid-status
                        {:message "Account is not in a closeable state"
                         :account-id (:account-id account)
-                        :status (:account-status account)
+                        :status (:status account)
                         :allowed #{:cash-account-status-opened}}))
      _ (check-capability :cash-account-action-close
                          (:account-type account)

@@ -47,7 +47,7 @@
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :per-account-account :account-id]}
              :auth :per-account-token}
-   :until {:status 200 :body {:account-status "opened"}}
+   :until {:status 200 :body {:status "opened"}}
    :as :per-account-account}
   {:command :api/request
    :request {:method :post
@@ -86,7 +86,7 @@
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :rails-account :account-id]}
              :auth :rails-token}
-   :until {:status 200 :body {:account-status "opened"}}
+   :until {:status 200 :body {:status "opened"}}
    :as :rails-account}
   ;; Fund the first bank's customer so the payment can leave.
   {:command :api/request

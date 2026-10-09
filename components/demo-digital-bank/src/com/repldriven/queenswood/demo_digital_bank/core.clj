@@ -347,7 +347,7 @@
   (loop [polls opening-polls]
     (let-nom> [account (platform/get-account client account-id)]
       (if (or (= "opened"
-                 (some-> (:account-status account)
+                 (some-> (:status account)
                          name))
               (zero? polls))
         account

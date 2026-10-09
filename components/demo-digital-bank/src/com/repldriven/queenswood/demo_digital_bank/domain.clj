@@ -600,7 +600,7 @@
      :kind kind
      :name account-name
      :type (account-label kind account-name rate)
-     :status (some-> (:account-status platform-account)
+     :status (some-> (:status platform-account)
                      name)
      :balance available
      :posted posted

@@ -37,7 +37,7 @@
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :creditor-a :account-id]}
              :auth [:ref :bank-a :token]}
-   :until {:status 200 :body {:account-status "opened"}}
+   :until {:status 200 :body {:status "opened"}}
    :as :creditor-a}
   {:command :api/request
    :request {:method :post

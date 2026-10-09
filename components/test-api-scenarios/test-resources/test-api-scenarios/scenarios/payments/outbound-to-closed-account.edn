@@ -40,7 +40,7 @@
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :closed :account-id]}
              :auth [:ref :org-0 :token]}
-   :until {:status 200 :body {:account-status "opened"}}
+   :until {:status 200 :body {:status "opened"}}
    :as :closed}
   {:command :api/request
    :request {:method :post
@@ -53,7 +53,7 @@
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :closed :account-id]}
              :auth [:ref :org-0 :token]}
-   :until {:status 200 :body {:account-status "closed"}}}
+   :until {:status 200 :body {:status "closed"}}}
   ;; Fund the debtor so the outbound can leave.
   {:command :api/request
    :request {:method :post

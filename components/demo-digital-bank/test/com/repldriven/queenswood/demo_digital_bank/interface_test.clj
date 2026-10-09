@@ -163,7 +163,7 @@
    :currency "GBP"
    :product-id product
    :product-type (if (= "cur" kind) "current" "savings")
-   :account-status "opened"
+   :status "opened"
    :payment-addresses [{:scheme "scan"
                         :scan {:sort-code "040075"
                                :account-number "31908240"}}]
@@ -266,7 +266,7 @@
                               "cur"
                               everyday
                               balance)
-            :account-status
+            :status
             "opened")
      [(leg account-id
            (util/generate-id "txn")

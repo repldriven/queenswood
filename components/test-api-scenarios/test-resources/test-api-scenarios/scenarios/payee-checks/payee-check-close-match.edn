@@ -12,7 +12,7 @@
           :request
           {:method :get :path "/v1/cash-accounts" :auth [:ref :org-0 :token]}
           :until {:status 200
-                  :body {:items [:m/embeds [{:account-status "opened"}]]}}}]
+                  :body {:items [:m/embeds [{:status "opened"}]]}}}]
  :when
  [{:command :api/request
    :request {:method :post

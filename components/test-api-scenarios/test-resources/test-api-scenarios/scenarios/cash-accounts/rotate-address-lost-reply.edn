@@ -54,7 +54,7 @@
    ;; still answers with the addresses the first attempt allocated.
    :assert {:status 200
             :headers {:idempotent-replayed [:m/absent]}
-            :body {:account-status "opened"
+            :body {:status "opened"
                    :payment-addresses [:ref :after-first :payment-addresses]}}}]
  :then
  [{:command :api/request

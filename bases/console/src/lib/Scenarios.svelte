@@ -532,7 +532,7 @@
     }
     const opened = await poll(
       () => api.get_cash_account(accountId),
-      (r) => r.status === 200 && r.body?.["account-status"] === "opened",
+      (r) => r.status === 200 && r.body?.status === "opened",
       { tries: 40, delay: 600 },
     );
     const rec = { accountId, bban: opened.body?.bban };

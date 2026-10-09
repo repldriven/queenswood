@@ -49,4 +49,4 @@
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :second :account :account-id]}
              :auth [:ref :bank-0 :token]}
-   :assert {:status 200 :body {:account-status "opened"}}}]}
+   :assert {:status 200 :body {:status "opened"}}}]}

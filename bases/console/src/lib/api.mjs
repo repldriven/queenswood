@@ -383,7 +383,7 @@ export function get_verification(party_id) {
 // ─── Cash accounts (org-scoped) ───
 //
 // Open an account against a party + published product (returns
-// `account-status: "opening"`; poll the GET until `"opened"`, at which
+// `status: "opening"`; poll the GET until `"opened"`, at which
 // point the record carries its assigned SCAN `bban`). The Accounts page
 // lists accounts (with `embed[balances]` so the rail can show each
 // available balance) and fetches the selected account's transactions.

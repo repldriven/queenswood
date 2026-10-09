@@ -193,7 +193,7 @@ function openAccount(bank, partyId, bearer, step) {
 
   const opened = awaited(
     `/v1/cash-accounts/${account.json()["account-id"]}`,
-    (b) => b["account-status"] === "opened",
+    (b) => b.status === "opened",
     bearer,
     "cash-accounts/{id}",
   );

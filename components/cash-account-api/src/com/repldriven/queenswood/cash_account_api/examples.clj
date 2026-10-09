@@ -62,7 +62,7 @@
    :version-id "prv.01kprbmgcj35ptc8npmybhh4sf"
    :product-type :current
    :account-type :personal
-   :account-status :opened
+   :status :opened
    :payment-addresses [{:scheme :scan
                         :scan {:sort-code "040004" :account-number "12345678"}}]
    :created-at "2026-05-18T09:15:00Z"

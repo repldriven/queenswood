@@ -206,7 +206,7 @@
      :version-id (:version-id version)
      :product-type (:product-type version)
      :account-type "personal"
-     :account-status "opening"
+     :status "opening"
      :payment-addresses [{:scheme "scan"
                           :scan {:sort-code sort-code
                                  :account-number (str number)}}]
@@ -257,7 +257,7 @@
   (when (get-in @state [:accounts account-id])
     (get-in (swap! state
               assoc-in
-              [:accounts account-id :account-status]
+              [:accounts account-id :status]
               "opened")
             [:accounts account-id])))
 
@@ -353,11 +353,11 @@
     (cond (nil? account)
           (problem 404 "REJECTED" ":cash-account/not-found" "no such account")
 
-          (not= "opened" (:account-status account))
+          (not= "opened" (:status account))
           (problem 409
                    "REJECTED"
                    ":cash-account/invalid-status"
-                   (str "the account is " (:account-status account)))
+                   (str "the account is " (:status account)))
 
           :else
           account)))
@@ -381,10 +381,10 @@
            body-params
            debtor (operable state debtor-account-id)
            creditor (operable state creditor-account-id)]
-       (cond (:status debtor)
+       (cond (:body debtor)
              debtor
 
-             (:status creditor)
+             (:body creditor)
              creditor
 
              (covered debtor amount)
@@ -441,7 +441,7 @@
                       currency reference scheme]}
               body-params
               debtor (operable state debtor-account-id)]
-          (cond (:status debtor)
+          (cond (:body debtor)
                 debtor
 
                 (covered debtor amount)

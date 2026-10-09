@@ -22,7 +22,7 @@
    ;; The first submission ran the handler, so it is not a replay.
    :assert {:status 201
             :headers {:idempotent-replayed [:m/absent]}
-            :body {:account-status "opening"}}}
+            :body {:status "opening"}}}
   ;; Same key, same body: one account id, and the second answer says it
   ;; is a replay.
   {:command :api/request

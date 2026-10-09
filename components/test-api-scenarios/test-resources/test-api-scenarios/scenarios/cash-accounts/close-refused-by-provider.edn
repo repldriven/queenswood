@@ -37,14 +37,14 @@
              :path "/v1/cash-accounts/{account-id}/close"
              :path-params {:account-id [:ref :open-one :account :account-id]}
              :auth [:ref :bank-0 :token]}
-   :assert {:status 200 :body {:account-status "closing"}}}
+   :assert {:status 200 :body {:status "closing"}}}
   {:command :api/poll
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :open-one :account :account-id]}
              :auth [:ref :bank-0 :token]}
    :until {:status 200
-           :body {:account-status "opened"}}
+           :body {:status "opened"}}
    :timeout-ms 45000}
   {:command :api/request
    :request
@@ -56,7 +56,7 @@
              :path-params {:account-id [:ref :suspended-one :account
                                         :account-id]}
              :auth [:ref :bank-0 :token]}
-   :assert {:status 200 :body {:account-status "closing"}}}]
+   :assert {:status 200 :body {:status "closing"}}}]
  :then
  [{:command :api/poll
    :request {:method :get
@@ -65,7 +65,7 @@
                                         :account-id]}
              :auth [:ref :bank-0 :token]}
    :until {:status 200
-           :body {:account-status "suspended"}}
+           :body {:status "suspended"}}
    :timeout-ms 45000}
   {:command :api/request
    :request {:method :get

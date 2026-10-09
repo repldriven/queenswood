@@ -20,7 +20,7 @@ function shortScheme(x) {
 }
 
 function shortStatus(x) {
-  return String(x ?? "").replace(/^:/, "").replace(/^account-status-/, "");
+  return String(x ?? "").replace(/^:/, "").replace(/^cash-account-status-/, "");
 }
 
 // `owners` opts into the per-account index the migration outcomes table
@@ -56,7 +56,7 @@ export async function loadPopulation({ owners = false } = {}) {
         accountById[a["account-id"]] = {
           number: scan?.["account-number"] ?? a["account-id"],
           ccy: a.currency ?? "",
-          status: shortStatus(a["account-status"]),
+          status: shortStatus(a.status),
           owner: partyName[a["party-id"]] ?? a["party-id"],
         };
       }

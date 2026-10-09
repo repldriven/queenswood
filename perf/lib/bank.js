@@ -269,7 +269,7 @@ function openAccounts(n, partyIds, productId, bearer) {
   return settleAll(
     accounts,
     (a) => `/v1/cash-accounts/${a}`,
-    (b) => b["account-status"] === "opened",
+    (b) => b.status === "opened",
     bearer,
     "accounts to open",
   ).map((b) => ({ id: b["account-id"], bban: b.bban }));

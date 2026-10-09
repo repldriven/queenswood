@@ -134,7 +134,7 @@
              :auth [:ref :bank-0 :token]}
    :assert {:status 200
             :body {:version-id [:ref :v2 :version-id]
-                   :account-status "opened"}}}
+                   :status "opened"}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"

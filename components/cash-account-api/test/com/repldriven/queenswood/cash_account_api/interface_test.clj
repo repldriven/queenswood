@@ -21,9 +21,8 @@
 (def ^:private stored-account
   "A cash account as the query brick hands it back: every key
   `CashAccount` declares but the refusal reason only a refused account
-  carries, its status under the record's own key, and the idempotency
-  key, the provider's account id and the rotation the record also stores
-  and the API never publishes."
+  carries, and the idempotency keys and provider's account id the record
+  also stores and the API never publishes."
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
    :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
    :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
@@ -53,16 +52,16 @@
   (testing
     "the fixture carries every key CashAccount declares, so a
            dropped key is a failure rather than a silent pass"
-    (is (= (disj (set declared-keys) :refusal-reason :account-status)
+    (is (= (disj (set declared-keys) :refused-reason)
            (set (filter (set declared-keys) (keys stored-account)))))))
 
 (deftest ->body-publishes-no-undeclared-key-test
   (let [body (SUT/->body stored-account)]
     (testing "the stored idempotency key does not reach a body"
       (is (not (contains? body :idempotency-key))))
-    (testing "nor do the provider's account id and the rotation"
+    (testing "nor do the provider's account id and the rotation's key"
       (is (not (contains? body :provider-account-id)))
-      (is (not (contains? body :rotation))))
+      (is (= {:status :address-rotation-status-pending} (:rotation body))))
     (testing "nor does any other key CashAccount does not declare"
       (is (empty? (remove (set declared-keys) (keys body)))))))
 
@@ -71,9 +70,9 @@
     (testing
       "every declared key present on the record survives, value
              and all — the BBAN among them"
-      (is (= (select-keys
-              (assoc stored-account :account-status (:status stored-account))
-              declared-keys)
+      (is (= (-> stored-account
+                 (select-keys declared-keys)
+                 (update :rotation dissoc :idempotency-key))
              body)))
     (is (= "04000412345678" (:bban body)))))
 
@@ -87,16 +86,16 @@
 (deftest ->wire-body-spells-the-record-as-the-route-does-test
   (let [body (SUT/->wire-body stored-account)]
     (testing "every enum reaches the wire as the string CashAccount admits"
-      (is (= "opened" (name (:account-status body))))
+      (is (= "opened" (name (:status body))))
       (is (= "personal" (name (:account-type body))))
       (is (= "current" (name (:product-type body))))
       (is (= "scan" (name (:scheme (first (:payment-addresses body)))))))
     (testing "and every timestamp as ISO-8601"
       (is (= "2023-11-14T22:13:20Z" (:created-at body)))
       (is (= "2023-11-14T22:13:20.001Z" (:updated-at body))))
-    (testing "the stored idempotency key and rotation still do not reach a body"
+    (testing "the stored idempotency keys still do not reach a body"
       (is (not (contains? body :idempotency-key)))
-      (is (not (contains? body :rotation))))
+      (is (not (contains? (:rotation body) :idempotency-key))))
     (testing "and the embedded collections are not carried"
       (is (not (contains? body :balances)))
       (is (not (contains? body :transactions))))))

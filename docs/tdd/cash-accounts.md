@@ -139,12 +139,11 @@ reads inside its own FDB transactions, passing the live
  :product-type      :account-product-type-sub-ledger-current
  :account-type      :account-type-personal
                     ;; or -business (derived from party type)
- :account-status    :cash-account-status-opening
+ :status            :cash-account-status-opening
                     ;; -opened, -suspended, -closing, -closed,
                     ;; -refused
 
- :closing-from      ;; tag 28 — the status a closing account left
- :refusal-reason    ;; the provider's reason for its last refusal
+ :refused-reason    ;; the provider's reason for refusing the opening
 
  :payment-addresses
  [{:scheme :payment-address-scheme-scan
