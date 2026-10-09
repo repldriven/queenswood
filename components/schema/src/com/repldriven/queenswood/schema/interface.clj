@@ -1582,9 +1582,15 @@
   [m]
   (WebhookDeliveryProto$WebhookDelivery/parseFrom (WebhookDelivery->pb m)))
 
-(def ^{:doc "Parse WebhookDeliveryAttempt protobuf bytes into a Clojure map."}
-     pb->WebhookDeliveryAttempt
-  webhooks/pb->WebhookDeliveryAttempt)
+(defn pb->WebhookDeliveryAttempt
+  "Parse WebhookDeliveryAttempt protobuf bytes into a Clojure map,
+  without an unset `response-status` or `failed-reason`.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (without-unset (webhooks/pb->WebhookDeliveryAttempt input)
+                 {:response-status 0 :failed-reason ""}))
 
 (defn WebhookDeliveryAttempt->pb
   "Serialise a WebhookDeliveryAttempt map to protobuf bytes.

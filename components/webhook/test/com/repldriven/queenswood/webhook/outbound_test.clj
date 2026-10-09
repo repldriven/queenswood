@@ -293,9 +293,9 @@
                        rows (attempts-of config bank-id delivery-id)
                        _ (is (= :webhook-delivery-status-pending
                                 (:status delivery)))
-                       _ (is (zero? (:response-status (first rows)))
+                       _ (is (nil? (:response-status (first rows)))
                              "no response arrived, so the row carries none")
-                       _ (is (some? (:error (first rows))))])))
+                       _ (is (some? (:failed-reason (first rows))))])))
        (testing "a 302 to a private address is not followed"
          (let [bank-id "bnk.bound.redirect"
                {:keys [delivery-id]}
@@ -337,7 +337,7 @@
                        _ (is (= :webhook-delivery-status-pending
                                 (:status delivery)))
                        _ (is
-                          (some? (:error (first rows)))
+                          (some? (:failed-reason (first rows)))
                           "the refusal is recorded as this attempt's outcome")])))))))
 
 (deftest address-refusal-test

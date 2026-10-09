@@ -68,13 +68,13 @@
           (assoc :next-attempt-at next-attempt-at)))
 
 (defn- attempt
-  [bank-id attempt-id delivery-id attempted-at]
+  [bank-id attempt-id delivery-id created-at]
   {:bank-id bank-id
-   :attempt-id attempt-id
    :delivery-id delivery-id
-   :attempted-at attempted-at
+   :attempt-id attempt-id
    :response-status 200
-   :duration-ms 42})
+   :duration-ms 42
+   :created-at created-at})
 
 (deftest endpoint-round-trips-and-answers-every-index-test
   (with-test-system

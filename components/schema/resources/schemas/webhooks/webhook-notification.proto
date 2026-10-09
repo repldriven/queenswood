@@ -6,7 +6,7 @@ import "record_metadata_options.proto";
 
 option java_outer_classname = "WebhookNotificationProto";
 
-// A notification a bank's change produced, in the bytes every delivery of it sends.
+// A notification of a change to a bank's resource.
 message WebhookNotification {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 

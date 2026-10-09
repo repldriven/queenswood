@@ -63,12 +63,12 @@
 (defn- attempt-row
   [delivery outcome now duration-ms]
   (utility/assoc-some {:bank-id (:bank-id delivery)
-                       :attempt-id (utility/generate-id "wha")
                        :delivery-id (:delivery-id delivery)
-                       :attempted-at now
-                       :duration-ms duration-ms}
+                       :attempt-id (utility/generate-id "wha")
+                       :duration-ms duration-ms
+                       :created-at now}
                       :response-status (:status outcome)
-                      :error (:error outcome)))
+                      :failed-reason (:error outcome)))
 
 (defn- destination
   [{:keys [bank-id endpoint-id]}]

@@ -739,8 +739,8 @@ type in the `schema` brick's `interface.clj`.
   delivery, so the history's filters answer off one index rather than
   a join back to the notification.
 - `WebhookDeliveryAttempt` — attempt id, delivery id, when it was
-  attempted, the response status or the error, and how long the call
-  took. Keyed under its delivery, so the history reads each listed
+  made, the response status or why the call failed before one, and how
+  long the call took. Keyed under its delivery, so the history reads each listed
   delivery's last attempt in one round trip. A re-send is a new
   delivery of the same notification, so "recorded alongside the
   original attempts" is satisfied by rows that survive rather than by a

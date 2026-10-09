@@ -512,7 +512,7 @@
   [delivery attempt]
   (utility/assoc-some delivery
                       :last-response-status (:response-status attempt)
-                      :last-error (:error attempt)))
+                      :last-error (:failed-reason attempt)))
 
 (defn delivered-delivery?
   [delivery]
