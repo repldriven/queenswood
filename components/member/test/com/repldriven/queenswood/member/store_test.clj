@@ -85,14 +85,14 @@
                  _ (SUT/save-member config
                                     (assoc member
                                            :status :member-status-removed
-                                           :ended-at 1700000001000
-                                           :ended-by owner-actor
-                                           :ended-reason "Left the company"))
+                                           :removed-at 1700000001000
+                                           :removed-by owner-actor
+                                           :removed-reason "Left the company"))
                  ended (q/find-by-id config bank-id "mem.scoped")
                  _ (testing "an ended member keeps how, by whom and why"
                      (is (= :member-status-removed (:status ended)))
-                     (is (= owner-actor (:ended-by ended)))
-                     (is (= "Left the company" (:ended-reason ended))))
+                     (is (= owner-actor (:removed-by ended)))
+                     (is (= "Left the company" (:removed-reason ended))))
                  active (q/list-active-by-bank config bank-id)
                  listed (q/list-by-bank config bank-id)
                  by-user (q/list-active-by-user config "usr.scoped")

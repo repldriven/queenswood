@@ -14,7 +14,7 @@
                                     "IDV_STATUS_IN_REVIEW",
                                     "IDV_STATUS_ACCEPTED",
                                     "IDV_STATUS_REJECTED",
-                                    "IDV_STATUS_FAILED"]}],
+                                    "IDV_STATUS_CANCELLED"]}],
      "default": null},
     {"name": "status_after", "type": "com.repldriven.mono.idv.IdvStatus"}
   ]

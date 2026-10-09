@@ -187,9 +187,9 @@
     (let [ended (assoc owner
                        :role :role-viewer
                        :status :member-status-removed
-                       :ended-at 1700000000500
-                       :ended-by member-actor
-                       :ended-reason "Left the company"
+                       :removed-at 1700000000500
+                       :removed-by member-actor
+                       :removed-reason "Left the company"
                        :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2")]
       (is (= ended (SUT/pb->Member (SUT/Member->pb ended))))
       (is (= (SUT/member-status->pb-enum :member-status-removed)

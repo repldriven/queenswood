@@ -13,7 +13,7 @@ enum IdvStatus {
   IDV_STATUS_IN_REVIEW = 2;
   IDV_STATUS_ACCEPTED = 3;
   IDV_STATUS_REJECTED = 4;
-  IDV_STATUS_FAILED = 5;
+  IDV_STATUS_CANCELLED = 5;
 }
 
 enum IdvEvidenceOutcome {
@@ -95,10 +95,10 @@ message Idv {
   repeated IdvCriterion criteria = 5;
   optional IdvEvidence evidence = 6;
 
-  optional int64 completed_at = 51;
+  optional int64 accepted_at = 51;
+  optional int64 rejected_at = 53;
+  optional int64 cancelled_at = 55;
 
   required int64 created_at = 101;
   required int64 updated_at = 103;
-
-  optional string failure_reason = 200;
 }

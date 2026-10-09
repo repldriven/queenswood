@@ -70,10 +70,11 @@ provider account per bank, which ADR-0045 requires and
   `merge-party` tombstones a duplicate with a pointer to the survivor.
 - **The IDV record.** `idv` holds one IDV per person party, keyed
   `idv.<ulid>`, unique on party through `Idv_by_party`, with status
-  `pending`, `in-review`, `accepted`, `rejected` or `failed`, each
-  transition guarded on source status in `idv`'s `domain.clj`. A
-  failed IDV keeps its `failure_reason`: today only that the person
-  cancelled the check.
+  `pending`, `in-review`, `accepted`, `rejected` or `cancelled`, each
+  transition guarded on source status in `idv`'s `domain.clj` and
+  stamped as `accepted_at`, `rejected_at` or `cancelled_at`. An IDV is
+  cancelled when the person walks away from the check; the API still
+  shows it as `failed`.
 - **The activation chain.** A pending person party relays
   `party-status-changed` off the parties changelog. `idv`'s
   `party-event-processor` creates the IDV, which waits pending for a

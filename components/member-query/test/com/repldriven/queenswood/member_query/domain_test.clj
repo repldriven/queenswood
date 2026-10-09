@@ -110,9 +110,9 @@
    :role :role-developer
    :user-id "usr.joiner"
    :invitation-id "inv.01j00000000000000000000003"
-   :ended-at 5000
-   :ended-by founder
-   :ended-reason "Left the company"
+   :removed-at 5000
+   :removed-by founder
+   :removed-reason "Left the company"
    :created-at 3000})
 
 (def ^:private accepted

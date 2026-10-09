@@ -128,8 +128,8 @@
                               [{:effect :effect-allow
                                 :kind {:idv {:action
                                              :idv-action-accept}}}]}])))))
-  (testing "walking away fails the IDV"
-    (is (= :idv-status-failed
+  (testing "walking away cancels the IDV"
+    (is (= :idv-status-cancelled
            (:status (decide {:document document :cancelled true})))))
   (testing "a reject outweighs walking away"
     (is (= :idv-status-rejected

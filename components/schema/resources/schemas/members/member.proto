@@ -22,8 +22,7 @@ enum MemberStatus {
   MEMBER_STATUS_LEFT = 3;
 }
 
-// Joins a user to a bank with a role. A user may hold members of
-// many banks.
+// A user's role in a bank.
 message Member {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
@@ -33,10 +32,12 @@ message Member {
   required Role role = 4;
   required string user_id = 5;
   optional string invitation_id = 6;
-  optional string ended_reason = 7;
+  optional string removed_reason = 7;
 
-  optional int64 ended_at = 51;
-  optional com.repldriven.queenswood.schemas.actor.Actor ended_by = 52;
+  optional int64 removed_at = 51;
+  optional com.repldriven.queenswood.schemas.actor.Actor removed_by = 52;
+  optional int64 left_at = 53;
+  optional com.repldriven.queenswood.schemas.actor.Actor left_by = 54;
 
   required int64 created_at = 101;
   required com.repldriven.queenswood.schemas.actor.Actor created_by = 102;

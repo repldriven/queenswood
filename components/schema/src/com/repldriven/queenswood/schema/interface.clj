@@ -476,13 +476,14 @@
   (PartyProto$Party/parseFrom (Party->pb m)))
 
 (defn pb->Idv
-  "Parse Idv protobuf bytes into a Clojure map, without a `:completed-at`
-  or `:failure-reason` it was never given.
+  "Parse Idv protobuf bytes into a Clojure map, without an outcome's
+  `_at` it was never given.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (without-unset (idv/pb->Idv input) {:completed-at 0 :failure-reason ""}))
+  (without-unset (idv/pb->Idv input)
+                 {:accepted-at 0 :rejected-at 0 :cancelled-at 0}))
 
 (defn Idv->pb
   "Serialise an Idv map to protobuf bytes.
@@ -1323,12 +1324,17 @@
    (identity-provider->int identity-provider)))
 
 (def ^:private member-unset
-  {:ended-at 0 :ended-by nil :ended-reason "" :invitation-id ""})
+  {:removed-at 0
+   :removed-by nil
+   :removed-reason ""
+   :left-at 0
+   :left-by nil
+   :invitation-id ""})
 
 (defn pb->Member
-  "Parse Member protobuf bytes into a Clojure map. `ended-at`,
-  `ended-by`, `ended-reason` and `invitation-id` are present only when
-  set, and `created-by` and `ended-by` are plain maps.
+  "Parse Member protobuf bytes into a Clojure map. A removal's or a
+  leave's `_at`, `_by` and reason, and `invitation-id`, are present only
+  when set, and every actor is a plain map.
 
   Args:
   - input: protobuf bytes."
@@ -1336,7 +1342,8 @@
   (-> (members/pb->Member input)
       (without-unset member-unset)
       (plain-embedded :created-by)
-      (plain-embedded :ended-by)))
+      (plain-embedded :removed-by)
+      (plain-embedded :left-by)))
 
 (defn Member->pb
   "Serialise a Member map to protobuf bytes.

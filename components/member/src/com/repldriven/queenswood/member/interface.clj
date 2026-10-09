@@ -59,9 +59,9 @@
   (core/change-role txn bank-id member-id role opts))
 
 (defn remove-member
-  "Remove a member of the actor's bank, with `ended-at`,
-  `ended-by` and any reason as `ended-reason`. Refuses as `change-role`
-  does.
+  "Remove a member of the actor's bank, with `removed-at`,
+  `removed-by` and any reason as `removed-reason`. Refuses as
+  `change-role` does.
 
   Args:
   - txn: FDB transaction or config.
@@ -75,7 +75,7 @@
 
 (defn leave
   "Leave a bank as the caller, ending their own Member as left, with
-  them as `ended-by`. Refuses another person's Member as
+  them as `left-by`. Refuses another person's Member as
   `:membership/not-found`, an ended one as `:membership/invalid-status`,
   and the bank's last active owner as `:membership/last-owner`.
 

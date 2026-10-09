@@ -78,8 +78,12 @@
 
 (def ^:private active :member-status-active)
 
-(def ^:private ended-status
-  {:remove :member-status-removed :leave :member-status-left})
+(def ^:private ended
+  {:remove {:status :member-status-removed
+            :at :removed-at
+            :by :removed-by
+            :reason :removed-reason}
+   :leave {:status :member-status-left :at :left-at :by :left-by}})
 
 (defn- some-reason
   [reason]
@@ -204,13 +208,19 @@
     [_ (ensure-member-status member #{active})
      _ (check-grant action actor {:target-role (:role member)})
      _ (check-not-last-owner active-members member nil)]
-    (utility/assoc-some (assoc member
-                               :status (ended-status action)
-                               :ended-at now
-                               :ended-by (actor-record actor)
-                               :updated-at now)
-                        :ended-reason
-                        (some-reason reason))))
+    (let [{:keys [status at by] :as ending} (ended action)]
+      (cond-> (assoc member
+                     :status
+                     status
+                     at
+                     now
+                     by
+                     (actor-record actor)
+                     :updated-at
+                     now)
+
+              (and (:reason ending) (some-reason reason))
+              (assoc (:reason ending) (some-reason reason))))))
 
 (defn new-invitation
   [{:keys [bank-id email role reason]}

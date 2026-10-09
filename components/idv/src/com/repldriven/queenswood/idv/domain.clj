@@ -81,7 +81,7 @@
                             #{:idv-status-pending :idv-status-in-review})]
     (assoc idv
            :status :idv-status-accepted
-           :completed-at (utility/now)
+           :accepted-at (utility/now)
            :updated-at (utility/now))))
 
 (defn rejected-idv
@@ -92,23 +92,18 @@
                             #{:idv-status-pending :idv-status-in-review})]
     (assoc idv
            :status :idv-status-rejected
-           :completed-at (utility/now)
+           :rejected-at (utility/now)
            :updated-at (utility/now))))
 
-(def ^:private cancelled-reason
-  "Why an IDV the person cancelled failed."
-  "The person cancelled the check")
-
-(defn failed-idv
+(defn cancelled-idv
   [idv]
   (let-nom>
     [_ (guard-source-status idv
-                            "IDV is not in a status that can fail"
+                            "IDV is not in a status that can be cancelled"
                             #{:idv-status-pending :idv-status-in-review})]
     (assoc idv
-           :status :idv-status-failed
-           :failure-reason cancelled-reason
-           :completed-at (utility/now)
+           :status :idv-status-cancelled
+           :cancelled-at (utility/now)
            :updated-at (utility/now))))
 
 (def ^:private evidence-sections [:document :liveness :address :screening])
@@ -194,7 +189,7 @@
               :idv-status-rejected
 
               (:cancelled evidence)
-              :idv-status-failed
+              :idv-status-cancelled
 
               (contains? statuses :idv-criterion-status-review)
               :idv-status-in-review
@@ -209,7 +204,7 @@
   {:idv-status-in-review in-review-idv
    :idv-status-accepted accepted-idv
    :idv-status-rejected rejected-idv
-   :idv-status-failed failed-idv})
+   :idv-status-cancelled cancelled-idv})
 
 (defn apply-evidence
   [idv reported policies]

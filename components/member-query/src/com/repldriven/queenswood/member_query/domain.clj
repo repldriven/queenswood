@@ -128,19 +128,19 @@
 
 (defn- ended-event
   [member]
-  (let [{:keys [bank-id member-id user-id role status ended-at ended-by
-                ended-reason]}
+  (let [{:keys [bank-id member-id user-id role status removed-at removed-by
+                removed-reason left-at left-by]}
         member]
     (when-let [kind (ended-kind status)]
       (event bank-id
              kind
-             ended-at
-             ended-by
+             (or removed-at left-at)
+             (or removed-by left-by)
              member-id
              {:subject-user-id user-id
               :member-id member-id
               :role-before role
-              :reason ended-reason}))))
+              :reason removed-reason}))))
 
 (defn- role-change-event
   [role-change user-ids]

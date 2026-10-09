@@ -202,8 +202,9 @@ it.
 
 - **`Member`** — bank id, membership id (prefix `mem`), status
   (active, removed or left), role, user id, the invitation accepted to
-  create it, the reason given for a removal as `ended_reason`,
-  `ended_at` and `ended_by`, and `created_by` beside the timestamps.
+  create it, a removal as `removed_at`, `removed_by` and
+  `removed_reason`, a leave as `left_at` and `left_by`, and
+  `created_by` beside the timestamps.
   The primary key is `[bank_id, member_id]`, so a bank's members
   scan contiguously and a bank-scoped read finds no other bank's
   member. `Member_by_user`, unique on `[user_id, member_id]`, lists a

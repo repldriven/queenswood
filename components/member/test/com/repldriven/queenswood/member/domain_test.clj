@@ -502,9 +502,10 @@
     (let [m (member "mem.1" "usr.1" :role-viewer)]
       (is (= (assoc m
                     :status :member-status-removed
-                    :ended-at now
-                    :ended-by {:kind :actor-kind-operator :principal-id "ops.1"}
-                    :ended-reason "Left the company"
+                    :removed-at now
+                    :removed-by {:kind :actor-kind-operator
+                                 :principal-id "ops.1"}
+                    :removed-reason "Left the company"
                     :updated-at now)
              (SUT/end-member m
                              :remove

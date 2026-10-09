@@ -22,7 +22,7 @@
                            "in-review" :idv-status-in-review
                            "accepted" :idv-status-accepted
                            "rejected" :idv-status-rejected
-                           "failed" :idv-status-failed}
+                           "failed" :idv-status-cancelled}
                           :idv-status-unknown))
 
 (def ^:private verification-channel-enum
