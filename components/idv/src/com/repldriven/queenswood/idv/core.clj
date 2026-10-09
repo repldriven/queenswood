@@ -145,7 +145,7 @@
   [txn bank-id party-id]
   (let [party (party-query/get-party txn bank-id party-id)]
     (if (and (not (error/anomaly? party))
-             (= :party-type-person (:type party))
+             (= :party-type-person (:party-type party))
              (= :party-status-pending (:status party)))
       (let [idv (domain/new-idv {:bank-id bank-id :party-id party-id})]
         (save-idv txn

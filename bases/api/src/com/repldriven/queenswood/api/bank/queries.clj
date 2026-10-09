@@ -8,6 +8,7 @@
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]
     [com.repldriven.queenswood.member-query.interface :as memberships]
+    [com.repldriven.queenswood.party-api.interface :as party-api]
     [com.repldriven.queenswood.user.interface :as users]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
@@ -20,8 +21,8 @@
 (defn bank-body
   "`bank` as every route returns it: `:providers` the key of its provider
   of each kind offered, by kind, the one it records or the default where
-  it records none, and each of its accounts as the account routes return
-  one."
+  it records none, its party as the party routes return one, and each
+  of its accounts as the account routes return one."
   [request bank]
   (let [recorded (into {} (map (juxt :kind :provider)) (:providers bank))]
     (cond-> (assoc bank
@@ -31,6 +32,9 @@
                                 [(keyword kind)
                                  (get recorded kind (name default))]))
                          (offered request)))
+            (contains? bank :party)
+            (update :party party-api/->body)
+
             (contains? bank :accounts)
             (update :accounts
                     (fn [accounts] (mapv cash-account-api/->body accounts))))))

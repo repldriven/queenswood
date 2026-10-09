@@ -6,6 +6,7 @@
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry list-schema]]
 
+    [clojure.set :as set]
     [clojure.string :as str]))
 
 (def PartyType
@@ -187,14 +188,15 @@
 
 (defn ->body
   [party]
-  (select-keys party party-keys))
+  (select-keys (set/rename-keys party {:party-type :type}) party-keys))
 
 (def ^:private party-detail-keys
   (into [] (comp (filter vector?) (map first)) PartyDetail))
 
 (defn ->detail-body
   [party]
-  (select-keys party party-detail-keys))
+  (select-keys (set/rename-keys party {:party-type :type})
+               party-detail-keys))
 
 (def ^:private encode-party
   (schema/api-encoder Party (merge schema/registry registry)))

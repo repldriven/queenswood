@@ -431,24 +431,31 @@
   [m]
   (BankProto$Bank/parseFrom (Bank->pb m)))
 
+(def ^:private party-unset
+  {:external-reference ""
+   :merged-into-party-id ""
+   :activated-at 0
+   :rejected-at 0
+   :suspended-at 0
+   :suspended-by nil
+   :resumed-at 0
+   :resumed-by nil
+   :closed-at 0
+   :closed-by nil
+   :merged-at 0
+   :merged-by nil
+   :idempotency-key ""})
+
+(def ^:private party-actors
+  [:created-by :suspended-by :resumed-by :closed-by :merged-by])
+
 (defn pb->Party
-  "Parse Party protobuf bytes into a Clojure map. Strips
-  `merged-into-party-id`, `idempotency-key` and `external-reference`
-  when they deserialise as the proto2 empty-string default — every
-  party except a merged-away one leaves the first unset, every party
-  not created by a client command the second, and every party
-  registered without a reference the third."
+  "Parse Party protobuf bytes into a Clojure map. Each optional field is
+  present only when set, and every `_by` is a plain map."
   [input]
-  (let [party (party/pb->Party input)]
-    (cond-> party
-            (= "" (:merged-into-party-id party))
-            (dissoc :merged-into-party-id)
-
-            (= "" (:idempotency-key party))
-            (dissoc :idempotency-key)
-
-            (= "" (:external-reference party))
-            (dissoc :external-reference))))
+  (reduce plain-embedded
+          (without-unset (party/pb->Party input) party-unset)
+          party-actors))
 
 (defn Party->pb
   "Serialise a Party map to protobuf bytes.

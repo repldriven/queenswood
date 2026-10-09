@@ -3,14 +3,73 @@
   "name": "CreateParty",
   "namespace": "com.repldriven.mono.party",
   "fields": [
-    {"name": "bank_id", "type": "string"},
-    {"name": "type", "type": {"type": "enum",
-                                       "name": "PartyType",
-                                       "symbols": ["PARTY_TYPE_PERSON", "PARTY_TYPE_INTERNAL"]}},
-    {"name": "display_name", "type": "string"},
-    {"name": "given_name", "type": "string"},
-    {"name": "middle_names", "type": ["null", "string"], "default": null},
-    {"name": "family_name", "type": "string"},
-    {"name": "external_reference", "type": ["null", "string"], "default": null}
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "party_type",
+      "type": {
+        "type": "enum",
+        "name": "PartyType",
+        "symbols": [
+          "PARTY_TYPE_PERSON",
+          "PARTY_TYPE_INTERNAL"
+        ]
+      }
+    },
+    {
+      "name": "display_name",
+      "type": "string"
+    },
+    {
+      "name": "given_name",
+      "type": "string"
+    },
+    {
+      "name": "middle_names",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "family_name",
+      "type": "string"
+    },
+    {
+      "name": "external_reference",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "actor",
+      "type": {
+        "type": "record",
+        "name": "ActorSpec",
+        "doc": "Who asked",
+        "fields": [
+          {
+            "name": "kind",
+            "type": {
+              "type": "enum",
+              "name": "ActorKind",
+              "symbols": [
+                "ACTOR_KIND_MEMBER",
+                "ACTOR_KIND_OPERATOR"
+              ]
+            }
+          },
+          {
+            "name": "principal_id",
+            "type": "string"
+          }
+        ]
+      }
+    }
   ]
 }

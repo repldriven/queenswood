@@ -490,7 +490,8 @@
   (let [model-party (model-id-for-next-party next-party-id)
         {bank-real-id :real-id} (get banks model-bank)
         payload (cond-> {:bank-id bank-real-id
-                         :type :party-type-person
+                         :party-type :party-type-person
+                         :actor scenario-operator
                          :display-name (str "Scenario Person " counter)
                          :given-name "Scenario"
                          :family-name (str "Person" counter)}
@@ -608,7 +609,8 @@
         ;; Onboard the person party (mirror of :create-person-party).
         model-party (model-id-for-next-party next-party-id)
         party-payload {:bank-id bank-real-id
-                       :type :party-type-person
+                       :party-type :party-type-person
+                       :actor scenario-operator
                        :display-name (str "Scenario Customer " counter)
                        :given-name "Scenario"
                        :family-name (str "Customer" counter)}

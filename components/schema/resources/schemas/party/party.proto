@@ -3,50 +3,52 @@ syntax = "proto2";
 package com.repldriven.queenswood.schemas.party;
 
 import "record_metadata_options.proto";
+import "schemas/members/actor.proto";
 
 option java_outer_classname = "PartyProto";
 
+enum PartyType {
+  PARTY_TYPE_UNKNOWN = 0;
+  PARTY_TYPE_PERSON = 1;
+  PARTY_TYPE_INTERNAL = 2;
+  PARTY_TYPE_ORGANIZATION = 3;
+}
+
+enum PartyStatus {
+  PARTY_STATUS_UNKNOWN = 0;
+  PARTY_STATUS_PENDING = 1;
+  PARTY_STATUS_ACTIVE = 2;
+  PARTY_STATUS_SUSPENDED = 3;
+  PARTY_STATUS_CLOSED = 4;
+  PARTY_STATUS_REJECTED = 5;
+  PARTY_STATUS_MERGED = 6;
+}
+
+// A bank's customer, a person or an organisation, or the bank itself.
 message Party {
   option (com.apple.foundationdb.record.record).usage = RECORD;
 
-  required string bank_id = 7;
-  required string party_id = 1;
-  required PartyType type = 2;
-  required PartyStatus status = 3;
-  required string display_name = 4;
-  required int64 created_at = 5;
-  required int64 updated_at = 6;
+  required string bank_id = 1;
+  required string party_id = 2; // pty.<uuidv7>
+  required string display_name = 3;
+  required PartyStatus status = 4;
+  required PartyType party_type = 5;
+  optional string external_reference = 6;
+  optional string merged_into_party_id = 7;
 
-  // Set when `status` is PARTY_STATUS_MERGED, pointing at the survivor
-  // party this record was merged into (QNS-24). Never rewritten once
-  // set; IDV/KYC and other party-linked records stay on the original
-  // party-id, so this pointer is the durable audit link.
-  optional string merged_into_party_id = 8;
+  optional int64 activated_at = 51;
+  optional int64 rejected_at = 53;
+  optional int64 suspended_at = 55;
+  optional com.repldriven.queenswood.schemas.members.Actor suspended_by = 56;
+  optional int64 resumed_at = 57;
+  optional com.repldriven.queenswood.schemas.members.Actor resumed_by = 58;
+  optional int64 closed_at = 59;
+  optional com.repldriven.queenswood.schemas.members.Actor closed_by = 60;
+  optional int64 merged_at = 61;
+  optional com.repldriven.queenswood.schemas.members.Actor merged_by = 62;
 
-  // Client idempotency key (the command envelope :id, sourced from the
-  // required Idempotency-Key header) that created this party. Unique-indexed
-  // per bank so a redelivered or retried create-party command reads the
-  // existing party back instead of creating a duplicate. Optional at the
-  // wire level for compatibility with parties written before this field.
-  optional string idempotency_key = 9;
-
-  // The customer's own id for the person, unique within the bank.
-  optional string external_reference = 10;
-
-  enum PartyType {
-    PARTY_TYPE_UNKNOWN = 0;
-    PARTY_TYPE_PERSON = 1;
-    PARTY_TYPE_INTERNAL = 2;
-    PARTY_TYPE_ORGANIZATION = 3;
-  }
-
-  enum PartyStatus {
-    PARTY_STATUS_UNKNOWN = 0;
-    PARTY_STATUS_PENDING = 1;
-    PARTY_STATUS_ACTIVE = 2;
-    PARTY_STATUS_SUSPENDED = 3;
-    PARTY_STATUS_CLOSED = 4;
-    PARTY_STATUS_REJECTED = 5;
-    PARTY_STATUS_MERGED = 6;
-  }
+  optional string idempotency_key = 100;
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schemas.members.Actor created_by = 102;
+  required int64 updated_at = 103;
 }

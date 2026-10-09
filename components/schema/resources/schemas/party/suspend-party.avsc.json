@@ -3,7 +3,38 @@
   "name": "SuspendParty",
   "namespace": "com.repldriven.mono.party",
   "fields": [
-    {"name": "bank_id", "type": "string"},
-    {"name": "party_id", "type": "string"}
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "party_id",
+      "type": "string"
+    },
+    {
+      "name": "actor",
+      "type": {
+        "type": "record",
+        "name": "ActorSpec",
+        "doc": "Who asked",
+        "fields": [
+          {
+            "name": "kind",
+            "type": {
+              "type": "enum",
+              "name": "ActorKind",
+              "symbols": [
+                "ACTOR_KIND_MEMBER",
+                "ACTOR_KIND_OPERATOR"
+              ]
+            }
+          },
+          {
+            "name": "principal_id",
+            "type": "string"
+          }
+        ]
+      }
+    }
   ]
 }

@@ -435,11 +435,12 @@
   (let [now (utility/now)]
     {:bank-id bank-id
      :party-id party-id
-     :type :party-type-person
+     :party-type :party-type-person
      :display-name "Arthur Dent"
      :status status
      :idempotency-key (str "ik-" party-id)
      :created-at now
+     :created-by {:kind :actor-kind-operator :principal-id "queenswood-admin"}
      :updated-at now}))
 
 (defn- seed-party

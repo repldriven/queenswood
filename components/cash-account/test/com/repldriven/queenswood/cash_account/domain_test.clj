@@ -42,7 +42,7 @@
 
 (defn- party-with
   [status]
-  {:party-id "pty.test" :type :party-type-person :status status})
+  {:party-id "pty.test" :party-type :party-type-person :status status})
 
 (defn- version-in
   [currency]

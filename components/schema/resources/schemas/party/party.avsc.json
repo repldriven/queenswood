@@ -3,24 +3,66 @@
   "name": "Party",
   "namespace": "com.repldriven.mono.party",
   "fields": [
-    {"name": "bank_id", "type": "string"},
-    {"name": "party_id",     "type": "string"},
-    {"name": "type",         "type": {"type": "enum",
-                                       "name": "PartyType",
-                                       "symbols": ["PARTY_TYPE_PERSON",
-                                                    "PARTY_TYPE_INTERNAL"]}},
-    {"name": "display_name", "type": "string"},
-    {"name": "status",       "type": {"type": "enum",
-                                       "name": "PartyStatus",
-                                       "symbols": ["PARTY_STATUS_UNKNOWN",
-                                                    "PARTY_STATUS_PENDING",
-                                                    "PARTY_STATUS_ACTIVE",
-                                                    "PARTY_STATUS_SUSPENDED",
-                                                    "PARTY_STATUS_CLOSED",
-                                                    "PARTY_STATUS_REJECTED",
-                                                    "PARTY_STATUS_MERGED"]}},
-    {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "merged_into_party_id", "type": ["null", "string"], "default": null}
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "party_id",
+      "type": "string"
+    },
+    {
+      "name": "party_type",
+      "type": {
+        "type": "enum",
+        "name": "PartyType",
+        "symbols": [
+          "PARTY_TYPE_PERSON",
+          "PARTY_TYPE_INTERNAL"
+        ]
+      }
+    },
+    {
+      "name": "display_name",
+      "type": "string"
+    },
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "PartyStatus",
+        "symbols": [
+          "PARTY_STATUS_UNKNOWN",
+          "PARTY_STATUS_PENDING",
+          "PARTY_STATUS_ACTIVE",
+          "PARTY_STATUS_SUSPENDED",
+          "PARTY_STATUS_CLOSED",
+          "PARTY_STATUS_REJECTED",
+          "PARTY_STATUS_MERGED"
+        ]
+      }
+    },
+    {
+      "name": "created_at",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "updated_at",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "merged_into_party_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
   ]
 }

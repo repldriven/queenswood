@@ -120,7 +120,7 @@ enum IdvScreening {
 // refuses acceptance while that verification or screening is
 // outstanding.
 message IdvCapabilityFilter {
-  optional com.repldriven.queenswood.schemas.party.Party.PartyType party_type = 1;
+  optional com.repldriven.queenswood.schemas.party.PartyType party_type = 1;
   optional IdvVerification unverified = 2;
   optional IdvScreening unscreened = 3;
 }
@@ -201,8 +201,8 @@ enum PartyAction {
 }
 
 message PartyCapabilityFilter {
-  optional com.repldriven.queenswood.schemas.party.Party.PartyType type = 1;
-  optional com.repldriven.queenswood.schemas.party.Party.PartyStatus status = 2;
+  optional com.repldriven.queenswood.schemas.party.PartyType type = 1;
+  optional com.repldriven.queenswood.schemas.party.PartyStatus status = 2;
 }
 
 message PartyCapability {
@@ -449,8 +449,8 @@ message OutboundPaymentLimit {
 }
 
 message PartyLimitFilter {
-  optional com.repldriven.queenswood.schemas.party.Party.PartyType type = 1;
-  optional com.repldriven.queenswood.schemas.party.Party.PartyStatus status = 2;
+  optional com.repldriven.queenswood.schemas.party.PartyType type = 1;
+  optional com.repldriven.queenswood.schemas.party.PartyStatus status = 2;
 }
 
 message PartyLimit {

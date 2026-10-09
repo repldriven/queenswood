@@ -10,7 +10,7 @@
 
 (defn party->account-type
   [party]
-  (if (= :party-type-person (:type party))
+  (if (= :party-type-person (:party-type party))
     :account-type-personal
     :account-type-business))
 

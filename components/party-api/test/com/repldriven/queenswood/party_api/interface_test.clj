@@ -7,6 +7,7 @@
   (:require
     [com.repldriven.queenswood.party-api.interface :as SUT]
 
+    [clojure.set :as set]
     [clojure.test :refer [deftest is testing]]))
 
 (def ^:private declared-keys
@@ -18,7 +19,7 @@
   publishes."
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
    :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
-   :type :party-type-person
+   :party-type :party-type-person
    :display-name "Arthur Dent"
    :status :party-status-merged
    :merged-into-party-id "pty.01kprbmgcj35ptc8npmybhh4sa"
@@ -27,15 +28,20 @@
    :updated-at 1700000000001
    :idempotency-key "5b2f0f6e-create"})
 
+(def ^:private shown
+  "The stored party under the keys a body uses, its `party-type` as
+  `type`."
+  (set/rename-keys stored {:party-type :type}))
+
 (deftest declared-keys-cover-the-fixture-test
   (testing "the fixture carries every key Party declares"
     (is (= (set declared-keys)
-           (set (filter (set declared-keys) (keys stored)))))))
+           (set (filter (set declared-keys) (keys shown)))))))
 
 (deftest ->body-test
   (let [body (SUT/->body stored)]
     (testing "every declared key survives, value and all"
-      (is (= (select-keys stored declared-keys) body)))
+      (is (= (select-keys shown declared-keys) body)))
     (testing "the stored idempotency key does not reach a body"
       (is (not (contains? body :idempotency-key)))))
   (testing "an optional key the record lacks stays absent"

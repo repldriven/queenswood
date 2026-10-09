@@ -81,11 +81,11 @@
       _ (policy/check-capability policies
                                  :party
                                  {:action :party-action-create
-                                  :type (:type data)})]
+                                  :type (:party-type data)})]
      (let [result (or-already-created
                    txn
                    data
-                   (if (= :party-type-person (:type data))
+                   (if (= :party-type-person (:party-type data))
                      (create-person txn data)
                      (create-internal txn data)))]
        (if (store/uniqueness-violation? result)
@@ -131,7 +131,7 @@
          (let-nom>
            [policies (get-policies txn bank-id opts cache)
             party (q/get-party txn bank-id party-id)
-            updated (f party policies)
+            updated (f party (:actor data) policies)
             result (store/save-party txn
                                      updated
                                      {:bank-id bank-id
@@ -174,7 +174,10 @@
             [policies (get-policies txn bank-id opts cache)
              party (q/get-party txn bank-id party-id)
              open-accounts? (has-open-accounts? txn bank-id party-id)
-             updated (domain/close-party party open-accounts? policies)
+             updated (domain/close-party party
+                                         (:actor data)
+                                         open-accounts?
+                                         policies)
              result (store/save-party txn
                                       updated
                                       {:bank-id bank-id
@@ -199,6 +202,7 @@
              open-accounts? (has-open-accounts? txn bank-id party-id)
              updated (domain/merge-party survivor
                                          merged-away
+                                         (:actor data)
                                          open-accounts?
                                          policies)
              result (store/save-party txn

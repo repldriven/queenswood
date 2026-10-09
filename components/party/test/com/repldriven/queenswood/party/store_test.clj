@@ -24,10 +24,11 @@
   [bank-id party-id idempotency-key]
   {:bank-id bank-id
    :party-id party-id
-   :type :party-type-person
    :display-name "Idempotency Test Party"
    :status :party-status-pending
+   :party-type :party-type-person
    :created-at (utility/now)
+   :created-by {:kind :actor-kind-operator :principal-id "queenswood-admin"}
    :updated-at (utility/now)
    :idempotency-key idempotency-key})
 

@@ -225,8 +225,9 @@
        {:keys [party-id]} (party/new-party
                            txn
                            {:bank-id bank-id
-                            :type :party-type-organization
-                            :display-name bank-name}
+                            :party-type :party-type-organization
+                            :display-name bank-name
+                            :actor actor}
                            {:policies policies})
        _ (new-ledger-accounts txn bank-id currencies policies)
        _ (new-house-accounts txn
