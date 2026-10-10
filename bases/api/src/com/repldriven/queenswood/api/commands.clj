@@ -86,12 +86,14 @@
           (errors/anomaly->response body)
           {:status 200 :body body}))))))
 
-(defn read-back
-  "A command's 200 reply answered with `(read ids)`, the response a GET
-  of the record it wrote gives, `ids` being the reply's body. Any other
+(defn reply-body
+  "A command's 200 reply with its body replaced by `(f body)`, which
+  renders the record the reply carries as its GET renders it. Any other
   reply passes through."
-  [response read]
-  (if (= 200 (:status response)) (read (:body response)) response))
+  [response f]
+  (cond-> response
+          (= 200 (:status response))
+          (update :body f)))
 
 (defn created
   "The 201 of a command that created a resource: its 200 reply, with the

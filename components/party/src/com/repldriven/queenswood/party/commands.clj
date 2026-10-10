@@ -2,8 +2,6 @@
   (:require
     [com.repldriven.queenswood.party.core :as core]
 
-    [com.repldriven.queenswood.schema.interface :as schema]
-
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.processor.interface :as processor]))
@@ -15,8 +13,7 @@
     (let [{:keys [schemas]} config]
       {:status "ACCEPTED"
        :payload (avro/serialize (schemas "party-command-reply")
-                                (select-keys (schema/pb->Party result)
-                                             [:bank-id :party-id]))})))
+                                {:record result})})))
 
 (def ^:private command-handlers
   {"create-party" (fn [config data]

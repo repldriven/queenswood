@@ -2,6 +2,8 @@
   (:require
     [com.repldriven.queenswood.idv.core :as core]
 
+    [com.repldriven.queenswood.schema.interface :as schema]
+
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.processor.interface :as processor]))
@@ -14,8 +16,8 @@
       (let [{:keys [schemas]} config]
         {:status "ACCEPTED"
          :payload (avro/serialize (schemas "idv-command-reply")
-                                  (select-keys result
-                                               [:bank-id :session-id]))}))))
+                                  {:record (schema/IdvSession->pb
+                                            result)})}))))
 
 (def ^:private command-handlers {"open-idv-session" open-idv-session})
 

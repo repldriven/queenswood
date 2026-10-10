@@ -6,7 +6,7 @@
 
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
-    [com.repldriven.queenswood.transaction.interface :as transactions]
+    [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.error.interface :as error]))
 
@@ -16,35 +16,21 @@
         {:keys [transactions]} dispatchers]
     transactions))
 
+(def ^:private transaction-keys
+  [:transaction-id :transaction-type :currency :reference :created-at
+   :created-by])
+
 (def ^:private leg-keys
   [:leg-id :transaction-id :account-id :balance-type :balance-status :side
    :amount :currency])
 
-(defn- read-transfer
-  "The posted transaction, with its legs on `account-ids` and the account
-  it credited, as a response."
-  [txn bank-id transaction-id account-ids credited]
-  (let [result (transactions/get-transaction txn
-                                             bank-id
-                                             transaction-id
-                                             account-ids)]
-    (cond (error/anomaly? result)
-          (errors/anomaly->response result)
-
-          (nil? result)
-          (errors/anomaly->response
-           (error/fail :simulate/transaction-missing
-                       {:message "The posted transaction could not be read"
-                        :transaction-id transaction-id}))
-
-          :else
-          {:status 200
-           :body (-> result
-                     (select-keys [:transaction-id :transaction-type :currency
-                                   :reference :created-at :created-by])
-                     (assoc :account-id credited
-                            :legs (mapv (fn [leg] (select-keys leg leg-keys))
-                                        (:legs result))))})))
+(defn- transfer-body
+  "The posted transaction the reply carries, with its legs."
+  [{:keys [record legs]}]
+  (assoc (select-keys (schema/pb->Transaction record) transaction-keys)
+         :legs
+         (mapv (fn [leg] (select-keys (schema/pb->TransactionLeg leg) leg-keys))
+               legs)))
 
 (defn inbound-transfer
   [request]
@@ -101,10 +87,8 @@
                            :actor (actor/actor auth)})]
             ;; The caller no longer chooses the account, so the answer
             ;; names the one credited.
-            (commands/read-back response
-                                (fn [{:keys [transaction-id]}]
-                                  (read-transfer txn
-                                                 bank-id
-                                                 transaction-id
-                                                 (mapv :account-id checked-legs)
-                                                 (:account-id house))))))))))
+            (commands/reply-body response
+                                 (fn [reply]
+                                   (assoc (transfer-body reply)
+                                          :account-id
+                                          (:account-id house))))))))))

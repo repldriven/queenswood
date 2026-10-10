@@ -592,8 +592,8 @@ For write operations, the handler calls `command/send`
 - `assoc`-ing the command-specific `:payload`.
 - Sending it via the dispatcher and awaiting the reply.
 - Mapping the reply's status to the HTTP response — `ACCEPTED`
-  → 2xx with the record its ids name, read back through the brick
-  as its GET reads it, `REJECTED`/`FAILED` → 4xx/5xx via
+  → 2xx with the record the reply carries, decoded and rendered as
+  its GET renders it, `REJECTED`/`FAILED` → 4xx/5xx via
   `errors/error-response`.
 
 Read operations skip the pipeline and query FDB directly.

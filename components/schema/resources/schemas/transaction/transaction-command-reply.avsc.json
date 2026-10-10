@@ -2,15 +2,18 @@
   "type": "record",
   "name": "TransactionCommandReply",
   "namespace": "com.repldriven.queenswood.schema.transaction",
-  "doc": "The transaction a transaction command wrote, by id",
+  "doc": "The transaction a transaction command committed, and its legs, as their proto bytes",
   "fields": [
     {
-      "name": "bank_id",
-      "type": "string"
+      "name": "record",
+      "type": "bytes"
     },
     {
-      "name": "transaction_id",
-      "type": "string"
+      "name": "legs",
+      "type": {
+        "type": "array",
+        "items": "bytes"
+      }
     }
   ]
 }

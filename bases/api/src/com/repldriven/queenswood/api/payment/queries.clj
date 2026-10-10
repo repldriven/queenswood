@@ -33,22 +33,6 @@
         {:keys [payment-id]} path]
     (payment-response ->body (find-payment request bank-id payment-id))))
 
-(defn read-internal-payment
-  "The `InternalPayment` as a response."
-  [request bank-id payment-id]
-  (payment-response payment-api/->internal-body
-                    (payments/find-internal-payment request
-                                                    bank-id
-                                                    payment-id)))
-
-(defn read-outbound-payment
-  "The `OutboundPayment` as a response."
-  [request bank-id payment-id]
-  (payment-response payment-api/->outbound-body
-                    (payments/find-outbound-payment request
-                                                    bank-id
-                                                    payment-id)))
-
 (defn get-internal-payment
   [request]
   (read-payment payments/find-internal-payment

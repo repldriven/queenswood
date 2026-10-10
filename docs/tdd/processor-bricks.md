@@ -390,9 +390,10 @@ failed lifecycle transition is redriven rather than lost.
 deserialises the Avro payload, dispatches on `:command`, calls
 the matching `core/*` function with `config` as the `txn`
 argument, and shapes the response envelope. A write's reply carries
-the ids of the record it wrote, as the brick's `<brick>-command-reply`,
-and never the record: the API reads it back through the brick's query
-side, as its GET does.
+the record it committed as its proto bytes, in the brick's
+`<brick>-command-reply`, and the API decodes and renders it as the
+record's GET does, so the response is what the write committed and no
+Avro copy of the record exists.
 
 ```clojure
 (def ^:private command-handlers

@@ -76,30 +76,6 @@
    :transaction/find-by-idempotency-key
    "Failed to find transaction by idempotency key"))
 
-(defn get-transaction
-  [txn bank-id transaction-id account-ids]
-  (fdb/transact
-   txn
-   (fn [txn]
-     (when-let [record (fdb/load-record (fdb/open txn store-name)
-                                        bank-id
-                                        transaction-id)]
-       (let [legs-store (fdb/open txn legs-store-name)]
-         (assoc (schema/pb->Transaction record)
-                :legs
-                (into []
-                      (mapcat (fn [account-id]
-                                (map schema/pb->TransactionLeg
-                                     (:records (fdb/scan-records
-                                                legs-store
-                                                {:prefix [bank-id account-id
-                                                          transaction-id]
-                                                 :limit 100
-                                                 :order :asc})))))
-                      account-ids)))))
-   :transaction/get
-   "Failed to load transaction"))
-
 (defn page-transactions
   [txn bank-id account-id opts]
   (fdb/transact

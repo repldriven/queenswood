@@ -44,34 +44,24 @@
                                  customer-accounts
                                  result)}))))
 
-(defn read-cash-account
-  "The `CashAccount` as a response, with what `opts` embeds."
-  [request bank-id account-id opts]
-  (let [{:keys [record-db record-store]} request
-        result (cash-accounts/get-account
-                {:record-db record-db :record-store record-store}
-                bank-id
-                account-id
-                opts)]
-    (if (error/anomaly? result)
-      (errors/anomaly->response result)
-      {:status 200 :body (cash-account-api/->body result)})))
-
 (defn get-cash-account
   [request]
-  (let [{:keys [auth parameters]} request
+  (let [{:keys [record-db record-store auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [path query]} parameters
         {:keys [account-id]} path
         {:keys [embed]} query
-        {embed-balances :balances embed-transactions :transactions} embed]
-    (read-cash-account request
-                       bank-id
-                       account-id
-                       (utility/assoc-some {}
-                                           :embed-balances embed-balances
-                                           :embed-transactions
-                                           embed-transactions))))
+        {embed-balances :balances embed-transactions :transactions} embed
+        result (cash-accounts/get-account
+                {:record-db record-db :record-store record-store}
+                bank-id
+                account-id
+                (utility/assoc-some {}
+                                    :embed-balances embed-balances
+                                    :embed-transactions embed-transactions))]
+    (if (error/anomaly? result)
+      (errors/anomaly->response result)
+      {:status 200 :body (cash-account-api/->body result)})))
 
 (defn list-transactions
   [request]

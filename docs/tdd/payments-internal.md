@@ -229,7 +229,7 @@ legs, per
 [ADR-0037](../adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md),
 and carry no leg. A command delivered again finds its idempotency key
 recorded: the transaction aborts, nothing is written twice, and the
-reply names the payment the first delivery recorded.
+reply is the payment the first delivery recorded.
 
 #### The settlement is published
 

@@ -2,15 +2,11 @@
   "type": "record",
   "name": "CashAccountCommandReply",
   "namespace": "com.repldriven.queenswood.schema.cash_account",
-  "doc": "The account a cash-account command wrote, by id",
+  "doc": "The account a cash-account command committed, as its proto bytes",
   "fields": [
     {
-      "name": "bank_id",
-      "type": "string"
-    },
-    {
-      "name": "account_id",
-      "type": "string"
+      "name": "record",
+      "type": "bytes"
     }
   ]
 }

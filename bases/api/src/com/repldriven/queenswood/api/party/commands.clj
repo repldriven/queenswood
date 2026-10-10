@@ -2,7 +2,10 @@
   (:require
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.party.queries :as queries]
-    [com.repldriven.queenswood.api.shared.actor :as actor]))
+    [com.repldriven.queenswood.api.shared.actor :as actor]
+
+    [com.repldriven.queenswood.party-api.interface :as party-api]
+    [com.repldriven.queenswood.schema.interface :as schema]))
 
 (defn- dispatcher
   [request]
@@ -11,11 +14,12 @@
     parties))
 
 (defn- party-reply
-  "A party command's reply answered with the party it wrote."
-  [request response]
-  (commands/read-back response
-                      (fn [{:keys [bank-id party-id]}]
-                        (queries/read-party request bank-id party-id))))
+  "A party command's reply, the party it committed as the API shows a
+  party."
+  [response]
+  (commands/reply-body response
+                       (fn [{:keys [record]}]
+                         (party-api/->body (schema/pb->Party record)))))
 
 (defn create-party
   [request]
@@ -23,7 +27,6 @@
         {:keys [bank-id]} auth
         {:keys [body]} parameters]
     (commands/created (party-reply
-                       request
                        (commands/send (dispatcher request)
                                       request
                                       "create-party"
@@ -40,8 +43,7 @@
         {:keys [bank-id]} auth
         {:keys [path]} parameters
         {:keys [party-id]} path]
-    (party-reply request
-                 (commands/send (dispatcher request)
+    (party-reply (commands/send (dispatcher request)
                                 request
                                 command
                                 "party-command-reply"
@@ -69,8 +71,7 @@
         {:keys [path body]} parameters
         {:keys [party-id]} path
         {:keys [into-party-id]} body]
-    (party-reply request
-                 (commands/send (dispatcher request)
+    (party-reply (commands/send (dispatcher request)
                                 request
                                 "merge-party"
                                 "party-command-reply"
@@ -102,16 +103,11 @@
                                  :actor (actor/actor auth)}
                                 {:ordering-key party-id})]
     (if (= 200 (:status response))
-      (let [{:keys [session-id]} (:body response)
-            read (queries/read-verification-session request
-                                                    bank-id
-                                                    party-id
-                                                    session-id)]
-        (cond-> read
-                (= 200 (:status read))
-                (assoc :status 202
-                       :headers {"Location" (str "/v1/parties/"
-                                                 party-id
-                                                 "/verification-sessions/"
-                                                 session-id)})))
+      (let [session (schema/pb->IdvSession (:record (:body response)))]
+        {:status 202
+         :headers {"Location" (str "/v1/parties/"
+                                   party-id
+                                   "/verification-sessions/"
+                                   (:session-id session))}
+         :body (queries/session-body session)})
       response)))

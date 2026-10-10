@@ -7,29 +7,28 @@
 
     [com.repldriven.mono.error.interface :as error]))
 
-(defn- ->body
+(defn ->body
+  "`check` as the payee-check routes return it: its id, request, result,
+  when it was made, and when it stops standing."
   [check]
   (assoc (select-keys check
                       [:check-id :request :result :created-at :created-by])
          :expires-at
          (payee-checks/expires-at check)))
 
-(defn read-check
-  "The `PayeeCheck` as a response."
-  [request bank-id check-id]
-  (let [{:keys [record-db record-store]} request
+(defn get-check
+  [request]
+  (let [{:keys [record-db record-store auth parameters]} request
+        {:keys [bank-id]} auth
+        {:keys [path]} parameters
+        {:keys [check-id]} path
         config {:record-db record-db :record-store record-store}
-        result (payee-checks/get-check config bank-id check-id)]
+        result (payee-checks/get-check config
+                                       bank-id
+                                       check-id)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body (->body result)})))
-
-(defn get-check
-  [request]
-  (let [{:keys [auth parameters]} request
-        {:keys [bank-id]} auth
-        {:keys [check-id]} (:path parameters)]
-    (read-check request bank-id check-id)))
 
 (defn list-checks
   [request]

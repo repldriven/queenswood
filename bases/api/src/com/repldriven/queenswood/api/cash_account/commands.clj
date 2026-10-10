@@ -1,8 +1,11 @@
 (ns com.repldriven.queenswood.api.cash-account.commands
   (:require
-    [com.repldriven.queenswood.api.cash-account.queries :as queries]
     [com.repldriven.queenswood.api.commands :as commands]
-    [com.repldriven.queenswood.api.shared.actor :as actor]))
+    [com.repldriven.queenswood.api.shared.actor :as actor]
+
+    [com.repldriven.queenswood.cash-account-api.interface :as
+     cash-account-api]
+    [com.repldriven.queenswood.schema.interface :as schema]))
 
 (defn- dispatcher
   [request]
@@ -12,17 +15,15 @@
 
 (defn- send-command
   [request command data ordering-key]
-  (commands/read-back (commands/send (dispatcher request)
-                                     request
-                                     command
-                                     "cash-account-command-reply"
-                                     data
-                                     {:ordering-key ordering-key})
-                      (fn [{:keys [bank-id account-id]}]
-                        (queries/read-cash-account request
-                                                   bank-id
-                                                   account-id
-                                                   {}))))
+  (commands/reply-body (commands/send (dispatcher request)
+                                      request
+                                      command
+                                      "cash-account-command-reply"
+                                      data
+                                      {:ordering-key ordering-key})
+                       (fn [{:keys [record]}]
+                         (cash-account-api/->body (schema/pb->CashAccount
+                                                   record)))))
 
 (defn open-cash-account
   [request]

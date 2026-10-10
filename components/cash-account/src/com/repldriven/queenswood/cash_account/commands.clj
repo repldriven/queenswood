@@ -2,6 +2,8 @@
   (:require
     [com.repldriven.queenswood.cash-account.core :as core]
 
+    [com.repldriven.queenswood.schema.interface :as schema]
+
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.processor.interface :as processor]))
@@ -13,7 +15,7 @@
     (let [{:keys [schemas]} config]
       {:status "ACCEPTED"
        :payload (avro/serialize (schemas "cash-account-command-reply")
-                                (select-keys result [:bank-id :account-id]))})))
+                                {:record (schema/CashAccount->pb result)})})))
 
 (def ^:private command-fns
   {"open-cash-account" (fn [config data]

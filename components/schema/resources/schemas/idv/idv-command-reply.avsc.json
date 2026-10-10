@@ -2,15 +2,11 @@
   "type": "record",
   "name": "IdvCommandReply",
   "namespace": "com.repldriven.queenswood.schema.idv",
-  "doc": "The session an identity verification command wrote, by id",
+  "doc": "The session an identity verification command committed, as its proto bytes",
   "fields": [
     {
-      "name": "bank_id",
-      "type": "string"
-    },
-    {
-      "name": "session_id",
-      "type": "string"
+      "name": "record",
+      "type": "bytes"
     }
   ]
 }

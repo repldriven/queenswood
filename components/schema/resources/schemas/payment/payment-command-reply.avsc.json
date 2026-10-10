@@ -2,15 +2,11 @@
   "type": "record",
   "name": "PaymentCommandReply",
   "namespace": "com.repldriven.queenswood.schema.payment",
-  "doc": "The payment a payment command wrote, by id",
+  "doc": "The payment a payment command committed, as its proto bytes",
   "fields": [
     {
-      "name": "bank_id",
-      "type": "string"
-    },
-    {
-      "name": "payment_id",
-      "type": "string"
+      "name": "record",
+      "type": "bytes"
     }
   ]
 }

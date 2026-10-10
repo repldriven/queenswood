@@ -7,6 +7,8 @@
     [com.repldriven.queenswood.payment.events.provider-transfer :as
      provider-transfer]
 
+    [com.repldriven.queenswood.schema.interface :as schema]
+
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.processor.interface :as processor]))
@@ -19,18 +21,17 @@
       (let-nom> [payload (avro/serialize (schemas schema-name) result)]
         {:status "ACCEPTED" :payload payload}))))
 
-(defn- ->ids
-  [result]
-  (if (error/anomaly? result)
-    result
-    (select-keys result [:bank-id :payment-id])))
+(defn- ->reply
+  [->pb result]
+  (if (error/anomaly? result) result {:record (->pb result)}))
 
 (def ^:private command-handlers
   {"submit-internal-payment" (fn [config data]
-                               (->response config
-                                           "payment-command-reply"
-                                           (->ids (core/submit-internal config
-                                                                        data))))
+                               (->response
+                                config
+                                "payment-command-reply"
+                                (->reply schema/InternalPayment->pb
+                                         (core/submit-internal config data))))
    "admit-inbound-payment" (fn [config data]
                              (->response config
                                          "admit-inbound-payment-reply"
@@ -39,7 +40,8 @@
                                (->response
                                 config
                                 "payment-command-reply"
-                                (->ids (core/submit-outbound config data))))})
+                                (->reply schema/OutboundPayment->pb
+                                         (core/submit-outbound config data))))})
 
 (defn- dispatch
   [config message]

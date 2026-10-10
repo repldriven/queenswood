@@ -640,8 +640,8 @@ retry, which resolves to its own reply. This is independent of the
 read-back above, and the two compose: the retry gets a
 deterministic reply, and because payments, transactions, and
 cash-accounts read the original resource back on a de-duplicated
-retry (see Idempotency above), that reply names the original
-resource, which the API reads back, rather than a rejection.
+retry (see Idempotency above), that reply carries a 200 with the
+original resource rather than a rejection.
 
 **Local channel bus.** The single-pod deployment replaces the broker
 with an in-process core.async bus. It is at-most-once — no ack,
