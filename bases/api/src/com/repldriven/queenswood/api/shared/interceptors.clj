@@ -6,6 +6,7 @@
     [com.repldriven.queenswood.bank-query.interface :as banks]
 
     [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.string :as str]
     [sieppari.context :as sc]))
@@ -58,6 +59,19 @@
             (update-in ctx
                        [:request :query-params]
                        (fn [qp] (when qp (nest-params qp)))))})
+
+(def request-id
+  "Gives every request an id, a uuidv7, as `:request-id`, which a write
+  passes to the domain beside the actor so the audit events it records
+  name the request, and answers it in the `Request-Id` header."
+  {:name ::request-id
+   :enter (fn [ctx]
+            (assoc-in ctx [:request :request-id] (str (utility/uuidv7))))
+   :leave (fn [ctx]
+            (cond-> ctx
+                    (:response ctx)
+                    (assoc-in [:response :headers "Request-Id"]
+                     (get-in ctx [:request :request-id]))))})
 
 (def named-bank
   "Refuses with 403 a request that resolves no bank: an operator naming

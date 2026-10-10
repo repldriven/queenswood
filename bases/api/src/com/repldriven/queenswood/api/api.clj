@@ -277,6 +277,7 @@
           oauth/routes)
     (into ["/v1"
            {:interceptors (concat telemetry/trace-span
+                                  [shared.interceptors/request-id]
                                   (:interceptors ctx)
                                   [server/credential
                                    server/authenticate-with-provider

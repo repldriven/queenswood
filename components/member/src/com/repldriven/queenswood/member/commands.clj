@@ -38,11 +38,15 @@
 
 (defn- people-opts
   [data]
-  (utility/assoc-some {:actor (actor (:actor data))} :reason (:reason data)))
+  (utility/assoc-some {:actor (actor (:actor data))}
+                      :reason (:reason data)
+                      :request-id (:request-id data)))
 
 (defn- recipient-opts
   [data]
-  {:user-id (:user-id data) :actor (actor (:actor data))})
+  (utility/assoc-some {:user-id (:user-id data) :actor (actor (:actor data))}
+                      :request-id
+                      (:request-id data)))
 
 (def ^:private command-handlers
   {"invite-member"
@@ -82,7 +86,7 @@
 
 (defn- dispatch
   [config message]
-  (let [{:keys [command payload]} message
+  (let [{:keys [command causation-id payload]} message
         handler (get command-handlers command)]
     (if (nil? handler)
       (error/reject :member/unknown-command
@@ -93,8 +97,10 @@
           (error/fail :member/process-command
                       {:message "No schema found for command"
                        :command command})
-          (let-nom> [data (avro/deserialize-same schema payload)]
-            (->response config (handler config data))))))))
+          (let-nom> [raw (avro/deserialize-same schema payload)]
+            (->response config
+                        (handler config
+                                 (assoc raw :request-id causation-id)))))))))
 
 (defrecord MemberProcessor [config]
   processor/Processor

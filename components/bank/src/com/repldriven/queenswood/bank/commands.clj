@@ -37,7 +37,7 @@
 (defn- create-bank
   [config data]
   (let [{:keys [name status tier currencies audience company-binding
-                member owner-invitation actor idempotency-key]}
+                member owner-invitation actor idempotency-key request-id]}
         data]
     (->response config
                 (let-nom> [chosen (core/choose-providers
@@ -58,6 +58,7 @@
                                   :company-binding company-binding
                                   :member member
                                   :owner-invitation owner-invitation
+                                  :request-id request-id
                                   :actor actor
                                   :idempotency-key idempotency-key})))))
 
@@ -96,7 +97,7 @@
 
 (defn- dispatch
   [config message]
-  (let [{:keys [command id payload]} message
+  (let [{:keys [command id causation-id payload]} message
         handler (get command-handlers command)]
     (if (nil? handler)
       (error/reject :bank/unknown-command
@@ -108,7 +109,9 @@
                       {:message "No schema found for command"
                        :command command})
           (let-nom> [raw (avro/deserialize-same schema payload)
-                     data (assoc raw :idempotency-key id)]
+                     data (assoc raw
+                                 :idempotency-key id
+                                 :request-id causation-id)]
             (handler config data)))))))
 
 (defrecord BankProcessor [config]

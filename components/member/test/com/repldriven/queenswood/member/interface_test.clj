@@ -13,6 +13,7 @@
     [com.repldriven.queenswood.testcontainers.interface]
 
     [com.repldriven.queenswood.member.interface :as SUT]
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.member-query.interface :as q]
 
     [com.repldriven.mono.error.interface :as error]
@@ -77,10 +78,9 @@
   {:token-hash (q/token-hash (:token invitation))})
 
 (defn- access-history
-  "The access history of a bank created at time zero by the operator."
+  "The bank's audit events, newest first."
   [config bank-id]
-  (q/list-audit-events config
-                       {:bank-id bank-id :created-at 0 :created-by operator}))
+  (:audit-events (audit/list-by-bank config bank-id {:limit 50})))
 
 (defn- kinds
   [events]
@@ -182,16 +182,16 @@
                      (is (= [:audit-event-kind-invitation-accepted
                              :audit-event-kind-invitation-created
                              :audit-event-kind-invitation-accepted
-                             :audit-event-kind-invitation-created
-                             :audit-event-kind-bank-created]
+                             :audit-event-kind-invitation-created]
                             (kinds history)))
                      (is (= {:kind :actor-kind-member
                              :principal-id "usr.accept.invitee"}
-                            (:actor (nth history 2))))
+                            (:created-by (nth history 2))))
                      (is (= "usr.accept.invitee"
-                            (:subject-user-id (nth history 2))))
+                            (get-in (nth history 2)
+                                    [:details :subject-user-id])))
                      (is (= "usr.accept.owner"
-                            (:subject-user-id (peek history)))))]))))
+                            (:principal-id (:created-by (peek history))))))]))))
 
 (deftest an-unchanged-role-records-nothing-test
   (with-test-system
@@ -227,8 +227,7 @@
                  _ (testing "and writes neither the member nor a change"
                      (is (= first-at (:updated-at loaded)))
                      (is (= :role-developer (:role loaded)))
-                     (is (= [:audit-event-kind-role-changed
-                             :audit-event-kind-bank-created]
+                     (is (= [:audit-event-kind-member-role-changed]
                             (kinds history))))]))))
 
 (deftest expiry-is-read-and-never-written-test
@@ -365,9 +364,8 @@
                  history-b (access-history config "bnk.reach.b")
                  _ (testing "and nothing is written"
                      (is (= target loaded))
-                     (is (= [:audit-event-kind-bank-created] (kinds history-a)))
-                     (is (= [:audit-event-kind-bank-created]
-                            (kinds history-b))))]))))
+                     (is (empty? history-a))
+                     (is (empty? history-b)))]))))
 
 (defn- latched
   "Runs `f` inside a transaction of its own on another thread, holding
@@ -419,8 +417,7 @@
                  _ (testing "and the bank keeps one owner and one role change"
                      (is (= [:role-admin :role-owner]
                             (sort (map :role members))))
-                     (is (= [:audit-event-kind-role-changed
-                             :audit-event-kind-bank-created]
+                     (is (= [:audit-event-kind-member-role-changed]
                             (kinds history))))]))))
 
 (deftest concurrent-accepts-by-one-person-write-one-member-test

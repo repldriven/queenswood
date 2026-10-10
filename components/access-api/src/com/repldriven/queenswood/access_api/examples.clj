@@ -74,8 +74,11 @@
 (def AuditEvent
   {:audit-event-id AuditEventId
    :bank-id me-api/BankId
-   :kind :role-changed
+   :kind :member-role-changed
+   :subject-kind :member
+   :subject-id invitee-member-id
    :actor Actor
+   :request-id "01a124c5-a4c6-7578-92a9-fc765876a148"
    :subject-user-id invitee-user-id
    :subject-name "Charles Babbage"
    :member-id invitee-member-id

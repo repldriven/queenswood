@@ -521,21 +521,5 @@
                                       :leave
                                       {:actor (recipient "usr.1")
                                        :active-members [m]}
-                                      now))))))
-  (testing "new-role-change records the move, by whom and why"
-    (let [m (member "mem.1" "usr.1" :role-viewer)
-          change (SUT/new-role-change m
-                                      :role-admin
-                                      {:actor (:owner actors)
-                                       :reason "Leads the team"}
-                                      now)]
-      (is (re-find #"^rch\." (:role-change-id change)))
-      (is (= {:bank-id "bnk.1"
-              :member-id "mem.1"
-              :role-before :role-viewer
-              :role-after :role-admin
-              :reason "Leads the team"
-              :created-at now
-              :created-by {:kind :actor-kind-member
-                           :principal-id "usr.role-owner"}}
-             (dissoc change :role-change-id))))))
+                                      now)))))))
+

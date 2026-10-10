@@ -81,7 +81,7 @@
              :query-params {"page[size]" 2}}
    :assert
    {:status 200
-    :body {:items [{:kind "role-changed"
+    :body {:items [{:kind "member-role-changed"
                     :subject-user-id [:ref :member-member :user-id]
                     :role-before "developer"
                     :role-after "admin"}

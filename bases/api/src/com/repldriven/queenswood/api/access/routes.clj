@@ -7,7 +7,7 @@
     [com.repldriven.queenswood.api.shared.interceptors :as shared.interceptors]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
-    [com.repldriven.queenswood.access-api.interface :refer
+    [com.repldriven.queenswood.access-api.interface :as access-api :refer
      [InvitationAlreadyExists InvitationAlreadyMember InvitationInvalidStatus
       InvitationNotFound MemberAlreadyExists MemberInvalidStatus
       MemberLastOwner MemberNotFound ReasonRequired RoleNotGranted]]
@@ -350,15 +350,16 @@
           :openapi {:operationId "ListAuditEvents"
                     :description
                     (str "The audit log of the bank the `Bank-Id` header "
-                         "names, newest first: every change to who may act "
-                         "for it — its creation, invitations, role changes, "
-                         "removals and departures, and the operator's own "
-                         "acts — each naming who made it and any reason "
-                         "given.")
+                         "names, newest first: every act a person, the "
+                         "bank or an operator performed on its records, "
+                         "each naming the record, who performed it, the "
+                         "request that asked for it and any reason given. "
+                         "`kind` lists only the kinds of act it names.")
                     :parameters ^:replace
-                                [shared.parameters/ref-page
+                                [shared.parameters/ref-audit-event-kind
+                                 shared.parameters/ref-page
                                  shared.parameters/ref-bank-id-header]}
-          :parameters {:query shared.parameters/page-query}
+          :parameters {:query access-api/audit-event-query}
           :responses {200 {:description "One page of the bank's audit events."
                            :body [:ref "AuditEventList"]}
                       403 (ErrorExamples [#'BankUnnamed])}

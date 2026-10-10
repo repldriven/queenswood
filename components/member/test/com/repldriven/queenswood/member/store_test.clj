@@ -232,39 +232,3 @@
                            "inv.changelog.1:1700700000000"]
                           (mapv :dedup-key @seen))))]))))
 
-(deftest role-change-round-trips-test
-  (with-test-system
-   [sys config-file]
-   (let [config (fdb-config sys)
-         bank-id "bnk.store.history"
-         change {:bank-id bank-id
-                 :member-id "mem.subject"
-                 :role-change-id "rch.01j00000000000000000000001"
-                 :role-before :role-viewer
-                 :role-after :role-admin
-                 :reason "Promoted"
-                 :created-at created-at
-                 :created-by owner-actor}]
-     (nom-test> [_ (SUT/save-role-change config change)
-                 _ (SUT/save-role-change
-                    config
-                    (assoc change :bank-id "bnk.store.other"))
-                 found (q/list-audit-events config
-                                            {:bank-id bank-id
-                                             :created-at 0
-                                             :created-by owner-actor})
-                 _ (testing "a role change reads back as its bank's history"
-                     (is (= [:audit-event-kind-role-changed
-                             :audit-event-kind-bank-created]
-                            (mapv :kind found)))
-                     (is (= {:kind :audit-event-kind-role-changed
-                             :actor owner-actor
-                             :member-id "mem.subject"
-                             :role-before :role-viewer
-                             :role-after :role-admin
-                             :reason "Promoted"
-                             :occurred-at created-at}
-                            (select-keys (first found)
-                                         [:kind :actor :member-id
-                                          :role-before :role-after :reason
-                                          :occurred-at]))))]))))

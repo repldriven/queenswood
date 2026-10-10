@@ -3,8 +3,8 @@
   in a Bank, with a role, and is ended, never deleted; an Invitation is accepted
   by a recipient proving the token its email carried or a verified
   email. Each act is recorded on the record it changes, as its `_at`
-  and `_by`, and a role change as a MemberRoleChange of its own;
-  every write runs in its own FDB transaction, reading what its rules
+  and `_by`, and as an event in the bank's audit log, naming the API
+  request in `opts`' `:request-id`; every write runs in its own FDB transaction, reading what its rules
   need through `member-query` inside it. A create or a resend
   co-commits an `invitation-created` or `invitation-resent` entry to the
   invitations changelog. The `member/processor` kind answers the
@@ -39,13 +39,14 @@
   (core/new-member txn input))
 
 (defn change-role
-  "Set a member's role, recording a MemberRoleChange. Refuses a
+  "Set a member's role, recording the change in the bank's audit log.
+  Refuses a
   member of another bank as `:member/not-found`, an ended one
   as `:member/invalid-status`, a change the actor's role does not
   allow as `:member/role-not-granted` (unauthorized), and a demotion
   of the bank's last active owner as `:member/last-owner`. After the
   same refusals, a role equal to the current one returns the member
-  unchanged and writes neither the member nor a role change.
+  unchanged and writes neither the member nor an audit event.
 
   Args:
   - txn: FDB transaction or config.

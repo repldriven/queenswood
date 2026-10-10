@@ -9,6 +9,7 @@
     [com.repldriven.queenswood.schema.account_product_type :as
      account-product-type]
     [com.repldriven.queenswood.schema.actor :as actor]
+    [com.repldriven.queenswood.schema.audit :as audit]
     [com.repldriven.queenswood.schema.balance :as balance]
     [com.repldriven.queenswood.schema.bank :as bank]
     [com.repldriven.queenswood.schema.cash_account :as cash-account]
@@ -103,8 +104,7 @@
      InvitationProto$InvitationStatus
      MemberProto$Member
      MemberProto$MemberStatus
-     MemberProto$Role
-     MemberRoleChangeProto$MemberRoleChange)
+     MemberProto$Role)
     (com.repldriven.queenswood.schema.webhook
      WebhookDeliveryProto$WebhookDelivery
      WebhookDeliveryAttemptProto$WebhookDeliveryAttempt
@@ -1527,34 +1527,33 @@
   (InvitationProto$InvitationStatus/forNumber
    (invitation-status->int invitation-status)))
 
-(defn pb->MemberRoleChange
-  "Parse MemberRoleChange protobuf bytes into a Clojure map. `reason`
-  is present only when set, and `created-by` is a plain map.
+(defn pb->AuditEvent
+  "Parse AuditEvent protobuf bytes into a Clojure map, each optional
+  field present only when set and `created-by` a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (-> (member/pb->MemberRoleChange input)
-      (without-unset {:reason ""})
+  (-> (audit/pb->AuditEvent input)
+      (without-unset {:request-id "" :details ""})
       (plain-embedded :created-by)))
 
-(defn MemberRoleChange->pb
-  "Serialise a MemberRoleChange map to protobuf bytes.
+(defn audit-event-kind->int
+  "The protobuf number of an `:audit-event-kind-*` keyword, which keys
+  a bank's audit events by kind.
 
   Args:
-  - m: MemberRoleChange map matching the generated schema."
-  [m]
-  (proto/->pb (member/new-MemberRoleChange m)))
+  - kind: `:audit-event-kind-*` keyword."
+  [kind]
+  (audit/AuditEventKind-label2val kind))
 
-(defn MemberRoleChange->java
-  "Parse a MemberRoleChange map into the generated Java protobuf
-  class.
+(defn AuditEvent->pb
+  "Serialise an AuditEvent map to protobuf bytes.
 
   Args:
-  - m: MemberRoleChange map matching the generated schema."
+  - m: AuditEvent map matching the generated schema."
   [m]
-  (MemberRoleChangeProto$MemberRoleChange/parseFrom
-   (MemberRoleChange->pb m)))
+  (proto/->pb (audit/new-AuditEvent m)))
 
 (def ^:private webhook-endpoint-unset
   {:description ""

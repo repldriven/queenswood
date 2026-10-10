@@ -1,9 +1,11 @@
 (ns com.repldriven.queenswood.bank.core
   (:require
+    [com.repldriven.queenswood.bank.audit-events :as audit-events]
     [com.repldriven.queenswood.bank.changelog :as changelog]
     [com.repldriven.queenswood.bank.domain :as domain]
     [com.repldriven.queenswood.bank.store :as store]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.bank-query.interface :as bank-query]
     [com.repldriven.queenswood.cash-account-product.interface :as products]
     [com.repldriven.queenswood.cash-account.interface :as cash-accounts]
@@ -158,13 +160,15 @@
   "Owner of a new bank")
 
 (defn- new-owner-invitation
-  [txn bank-id actor owner-invitation]
+  [txn bank-id actor request-id owner-invitation]
   (when owner-invitation
     (members/invite txn
                     bank-id
                     {:email (:email owner-invitation) :role :role-owner}
-                    {:actor actor
-                     :reason owner-invitation-reason})))
+                    (utility/assoc-some {:actor actor
+                                         :reason owner-invitation-reason}
+                                        :request-id
+                                        request-id))))
 
 (defn choose-providers
   [offered requested]
@@ -250,7 +254,20 @@
                                     :bank-id bank-id
                                     :role role
                                     :actor actor}))
-       invitation (new-owner-invitation txn bank-id actor owner-invitation)]
+       _ (audit/record txn
+                       (audit-events/bank :audit-event-kind-bank-created
+                                          bank
+                                          actor
+                                          (:request-id opts)
+                                          (when owner
+                                            {:subject-user-id (:user-id owner)
+                                             :member-id (:member-id owner)
+                                             :role-after (:role owner)})))
+       invitation (new-owner-invitation txn
+                                        bank-id
+                                        actor
+                                        (:request-id opts)
+                                        owner-invitation)]
       {:bank bank
        :member owner
        :owner-invitation-id (:invitation-id invitation)})))

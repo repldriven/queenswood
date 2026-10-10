@@ -12,6 +12,7 @@
 
     [com.repldriven.queenswood.bank.interface :as SUT]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.bank-query.interface :as bank-query]
     [com.repldriven.queenswood.cash-account-product-query.interface :as
      products]
@@ -146,14 +147,15 @@
                    _ (is (= bank-id (:bank-id member)))
                    _ (is (= :role-owner (:role member)))
                    _ (is (nil? owner-invitation-id))
-                   stored (bank-query/get-bank config bank-id)
-                   audit-events (q/list-audit-events config stored)
+                   {:keys [audit-events]}
+                   (audit/list-by-bank config bank-id {:limit 10})
                    _ (is (= [:audit-event-kind-bank-created]
                             (mapv :kind audit-events)))
                    _ (is (= {:kind :actor-kind-member :principal-id user-id}
-                            (:actor (first audit-events))))
+                            (:created-by (first audit-events))))
                    _ (is (= (:member-id member)
-                            (:member-id (first audit-events))))
+                            (get-in (first audit-events)
+                                    [:details :member-id])))
                    invitations (q/list-invitations-by-bank config bank-id)
                    _ (is (empty? invitations))
                    listed (q/list-by-user config user-id)
@@ -195,13 +197,13 @@
                    _ (is (= :role-owner (:role (first invitations))))
                    _ (is (= "Owner@Example.com" (:email (first invitations))))
                    _ (is (= operator (:created-by (first invitations))))
-                   stored (bank-query/get-bank config bank-id)
-                   audit-events (q/list-audit-events config stored)
+                   {:keys [audit-events]}
+                   (audit/list-by-bank config bank-id {:limit 10})
                    _ (testing "newest first, so the bank-created event is older"
                        (is (= [:audit-event-kind-invitation-created
                                :audit-event-kind-bank-created]
                               (mapv :kind audit-events))))
-                   _ (is (every? #(= operator (:actor %)) audit-events))]))
+                   _ (is (every? #(= operator (:created-by %)) audit-events))]))
      (testing "the owner invitation's creation is on the invitations changelog"
        (let [seen (atom [])]
          (nom-test> [_ (fdb/process-changelog

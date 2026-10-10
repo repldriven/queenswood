@@ -23,7 +23,6 @@ import "schemas/scheduler/scheduler-job.proto";
 import "schemas/scheduler/scheduler-run.proto";
 import "schemas/member/invitation.proto";
 import "schemas/member/member.proto";
-import "schemas/member/member-role-change.proto";
 import "schemas/modulr/modulr-outbound-intent.proto";
 import "schemas/modulr/modulr-outbox-event.proto";
 import "schemas/form3/form3-outbound-intent.proto";
@@ -100,7 +99,7 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schema.webhook.WebhookDelivery _WebhookDelivery = 41;
   optional com.repldriven.queenswood.schema.webhook.WebhookDeliveryAttempt _WebhookDeliveryAttempt = 42;
   optional com.repldriven.queenswood.schema.member.Invitation _Invitation = 43;
-  optional com.repldriven.queenswood.schema.member.MemberRoleChange _MemberRoleChange = 44;
+  reserved 44;
   optional com.repldriven.queenswood.schema.email.EmailDelivery _EmailDelivery = 45;
   optional com.repldriven.queenswood.schema.reward.AccountReward _AccountReward = 46;
   optional com.repldriven.queenswood.schema.zyphe.ZypheOutboxEvent _ZypheOutboxEvent = 47;

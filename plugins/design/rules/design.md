@@ -175,30 +175,35 @@ See [record-protos](../../../docs/recipes/code/record-protos.md).
 
 ## Acts are audited at commit, and calls logged at the edge
 
-Commit an append-only `AuditEvent` in the transaction that makes every
-change a person, a bank or an operator makes, one per record the act
-creates or changes, through the `audit` brick's `record`, called by
-the writing brick's store; write none for what the platform does by
-itself. Key it `[bank_id, audit_event_id]` with a uuidv7 id, with a
-version index on `bank_id` for commit order and an index on
-`[bank_id, subject_id]` for a record's history, and hold the act's
-kind, the subject's kind and id, the actor, the request id, the time
-and a `details` map of strings naming only what the act carried, never
-a person's name or contact details. Keep the store append-only: the
-`audit` brick exposes `record` and reads, saves with an existence check,
-and is the only brick that names the store, which semgrep holds. Build
-the caller's actor in one place in the `api` base, give every request a
-uuidv7 id in an interceptor there, and pass both to the domain wherever
-the actor goes. Write an access entry for every call from that
-interceptor once the response is chosen — request id, principal, bank,
-method, route template, path ids, status, rejection type, replayed or
-not, client address and duration, no body or query value — off the
-request's thread, many to a transaction, in the `access-log` brick
-behind a bounded queue whose dropped count is published. Keep audit
-entries for the bank's life and access entries for a configured period,
-deleted by a system job, the only deletion either store allows. Serve
-them at `GET /v1/bank/audit-events` and `GET /v1/bank/access-entries`,
-an operator any bank's. Assert in the API scenario runner that every
+Write one append-only `AuditEvent` for each act a person, a bank or an
+operator performs, naming the record it acts on, through the `audit`
+brick's `record`, in the transaction that saves the change; write none
+for what the platform does by itself, and leave a record the act writes
+as its consequence to its own `created_by`. Append it under the bank and
+its commit's versionstamp, outside the Record Layer, with empty keys
+beside it under the bank and subject and under the bank and kind, so a
+bank's log, a record's history and a set of kinds each read newest first
+a page at a time. Hold the act's kind, the subject's kind and id, the
+actor as `created_by`, the request id, the time and `details`, a json
+string of whatever the act carried, indexed by nothing and never a
+person's name or contact details. Number `AuditSubjectKind` in tens and
+each subject's `AuditEventKind`s up from its own. Keep the log
+append-only: only the `audit` brick names its keys, which semgrep holds,
+and it exposes `record` and reads alone. Build the caller's actor in one
+place in the `api` base, give every request a uuidv7 id in an
+interceptor there, answer it as `Request-Id`, and pass both to the
+domain: the request id as a command's causation id, which the processor
+passes on beside the actor, or in a synchronous call's arguments. Write
+an access entry for every call from that interceptor once the response
+is chosen — request id, principal, bank, method, route template, path
+ids, status, rejection type, replayed or not, client address and
+duration, no body or query value — off the request's thread, many to a
+transaction, in the `access-log` brick behind a bounded queue whose
+dropped count is published. Keep audit entries for the bank's life and
+access entries for a configured period, deleted by a system job, the
+only deletion either allows. Serve them at `GET /v1/bank/audit-events`,
+which takes a set of kinds, and `GET /v1/bank/access-entries`, an
+operator any bank's. Assert in the API scenario runner that every
 successful write call that was not a replay left an audit entry under
 its request id. Remove a transition's `_at` and `_by` pair once its act
 writes an audit entry, keeping a time the domain reads to decide as the

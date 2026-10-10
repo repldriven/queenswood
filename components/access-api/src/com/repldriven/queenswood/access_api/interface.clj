@@ -16,7 +16,7 @@
     "Malli registry of the member, invitation and audit schemas,
   keyed by the name each appears under in the document's
   `components/schemas`: `AuditEvent`, `AuditEventId`,
-  `AuditEventKind`, `AuditEventList`,
+  `AuditEventKind`, `AuditEventList`, `AuditSubjectKind`,
   `ChangeRoleRequest`, `CreateInvitationRequest`, `EmailAddress`,
   `Invitation`, `InvitationId`, `InvitationStatus`,
   `InvitationList`, `Member`, `MemberList`, `ReasonRequest`,
@@ -25,6 +25,14 @@
   any route."}
   registry
   components/registry)
+
+(def
+  ^{:doc
+    "Malli `:query` schema of the audit log: an optional `page`, and an
+  optional `kind`, the kinds of act to list, sent comma-separated and
+  decoded to a vector of `:audit-event-kind-*` keywords."}
+  audit-event-query
+  components/AuditEventQuery)
 
 ;; ---
 ;; examples

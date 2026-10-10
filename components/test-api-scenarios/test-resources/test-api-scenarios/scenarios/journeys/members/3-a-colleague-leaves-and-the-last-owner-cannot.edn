@@ -151,7 +151,7 @@
        :member-id [:ref :owner-member
                        :member-id]
        :role-before "owner"}
-      {:kind "role-changed"
+      {:kind "member-role-changed"
        :subject-user-id [:ref :admin-member :user-id]
        :role-before "admin"
        :role-after "owner"

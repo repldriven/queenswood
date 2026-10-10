@@ -192,19 +192,6 @@
              :role-changed-by (actor-record actor)
              :updated-at now))))
 
-(defn new-role-change
-  [member new-role {:keys [actor reason]} now]
-  (let [{:keys [bank-id member-id role]} member]
-    (utility/assoc-some {:bank-id bank-id
-                         :member-id member-id
-                         :role-change-id (utility/generate-id "rch")
-                         :role-before role
-                         :role-after new-role
-                         :created-at now
-                         :created-by (actor-record actor)}
-                        :reason
-                        (some-reason reason))))
-
 (defn end-member
   [member action {:keys [actor active-members reason]} now]
   (let-nom>

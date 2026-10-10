@@ -234,24 +234,6 @@
                            :withdrawn-reason "Sent to the wrong address")]
       (is (= withdrawn (SUT/pb->Invitation (SUT/Invitation->pb withdrawn)))))))
 
-(deftest member-role-change-record-round-trip-test
-  (let [change {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-                :member-id "mem.01kprbmgcj35ptc8npmybhh4t5"
-                :role-change-id "rch.01kprbmgcj35ptc8npmybhh4t4"
-                :role-before :role-viewer
-                :role-after :role-admin
-                :created-at 1700000000000
-                :created-by member-actor}]
-    (testing "a role change carries the roles either side and who moved it"
-      (is (= change
-             (SUT/pb->MemberRoleChange (SUT/MemberRoleChange->pb change))))
-      (is (some? (SUT/MemberRoleChange->java change))))
-    (testing "and the reason when one was given"
-      (let [with-reason (assoc change :reason "Leads the team")]
-        (is (= with-reason
-               (SUT/pb->MemberRoleChange (SUT/MemberRoleChange->pb
-                                          with-reason))))))))
-
 (deftest email-delivery-record-round-trip-test
   (testing "a pending delivery carries no message id, send or failure"
     (let [delivery {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"

@@ -5,7 +5,9 @@
 
     [com.repldriven.queenswood.api-schema.interface :as schema :refer
      [components-registry list-schema]]
-    [com.repldriven.queenswood.me-api.interface :as me-api]))
+    [com.repldriven.queenswood.me-api.interface :as me-api]
+
+    [clojure.string :as str]))
 
 (def InvitationId (schema/id-schema "InvitationId" "inv" examples/InvitationId))
 
@@ -15,7 +17,11 @@
   (coercion/invitation-status-enum-schema {:json-schema/example "pending"}))
 
 (def AuditEventKind
-  (coercion/audit-event-kind-enum-schema {:json-schema/example "role-changed"}))
+  (coercion/audit-event-kind-enum-schema {:json-schema/example
+                                          "member-role-changed"}))
+
+(def AuditSubjectKind
+  (coercion/audit-subject-kind-enum-schema {:json-schema/example "member"}))
 
 (def EmailAddress
   [:re
@@ -100,16 +106,20 @@
   [:map
    {:json-schema/example examples/AuditEvent
     :description
-    "One entry in the bank's audit log: a change to who may act for the
-    bank, who made it and why. An invitation's events name
-    the invitation, its address and its role as `role-after`; a
-    member's name the member, the member and `role-before`, and a
-    role change `role-after`. `subject-name` names the member from their
-    user record, and is absent when they have none."}
+    "One act in the bank's audit log: what was done, to which record,
+    who did it, the request that asked for it and any reason given. An
+    invitation's events name the invitation, its address and its role
+    as `role-after`; a member's name the member and `role-before`, and a
+    role change `role-after`. `subject-name` names the person a member
+    act concerns from their user record, and is absent when they have
+    none."}
    [:audit-event-id [:ref "AuditEventId"]]
    [:bank-id [:ref "BankId"]]
    [:kind [:ref "AuditEventKind"]]
+   [:subject-kind [:ref "AuditSubjectKind"]]
+   [:subject-id string?]
    [:actor [:ref "Actor"]]
+   [:request-id {:optional true} string?]
    [:subject-user-id {:optional true} [:ref "UserId"]]
    [:subject-name {:optional true} string?]
    [:member-id {:optional true} [:ref "MemberId"]]
@@ -122,9 +132,20 @@
 
 (def AuditEventList (list-schema "AuditEvent" examples/AuditEventList))
 
+(def AuditEventQuery
+  "The audit log's query: a page, and optionally the kinds of act to
+  list, comma-separated."
+  [:map {:closed true}
+   [:page {:optional true} [:ref "PageQuery"]]
+   [:kind {:optional true}
+    [:vector
+     {:decode/api (fn [v] (if (string? v) (str/split v #",") v))}
+     [:ref "AuditEventKind"]]]])
+
 (def registry
-  (components-registry
-   [#'AuditEvent #'AuditEventId #'AuditEventKind #'AuditEventList
-    #'ChangeRoleRequest #'CreateInvitationRequest #'EmailAddress #'Invitation
-    #'InvitationId #'InvitationStatus #'InvitationList #'Member #'MemberList
-    #'ReasonRequest #'RecipientInvitation #'RecipientInvitationList]))
+  (components-registry [#'AuditEvent #'AuditEventId #'AuditEventKind
+                        #'AuditEventList #'AuditSubjectKind #'ChangeRoleRequest
+                        #'CreateInvitationRequest #'EmailAddress #'Invitation
+                        #'InvitationId #'InvitationStatus #'InvitationList
+                        #'Member #'MemberList #'ReasonRequest
+                        #'RecipientInvitation #'RecipientInvitationList]))

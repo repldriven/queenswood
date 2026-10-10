@@ -1,8 +1,10 @@
 (ns com.repldriven.queenswood.member.core
   (:require
+    [com.repldriven.queenswood.member.audit-events :as audit-events]
     [com.repldriven.queenswood.member.domain :as domain]
     [com.repldriven.queenswood.member.store :as store]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.member-query.interface :as q]
     [com.repldriven.queenswood.user.interface :as user]
 
@@ -85,7 +87,14 @@
                                              :member-emails emails
                                              :invitations invitations}
                                             now)
-          _ (store/save-invitation txn invitation invitation-created)]
+          _ (store/save-invitation txn invitation invitation-created)
+          _ (audit/record txn
+                          (audit-events/invitation
+                           :audit-event-kind-invitation-created
+                           invitation
+                           opts
+                           now
+                           {:reason reason}))]
          (as-read invitation now))))
    :invitation/invite
    "Failed to create invitation"))
@@ -112,7 +121,15 @@
                                      :actor actor}
                                     now)
           _ (store/save-invitation txn accepted)
-          _ (store/save-member txn member)]
+          _ (store/save-member txn member)
+          _ (audit/record txn
+                          (audit-events/invitation
+                           :audit-event-kind-invitation-accepted
+                           accepted
+                           opts
+                           now
+                           {:subject-user-id user-id
+                            :member-id (:member-id member)}))]
          member)))
    :invitation/accept
    "Failed to accept invitation"))
@@ -128,7 +145,14 @@
                                                             invitation-id
                                                             proof)
           declined (domain/decline-invitation invitation actor now)
-          _ (store/save-invitation txn declined)]
+          _ (store/save-invitation txn declined)
+          _ (audit/record txn
+                          (audit-events/invitation
+                           :audit-event-kind-invitation-declined
+                           declined
+                           opts
+                           now
+                           {:subject-user-id (:principal-id actor)}))]
          (as-read declined now))))
    :invitation/decline
    "Failed to decline invitation"))
@@ -143,7 +167,14 @@
          [invitation (q/get-invitation-record txn bank-id invitation-id)
           withdrawn (domain/withdraw-invitation invitation opts now)
           _ (domain/check-grant :invite actor {:role (:role invitation)})
-          _ (store/save-invitation txn withdrawn)]
+          _ (store/save-invitation txn withdrawn)
+          _ (audit/record txn
+                          (audit-events/invitation
+                           :audit-event-kind-invitation-withdrawn
+                           withdrawn
+                           opts
+                           now
+                           {:reason (:reason opts)}))]
          (as-read withdrawn now))))
    :invitation/withdraw
    "Failed to withdraw invitation"))
@@ -158,7 +189,14 @@
          [invitation (q/get-invitation-record txn bank-id invitation-id)
           resent (domain/resend-invitation invitation actor now)
           _ (domain/check-grant :invite actor {:role (:role invitation)})
-          _ (store/save-invitation txn resent invitation-resent)]
+          _ (store/save-invitation txn resent invitation-resent)
+          _ (audit/record txn
+                          (audit-events/invitation
+                           :audit-event-kind-invitation-resent
+                           resent
+                           opts
+                           now
+                           {}))]
          (as-read resent now))))
    :invitation/resend
    "Failed to resend invitation"))
@@ -198,9 +236,15 @@
           _ (when-not unchanged?
               (store/save-member txn changed))
           _ (when-not unchanged?
-              (store/save-role-change
-               txn
-               (domain/new-role-change member role opts now)))]
+              (audit/record txn
+                            (audit-events/member
+                             :audit-event-kind-member-role-changed
+                             member
+                             opts
+                             now
+                             {:role-before (:role member)
+                              :role-after role
+                              :reason (:reason opts)})))]
          changed)))
    :member/change-role
    "Failed to change role"))
@@ -220,7 +264,14 @@
                                     :active-members members
                                     :reason reason}
                                    now)
-          _ (store/save-member txn ended)]
+          _ (store/save-member txn ended)
+          _ (audit/record txn
+                          (audit-events/member :audit-event-kind-member-removed
+                                               member
+                                               opts
+                                               now
+                                               {:role-before (:role member)
+                                                :reason reason}))]
          ended)))
    :member/remove
    "Failed to remove member"))
@@ -239,7 +290,13 @@
                                    {:actor actor
                                     :active-members members}
                                    now)
-          _ (store/save-member txn ended)]
+          _ (store/save-member txn ended)
+          _ (audit/record txn
+                          (audit-events/member :audit-event-kind-member-left
+                                               member
+                                               opts
+                                               now
+                                               {:role-before (:role member)}))]
          ended)))
    :member/leave
    "Failed to leave"))

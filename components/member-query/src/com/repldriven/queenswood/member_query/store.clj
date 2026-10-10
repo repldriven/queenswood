@@ -7,7 +7,6 @@
 
 (def ^:private members-store-name "members")
 (def ^:private invitations-store-name "invitations")
-(def ^:private role-changes-store-name "member-role-changes")
 
 (def transact fdb/transact)
 
@@ -151,19 +150,6 @@
     (into []
           (remove #(contains? closed-statuses (:status %)))
           invitations)))
-
-(defn list-role-changes-by-bank
-  [txn bank-id]
-  (fdb/transact txn
-                (fn [txn]
-                  (mapv schema/pb->MemberRoleChange
-                        (fdb/query-records
-                         (fdb/open txn role-changes-store-name)
-                         "MemberRoleChange"
-                         "bank_id"
-                         bank-id)))
-                :member/list-role-changes
-                "Failed to list role changes"))
 
 (defn- open-invitations
   [entries]

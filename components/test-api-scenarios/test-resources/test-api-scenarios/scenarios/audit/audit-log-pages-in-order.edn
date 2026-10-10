@@ -82,12 +82,15 @@
     :body
     {:items
      [{:kind "member-removed"
+       :subject-kind "member"
+       :subject-id [:ref :member-member :member-id]
+       :request-id [:m/regex "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$"]
        :actor {:kind "member" :principal-id [:ref :owner-member :user-id]}
        :subject-user-id [:ref :member-member :user-id]
        :member-id [:ref :member-member :member-id]
        :role-before "admin"
        :reason "Left the company"}
-      {:kind "role-changed"
+      {:kind "member-role-changed"
        :actor {:kind "member" :principal-id [:ref :owner-member :user-id]}
        :subject-user-id [:ref :member-member :user-id]
        :role-before "developer"

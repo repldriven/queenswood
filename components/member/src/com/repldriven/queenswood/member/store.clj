@@ -9,7 +9,6 @@
 
 (def ^:private members-store-name "members")
 (def ^:private invitations-store-name "invitations")
-(def ^:private role-changes-store-name "member-role-changes")
 
 (def transact fdb/transact)
 
@@ -47,12 +46,3 @@
     :invitation/save
     "Failed to save invitation")))
 
-(defn save-role-change
-  [txn role-change]
-  (fdb/transact txn
-                (fn [txn]
-                  (fdb/save-record (fdb/open txn role-changes-store-name)
-                                   (schema/MemberRoleChange->java
-                                    role-change)))
-                :member/save-role-change
-                "Failed to save role change"))

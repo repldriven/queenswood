@@ -393,3 +393,52 @@
                  other (SUT/transact config
                                      (fn [txn] (SUT/read-stamp txn "toys")))
                  _ (is (nil? other) "each name is a stamp of its own")]))))
+
+(deftest appended-test
+  (with-test-system
+   [sys "classpath:fdb/application-test.yml"]
+   (let [config {:record-db (system/instance sys [:fdb :record-db])
+                 :record-store (system/instance sys [:fdb :pet-store])}
+         log ["appended-test" "log"]
+         index ["appended-test" "index" "b"]
+         append (fn [values]
+                  (SUT/transact config
+                                (fn [txn]
+                                  (doseq [[v indexed?] values]
+                                    (SUT/append txn
+                                                (cond-> [log]
+                                                        indexed?
+                                                        (conj index))
+                                                (.getBytes ^String v))))))
+         scan (fn [parts opts]
+                (SUT/transact
+                 config
+                 (fn [txn]
+                   (SUT/scan-appended txn parts (merge {:limit 10} opts)))))
+         values (fn [{:keys [entries]}]
+                  (mapv (fn [{:keys [value]}] (String. ^bytes value)) entries))]
+     (nom-test> [_ (append [["a" false] ["b" true]])
+                 _ (append [["c" true]])
+                 all (scan log {})
+                 _ (is (= ["a" "b" "c"] (values all))
+                       "entries read in commit order, two in one commit apart")
+                 newest (scan log {:order :desc :limit 2})
+                 _ (is (= ["c" "b"] (values newest)) "newest first")
+                 _ (is (nil? (:before newest)))
+                 older (scan log {:order :desc :limit 2 :after (:after newest)})
+                 _ (is (= ["a"] (values older)) "the next page resumes past b")
+                 _ (is (nil? (:after older)))
+                 back (scan log {:order :desc :limit 2 :before (:before older)})
+                 _ (is (= ["c" "b"] (values back)) "paging back returns")
+                 indexed (scan index {:order :desc})
+                 _ (is (= 2 (count (:entries indexed))))
+                 loaded (SUT/transact
+                         config
+                         (fn [txn]
+                           (mapv (fn [{:keys [versionstamp]}]
+                                   (String.
+                                    ^bytes
+                                    (SUT/load-appended txn log versionstamp)))
+                                 (:entries indexed))))
+                 _ (is (= ["c" "b"] loaded)
+                       "an index entry's versionstamp loads its entry")]))))

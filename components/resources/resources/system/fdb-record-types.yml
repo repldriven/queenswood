@@ -484,10 +484,6 @@ stores:
         modified: 1
         field: token_hash
         unique: true
-  member-role-changes:
-    record-type: MemberRoleChange
-    primary-key: [bank_id, member_id, role_change_id]
-    indexes: []
   email-deliveries:
     record-type: EmailDelivery
     primary-key: [bank_id, delivery_id]

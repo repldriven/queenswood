@@ -62,7 +62,8 @@
          id (or (:id envelope) (str (utility/uuidv7)))
          envelope (assoc envelope
                          :id id
-                         :correlation-id (or (:correlation-id envelope) id))
+                         :correlation-id (or (:correlation-id envelope) id)
+                         :causation-id (:request-id request))
          result (let-nom>
                   [schema (get-schema avro command-name)
                    payload (avro/serialize schema data)]

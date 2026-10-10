@@ -62,32 +62,38 @@ block, and the transition band leaves it.
 
 The decision has these parts:
 
-- Give the audit entry a record type of its own, `AuditEvent`, in a
-  store of its own, keyed `[bank_id, audit_event_id]` with a uuidv7
-  id, with a version index on `bank_id` so a bank's entries read in
-  commit order and an index on `[bank_id, subject_id]` for one
-  record's history.
-- Hold in each entry the act as a kind, the subject's kind and id, the
-  actor, the request id, the time, and a `details` map of strings
-  naming only what the act itself carried, such as a role, a status or
-  a reason, and never a person's name or contact details, as
+- Append each entry, an `AuditEvent` message, under the bank and the
+  versionstamp of the commit that makes it, outside the Record Layer,
+  and an empty key beside it under the bank, the subject's id and that
+  versionstamp, and under the bank, the kind and that versionstamp, so
+  a bank's log, one record's history and any set of kinds each read
+  newest first, a page at a time.
+- Hold in each entry the act's kind, the subject's kind and id, the
+  actor as `created_by`, the request id, the time, and `details`, a
+  json string of whatever the act carried, of any depth, never a
+  person's name or contact details, as
   [ADR-0045](0045-a-persons-identity-evidence-stays-with-the-customers-provider.md)
-  has it.
-- Write an entry for each record a person's, a bank's or an
-  operator's act creates or changes, through one function in an
-  `audit` brick, `record`, called by the writing brick's store inside
-  the transaction that saves the change.
+  has it, and indexed by nothing.
+- Number `AuditSubjectKind` in tens and each subject's
+  `AuditEventKind`s up from its own, so a kind's number shows its
+  subject.
+- Write one entry per act, naming the record it acts on, through one
+  function in an `audit` brick, `record`, called in the transaction
+  that saves the change; a record the act writes as its consequence
+  keeps only its own `created_by`.
 - Write no entry for what the platform does by itself, such as the
   scheduler completing a run, a provider settling a payment or a relay
   reacting to an event.
-- Make the store append-only: the `audit` brick exposes `record` and
-  reads and nothing else, saves with an existence check that refuses
-  an id already present, and is the only brick that names the store,
-  which a semgrep rule holds.
+- Keep the log append-only: a versionstamped key exists only from its
+  commit, so nothing can write one twice, and the `audit` brick
+  exposes `record` and reads and nothing else and is the only brick
+  that names the log's keys, which a semgrep rule holds.
 - Build the caller's actor in one place in the `api` base, from the
   request's authentication, give every request an id, a uuidv7, in an
-  interceptor there, and pass both to the domain wherever the actor
-  goes, in a command's data and in a synchronous call's arguments.
+  interceptor there, answer it in the `Request-Id` header, and pass
+  both to the domain wherever the actor goes: the request id as a
+  command's causation id, which the processor passes on beside the
+  actor, and in a synchronous call's arguments.
 - Write an access entry for every call, from that interceptor after
   the response is chosen: the request id, the principal where one was
   authenticated, the bank, the method, the route's template, the ids
@@ -101,9 +107,10 @@ The decision has these parts:
 - Keep audit entries for the life of the bank. Keep access entries for
   a period the installation configures, and delete older ones from a
   system job, the only deletion either store allows.
-- Serve a bank its own entries at `GET /v1/bank/audit-events` and
-  `GET /v1/bank/access-entries`, and an operator any bank's, each
-  actor named on read as the access routes name one today.
+- Serve a bank its own entries at `GET /v1/bank/audit-events`, which
+  takes a set of kinds, and `GET /v1/bank/access-entries`, and an
+  operator any bank's, each actor named on read as the access routes
+  name one today.
 - Assert in the API scenario runner, after each step, that every
   successful write call that was not a replay left at least one audit
   entry under its request id, naming in the runner any route that
@@ -136,9 +143,12 @@ Easier:
 
 Harder:
 
-- A person's act on a busy path writes one more record and two index
-  entries: a payment a bank submits through the API is the busiest,
-  measured with the perf suite before and after.
+- A person's act on a busy path writes three more keys, blind and
+  conflicting with nothing: a payment a bank submits through the API
+  is the busiest, measured with the perf suite before and after.
+- The log reads newest first by bank, by subject or by a set of kinds
+  and nothing else: a page across several kinds reads each kind's
+  keys, and a filter on anything in `details` would scan.
 - An access entry is lost when its process dies with it still queued,
   and dropped when the queue is full, so the access log is complete
   only while the dropped count stays at zero.
