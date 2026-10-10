@@ -1,8 +1,8 @@
 (ns com.repldriven.queenswood.access-api.interface
-  "Members, invitations and the audit log as the banking API
-  publishes them: the malli components their bodies are built from,
-  the examples those bodies and the rejection bodies carry, and the
-  invitation example a bank example embeds."
+  "Members and invitations as the banking API publishes them: the malli
+  components their bodies are built from, the examples those bodies and
+  the rejection bodies carry, and the invitation example a bank example
+  embeds."
   (:require
     [com.repldriven.queenswood.access-api.components :as components]
     [com.repldriven.queenswood.access-api.examples :as examples]))
@@ -13,10 +13,8 @@
 
 (def
   ^{:doc
-    "Malli registry of the member, invitation and audit schemas,
-  keyed by the name each appears under in the document's
-  `components/schemas`: `AuditEvent`, `AuditEventId`,
-  `AuditEventKind`, `AuditEventList`, `AuditSubjectKind`,
+    "Malli registry of the member and invitation schemas, keyed by the
+  name each appears under in the document's `components/schemas`:
   `ChangeRoleRequest`, `CreateInvitationRequest`, `EmailAddress`,
   `Invitation`, `InvitationId`, `InvitationStatus`,
   `InvitationList`, `Member`, `MemberList`, `ReasonRequest`,
@@ -26,23 +24,15 @@
   registry
   components/registry)
 
-(def
-  ^{:doc
-    "Malli `:query` schema of the audit log: an optional `page`, and an
-  optional `kind`, the kinds of act to list, sent comma-separated and
-  decoded to a vector of `:audit-event-kind-*` keywords."}
-  audit-event-query
-  components/AuditEventQuery)
-
 ;; ---
 ;; examples
 ;; ---
 
 (def
   ^{:doc
-    "Map of example name to example value for the member,
-  invitation and audit bodies, feeding the document's
-  `components/examples` section."}
+    "Map of example name to example value for the member and
+  invitation bodies, feeding the document's `components/examples`
+  section."}
   examples
   examples/registry)
 

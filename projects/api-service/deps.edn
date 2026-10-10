@@ -28,6 +28,7 @@
   component/payment-provider {:local/root "../../components/payment-provider"}
   component/reward-api {:local/root "../../components/reward-api"}
   component/access-api {:local/root "../../components/access-api"}
+  component/audit-api {:local/root "../../components/audit-api"}
   component/balance-api {:local/root "../../components/balance-api"}
   component/bank-api {:local/root "../../components/bank-api"}
   component/cash-account-migration-api
