@@ -5,7 +5,7 @@
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.companies.queries :as companies]
     [com.repldriven.queenswood.api.errors :as errors]
-    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
+    [com.repldriven.queenswood.api.shared.actor :as actor]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
 
@@ -132,7 +132,7 @@
       :tier (or tier default-tier)
       :currencies (or currencies default-currencies)
       :audience (get audiences-by-status status)
-      :actor (shared.actor/actor auth)}
+      :actor (actor/actor auth)}
      :company-binding (when company
                         (select-keys company binding-keys))
      :member (when person?
@@ -201,7 +201,7 @@
                               "bank"
                               {:bank-id bank-id
                                :tier tier
-                               :actor (shared.actor/actor auth)})]
+                               :actor (actor/actor auth)})]
     (if (not= 200 (:status result))
       result
       (let [txn {:record-db record-db :record-store record-store}
@@ -227,7 +227,7 @@
                               {:bank-id bank-id
                                :status status
                                :audience (get audiences-by-status status)
-                               :actor (shared.actor/actor auth)})]
+                               :actor (actor/actor auth)})]
     (if (not= 200 (:status result))
       result
       (let [bank (bank-with-secret request bank-id)]

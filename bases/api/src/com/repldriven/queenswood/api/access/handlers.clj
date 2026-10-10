@@ -12,7 +12,7 @@
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
-    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
+    [com.repldriven.queenswood.api.shared.actor :as actor]
 
     [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.bank-query.interface :as banks]
@@ -61,11 +61,11 @@
                               data)]
     (if (= 200 (:status result)) (success (:body result)) result)))
 
-(defn- actor
+(defn- caller
   "The principal as an audit event records it: the caller as an actor,
   a member with the role of the member the call resolved to."
   [auth]
-  (let [actor (shared.actor/actor auth)]
+  (let [actor (actor/actor auth)]
     (cond-> actor
 
             (= :actor-kind-member (:kind actor))
@@ -281,7 +281,7 @@
      "accept-invitation"
      {:invitation-id invitation-id
       :user-id (:principal-id auth)
-      :actor (actor auth)
+      :actor (caller auth)
       :proof (proof-data (proof request))}
      (fn [{:keys [bank-id member-id]}]
        (respond (let-nom> [member (members/find-by-id txn
@@ -300,7 +300,7 @@
      "decline-invitation"
      {:invitation-id invitation-id
       :user-id (:principal-id auth)
-      :actor (actor auth)
+      :actor (caller auth)
       :proof (proof-data (proof request))}
      (fn [{:keys [bank-id]}]
        (respond (let-nom> [declined (members/find-invitation txn
@@ -363,7 +363,7 @@
                   "leave-bank"
                   {:member-id member-id
                    :user-id (:principal-id auth)
-                   :actor (actor auth)}
+                   :actor (caller auth)}
                   no-content)))
 
 (defn list-members
@@ -402,7 +402,7 @@
      {:bank-id bank-id
       :member-id (:member-id path)
       :role role
-      :actor (actor auth)
+      :actor (caller auth)
       :reason reason}
      (fn [{:keys [member-id]}]
        (respond (let-nom> [changed (members/find-by-id txn
@@ -420,7 +420,7 @@
                   "remove-member"
                   {:bank-id bank-id
                    :member-id (:member-id path)
-                   :actor (actor auth)
+                   :actor (caller auth)
                    :reason (:reason body)}
                   no-content)))
 
@@ -475,7 +475,7 @@
                   {:bank-id bank-id
                    :email email
                    :role role
-                   :actor (actor auth)
+                   :actor (caller auth)
                    :reason reason}
                   (invitation-change request (created invitation-uri)))))
 
@@ -488,7 +488,7 @@
                   "withdraw-invitation"
                   {:bank-id bank-id
                    :invitation-id (:invitation-id path)
-                   :actor (actor auth)
+                   :actor (caller auth)
                    :reason (:reason body)}
                   (invitation-change request ok))))
 
@@ -501,7 +501,7 @@
                   "resend-invitation"
                   {:bank-id bank-id
                    :invitation-id (:invitation-id path)
-                   :actor (actor auth)}
+                   :actor (caller auth)}
                   (invitation-change request ok))))
 
 (def ^:private access-details

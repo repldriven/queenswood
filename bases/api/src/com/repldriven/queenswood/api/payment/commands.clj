@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.api.payment.commands
   (:require
     [com.repldriven.queenswood.api.commands :as commands]
-    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
+    [com.repldriven.queenswood.api.shared.actor :as actor]
 
     [com.repldriven.queenswood.payment-api.interface :as coercion]))
 
@@ -23,7 +23,7 @@
                     "internal-payment"
                     (assoc body
                            :bank-id bank-id
-                           :actor (shared.actor/actor auth))
+                           :actor (actor/actor auth))
                     ;; Serialise a debtor account's payments: they contend
                     ;; on its available balance, and that is the limit
                     ;; that can actually reject.
@@ -50,6 +50,6 @@
                      "outbound-payment"
                      (assoc body
                             :bank-id bank-id
-                            :actor (shared.actor/actor auth))
+                            :actor (actor/actor auth))
                      {:ordering-key (:debtor-account-id body)}))
      #(str "/v1/payments/outbound/" (:payment-id %)))))

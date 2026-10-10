@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.api.party.commands
   (:require
     [com.repldriven.queenswood.api.commands :as commands]
-    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
+    [com.repldriven.queenswood.api.shared.actor :as actor]
 
     [com.repldriven.queenswood.party-api.interface :as party-api]))
 
@@ -30,7 +30,7 @@
                                       "party"
                                       (assoc body
                                              :bank-id bank-id
-                                             :actor (shared.actor/actor
+                                             :actor (actor/actor
                                                      auth))))
                       #(str "/v1/parties/" (:party-id %)))))
 
@@ -46,7 +46,7 @@
                                 "party"
                                 {:bank-id bank-id
                                  :party-id party-id
-                                 :actor (shared.actor/actor auth)}
+                                 :actor (actor/actor auth)}
                                 {:ordering-key party-id}))))
 
 (defn suspend-party
@@ -75,7 +75,7 @@
                                 {:bank-id bank-id
                                  :party-id party-id
                                  :into-party-id into-party-id
-                                 :actor (shared.actor/actor auth)}
+                                 :actor (actor/actor auth)}
                                 {:ordering-key party-id}))))
 
 (def ^:private channel-names
@@ -97,7 +97,7 @@
                                  :channel (channel-names channel)
                                  :return-url return-url
                                  :email email
-                                 :actor (shared.actor/actor auth)}
+                                 :actor (actor/actor auth)}
                                 {:ordering-key party-id})]
     (if (= 200 (:status response))
       (let [session (:body response)]

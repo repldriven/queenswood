@@ -2,7 +2,7 @@
   (:require
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.errors :as errors]
-    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
+    [com.repldriven.queenswood.api.shared.actor :as actor]
 
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
@@ -67,7 +67,7 @@
                            :currency currency
                            :reference "Simulated inbound transfer"
                            :legs checked-legs
-                           :actor (shared.actor/actor auth)})]
+                           :actor (actor/actor auth)})]
             ;; The caller no longer chooses the account, so the answer
             ;; names the one credited.
             (cond-> response

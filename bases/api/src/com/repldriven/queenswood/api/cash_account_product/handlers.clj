@@ -12,7 +12,7 @@
   See [ADR-0018](../../../../../../../docs/adr/0018-command-writes-are-earned.md)."
   (:require
     [com.repldriven.queenswood.api.errors :as errors]
-    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
+    [com.repldriven.queenswood.api.shared.actor :as actor]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
     [com.repldriven.queenswood.cash-account-product-api.interface :as
@@ -78,7 +78,7 @@
     (respond (products/new-product (config request)
                                    bank-id
                                    (with-idempotency-key body request)
-                                   (shared.actor/act request))
+                                   (actor/act request))
              created)))
 
 (defn open-draft
@@ -91,7 +91,7 @@
                                   bank-id
                                   product-id
                                   body
-                                  (shared.actor/act request))
+                                  (actor/act request))
              created)))
 
 (defn update-draft
@@ -105,7 +105,7 @@
                                     product-id
                                     version-id
                                     body
-                                    (shared.actor/act request))
+                                    (actor/act request))
              ok)))
 
 (defn discard-draft
@@ -118,7 +118,7 @@
                                      bank-id
                                      product-id
                                      version-id
-                                     (shared.actor/act request))
+                                     (actor/act request))
              no-content)))
 
 (defn publish-draft
@@ -132,7 +132,7 @@
                                  bank-id
                                  product-id
                                  version-id
-                                 (assoc (shared.actor/act request)
+                                 (assoc (actor/act request)
                                         :payment-provider
                                         declaration)))
              ok)))

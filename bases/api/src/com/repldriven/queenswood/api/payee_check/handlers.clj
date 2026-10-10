@@ -2,7 +2,7 @@
   (:require
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.payee-check.queries :as queries]
-    [com.repldriven.queenswood.api.shared.actor :as shared.actor]))
+    [com.repldriven.queenswood.api.shared.actor :as actor]))
 
 (defn- dispatcher
   [request]
@@ -21,7 +21,7 @@
                                 "payee-check"
                                 (assoc body
                                        :bank-id bank-id
-                                       :actor (shared.actor/actor auth)))]
+                                       :actor (actor/actor auth)))]
     (commands/created (cond-> response
                               (= 200 (:status response))
                               (update :body queries/->body))

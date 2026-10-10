@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.api.cash-account.commands
   (:require
     [com.repldriven.queenswood.api.commands :as commands]
-    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
+    [com.repldriven.queenswood.api.shared.actor :as actor]
 
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]))
@@ -33,7 +33,7 @@
                                     "open-cash-account"
                                     (assoc body
                                            :bank-id bank-id
-                                           :actor (shared.actor/actor auth))
+                                           :actor (actor/actor auth))
                                     bank-id)
                       #(str "/v1/cash-accounts/" (:account-id %)))))
 
@@ -47,7 +47,7 @@
                   "close-cash-account"
                   {:bank-id bank-id
                    :account-id account-id
-                   :actor (shared.actor/actor auth)}
+                   :actor (actor/actor auth)}
                   account-id)))
 
 (defn suspend-cash-account
@@ -60,7 +60,7 @@
                   "suspend-cash-account"
                   {:bank-id bank-id
                    :account-id account-id
-                   :actor (shared.actor/actor auth)}
+                   :actor (actor/actor auth)}
                   account-id)))
 
 (defn resume-cash-account
@@ -73,7 +73,7 @@
                   "resume-cash-account"
                   {:bank-id bank-id
                    :account-id account-id
-                   :actor (shared.actor/actor auth)}
+                   :actor (actor/actor auth)}
                   account-id)))
 
 (defn rotate-cash-account-address
@@ -86,5 +86,5 @@
                   "rotate-cash-account-address"
                   {:bank-id bank-id
                    :account-id account-id
-                   :actor (shared.actor/actor auth)}
+                   :actor (actor/actor auth)}
                   account-id)))
