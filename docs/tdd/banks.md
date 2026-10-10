@@ -212,9 +212,8 @@ user, a member, or else as an operator with principal id
 11. **Seed the scheduled jobs** — `scheduler/seed-jobs`,
     idempotent on `[bank-id job-id]`.
 12. **Create the owner member** *(`:member`)*.
-13. **Record the bank-created audit entry** —
-    `member/record-bank-created` in the actor's name, naming
-    the owner member when there is one.
+13. **Record the bank-created audit entry** — `audit/record` in the
+    actor's name, the bank its changeset's `after`.
 14. **Invite the owner** *(`:owner-invitation`)* —
     `member/invite` with role owner, the actor, the given token
     hash and a fixed reason, writing a pending invitation and its

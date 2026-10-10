@@ -83,17 +83,36 @@
     (domain/ensure-found endpoint bank-id endpoint-id)))
 
 (defn- audited
-  "Records an act on `endpoint` by `actor` in the bank's audit log,
-  naming the request `opts` carries."
-  [txn kind endpoint actor opts details]
+  "Records an act by `actor` taking an endpoint from `before` to `after`
+  in the bank's audit log, naming the request `opts` carries."
+  [txn kind before after actor opts]
   (audit/record txn
-                {:bank-id (:bank-id endpoint)
+                {:bank-id (:bank-id after)
                  :kind kind
                  :subject-kind :audit-subject-kind-webhook-endpoint
-                 :subject-id (:endpoint-id endpoint)
+                 :subject-id (:endpoint-id after)
                  :request-id (:request-id opts)
-                 :details details
-                 :created-by actor}))
+                 :before before
+                 :after after
+                 :performed-by actor}))
+
+(defn- deliveries-audited
+  "Records the delivery of each of `deliveries` an act by `actor` asked
+  for in the bank's audit log, naming the request `opts` carries."
+  [txn kind deliveries actor opts]
+  (reduce (fn [_ delivery]
+            (let [res (audit/record txn
+                                    {:bank-id (:bank-id delivery)
+                                     :kind kind
+                                     :subject-kind
+                                     :audit-subject-kind-webhook-delivery
+                                     :subject-id (:delivery-id delivery)
+                                     :request-id (:request-id opts)
+                                     :after delivery
+                                     :performed-by actor})]
+              (when (error/anomaly? res) (reduced res))))
+          nil
+          deliveries))
 
 (defn- transition
   "Load, apply `f` to the loaded endpoint, save, and record the act as
@@ -106,7 +125,7 @@
        [existing (load-endpoint txn bank-id endpoint-id)
         updated (f txn existing)
         _ (store/save-endpoint txn updated)
-        _ (audited txn kind updated actor opts {})]
+        _ (audited txn kind existing updated actor opts)]
        updated))))
 
 (defn register
@@ -136,10 +155,10 @@
             _ (store/save-endpoint txn endpoint)
             _ (audited txn
                        :audit-kind-webhook-endpoint-registered
+                       nil
                        endpoint
                        actor
-                       opts
-                       {})]
+                       opts)]
            endpoint)))))))
 
 (defn get-endpoint
@@ -233,10 +252,10 @@
              (backfill txn updated since (utility/now) actor))
          _ (audited txn
                     :audit-kind-webhook-endpoint-enabled
+                    existing
                     updated
                     actor
-                    opts
-                    (utility/assoc-some {} :since (:since opts)))]
+                    opts)]
         updated)))))
 
 (defn disable
@@ -319,12 +338,11 @@
            _ (store/save-notification txn notification)
            delivery (domain/new-delivery notification endpoint now actor)
            _ (store/save-delivery txn delivery)
-           _ (audited txn
-                      :audit-kind-webhook-endpoint-test-sent
-                      endpoint
-                      actor
-                      opts
-                      {:delivery-id (:delivery-id delivery)})]
+           _ (deliveries-audited txn
+                                 :audit-kind-webhook-test-sent
+                                 [delivery]
+                                 actor
+                                 opts)]
           delivery))))))
 
 (defn resend
@@ -352,12 +370,11 @@
                          (:notification-id existing))
            delivery (domain/new-delivery notification endpoint now actor)
            _ (store/save-delivery txn delivery)
-           _ (audited txn
-                      :audit-kind-webhook-endpoint-deliveries-resent
-                      endpoint
-                      actor
-                      opts
-                      {:delivery-ids [(:delivery-id delivery)]})]
+           _ (deliveries-audited txn
+                                 :audit-kind-webhook-delivery-resent
+                                 [delivery]
+                                 actor
+                                 opts)]
           delivery))))))
 
 (defn resend-window
@@ -384,12 +401,11 @@
                      endpoint
                      now
                      actor)
-             _ (audited txn
-                        :audit-kind-webhook-endpoint-deliveries-resent
-                        endpoint
-                        actor
-                        opts
-                        {:delivery-ids (mapv :delivery-id resent)})]
+             _ (deliveries-audited txn
+                                   :audit-kind-webhook-delivery-resent
+                                   resent
+                                   actor
+                                   opts)]
             {:deliveries resent})))))))
 
 (defn get-deliveries

@@ -4,6 +4,7 @@ package com.repldriven.queenswood.schema.idv;
 
 import "record_metadata_options.proto";
 import "schemas/actor/actor.proto";
+import "schemas/fideslang/data-category.proto";
 
 option java_outer_classname = "IdvSessionProto";
 
@@ -45,7 +46,7 @@ message IdvSession {
   required IdvSessionStatus status = 5;
   required IdvSessionChannel channel = 6;
   required string return_url = 7;
-  optional IdvHandOff hand_off = 8;
+  optional IdvHandOff hand_off = 8 [(fideslang.data_category) = "user.authorization.credentials"];
   required int64 opened_on = 9; // epoch day
 
   required int64 created_at = 101;

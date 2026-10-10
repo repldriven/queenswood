@@ -239,10 +239,11 @@ transaction that makes it — the bank's creation, from the `bank`
 processor, each invitation's creation, resend, acceptance, refusal and
 withdrawal, each role change, and each member's removal or departure —
 naming the invitation or member it acts on, the API request in
-`request_id`, and in `details` the role before or after, the reason,
-and the person a member act concerns. Each entry's id is `aud.` and its
-commit's versionstamp in Crockford base32, so the ids sort as the
-entries committed and a cursor pages them.
+`request_id`, and in `changeset` the fields the act changed, before
+and after, a member's `role_reason` among them and an invitation's
+email left out by its data category, `user.contact.email`. Each
+entry's id is `aud.` and its commit's versionstamp in Crockford base32,
+so the ids sort as the entries committed and a cursor pages them.
 
 ### A processor and a query brick
 
@@ -543,14 +544,12 @@ Under `/v1/bank`, the bank the header names:
   describes the bank rather than a record it holds, so it sits beside
   the bank's policies.
 
-Every `Actor` a route answers carries `name`, and every `AuditEntry`
-with a subject carries `subject-name`, resolved on read in
-`access/names.clj`, each distinct id once per response: the user
-record's name, or its email when the name is blank, or `Queenswood` for
-a principal id with no user record. To a recipient, an inviter with no
-name is named by the organisation, so no actor's email reaches a
-`RecipientInvitation`. A subject with no user record has no
-`subject-name`.
+Every `Actor` a route answers carries `name`, an `AuditEntry`'s
+`performed-by` among them, resolved on read in `access/names.clj`, each
+distinct id once per response: the user record's name, or its email
+when the name is blank, or `Queenswood` for a principal id with no user
+record. To a recipient, an inviter with no name is named by the
+organisation, so no actor's email reaches a `RecipientInvitation`.
 
 Every write route declares the idempotency interceptor pair or names
 its guard in the base's `exempt-writes`, so the router coverage test

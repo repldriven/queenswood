@@ -4,6 +4,7 @@ package com.repldriven.queenswood.schema.member;
 
 import "record_metadata_options.proto";
 import "schemas/actor/actor.proto";
+import "schemas/fideslang/data-category.proto";
 import "schemas/member/member.proto";
 
 option java_outer_classname = "InvitationProto";
@@ -26,9 +27,9 @@ message Invitation {
 
   required InvitationStatus status = 3;
   required Role role = 4;
-  required string email = 5;
-  required string email_lower = 6;
-  required string token_hash = 7; // SHA-256 of the token, hex
+  required string email = 5 [(fideslang.data_category) = "user.contact.email"];
+  required string email_lower = 6 [(fideslang.data_category) = "user.contact.email"];
+  required string token_hash = 7 [(fideslang.data_category) = "system.authentication"]; // SHA-256 of the token, hex
   required int64 expires_at = 8;
   optional string reason = 9;
   optional string withdrawn_reason = 10;

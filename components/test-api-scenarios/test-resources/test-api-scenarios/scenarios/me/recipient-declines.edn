@@ -83,8 +83,9 @@
     :body
     {:items [:m/embeds
              [{:kind "invitation-declined"
-               :actor {:kind "member" :principal-id [:ref :invitee-me :user-id]}
-               :subject-user-id [:ref :invitee-me :user-id]
-               :invitation-id [:ref :invitation :invitation-id]
-               :email "decline-invitee@queenswood.local"
-               :role-after "developer"}]]}}}]}
+               :performed-by {:kind "member"
+                              :principal-id [:ref :invitee-me :user-id]}
+               :subject-id [:ref :invitation :invitation-id]
+               :changeset
+               {:before {:status "invitation-status-pending"}
+                :after {:status "invitation-status-declined"}}}]]}}}]}

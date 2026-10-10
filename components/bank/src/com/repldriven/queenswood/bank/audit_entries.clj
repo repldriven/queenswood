@@ -1,11 +1,12 @@
 (ns com.repldriven.queenswood.bank.audit-entries)
 
 (defn bank
-  [kind bank actor request-id details]
-  {:bank-id (:bank-id bank)
+  [kind before after actor request-id]
+  {:bank-id (:bank-id after)
    :kind kind
    :subject-kind :audit-subject-kind-bank
-   :subject-id (:bank-id bank)
+   :subject-id (:bank-id after)
    :request-id request-id
-   :details details
-   :created-by actor})
+   :before before
+   :after after
+   :performed-by actor})

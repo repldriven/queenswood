@@ -204,9 +204,8 @@
                            :audit-subject-kind-verification-session
                            :subject-id (:session-id session)
                            :request-id (:request-id data)
-                           :details {:party-id party-id
-                                     :channel (:channel data)}
-                           :created-by (:actor data)})]
+                           :after session
+                           :performed-by (:actor data)})]
          session))
      :idv/open-session
      "Failed to open a verification session")))

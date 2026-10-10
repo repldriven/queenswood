@@ -26,17 +26,13 @@
 (defn- submitted
   "The audit entry of a payment the command in `data` submitted."
   [kind subject-kind payment data]
-  (let [{:keys [bank-id payment-id debtor-account-id amount currency]}
-        payment]
-    {:bank-id bank-id
-     :kind kind
-     :subject-kind subject-kind
-     :subject-id payment-id
-     :request-id (:request-id data)
-     :details {:debtor-account-id debtor-account-id
-               :amount amount
-               :currency currency}
-     :created-by (:actor data)}))
+  {:bank-id (:bank-id payment)
+   :kind kind
+   :subject-kind subject-kind
+   :subject-id (:payment-id payment)
+   :request-id (:request-id data)
+   :after payment
+   :performed-by (:actor data)})
 
 (defn- or-already-submitted
   "On a uniqueness violation — a redelivered submit-payment command

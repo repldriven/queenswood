@@ -20,15 +20,31 @@
 
 (def ^:private owner {:kind :actor-kind-member :principal-id "usr.owner"})
 
-(defn- role-changed
+(defn- member
   [bank-id member-id role]
   {:bank-id bank-id
-   :kind :audit-kind-member-role-changed
-   :subject-kind :audit-subject-kind-member
-   :subject-id member-id
-   :request-id "01a124c5-a4c6-7578-92a9-fc765876a148"
-   :details {:role-after role :nested {:depth [1 2]}}
+   :member-id member-id
+   :status :member-status-active
+   :role role
+   :user-id "usr.member"
+   :created-at 1
    :created-by owner})
+
+(defn- role-changed
+  [bank-id member-id role]
+  (let [before (member bank-id member-id :role-viewer)]
+    {:bank-id bank-id
+     :kind :audit-kind-member-role-changed
+     :subject-kind :audit-subject-kind-member
+     :subject-id member-id
+     :request-id "01a124c5-a4c6-7578-92a9-fc765876a148"
+     :before before
+     :after (assoc before
+                   :role role
+                   :role-reason "promoted"
+                   :updated-at 2
+                   :updated-by owner)
+     :performed-by owner}))
 
 (deftest record-and-list-test
   (with-test-system
@@ -42,7 +58,7 @@
      (nom-test> [_ (record (role-changed bank-id "mem.a" :role-admin)
                            (role-changed bank-id "mem.b" :role-owner))
                  _ (record (assoc (role-changed bank-id "mem.a" :role-owner)
-                                  :created-by
+                                  :performed-by
                                   nil))
                  _ (record (role-changed bank-id "mem.a" :role-developer)
                            (role-changed "bnk.other" "mem.a" :role-owner))
@@ -50,19 +66,21 @@
                  (SUT/list-by-bank config bank-id {:limit 10})
                  _ (testing "newest first, the platform's act not recorded"
                      (is (= ["role-developer" "role-owner" "role-admin"]
-                            (mapv (comp :role-after :details) audit-entries))))
+                            (mapv (comp :role :after :changeset)
+                                  audit-entries))))
                  _ (testing "an entry reads back as it was recorded"
                      (is (= {:bank-id bank-id
                              :kind :audit-kind-member-role-changed
                              :subject-kind :audit-subject-kind-member
                              :subject-id "mem.a"
                              :request-id "01a124c5-a4c6-7578-92a9-fc765876a148"
-                             :details {:role-after "role-developer"
-                                       :nested {:depth [1 2]}}
-                             :created-by owner}
+                             :changeset {:before {:role "role-viewer"}
+                                         :after {:role "role-developer"
+                                                 :role-reason "promoted"}}
+                             :performed-by owner}
                             (dissoc (first audit-entries)
                              :audit-entry-id
-                             :created-at))))
+                             :performed-at))))
                  _ (testing "ids are aud. and sort in commit order"
                      (is (every? (fn [{:keys [audit-entry-id]}]
                                    (re-matches #"aud\.[0-9a-hjkmnp-tv-z]{26}"
@@ -86,7 +104,7 @@
                  (SUT/list-by-subject config bank-id "mem.a" {:limit 10})
                  _ (testing "a subject's history holds its own acts in its bank"
                      (is (= ["role-developer" "role-admin"]
-                            (mapv (comp :role-after :details)
+                            (mapv (comp :role :after :changeset)
                                   subject-entries))))]))))
 
 (defn- of-kind
@@ -95,8 +113,8 @@
    :kind kind
    :subject-kind :audit-subject-kind-member
    :subject-id (str "mem." n)
-   :details {:n (str n)}
-   :created-by owner})
+   :after {:member-id (str n)}
+   :performed-by owner})
 
 (deftest kinds-test
   (with-test-system
@@ -110,7 +128,9 @@
                    :audit-kind-member-removed
                    :audit-kind-member-role-changed
                    :audit-kind-member-left]
-         reasons (fn [page] (mapv (comp :n :details) (:audit-entries page)))
+         reasons (fn [page]
+                   (mapv (comp :member-id :after :changeset)
+                         (:audit-entries page)))
          list (fn [opts]
                 (SUT/list-by-bank config
                                   bank-id
@@ -134,3 +154,37 @@
                      (is (nil? (:before back))))
                  one (list {:kinds [:audit-kind-member-role-changed] :limit 10})
                  _ (is (= ["4" "1"] (reasons one)) "a single kind")]))))
+
+(deftest changeset-leaves-out-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.left-out"]
+     (nom-test>
+       [_ (fdb/transact config
+                        (fn [txn]
+                          (SUT/record txn
+                                      {:bank-id bank-id
+                                       :kind :audit-kind-invitation-created
+                                       :subject-kind
+                                       :audit-subject-kind-invitation
+                                       :subject-id "inv.a"
+                                       :after {:bank-id bank-id
+                                               :invitation-id "inv.a"
+                                               :email "Ada@example.com"
+                                               :email-lower "ada@example.com"
+                                               :token-hash "ab12"
+                                               :role :role-admin
+                                               :idempotency-key "k"
+                                               :created-at 1
+                                               :created-by owner}
+                                       :performed-by owner})))
+        {:keys [audit-entries]}
+        (SUT/list-by-subject config bank-id "inv.a" {:limit 1})
+        _
+        (testing
+          "a create has only after, without the audit
+                            block or a user or system field"
+          (is (= {:after
+                  {:bank-id bank-id :invitation-id "inv.a" :role "role-admin"}}
+                 (:changeset (first audit-entries)))))]))))

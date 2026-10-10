@@ -127,6 +127,24 @@
     load();
   });
 
+  function subjectOf(e) {
+    const id = e["subject-id"];
+    if (e["subject-kind"] === "member") {
+      const m = members.find((m) => m["member-id"] === id);
+      return m ? { name: m.name ?? m.email, email: m.name ? m.email : null } : null;
+    }
+    if (e["subject-kind"] === "invitation") {
+      const i = invitations.find((i) => i["invitation-id"] === id);
+      return i ? { name: i.email, email: null } : null;
+    }
+    return null;
+  }
+
+  function reasonOf(e) {
+    const after = e.changeset?.after ?? {};
+    return after["role-reason"] ?? after["removed-reason"] ?? after["withdrawn-reason"] ?? after.reason ?? null;
+  }
+
   const membersShown = $derived.by(() => {
     const q = memberQuery.trim().toLowerCase();
     if (!q) return members;
@@ -486,25 +504,27 @@
           {:else}
             {#each events as e (e["audit-entry-id"])}
               {@const kind = accessEnum(e.kind)}
-              {@const before = e["role-before"] ? accessEnum(e["role-before"]) : null}
-              {@const after = e["role-after"] ? accessEnum(e["role-after"]) : null}
+              {@const before = e.changeset?.before?.role ? accessEnum(e.changeset.before.role) : null}
+              {@const after = e.changeset?.after?.role ? accessEnum(e.changeset.after.role) : null}
+              {@const subject = subjectOf(e)}
+              {@const reason = reasonOf(e)}
               <Tr>
-                <Td mono muted>{fmtUtcDateTime(e["occurred-at"])}</Td>
+                <Td mono muted>{fmtUtcDateTime(e["performed-at"])}</Td>
                 <Td><span class="kind {EVENT_FAMILY[kind] ?? ''}">{EVENT_LABEL[kind] ?? kind}</span></Td>
                 <Td>
                   <span class="actor">
-                    {e.actor?.name ?? "—"}
-                    {#if accessEnum(e.actor?.kind) === "operator"}<Tag tone="operator">operator</Tag>{/if}
+                    {e["performed-by"]?.name ?? "—"}
+                    {#if accessEnum(e["performed-by"]?.kind) === "operator"}<Tag tone="operator">operator</Tag>{/if}
                   </span>
                 </Td>
                 <Td>
-                  {#if e["subject-name"] || e.email}
+                  {#if subject}
                     <div class="person">
-                      <span class="name">{e["subject-name"] ?? e.email}</span>
-                      {#if e["subject-name"] && e.email}<span class="mail">{e.email}</span>{/if}
+                      <span class="name">{subject.name}</span>
+                      {#if subject.email}<span class="mail">{subject.email}</span>{/if}
                     </div>
                   {:else}
-                    <span class="em">—</span>
+                    <span class="em mono">{e["subject-id"]}</span>
                   {/if}
                 </Td>
                 <Td>
@@ -512,15 +532,13 @@
                     <span class="delta"><RolePill role={before} /><span class="arrow">→</span><RolePill role={after} /></span>
                   {:else if after}
                     <RolePill role={after} />
-                  {:else if before}
-                    <span class="delta"><RolePill role={before} /><span class="arrow">→</span><span class="em">ended</span></span>
                   {:else}
                     <span class="em">—</span>
                   {/if}
                 </Td>
                 <Td>
-                  {#if e.reason}
-                    <span class="reason" title={e.reason}>{e.reason}</span>
+                  {#if reason}
+                    <span class="reason" title={reason}>{reason}</span>
                   {:else}
                     <span class="em">—</span>
                   {/if}

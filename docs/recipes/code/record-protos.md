@@ -108,6 +108,23 @@ record legitimately lacks it: an outcome that has not happened, a
 term a version does not offer. Give no field an explicit
 `[default = …]`.
 
+Give a field holding a person's data, a credential or the platform's own
+workings its data category, a key from
+[Fideslang's](https://ethyca.github.io/fideslang/taxonomy/data_categories/)
+taxonomy, importing `schemas/fideslang/data-category.proto`:
+`[(fideslang.data_category) = "user.name"]` for a name,
+`"user.contact.email"` for an address, `"user.financial.bank_account"`
+for a sort code or account number, `"system.authentication"` for a
+secret the platform holds or a token's hash,
+`"user.authorization.credentials"` for a person's own way in, such as a
+hand-off link, and `"system.operations"` for what the platform keeps to
+run itself, such as a provider's id or a scheduler's next run. A field
+with none holds the bank's ordinary business data, a timestamp that is
+a fact of the business among them. The key is one of those in the
+pinned copy of the taxonomy,
+[data-categories.json](/components/schema/resources/fideslang/data-categories.json),
+which `just fideslang-update` replaces at a new Fideslang tag.
+
 Comment a record with one line saying what it is, and a field only with
 its unit or format (`// minor units`, `// ISO 4217`) or the meaning of a
 code. Keep why the record is shaped as it is in its TDD or ADR.
@@ -148,6 +165,12 @@ the record's fields in the proto's order.
 - Hold a state as a status enum, never a `bool`, and call a record's one
   status `status`.
 - Change the folder's `.avsc.json` files with its protos.
+- Give a field holding a person's data, a credential or the platform's
+  own workings its Fideslang data category with the
+  `fideslang.data_category` option, a key not deprecated in
+  the pinned copy of the taxonomy.
+- Replace the pinned copy of the taxonomy only through
+  `just fideslang-update`.
 
 **MUST NOT:**
 
@@ -182,7 +205,13 @@ Who did what, and when, is an audit entry committed with the act, so a
 record keeps only its latest change's time and actor: see
 [ADR-0047](../../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md).
 A platform change clears `updated_by` so that a person is never named
-for what the platform did after them.
+for what the platform did after them. The entry's changeset copies the
+fields an act changed into a log nothing can take back, so a field's
+data category is what keeps a person's details, a credential and the
+platform's workings out of it. The category is Fideslang's rather than
+our own because it is published, versioned and machine-readable, and
+covers a person's data and the system's own in one tree; the copy is
+pinned because Fideslang is a working draft whose keys may move.
 
 ## References
 

@@ -147,19 +147,17 @@
     :body
     {:items
      [{:kind "member-left"
-       :actor {:kind "member" :principal-id [:ref :owner-member :user-id]}
-       :member-id [:ref :owner-member
-                       :member-id]
-       :role-before "owner"}
+       :performed-by {:kind "member" :principal-id [:ref :owner-member :user-id]}
+       :subject-id [:ref :owner-member :member-id]
+       :changeset {:after {:status "member-status-left"}}}
       {:kind "member-role-changed"
-       :subject-user-id [:ref :admin-member :user-id]
-       :role-before "admin"
-       :role-after "owner"
-       :reason "Taking over the bank"}
+       :subject-id [:ref :admin-member :member-id]
+       :changeset {:before {:role "role-admin"}
+                   :after {:role "role-owner"
+                           :role-reason "Taking over the bank"}}}
       {:kind "member-removed"
-       :actor {:kind "member" :principal-id [:ref :owner-member :user-id]}
-       :subject-user-id [:ref :developer-member
-                         :user-id]
-       :role-before "developer"
-       :reason "Left the company"
-       :occurred-at [:m/non-empty]}]}}}]}
+       :performed-by {:kind "member" :principal-id [:ref :owner-member :user-id]}
+       :subject-id [:ref :developer-member :member-id]
+       :changeset {:after {:status "member-status-removed"
+                           :removed-reason "Left the company"}}
+       :performed-at [:m/non-empty]}]}}}]}

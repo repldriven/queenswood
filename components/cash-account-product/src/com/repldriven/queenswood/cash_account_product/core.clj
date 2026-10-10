@@ -43,19 +43,19 @@
     result))
 
 (defn- audited
-  "Records in the bank's audit log the act on `version` that `opts` asks
-  for, where it asks for one."
-  [txn kind version opts]
+  "Records in the bank's audit log the act taking a version from `before`
+  to `after` that `opts` asks for, where it asks for one."
+  [txn kind before after opts]
   (when (:audited? opts)
-    (let [{:keys [bank-id product-id version-id]} version]
-      (audit/record txn
-                    {:bank-id bank-id
-                     :kind kind
-                     :subject-kind :audit-subject-kind-product
-                     :subject-id product-id
-                     :request-id (:request-id opts)
-                     :details {:version-id version-id}
-                     :created-by (:actor opts)}))))
+    (audit/record txn
+                  {:bank-id (:bank-id after)
+                   :kind kind
+                   :subject-kind :audit-subject-kind-product-version
+                   :subject-id (:version-id after)
+                   :request-id (:request-id opts)
+                   :before before
+                   :after after
+                   :performed-by (:actor opts)})))
 
 (defn new-product
   ([txn bank-id data]
@@ -78,7 +78,7 @@
                                       aggregates
                                       policies)
           _ (store/save-version txn version)
-          _ (audited txn :audit-kind-product-created version opts)]
+          _ (audited txn :audit-kind-product-created nil version opts)]
          version))))))
 
 (defn open-draft
@@ -101,7 +101,7 @@
                                      (assoc data :created-by (:actor opts))
                                      policies)
          _ (store/save-version txn version)
-         _ (audited txn :audit-kind-product-version-drafted version opts)]
+         _ (audited txn :audit-kind-product-version-drafted nil version opts)]
         version)))))
 
 (defn update-draft
@@ -121,7 +121,11 @@
                                         policies
                                         (:actor opts))
          _ (store/save-version txn version)
-         _ (audited txn :audit-kind-product-version-updated version opts)]
+         _ (audited txn
+                    :audit-kind-product-version-updated
+                    existing
+                    version
+                    opts)]
         version)))))
 
 (defn discard-draft
@@ -138,6 +142,7 @@
          _ (store/save-version txn discarded)
          _ (audited txn
                     :audit-kind-product-version-discarded
+                    existing
                     discarded
                     opts)]
         discarded)))))
@@ -159,6 +164,7 @@
          _ (store/save-version txn published)
          _ (audited txn
                     :audit-kind-product-version-published
+                    existing
                     published
                     opts)]
         published)))))

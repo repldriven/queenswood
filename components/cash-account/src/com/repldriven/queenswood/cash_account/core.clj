@@ -101,16 +101,17 @@
     result))
 
 (defn- audit-entry
-  "The audit entry of an act on `account` the command in `data` asked
-  for."
-  [kind account data details]
-  {:bank-id (:bank-id account)
+  "The audit entry of an act the command in `data` asked for, taking
+  the account from `before` to `after`."
+  [kind before after data]
+  {:bank-id (:bank-id after)
    :kind kind
    :subject-kind :audit-subject-kind-cash-account
-   :subject-id (:account-id account)
+   :subject-id (:account-id after)
    :request-id (:request-id data)
-   :details details
-   :created-by (:actor data)})
+   :before before
+   :after after
+   :performed-by (:actor data)})
 
 (defn open-account
   ([txn data]
@@ -175,11 +176,9 @@
                   (audit/record txn
                                 (audit-entry
                                  :audit-kind-cash-account-opened
+                                 nil
                                  account
-                                 data
-                                 {:party-id party-id
-                                  :product-id product-id
-                                  :currency currency})))]
+                                 data)))]
              account)))
        :cash-account/open
        "Failed to open account")))))
@@ -212,8 +211,8 @@
                            (audit-entry
                             :audit-kind-cash-account-close-requested
                             account
-                            data
-                            {}))]
+                            updated
+                            data))]
           updated)))
     :cash-account/close
     "Failed to close account")))
@@ -279,8 +278,8 @@
            _ (audit/record txn
                            (audit-entry :audit-kind-cash-account-suspended
                                         account
-                                        data
-                                        {}))]
+                                        updated
+                                        data))]
           updated)))
     :cash-account/suspend
     "Failed to suspend account")))
@@ -307,8 +306,8 @@
            _ (audit/record txn
                            (audit-entry :audit-kind-cash-account-resumed
                                         account
-                                        data
-                                        {}))]
+                                        updated
+                                        data))]
           updated)))
     :cash-account/resume
     "Failed to resume account")))
@@ -351,8 +350,8 @@
                   txn
                   (audit-entry :audit-kind-cash-account-rotation-requested
                                account
-                               data
-                               {}))]
+                               updated
+                               data))]
               updated)))))
     :cash-account/rotate-address
     "Failed to rotate account address")))

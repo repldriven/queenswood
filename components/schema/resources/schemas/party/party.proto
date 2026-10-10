@@ -4,6 +4,7 @@ package com.repldriven.queenswood.schema.party;
 
 import "record_metadata_options.proto";
 import "schemas/actor/actor.proto";
+import "schemas/fideslang/data-category.proto";
 
 option java_outer_classname = "PartyProto";
 
@@ -31,8 +32,8 @@ message Party {
   required string bank_id = 1;
   required string party_id = 2; // pty.<uuidv7>
 
-  required string legal_name = 3;
-  optional string display_name = 4;
+  required string legal_name = 3 [(fideslang.data_category) = "user.name"];
+  optional string display_name = 4 [(fideslang.data_category) = "user.name"];
   required PartyStatus status = 5;
   required PartyType party_type = 6;
   optional string external_reference = 7;

@@ -16,7 +16,7 @@ enum AuditSubjectKind {
   AUDIT_SUBJECT_KIND_PARTY = 40;
   AUDIT_SUBJECT_KIND_VERIFICATION_SESSION = 50;
   AUDIT_SUBJECT_KIND_CASH_ACCOUNT = 60;
-  AUDIT_SUBJECT_KIND_PRODUCT = 70;
+  AUDIT_SUBJECT_KIND_PRODUCT_VERSION = 70;
   AUDIT_SUBJECT_KIND_MIGRATION = 80;
   AUDIT_SUBJECT_KIND_INTERNAL_PAYMENT = 90;
   AUDIT_SUBJECT_KIND_OUTBOUND_PAYMENT = 100;
@@ -24,6 +24,9 @@ enum AuditSubjectKind {
   AUDIT_SUBJECT_KIND_TRANSACTION = 120;
   AUDIT_SUBJECT_KIND_WEBHOOK_ENDPOINT = 130;
   AUDIT_SUBJECT_KIND_JOB = 140;
+  AUDIT_SUBJECT_KIND_MIGRATION_RUN = 150;
+  AUDIT_SUBJECT_KIND_JOB_RUN = 160;
+  AUDIT_SUBJECT_KIND_WEBHOOK_DELIVERY = 170;
 }
 
 // The act, numbered in its subject kind's band of ten.
@@ -67,7 +70,6 @@ enum AuditKind {
   AUDIT_KIND_MIGRATION_CREATED = 81;
   AUDIT_KIND_MIGRATION_APPROVED = 82;
   AUDIT_KIND_MIGRATION_CANCELLED = 83;
-  AUDIT_KIND_MIGRATION_PREVIEWED = 84;
 
   AUDIT_KIND_INTERNAL_PAYMENT_SUBMITTED = 91;
 
@@ -83,13 +85,24 @@ enum AuditKind {
   AUDIT_KIND_WEBHOOK_ENDPOINT_DISABLED = 134;
   AUDIT_KIND_WEBHOOK_ENDPOINT_REMOVED = 135;
   AUDIT_KIND_WEBHOOK_ENDPOINT_SECRET_ROTATED = 136;
-  AUDIT_KIND_WEBHOOK_ENDPOINT_TEST_SENT = 137;
-  AUDIT_KIND_WEBHOOK_ENDPOINT_DELIVERIES_RESENT = 138;
 
   AUDIT_KIND_JOB_SCHEDULE_UPDATED = 141;
   AUDIT_KIND_JOB_PAUSED = 142;
   AUDIT_KIND_JOB_RESUMED = 143;
-  AUDIT_KIND_JOB_RUN_FORCED = 144;
+
+  AUDIT_KIND_MIGRATION_PREVIEWED = 151;
+
+  AUDIT_KIND_JOB_RUN_FORCED = 161;
+
+  AUDIT_KIND_WEBHOOK_TEST_SENT = 171;
+  AUDIT_KIND_WEBHOOK_DELIVERY_RESENT = 172;
+}
+
+// The fields of its subject an act changed, each side a json object of
+// those fields alone. A create has no before.
+message AuditChangeset {
+  optional string before = 1; // json, the fields as they were
+  optional string after = 2; // json, the fields as the act left them
 }
 
 // One act a member, an operator or the bank's credential performed on a
@@ -102,9 +115,8 @@ message AuditEntry {
   required AuditKind kind = 2;
   required AuditSubjectKind subject_kind = 3;
   required string subject_id = 4;
-  optional string request_id = 5; // uuidv7, the API request that made it
-  optional string details = 6; // json, what the act carried
-
-  required int64 created_at = 101;
-  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+  required int64 performed_at = 5;
+  required com.repldriven.queenswood.schema.actor.Actor performed_by = 6;
+  optional string request_id = 7; // uuidv7, the API request that asked for it
+  optional AuditChangeset changeset = 8;
 }

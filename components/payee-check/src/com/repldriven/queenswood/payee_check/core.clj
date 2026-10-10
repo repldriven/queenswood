@@ -63,11 +63,8 @@
                                    :subject-kind :audit-subject-kind-payee-check
                                    :subject-id (:check-id check)
                                    :request-id request-id
-                                   :details {:match-result (get-in
-                                                            check
-                                                            [:result
-                                                             :match-result])}
-                                   :created-by actor})]
+                                   :after check
+                                   :performed-by actor})]
          check))
      :payee-check/save
      "Failed to save payee check")))

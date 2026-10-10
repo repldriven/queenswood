@@ -22,28 +22,30 @@
    {:json-schema/example examples/AuditEntry
     :description
     "One act in the bank's audit log: what was done, to which record,
-    who did it, the request that asked for it and any reason given. An
-    invitation's entries name the invitation, its address and its role
-    as `role-after`; a member's name the member and `role-before`, and a
-    role change `role-after`. `subject-name` names the person a member
-    act concerns from their user record, and is absent when they have
-    none."}
+    who did it, when, and the request that asked for it. `changeset`
+    holds only the record's fields the act changed, as they were in
+    `before` and as the act left them in `after`, a create having no
+    `before`, and never a person's name or contact details or a
+    credential. It is kept for audit: its fields and values are the
+    record's as stored, and change as the record does."}
    [:audit-entry-id [:ref "AuditEntryId"]]
    [:bank-id [:ref "BankId"]]
    [:kind [:ref "AuditKind"]]
    [:subject-kind [:ref "AuditSubjectKind"]]
    [:subject-id string?]
-   [:actor [:ref "Actor"]]
+   [:performed-at [:ref "Timestamp"]]
+   [:performed-by [:ref "Actor"]]
    [:request-id {:optional true} string?]
-   [:subject-user-id {:optional true} [:ref "UserId"]]
-   [:subject-name {:optional true} string?]
-   [:member-id {:optional true} [:ref "MemberId"]]
-   [:invitation-id {:optional true} [:ref "InvitationId"]]
-   [:email {:optional true} string?]
-   [:role-before {:optional true} [:ref "Role"]]
-   [:role-after {:optional true} [:ref "Role"]]
-   [:reason {:optional true} string?]
-   [:occurred-at [:ref "Timestamp"]]])
+   [:changeset {:optional true} [:ref "AuditChangeset"]]])
+
+(def AuditChangeset
+  [:map
+   {:json-schema/example (:changeset examples/AuditEntry)
+    :description
+    "The fields of its subject an act changed: `before` as they were,
+    absent on a create, and `after` as the act left them."}
+   [:before {:optional true} [:map-of :keyword any?]]
+   [:after {:optional true} [:map-of :keyword any?]]])
 
 (def AuditEntryList (list-schema "AuditEntry" examples/AuditEntryList))
 
@@ -58,5 +60,5 @@
      [:ref "AuditKind"]]]])
 
 (def registry
-  (components-registry [#'AuditEntry #'AuditEntryId #'AuditKind #'AuditEntryList
-                        #'AuditSubjectKind]))
+  (components-registry [#'AuditChangeset #'AuditEntry #'AuditEntryId #'AuditKind
+                        #'AuditEntryList #'AuditSubjectKind]))

@@ -90,7 +90,7 @@
     :body
     {:items [:m/embeds
              [{:kind "invitation-resent"
-               :actor
+               :performed-by
                {:kind "member" :principal-id [:ref :owner-member :user-id]}
-               :invitation-id [:ref :invitation
-                               :invitation-id]}]]}}}]}
+               :subject-id [:ref :invitation
+                            :invitation-id]}]]}}}]}

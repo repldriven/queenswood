@@ -28,9 +28,9 @@
                       (audit/record txn
                                     (audit-entries/party
                                      :audit-kind-party-created
+                                     nil
                                      party
-                                     data
-                                     {:party-type (:party-type party)})))]
+                                     data)))]
          saved)))))
 
 (defn- get-policies
@@ -126,7 +126,8 @@
                                       :party-id party-id
                                       :status-before (:status party)
                                       :status-after (:status updated)})
-            _ (audit/record txn (audit-entries/party kind party data {}))]
+            _ (audit/record txn
+                            (audit-entries/party kind party updated data))]
            result))))))
 
 (defn suspend-party
@@ -184,8 +185,8 @@
              _ (audit/record txn
                              (audit-entries/party :audit-kind-party-closed
                                                   party
-                                                  data
-                                                  {}))]
+                                                  updated
+                                                  data))]
             result)))))))
 
 (defn merge-party
@@ -216,7 +217,6 @@
              _ (audit/record txn
                              (audit-entries/party :audit-kind-party-merged
                                                   merged-away
-                                                  data
-                                                  {:into-party-id
-                                                   into-party-id}))]
+                                                  updated
+                                                  data))]
             result)))))))

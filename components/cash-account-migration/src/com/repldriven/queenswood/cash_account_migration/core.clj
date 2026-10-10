@@ -32,16 +32,17 @@
      (first versions))))
 
 (defn- audit-entry
-  "The audit entry of an act on `migration`, by `actor` under the API
-  request `request-id`."
-  [kind migration actor request-id details]
-  {:bank-id (:bank-id migration)
+  "The audit entry of an act taking a migration from `before` to
+  `after`, by `actor` under the API request `request-id`."
+  [kind before after actor request-id]
+  {:bank-id (:bank-id after)
    :kind kind
    :subject-kind :audit-subject-kind-migration
-   :subject-id (:migration-id migration)
+   :subject-id (:migration-id after)
    :request-id request-id
-   :details details
-   :created-by actor})
+   :before before
+   :after after
+   :performed-by actor})
 
 (defn create-migration
   "Author a migration in draft. Reads the source and target inside one
@@ -74,10 +75,10 @@
               _ (store/save-migration txn migration)
               _ (audit/record txn
                               (audit-entry :audit-kind-migration-created
+                                           nil
                                            migration
                                            (:created-by data)
-                                           (:request-id data)
-                                           {}))]
+                                           (:request-id data)))]
              migration)))))))
 
 (defn get-migration
@@ -310,11 +311,13 @@
           run (domain/new-run migration business-day dry-run? actor)
           _ (store/save-run txn run)
           _ (audit/record txn
-                          (audit-entry :audit-kind-migration-previewed
-                                       migration
-                                       actor
-                                       request-id
-                                       {:run-id (:run-id run)}))]
+                          {:bank-id bank-id
+                           :kind :audit-kind-migration-previewed
+                           :subject-kind :audit-subject-kind-migration-run
+                           :subject-id (:run-id run)
+                           :request-id request-id
+                           :after run
+                           :performed-by actor})]
          run))
      :cash-account-migration/open-run
      "Failed to open cash-account migration run")))
@@ -375,9 +378,9 @@
         _ (audit/record txn
                         (audit-entry :audit-kind-migration-approved
                                      migration
+                                     approved
                                      actor
-                                     request-id
-                                     {}))]
+                                     request-id))]
        approved))))
 
 (defn cancel-migration
@@ -392,9 +395,9 @@
         _ (audit/record txn
                         (audit-entry :audit-kind-migration-cancelled
                                      migration
+                                     cancelled
                                      actor
-                                     request-id
-                                     {}))]
+                                     request-id))]
        cancelled))))
 
 (defn run-migration

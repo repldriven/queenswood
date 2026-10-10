@@ -95,5 +95,5 @@
    :assert
    {:status 200
     :body {:items [{:kind "invitation-created"
-                    :invitation-id [:ref :owner-invitation
-                                    :invitation-id]}]}}}]}
+                    :subject-id [:ref :owner-invitation
+                                 :invitation-id]}]}}}]}

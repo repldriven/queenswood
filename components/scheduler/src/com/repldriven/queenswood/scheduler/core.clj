@@ -88,16 +88,17 @@
                  runs)))
 
 (defn- job-event
-  "The audit entry of an act on `job` by `actor` under the API request
-  `request-id`."
-  [kind job actor request-id details]
-  {:bank-id (:bank-id job)
+  "The audit entry of an act taking a job from `before` to `after` by
+  `actor` under the API request `request-id`."
+  [kind before after actor request-id]
+  {:bank-id (:bank-id after)
    :kind kind
    :subject-kind :audit-subject-kind-job
-   :subject-id (:job-id job)
+   :subject-id (:job-id after)
    :request-id request-id
-   :details details
-   :created-by actor})
+   :before before
+   :after after
+   :performed-by actor})
 
 (defn- open-run
   "Write `run` as running, with the end the job's last success suggests,
@@ -120,12 +121,14 @@
                                                         runs)))
                        _ (store/save-run txn opened)
                        _ (audit/record txn
-                                       (job-event
-                                        :audit-kind-job-run-forced
-                                        job
-                                        (:created-by run)
-                                        request-id
-                                        {:run-id (:run-id run)}))]
+                                       {:bank-id (:bank-id opened)
+                                        :kind :audit-kind-job-run-forced
+                                        :subject-kind
+                                        :audit-subject-kind-job-run
+                                        :subject-id (:run-id opened)
+                                        :request-id request-id
+                                        :after opened
+                                        :performed-by (:created-by run)})]
                       opened))
                   :scheduler/open-run
                   "Failed to open scheduler run"))
@@ -296,9 +299,9 @@
                            (audit/record txn
                                          (job-event kind
                                                     job
+                                                    updated
                                                     by
-                                                    (:request-id opts)
-                                                    {:schedule schedule}))))
+                                                    (:request-id opts)))))
                        :scheduler/update-schedule
                        "Failed to update the job's schedule")]
            (if (error/anomaly? result)

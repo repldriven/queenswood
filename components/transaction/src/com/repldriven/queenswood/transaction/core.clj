@@ -101,8 +101,6 @@
                             :subject-kind :audit-subject-kind-transaction
                             :subject-id (:transaction-id result)
                             :request-id (:request-id data)
-                            :details {:transaction-type (:transaction-type
-                                                         result)
-                                      :currency (:currency result)}
-                            :created-by (:actor data)})]
+                            :after (dissoc result :legs)
+                            :performed-by (:actor data)})]
           result))))))

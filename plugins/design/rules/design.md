@@ -169,8 +169,13 @@ handles it. Hold a state as a status enum, never a `bool`, and call a
 record's one status `status`. Declare a field `required` wherever every
 write gives it a value, never with an explicit `[default = …]`. Comment
 a record with what it is and a field with its unit, never with how
-something elsewhere uses it. Change the folder's `.avsc.json` files with its
-protos.
+something elsewhere uses it. Give a field holding a person's data, a
+credential or the platform's own workings its Fideslang data category
+with the `fideslang.data_category` option, a key not
+deprecated in the pinned copy of the taxonomy, which only
+`just fideslang-update` replaces. Change the folder's `.avsc.json`
+files with its protos.
+Commands: `just fideslang-update`.
 See [record-protos](../../../docs/recipes/code/record-protos.md).
 
 ## Acts are audited at commit, and calls logged at the edge
@@ -184,9 +189,15 @@ its commit's versionstamp, outside the Record Layer, with empty keys
 beside it under the bank and subject and under the bank and kind, so a
 bank's log, a record's history and a set of kinds each read newest first
 a page at a time. Hold the act's kind, the subject's kind and id, the
-actor as `created_by`, the request id, the time and `details`, a json
-string of whatever the act carried, indexed by nothing and never a
-person's name or contact details. Number `AuditSubjectKind` in tens and
+actor as `performed_by`, the time as `performed_at`, the request id and
+a `changeset` of the subject's fields the act changed and no others,
+`before` as they were, absent on a create, and `after` as the act left
+them, each a json object indexed by nothing, without the audit block, a
+retried call's bookkeeping, or any field whose Fideslang data category
+falls under `user` or `system`. An act that changes no
+record already there names the record it creates, and anything an act
+carries that a reader needs, such as a role's reason, is kept on its
+record so the changeset carries it. Number `AuditSubjectKind` in tens and
 each subject's `AuditKind`s up from its own. Keep the log
 append-only: only the `audit` brick names its keys, which semgrep holds,
 and it exposes `record` and reads alone. Build the caller's actor in one

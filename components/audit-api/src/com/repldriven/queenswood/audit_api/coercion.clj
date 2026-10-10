@@ -35,7 +35,6 @@
     "migration-created" :audit-kind-migration-created
     "migration-approved" :audit-kind-migration-approved
     "migration-cancelled" :audit-kind-migration-cancelled
-    "migration-previewed" :audit-kind-migration-previewed
     "internal-payment-submitted" :audit-kind-internal-payment-submitted
     "outbound-payment-submitted" :audit-kind-outbound-payment-submitted
     "payee-check-made" :audit-kind-payee-check-made
@@ -47,13 +46,13 @@
     "webhook-endpoint-removed" :audit-kind-webhook-endpoint-removed
     "webhook-endpoint-secret-rotated"
     :audit-kind-webhook-endpoint-secret-rotated
-    "webhook-endpoint-test-sent" :audit-kind-webhook-endpoint-test-sent
-    "webhook-endpoint-deliveries-resent"
-    :audit-kind-webhook-endpoint-deliveries-resent
     "job-schedule-updated" :audit-kind-job-schedule-updated
     "job-paused" :audit-kind-job-paused
     "job-resumed" :audit-kind-job-resumed
-    "job-run-forced" :audit-kind-job-run-forced}
+    "migration-previewed" :audit-kind-migration-previewed
+    "job-run-forced" :audit-kind-job-run-forced
+    "webhook-test-sent" :audit-kind-webhook-test-sent
+    "webhook-delivery-resent" :audit-kind-webhook-delivery-resent}
    :audit-kind-unknown))
 
 (def audit-kind-enum-schema (:enum-schema audit-kind-enum))
@@ -66,14 +65,17 @@
     "party" :audit-subject-kind-party
     "verification-session" :audit-subject-kind-verification-session
     "cash-account" :audit-subject-kind-cash-account
-    "product" :audit-subject-kind-product
+    "product-version" :audit-subject-kind-product-version
     "migration" :audit-subject-kind-migration
     "internal-payment" :audit-subject-kind-internal-payment
     "outbound-payment" :audit-subject-kind-outbound-payment
     "payee-check" :audit-subject-kind-payee-check
     "transaction" :audit-subject-kind-transaction
     "webhook-endpoint" :audit-subject-kind-webhook-endpoint
-    "job" :audit-subject-kind-job}
+    "job" :audit-subject-kind-job
+    "migration-run" :audit-subject-kind-migration-run
+    "job-run" :audit-subject-kind-job-run
+    "webhook-delivery" :audit-subject-kind-webhook-delivery}
    :audit-subject-kind-unknown))
 
 (def audit-subject-kind-enum-schema (:enum-schema audit-subject-kind-enum))

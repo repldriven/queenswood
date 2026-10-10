@@ -105,13 +105,11 @@
    {:status 200
     :body {:items
            [{:kind "member-removed"
-             :actor
+             :performed-by
              {:kind "member" :principal-id [:ref :owner-member :user-id]}
-             :subject-user-id [:ref :first-member :user-id]
-             :member-id [:ref :first-member
-                             :member-id]
-             :role-before "developer"
-             :reason "Left the company"}]}}}
+             :subject-id [:ref :first-member :member-id]
+             :changeset {:after {:status "member-status-removed"
+                                 :removed-reason "Left the company"}}}]}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations"

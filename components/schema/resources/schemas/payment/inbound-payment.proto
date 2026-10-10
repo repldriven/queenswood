@@ -3,6 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schema.payment;
 
 import "record_metadata_options.proto";
+import "schemas/fideslang/data-category.proto";
 import "schemas/scheme-type/scheme-type.proto";
 
 option java_outer_classname = "InboundPaymentProto";
@@ -27,7 +28,7 @@ message InboundPayment {
   required InboundPaymentStatus status = 3;
   required com.repldriven.queenswood.schema.scheme_type.SchemeType scheme_type = 4;
   optional string creditor_account_id = 5;
-  optional string debtor_name = 6;
+  optional string debtor_name = 6 [(fideslang.data_category) = "user.name"];
   required int64 amount = 7; // minor units
   required string currency = 8; // ISO 4217
   optional string reference = 9;

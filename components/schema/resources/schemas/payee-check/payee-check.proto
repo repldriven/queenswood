@@ -3,8 +3,9 @@ syntax = "proto2";
 package com.repldriven.queenswood.schema.payee_check;
 
 import "record_metadata_options.proto";
-import "schemas/cash-account/types.proto";
 import "schemas/actor/actor.proto";
+import "schemas/cash-account/types.proto";
+import "schemas/fideslang/data-category.proto";
 
 option java_outer_classname = "PayeeCheckProto";
 
@@ -17,19 +18,19 @@ enum MatchResult {
 }
 
 message AccountIdentifier {
-  required string sort_code = 1;
-  required string account_number = 2;
+  required string sort_code = 1 [(fideslang.data_category) = "user.financial.bank_account"];
+  required string account_number = 2 [(fideslang.data_category) = "user.financial.bank_account"];
 }
 
 message PayeeCheckRequest {
-  required string creditor_name = 1;
+  required string creditor_name = 1 [(fideslang.data_category) = "user.name"];
   required AccountIdentifier account = 2;
   required com.repldriven.queenswood.schema.cash_account.AccountType account_type = 3;
 }
 
 message PayeeCheckResult {
   required MatchResult match_result = 1;
-  optional string actual_name = 2;
+  optional string actual_name = 2 [(fideslang.data_category) = "user.name"];
   optional string reason_code = 3;
   optional string reason = 4;
 }

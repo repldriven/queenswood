@@ -70,18 +70,30 @@ The decision has these parts:
   a bank's log, one record's history and any set of kinds each read
   newest first, a page at a time.
 - Hold in each entry the act's kind, the subject's kind and id, the
-  actor as `created_by`, the request id, the time, and `details`, a
-  json string of whatever the act carried, of any depth, never a
-  person's name or contact details, as
+  actor as `performed_by`, the time as `performed_at`, the request id,
+  and a `changeset` of the subject's fields the act changed and no
+  others: `before`, a json object of them as they were, absent on a
+  create, and `after`, one of them as the act left them, indexed by
+  nothing.
+- Leave out of a changeset the record's audit block, a retried call's
+  bookkeeping, and every field whose Fideslang data category falls
+  under `user` or `system`, so a person's data never reaches the log,
+  as
   [ADR-0045](0045-a-persons-identity-evidence-stays-with-the-customers-provider.md)
-  has it, and indexed by nothing.
+  has it, a credential never leaves its record, and the platform's own
+  workings stay out of what a bank reads.
 - Number `AuditSubjectKind` in tens and each subject's
   `AuditKind`s up from its own, so a kind's number shows its
   subject.
 - Write one entry per act, naming the record it acts on, through one
   function in an `audit` brick, `record`, called in the transaction
-  that saves the change; a record the act writes as its consequence
-  keeps only its own `created_by`.
+  that saves the change with the record as it was and as the act left
+  it; an act that changes no record already there names the record it
+  creates, and a record the act writes as its consequence keeps only
+  its own `created_by`.
+- Keep on its record anything an act carries that a reader of the log
+  needs, such as the reason for a member's role, so the changeset
+  carries it.
 - Write no entry for what the platform does by itself, such as the
   scheduler completing a run, a provider settling a payment or a relay
   reacting to an event.
@@ -150,7 +162,14 @@ Harder:
   is the busiest, measured with the perf suite before and after.
 - The log reads newest first by bank, by subject or by a set of kinds
   and nothing else: a page across several kinds reads each kind's
-  keys, and a filter on anything in `details` would scan.
+  keys, and a filter on anything in a changeset would scan.
+- A changeset holds a create's whole record, so a payment's entry
+  carries the payment, and its values are the record's as stored, not
+  as the record's own route shows them.
+- A field holding a person's data, a credential or the platform's own
+  workings that its proto gives no data category reaches the log, and
+  an append-only log cannot take it back: the category is checked when
+  a field is added, and the subject's protos are where to look.
 - An access entry is lost when its process dies with it still queued,
   and dropped when the queue is full, so the access log is complete
   only while the dropped count stays at zero.

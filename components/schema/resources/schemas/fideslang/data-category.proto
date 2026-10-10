@@ -1,0 +1,15 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.fideslang;
+
+import "google/protobuf/descriptor.proto";
+
+option java_outer_classname = "DataCategoryProto";
+
+// The kind of data a field holds, as a Fideslang data category key such
+// as user.name or system.operations, one of those in
+// resources/fideslang/data-categories.json. A field with none holds the
+// bank's ordinary business data.
+extend google.protobuf.FieldOptions {
+  optional string data_category = 50100;
+}

@@ -4,6 +4,7 @@ package com.repldriven.queenswood.schema.webhook;
 
 import "record_metadata_options.proto";
 import "schemas/actor/actor.proto";
+import "schemas/fideslang/data-category.proto";
 
 option java_outer_classname = "WebhookEndpointProto";
 
@@ -25,10 +26,10 @@ message WebhookEndpoint {
   required string address = 4;
   optional string description = 5;
   repeated string kinds = 6;
-  required string secret = 7; // whsec_<base64url>
-  optional string previous_secret = 8; // whsec_<base64url>
+  required string secret = 7 [(fideslang.data_category) = "system.authentication"]; // whsec_<base64url>
+  optional string previous_secret = 8 [(fideslang.data_category) = "system.authentication"]; // whsec_<base64url>
   optional int64 previous_secret_expires_at = 9;
-  optional string rotation_idempotency_key = 10;
+  optional string rotation_idempotency_key = 10 [(fideslang.data_category) = "system.operations"];
 
   required string idempotency_key = 100;
   required int64 created_at = 101;

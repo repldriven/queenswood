@@ -34,6 +34,7 @@ message Member {
   required string user_id = 5;
   optional string invitation_id = 6;
   optional string removed_reason = 7;
+  optional string role_reason = 8; // why the member was given its role
 
   required int64 created_at = 101;
   required com.repldriven.queenswood.schema.actor.Actor created_by = 102;

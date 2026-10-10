@@ -7,6 +7,7 @@ import "schemas/account-product-type/account-product-type.proto";
 import "schemas/actor/actor.proto";
 import "schemas/cash-account-product/types.proto";
 import "schemas/cash-account/types.proto";
+import "schemas/fideslang/data-category.proto";
 
 option java_outer_classname = "CashAccountProto";
 
@@ -22,8 +23,8 @@ enum CashAccountStatus {
 
 // A UK sort code and account number.
 message ScanAddress {
-  required string sort_code = 1;
-  required string account_number = 2;
+  required string sort_code = 1 [(fideslang.data_category) = "user.financial.bank_account"];
+  required string account_number = 2 [(fideslang.data_category) = "user.financial.bank_account"];
 }
 
 // An address payments reach the account at.
@@ -48,7 +49,7 @@ enum AddressRotationStatus {
 
 // The latest change of an account's payment addresses.
 message AddressRotation {
-  required string idempotency_key = 1;
+  required string idempotency_key = 1 [(fideslang.data_category) = "system.operations"];
   required AddressRotationStatus status = 2;
   optional string failed_reason = 3;
 }
@@ -70,9 +71,9 @@ message CashAccount {
   required AccountType account_type = 10;
   required string currency = 11; // ISO 4217
   repeated PaymentAddress payment_addresses = 12;
-  optional string bban = 13; // sort code and account number
+  optional string bban = 13 [(fideslang.data_category) = "user.financial.bank_account"]; // sort code and account number
   repeated RetiredPaymentAddress retired_payment_addresses = 14;
-  optional string provider_account_id = 15;
+  optional string provider_account_id = 15 [(fideslang.data_category) = "system.operations"];
   optional AddressRotation rotation = 16;
   optional string refused_reason = 17;
   optional CashAccountStatus close_requested_from = 18;

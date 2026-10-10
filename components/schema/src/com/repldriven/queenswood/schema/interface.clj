@@ -42,8 +42,14 @@
     [com.repldriven.queenswood.schema.webhook :as webhook]
     [com.repldriven.queenswood.schema.zyphe :as zyphe]
 
-    [protojure.protobuf :as proto])
+    [protojure.protobuf :as proto]
+
+    [clojure.string :as str])
   (:import
+    (com.google.protobuf Descriptors$Descriptor
+                         Descriptors$FieldDescriptor
+                         Descriptors$FieldDescriptor$JavaType)
+    (com.repldriven.queenswood.schema.fideslang DataCategoryProto)
     (com.repldriven.queenswood.schema.balance
      AccountBalanceProto$AccountBalance)
     (com.repldriven.queenswood.schema.cash_account_migration
@@ -1323,12 +1329,17 @@
    (identity-provider->int identity-provider)))
 
 (def ^:private member-unset
-  {:removed-reason "" :invitation-id "" :updated-at 0 :updated-by nil})
+  {:removed-reason ""
+   :role-reason ""
+   :invitation-id ""
+   :updated-at 0
+   :updated-by nil})
 
 (defn pb->Member
   "Parse Member protobuf bytes into a Clojure map. A removal's reason,
-  `invitation-id`, and the last change's `updated-at` and `updated-by`
-  are present only when set, and every actor is a plain map.
+  the reason for its role, `invitation-id`, and the last change's
+  `updated-at` and `updated-by` are present only when set, and every
+  actor is a plain map.
 
   Args:
   - input: protobuf bytes."
@@ -1441,14 +1452,123 @@
 
 (defn pb->AuditEntry
   "Parse AuditEntry protobuf bytes into a Clojure map, each optional
-  field present only when set and `created-by` a plain map.
+  field present only when set, and `performed-by` and `changeset` plain
+  maps.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (-> (audit/pb->AuditEntry input)
-      (without-unset {:request-id "" :details ""})
-      (plain-embedded :created-by)))
+  (let [entry (-> (audit/pb->AuditEntry input)
+                  (without-unset {:request-id ""})
+                  (plain-embedded :performed-by))]
+    (cond-> entry
+            (some? (:changeset entry))
+            (update :changeset without-unset {:before "" :after ""}))))
+
+(def ^:private record-descriptors
+  {:bank (BankProto$Bank/getDescriptor)
+   :invitation (InvitationProto$Invitation/getDescriptor)
+   :member (MemberProto$Member/getDescriptor)
+   :party (PartyProto$Party/getDescriptor)
+   :idv-session (IdvSessionProto$IdvSession/getDescriptor)
+   :cash-account (CashAccountProto$CashAccount/getDescriptor)
+   :cash-account-product
+   (CashAccountProductProto$CashAccountProduct/getDescriptor)
+   :cash-account-migration
+   (CashAccountMigrationProto$CashAccountMigration/getDescriptor)
+   :cash-account-migration-run
+   (CashAccountMigrationRunProto$CashAccountMigrationRun/getDescriptor)
+   :internal-payment (InternalPaymentProto$InternalPayment/getDescriptor)
+   :outbound-payment (OutboundPaymentProto$OutboundPayment/getDescriptor)
+   :payee-check (PayeeCheckProto$PayeeCheck/getDescriptor)
+   :transaction (TransactionProto$Transaction/getDescriptor)
+   :webhook-endpoint (WebhookEndpointProto$WebhookEndpoint/getDescriptor)
+   :webhook-delivery (WebhookDeliveryProto$WebhookDelivery/getDescriptor)
+   :scheduler-job (SchedulerJobProto$SchedulerJob/getDescriptor)
+   :scheduler-run (SchedulerRunProto$SchedulerRun/getDescriptor)})
+
+(defn- field-key
+  [^Descriptors$FieldDescriptor field]
+  (keyword (str/replace (.getName field) "_" "-")))
+
+(defn- categories
+  "Each field of `descriptor` carrying a data category, as its Fideslang
+  key, and each message field holding one, as its own categories."
+  [^Descriptors$Descriptor descriptor]
+  (into {}
+        (keep (fn [^Descriptors$FieldDescriptor field]
+                (let [options (.getOptions field)]
+                  (cond
+                   (.hasExtension options DataCategoryProto/dataCategory)
+                   [(field-key field)
+                    (.getExtension options
+                                   DataCategoryProto/dataCategory)]
+
+                   (= Descriptors$FieldDescriptor$JavaType/MESSAGE
+                      (.getJavaType field))
+                   (when-some [nested (not-empty (categories
+                                                  (.getMessageType field)))]
+                     [(field-key field) nested])))))
+        (.getFields descriptor)))
+
+(def ^:private record-categories (update-vals record-descriptors categories))
+
+(defn data-categories
+  "The data category of each field of `record-type` its proto marks with
+  one, as a Fideslang key, and of each field nested in a message field,
+  under that field.
+
+  Args:
+  - record-type: `:party`, `:cash-account` or another record type an
+    act is performed on."
+  [record-type]
+  (get record-categories record-type))
+
+(defn- in-category?
+  [prefixes fides-key]
+  (some (fn [prefix]
+          (or (= prefix fides-key)
+              (str/starts-with? fides-key (str prefix "."))))
+        prefixes))
+
+(defn- without-categories
+  [categorised prefixes record]
+  (reduce-kv (fn [record k category]
+               (let [v (get record k)]
+                 (cond
+                  (string? category)
+                  (cond-> record
+                          (in-category? prefixes category)
+                          (dissoc k))
+
+                  (map? v)
+                  (assoc record k (without-categories category prefixes v))
+
+                  (sequential? v)
+                  (assoc record
+                         k
+                         (mapv (fn [item]
+                                 (without-categories category prefixes item))
+                               v))
+
+                  :else
+                  record)))
+             (into {} record)
+             categorised))
+
+(defn without-data-categories
+  "`record` without the fields, at any depth, whose data category is one
+  of `prefixes` or falls under one, as `user` takes in `user.name`; nil
+  passes through.
+
+  Args:
+  - record-type: `:party`, `:cash-account` or another record type an
+    act is performed on.
+  - record: a map of that record, or nil.
+  - prefixes: Fideslang keys, such as `[\"user\" \"system\"]`."
+  [record-type record prefixes]
+  (when record
+    (without-categories (data-categories record-type) prefixes record)))
 
 (defn audit-kind->int
   "The protobuf number of an `:audit-kind-*` keyword, which keys

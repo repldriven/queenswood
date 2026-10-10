@@ -13,17 +13,27 @@
   order a deploy puts them in.
 
   A required field holding zero reaches the Java parse, and one left out
-  is still refused by it."
+  is still refused by it.
+
+  Every data category a proto gives a field is a key in the pinned copy
+  of Fideslang's taxonomy, and not one it deprecates, and a record reads
+  back without the fields of the categories asked for, at any depth."
   (:require
     [com.repldriven.queenswood.schema.interface :as SUT]
 
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.json.interface :as json]
 
     [clojure.java.io :as io]
     [clojure.test :refer [deftest is testing]])
   (:import
-    (com.google.protobuf InvalidProtocolBufferException)))
+    (com.google.protobuf Descriptors$Descriptor
+                         Descriptors$FieldDescriptor
+                         Descriptors$FileDescriptor
+                         InvalidProtocolBufferException)
+    (com.repldriven.queenswood.schema SchemaProto)
+    (com.repldriven.queenswood.schema.fideslang DataCategoryProto)))
 
 (def ^:private payment-address
   {:scheme :payment-address-scheme-scan
@@ -384,3 +394,62 @@
     (testing "a reader on the current schema reads the creditor BBAN"
       (let [body (avro/deserialize-same transaction-rejected-schema event)]
         (is (= "04000412345678" (:creditor-bban body)))))))
+
+(defn- files
+  [^Descriptors$FileDescriptor file]
+  (into #{file} (mapcat files) (.getDependencies file)))
+
+(defn- messages
+  [^Descriptors$Descriptor message]
+  (cons message (mapcat messages (.getNestedTypes message))))
+
+(defn- used-categories
+  "Each data category a field of a record, or of a message a record's
+  file imports, is given, with the field it is on."
+  []
+  (for [^Descriptors$FileDescriptor file (files (SchemaProto/getDescriptor))
+        message (mapcat messages (.getMessageTypes file))
+        ^Descriptors$FieldDescriptor field (.getFields ^Descriptors$Descriptor
+                                                       message)
+        :let [options (.getOptions field)]
+        :when (.hasExtension options DataCategoryProto/dataCategory)]
+    [(.getFullName field)
+     (.getExtension options DataCategoryProto/dataCategory)]))
+
+(deftest data-categories-are-fideslang-keys-test
+  (let [taxonomy (json/read-str (slurp (io/resource
+                                        "fideslang/data-categories.json"))
+                                :key-fn
+                                keyword)
+        current (into #{}
+                      (comp (remove :version_deprecated) (map :fides_key))
+                      (:data_category taxonomy))
+        used (used-categories)]
+    (is (seq used))
+    (doseq [[field fides-key] used]
+      (is (contains? current fides-key)
+          (str field
+               " names "
+               fides-key
+               ", which Fideslang "
+               (:tag taxonomy)
+               " does not offer")))))
+
+(deftest without-data-categories-test
+  (let [check {:bank-id "bnk.a"
+               :check-id "chk.a"
+               :request {:creditor-name "Ada Lovelace"
+                         :account {:sort-code "040004"
+                                   :account-number "12345678"}}
+               :result {:match-result :match-result-close-match
+                        :actual-name "Ada King"}}]
+    (testing "a field nested in a message is left out"
+      (is (= {:bank-id "bnk.a"
+              :check-id "chk.a"
+              :request {:account {}}
+              :result {:match-result :match-result-close-match}}
+             (SUT/without-data-categories :payee-check check ["user"]))))
+    (testing "a prefix takes in the keys below it, and nothing else"
+      (is (= check
+             (SUT/without-data-categories :payee-check check ["system"]))))
+    (is (nil? (SUT/without-data-categories :payee-check nil ["user"])))))

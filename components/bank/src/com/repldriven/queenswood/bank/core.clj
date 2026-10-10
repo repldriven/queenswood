@@ -256,13 +256,10 @@
                                     :actor actor}))
        _ (audit/record txn
                        (audit-entries/bank :audit-kind-bank-created
+                                           nil
                                            bank
                                            actor
-                                           (:request-id opts)
-                                           (when owner
-                                             {:subject-user-id (:user-id owner)
-                                              :member-id (:member-id owner)
-                                              :role-after (:role owner)})))
+                                           (:request-id opts)))
        invitation (new-owner-invitation txn
                                         bank-id
                                         actor
@@ -346,10 +343,9 @@
         _ (audit/record txn
                         (audit-entries/bank :audit-kind-bank-tier-changed
                                             bank
+                                            updated
                                             (:actor opts)
-                                            (:request-id opts)
-                                            {:tier-before (:tier bank)
-                                             :tier-after tier}))]
+                                            (:request-id opts)))]
        updated))
    :bank/change-tier
    "Failed to change bank tier"))
@@ -380,10 +376,9 @@
                           (audit-entries/bank
                            :audit-kind-bank-status-changed
                            bank
+                           updated
                            actor
-                           (:request-id opts)
-                           {:status-before (:status bank)
-                            :status-after (:status updated)}))]
+                           (:request-id opts)))]
          updated)))
    :bank/change-status
    "Failed to change bank status"))

@@ -91,10 +91,10 @@
           _ (audit/record txn
                           (audit-entries/invitation
                            :audit-kind-invitation-created
+                           nil
                            invitation
                            opts
-                           now
-                           {:reason reason}))]
+                           now))]
          (as-read invitation now))))
    :invitation/invite
    "Failed to create invitation"))
@@ -125,11 +125,10 @@
           _ (audit/record txn
                           (audit-entries/invitation
                            :audit-kind-invitation-accepted
+                           invitation
                            accepted
                            opts
-                           now
-                           {:subject-user-id user-id
-                            :member-id (:member-id member)}))]
+                           now))]
          member)))
    :invitation/accept
    "Failed to accept invitation"))
@@ -149,10 +148,10 @@
           _ (audit/record txn
                           (audit-entries/invitation
                            :audit-kind-invitation-declined
+                           invitation
                            declined
                            opts
-                           now
-                           {:subject-user-id (:principal-id actor)}))]
+                           now))]
          (as-read declined now))))
    :invitation/decline
    "Failed to decline invitation"))
@@ -171,10 +170,10 @@
           _ (audit/record txn
                           (audit-entries/invitation
                            :audit-kind-invitation-withdrawn
+                           invitation
                            withdrawn
                            opts
-                           now
-                           {:reason (:reason opts)}))]
+                           now))]
          (as-read withdrawn now))))
    :invitation/withdraw
    "Failed to withdraw invitation"))
@@ -193,10 +192,10 @@
           _ (audit/record txn
                           (audit-entries/invitation
                            :audit-kind-invitation-resent
+                           invitation
                            resent
                            opts
-                           now
-                           {}))]
+                           now))]
          (as-read resent now))))
    :invitation/resend
    "Failed to resend invitation"))
@@ -230,7 +229,8 @@
           changed (domain/change-role member
                                       role
                                       {:actor actor
-                                       :active-members members}
+                                       :active-members members
+                                       :reason (:reason opts)}
                                       now)
           unchanged? (= role (:role member))
           _ (when-not unchanged?
@@ -240,11 +240,9 @@
                             (audit-entries/member
                              :audit-kind-member-role-changed
                              member
+                             changed
                              opts
-                             now
-                             {:role-before (:role member)
-                              :role-after role
-                              :reason (:reason opts)})))]
+                             now)))]
          changed)))
    :member/change-role
    "Failed to change role"))
@@ -268,10 +266,9 @@
           _ (audit/record txn
                           (audit-entries/member :audit-kind-member-removed
                                                 member
+                                                ended
                                                 opts
-                                                now
-                                                {:role-before (:role member)
-                                                 :reason reason}))]
+                                                now))]
          ended)))
    :member/remove
    "Failed to remove member"))
@@ -294,9 +291,9 @@
           _ (audit/record txn
                           (audit-entries/member :audit-kind-member-left
                                                 member
+                                                ended
                                                 opts
-                                                now
-                                                {:role-before (:role member)}))]
+                                                now))]
          ended)))
    :member/leave
    "Failed to leave"))

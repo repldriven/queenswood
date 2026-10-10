@@ -4,6 +4,7 @@ package com.repldriven.queenswood.schema.scheduler;
 
 import "record_metadata_options.proto";
 import "schemas/actor/actor.proto";
+import "schemas/fideslang/data-category.proto";
 
 option java_outer_classname = "SchedulerRunProto";
 
@@ -31,10 +32,10 @@ enum SchedulerTaskStatus {
 message SchedulerTaskRun {
   required string label = 1;
   required SchedulerTaskStatus status = 2;
-  optional int32 processed_count = 3;
-  optional int32 failed_count = 4;
-  optional int64 started_at = 5;
-  optional int64 finished_at = 6;
+  optional int32 processed_count = 3 [(fideslang.data_category) = "system.operations"];
+  optional int32 failed_count = 4 [(fideslang.data_category) = "system.operations"];
+  optional int64 started_at = 5 [(fideslang.data_category) = "system.operations"];
+  optional int64 finished_at = 6 [(fideslang.data_category) = "system.operations"];
   optional string failure_reason = 7;
 }
 
@@ -49,7 +50,7 @@ message SchedulerRun {
   required SchedulerTriggerSource trigger_source = 4;
   required string job_id = 5;
   required int32 tasks_total = 6;
-  optional int64 expected_end_at = 7;
+  optional int64 expected_end_at = 7 [(fideslang.data_category) = "system.operations"];
   repeated SchedulerTaskRun tasks = 8;
 
   required int64 created_at = 101;

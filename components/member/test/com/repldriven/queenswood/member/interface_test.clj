@@ -186,12 +186,12 @@
                             (kinds history)))
                      (is (= {:kind :actor-kind-member
                              :principal-id "usr.accept.invitee"}
-                            (:created-by (nth history 2))))
-                     (is (= "usr.accept.invitee"
-                            (get-in (nth history 2)
-                                    [:details :subject-user-id])))
+                            (:performed-by (nth history 2))))
+                     (is (= {:before {:status "invitation-status-pending"}
+                             :after {:status "invitation-status-accepted"}}
+                            (:changeset (nth history 2))))
                      (is (= "usr.accept.owner"
-                            (:principal-id (:created-by (peek history))))))]))))
+                            (:principal-id (:performed-by (peek history))))))]))))
 
 (deftest an-unchanged-role-records-nothing-test
   (with-test-system

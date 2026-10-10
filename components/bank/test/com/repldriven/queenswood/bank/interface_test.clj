@@ -146,10 +146,10 @@
                    _ (is (= [:audit-kind-bank-created]
                             (mapv :kind audit-entries)))
                    _ (is (= {:kind :actor-kind-member :principal-id user-id}
-                            (:created-by (first audit-entries))))
-                   _ (is (= (:member-id member)
+                            (:performed-by (first audit-entries))))
+                   _ (is (= bank-id
                             (get-in (first audit-entries)
-                                    [:details :member-id])))
+                                    [:changeset :after :bank-id])))
                    invitations (q/list-invitations-by-bank config bank-id)
                    _ (is (empty? invitations))
                    listed (q/list-by-user config user-id)
@@ -197,7 +197,8 @@
                        (is (= [:audit-kind-invitation-created
                                :audit-kind-bank-created]
                               (mapv :kind audit-entries))))
-                   _ (is (every? #(= operator (:created-by %)) audit-entries))]))
+                   _ (is (every? #(= operator (:performed-by %))
+                                 audit-entries))]))
      (testing "the owner invitation's creation is on the invitations changelog"
        (let [seen (atom [])]
          (nom-test> [_ (fdb/process-changelog

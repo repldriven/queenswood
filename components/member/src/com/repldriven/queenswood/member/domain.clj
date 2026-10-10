@@ -174,7 +174,7 @@
                       invitation-id))
 
 (defn change-role
-  [member new-role {:keys [actor active-members]} now]
+  [member new-role {:keys [actor active-members reason]} now]
   (let-nom>
     [_ (ensure-member-status member #{active})
      _ (check-grant :change-role
@@ -183,10 +183,16 @@
      _ (check-not-last-owner active-members member new-role)]
     (if (= new-role (:role member))
       member
-      (assoc member
-             :role new-role
-             :updated-by (actor-record actor)
-             :updated-at now))))
+      (-> member
+          (assoc :role new-role
+                 :updated-by (actor-record actor)
+                 :updated-at now)
+          (cond->
+           (some? reason)
+           (assoc :role-reason reason)
+
+           (nil? reason)
+           (dissoc :role-reason))))))
 
 (defn end-member
   [member action {:keys [actor active-members reason]} now]
