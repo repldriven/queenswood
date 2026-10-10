@@ -1,0 +1,28 @@
+{
+  "type": "record",
+  "name": "BankCommandReply",
+  "namespace": "com.repldriven.queenswood.schema.bank",
+  "doc": "The records a bank command wrote, by id",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "owner_invitation_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "member_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

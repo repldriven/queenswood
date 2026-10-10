@@ -18,11 +18,12 @@
         response (commands/send (dispatcher request)
                                 request
                                 "check-payee"
-                                "payee-check"
+                                "payee-check-command-reply"
                                 (assoc body
                                        :bank-id bank-id
                                        :actor (actor/actor auth)))]
-    (commands/created (cond-> response
-                              (= 200 (:status response))
-                              (update :body queries/->body))
+    (commands/created (commands/read-back
+                       response
+                       (fn [{:keys [bank-id check-id]}]
+                         (queries/read-check request bank-id check-id)))
                       #(str "/v1/payee-checks/" (:check-id %)))))

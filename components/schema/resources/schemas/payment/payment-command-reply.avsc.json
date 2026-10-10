@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "PaymentCommandReply",
+  "namespace": "com.repldriven.queenswood.schema.payment",
+  "doc": "The payment a payment command wrote, by id",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "payment_id",
+      "type": "string"
+    }
+  ]
+}

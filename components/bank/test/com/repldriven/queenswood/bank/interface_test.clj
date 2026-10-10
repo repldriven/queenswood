@@ -96,8 +96,9 @@
   (let [create-schema (avro/json->schema
                        (slurp (io/resource
                                "schemas/bank/create-bank.avsc.json")))
-        bank-schema (avro/json->schema (slurp (io/resource
-                                               "schemas/bank/bank.avsc.json")))]
+        reply-schema (avro/json->schema
+                      (slurp (io/resource
+                              "schemas/bank/bank-command-reply.avsc.json")))]
     (testing "the owner invitation and actor decode as the brick reads them"
       (nom-test> [bytes (avro/serialize create-schema
                                         {:name "New Shape Bank"
@@ -113,15 +114,8 @@
                            (:owner-invitation decoded)))
                   _ (is (= operator (:actor decoded)))]))
     (testing "a bank reply without an owner invitation id encodes and decodes"
-      (nom-test> [bytes (avro/serialize bank-schema
-                                        {:bank-id "bnk.schema"
-                                         :name "Reply Bank"
-                                         :status :bank-status-test
-                                         :tier "micro"
-                                         :providers []
-                                         :created-at 1
-                                         :updated-at 1})
-                  decoded (avro/deserialize-same bank-schema bytes)
+      (nom-test> [bytes (avro/serialize reply-schema {:bank-id "bnk.schema"})
+                  decoded (avro/deserialize-same reply-schema bytes)
                   _ (is (= "bnk.schema" (:bank-id decoded)))
                   _ (is (nil? (:owner-invitation-id decoded)))]))))
 

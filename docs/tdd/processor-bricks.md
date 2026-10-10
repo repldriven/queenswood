@@ -389,7 +389,10 @@ failed lifecycle transition is redriven rather than lost.
 `commands.clj` implements the `processor/Processor` protocol. It
 deserialises the Avro payload, dispatches on `:command`, calls
 the matching `core/*` function with `config` as the `txn`
-argument, and shapes the response envelope:
+argument, and shapes the response envelope. A write's reply carries
+the ids of the record it wrote, as the brick's `<brick>-command-reply`,
+and never the record: the API reads it back through the brick's query
+side, as its GET does.
 
 ```clojure
 (def ^:private command-handlers
@@ -398,12 +401,7 @@ argument, and shapes the response envelope:
      (->response config (core/open-account config data)))
    "close-cash-account"
    (fn [config data]
-     (->response config (core/close-account config data)))
-   "get-cash-account"
-   (fn [config data]
-     (let [{:keys [organization-id account-id]} data]
-       (->response config
-                   (core/get-account config organization-id account-id))))})
+     (->response config (core/close-account config data)))})
 
 (defrecord CashAccountProcessor [config]
   processor/Processor

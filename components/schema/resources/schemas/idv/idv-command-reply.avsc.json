@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "IdvCommandReply",
+  "namespace": "com.repldriven.queenswood.schema.idv",
+  "doc": "The session an identity verification command wrote, by id",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "session_id",
+      "type": "string"
+    }
+  ]
+}

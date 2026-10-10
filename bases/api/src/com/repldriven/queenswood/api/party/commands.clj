@@ -1,9 +1,8 @@
 (ns com.repldriven.queenswood.api.party.commands
   (:require
     [com.repldriven.queenswood.api.commands :as commands]
-    [com.repldriven.queenswood.api.shared.actor :as actor]
-
-    [com.repldriven.queenswood.party-api.interface :as party-api]))
+    [com.repldriven.queenswood.api.party.queries :as queries]
+    [com.repldriven.queenswood.api.shared.actor :as actor]))
 
 (defn- dispatcher
   [request]
@@ -12,11 +11,11 @@
     parties))
 
 (defn- party-reply
-  "A party command's reply, its body as the API shows a party."
-  [response]
-  (cond-> response
-          (= 200 (:status response))
-          (update :body party-api/->body)))
+  "A party command's reply answered with the party it wrote."
+  [request response]
+  (commands/read-back response
+                      (fn [{:keys [bank-id party-id]}]
+                        (queries/read-party request bank-id party-id))))
 
 (defn create-party
   [request]
@@ -24,10 +23,11 @@
         {:keys [bank-id]} auth
         {:keys [body]} parameters]
     (commands/created (party-reply
+                       request
                        (commands/send (dispatcher request)
                                       request
                                       "create-party"
-                                      "party"
+                                      "party-command-reply"
                                       (assoc body
                                              :bank-id bank-id
                                              :actor (actor/actor
@@ -40,10 +40,11 @@
         {:keys [bank-id]} auth
         {:keys [path]} parameters
         {:keys [party-id]} path]
-    (party-reply (commands/send (dispatcher request)
+    (party-reply request
+                 (commands/send (dispatcher request)
                                 request
                                 command
-                                "party"
+                                "party-command-reply"
                                 {:bank-id bank-id
                                  :party-id party-id
                                  :actor (actor/actor auth)}
@@ -68,10 +69,11 @@
         {:keys [path body]} parameters
         {:keys [party-id]} path
         {:keys [into-party-id]} body]
-    (party-reply (commands/send (dispatcher request)
+    (party-reply request
+                 (commands/send (dispatcher request)
                                 request
                                 "merge-party"
-                                "party"
+                                "party-command-reply"
                                 {:bank-id bank-id
                                  :party-id party-id
                                  :into-party-id into-party-id
@@ -91,7 +93,7 @@
         response (commands/send (:idvs dispatchers)
                                 request
                                 "open-idv-session"
-                                "idv-session"
+                                "idv-command-reply"
                                 {:bank-id bank-id
                                  :party-id party-id
                                  :channel (channel-names channel)
@@ -100,11 +102,16 @@
                                  :actor (actor/actor auth)}
                                 {:ordering-key party-id})]
     (if (= 200 (:status response))
-      (let [session (:body response)]
-        {:status 202
-         :headers {"Location" (str "/v1/parties/"
-                                   party-id
-                                   "/verification-sessions/"
-                                   (:session-id session))}
-         :body (party-api/->session-body session)})
+      (let [{:keys [session-id]} (:body response)
+            read (queries/read-verification-session request
+                                                    bank-id
+                                                    party-id
+                                                    session-id)]
+        (cond-> read
+                (= 200 (:status read))
+                (assoc :status 202
+                       :headers {"Location" (str "/v1/parties/"
+                                                 party-id
+                                                 "/verification-sessions/"
+                                                 session-id)})))
       response)))

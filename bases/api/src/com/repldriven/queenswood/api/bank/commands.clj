@@ -29,9 +29,14 @@
   "Dispatch a create-bank command. `data` is the command payload
   (name/status/tier/currencies plus optional audience,
   company-binding, member). Returns the `commands/send` ring
-  response (200 + flat bank body on success)."
+  response, 200 with the ids of the bank and of the owner invitation
+  or member it wrote on success."
   [request data]
-  (commands/send (dispatcher request) request "create-bank" "bank" data))
+  (commands/send (dispatcher request)
+                 request
+                 "create-bank"
+                 "bank-command-reply"
+                 data))
 
 (defn bank-with-secret
   "Mint a fresh client secret for the bank, the previous one refused
@@ -153,18 +158,14 @@
 (defn- created-bank
   "The created bank with its fresh client secret, and whichever of the
   owner invitation and the creator's owner member the create wrote."
-  [request {:keys [bank-id owner-invitation-id member]}]
-  (let-nom> [bank (bank-with-secret request bank-id)
-             invitation (owner-invitation request bank-id owner-invitation-id)]
-    (utility/assoc-some bank
-                        :owner-invitation
-                        invitation
-                        :member
-                        (when member
-                          (access-handlers/founding-member
-                           member
-                           (get-in request [:auth :user])
-                           bank)))))
+  [request {:keys [bank-id owner-invitation-id member-id]}]
+  (let [{:keys [record-db record-store]} request
+        txn {:record-db record-db :record-store record-store}]
+    (let-nom> [bank (bank-with-secret request bank-id)
+               invitation (owner-invitation request bank-id owner-invitation-id)
+               member (when member-id
+                        (access-handlers/member-by-id txn bank-id member-id))]
+      (utility/assoc-some bank :owner-invitation invitation :member member))))
 
 (defn create-bank
   [request]
@@ -198,7 +199,7 @@
         result (commands/send (dispatcher request)
                               request
                               "change-bank-tier"
-                              "bank"
+                              "bank-command-reply"
                               {:bank-id bank-id
                                :tier tier
                                :actor (actor/actor auth)})]
@@ -223,7 +224,7 @@
         result (commands/send (dispatcher request)
                               request
                               "change-bank-status"
-                              "bank"
+                              "bank-command-reply"
                               {:bank-id bank-id
                                :status status
                                :audience (get audiences-by-status status)

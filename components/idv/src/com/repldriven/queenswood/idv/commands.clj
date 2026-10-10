@@ -6,22 +6,6 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.processor.interface :as processor]))
 
-(defn- idv->avro
-  [idv]
-  (dissoc idv :evidence :criteria))
-
-(defn- ->response
-  [config result]
-  (if (error/anomaly? result)
-    result
-    (let [{:keys [schemas]} config]
-      {:status "ACCEPTED"
-       :payload (avro/serialize (schemas "idv") (idv->avro result))})))
-
-(def ^:private session-keys
-  [:bank-id :session-id :verification-id :party-id :channel :return-url
-   :status :created-at :created-by :updated-at])
-
 (defn- open-idv-session
   [config data]
   (let [result (core/open-session config data)]
@@ -29,14 +13,11 @@
       result
       (let [{:keys [schemas]} config]
         {:status "ACCEPTED"
-         :payload (avro/serialize (schemas "idv-session")
-                                  (select-keys result session-keys))}))))
+         :payload (avro/serialize (schemas "idv-command-reply")
+                                  (select-keys result
+                                               [:bank-id :session-id]))}))))
 
-(def ^:private command-handlers
-  {"initiate-idv" (fn [config data]
-                    (->response config (core/initiate config data)))
-   "get-idv" (fn [config data] (->response config (core/get config data)))
-   "open-idv-session" open-idv-session})
+(def ^:private command-handlers {"open-idv-session" open-idv-session})
 
 (defn- dispatch
   [config message]

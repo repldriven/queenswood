@@ -19,19 +19,27 @@
       (let-nom> [payload (avro/serialize (schemas schema-name) result)]
         {:status "ACCEPTED" :payload payload}))))
 
+(defn- ->ids
+  [result]
+  (if (error/anomaly? result)
+    result
+    (select-keys result [:bank-id :payment-id])))
+
 (def ^:private command-handlers
-  {"submit-internal-payment"
-   (fn [config data]
-     (->response config "internal-payment" (core/submit-internal config data)))
+  {"submit-internal-payment" (fn [config data]
+                               (->response config
+                                           "payment-command-reply"
+                                           (->ids (core/submit-internal config
+                                                                        data))))
    "admit-inbound-payment" (fn [config data]
                              (->response config
                                          "admit-inbound-payment-reply"
                                          (inbound/admit-inbound config data)))
    "submit-outbound-payment" (fn [config data]
-                               (->response config
-                                           "outbound-payment"
-                                           (core/submit-outbound config
-                                                                 data)))})
+                               (->response
+                                config
+                                "payment-command-reply"
+                                (->ids (core/submit-outbound config data))))})
 
 (defn- dispatch
   [config message]

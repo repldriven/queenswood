@@ -1,5 +1,4 @@
 (ns com.repldriven.queenswood.idv.core
-  (:refer-clojure :exclude [get])
   (:require
     [com.repldriven.queenswood.idv.domain :as domain]
     [com.repldriven.queenswood.idv.store :as store]
@@ -306,7 +305,3 @@
                      {:session-id session-id}))))
      :idv/fail-session
      "Failed to record an IDV session's failure")))
-
-(defn get
-  [txn data]
-  (get-idv txn (:bank-id data) (:verification-id data)))

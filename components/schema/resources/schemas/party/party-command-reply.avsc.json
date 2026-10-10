@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "PartyCommandReply",
+  "namespace": "com.repldriven.queenswood.schema.party",
+  "doc": "The party a party command wrote, by id",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "party_id",
+      "type": "string"
+    }
+  ]
+}

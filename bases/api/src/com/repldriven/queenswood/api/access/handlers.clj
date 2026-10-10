@@ -131,18 +131,6 @@
                                                 (names/->actor names))
                             :invited-email (:email invitation)))))
 
-(defn founding-member
-  "The owner member a bank's creation writes, as `Member` shows
-  it, from the `user` and the `bank` already in hand: it joined by no
-  invitation, so there is nothing more to read: its creator is the
-  bank's, the person, named from `user`."
-  [member user bank]
-  (->member (assoc member :created-by (:created-by bank))
-            user
-            (:name bank)
-            nil
-            {(:user-id member) (or (not-empty (:name user)) (:email user))}))
-
 (defn- member-records
   [txn member]
   (let [{:keys [bank-id user-id invitation-id]} member]
@@ -186,6 +174,13 @@
   [txn member]
   (let-nom> [found (named-members txn [member])]
     (first found)))
+
+(defn member-by-id
+  "The member `member-id` of `bank-id` as `Member` shows it. An anomaly
+  when it, or a record naming it, cannot be read."
+  [txn bank-id member-id]
+  (let-nom> [member (members/find-by-id txn bank-id member-id)]
+    (named-member txn member)))
 
 (defn- ->invitation
   [invitation names]
@@ -413,11 +408,7 @@
       :actor (caller auth)
       :reason reason}
      (fn [{:keys [member-id]}]
-       (respond (let-nom> [changed (members/find-by-id txn
-                                                       bank-id
-                                                       member-id)]
-                  (named-member txn changed))
-                ok)))))
+       (respond (member-by-id txn bank-id member-id) ok)))))
 
 (defn remove-member
   [request]

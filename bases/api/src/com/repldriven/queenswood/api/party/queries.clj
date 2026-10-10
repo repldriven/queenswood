@@ -25,6 +25,14 @@
                                (mapv party-api/->body (:parties result))
                                result)})))
 
+(defn read-party
+  "The `Party` as a response, as the list and the writes return it."
+  [request bank-id party-id]
+  (let [result (parties/get-party request bank-id party-id)]
+    (if (error/anomaly? result)
+      (errors/anomaly->response result)
+      {:status 200 :body (party-api/->body result)})))
+
 (defn get-party
   [request]
   (let [{:keys [auth parameters]} request
@@ -67,12 +75,10 @@
       (errors/anomaly->response result)
       {:status 200 :body result})))
 
-(defn get-verification-session
-  [request]
-  (let [{:keys [auth parameters]} request
-        {:keys [bank-id]} auth
-        {:keys [party-id session-id]} (:path parameters)
-        result (let-nom>
+(defn read-verification-session
+  "The party's `VerificationSession` as a response."
+  [request bank-id party-id session-id]
+  (let [result (let-nom>
                  [session (idv-query/get-session request bank-id session-id)]
                  (if (and session (= party-id (:party-id session)))
                    (party-api/->session-body
@@ -83,3 +89,10 @@
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body result})))
+
+(defn get-verification-session
+  [request]
+  (let [{:keys [auth parameters]} request
+        {:keys [bank-id]} auth
+        {:keys [party-id session-id]} (:path parameters)]
+    (read-verification-session request bank-id party-id session-id)))

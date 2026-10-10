@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "CashAccountCommandReply",
+  "namespace": "com.repldriven.queenswood.schema.cash_account",
+  "doc": "The account a cash-account command wrote, by id",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    }
+  ]
+}

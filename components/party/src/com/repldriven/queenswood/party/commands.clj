@@ -14,7 +14,9 @@
     result
     (let [{:keys [schemas]} config]
       {:status "ACCEPTED"
-       :payload (avro/serialize (schemas "party") (schema/pb->Party result))})))
+       :payload (avro/serialize (schemas "party-command-reply")
+                                (select-keys (schema/pb->Party result)
+                                             [:bank-id :party-id]))})))
 
 (def ^:private command-handlers
   {"create-party" (fn [config data]

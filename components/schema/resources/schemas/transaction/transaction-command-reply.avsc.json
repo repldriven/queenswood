@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "TransactionCommandReply",
+  "namespace": "com.repldriven.queenswood.schema.transaction",
+  "doc": "The transaction a transaction command wrote, by id",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "transaction_id",
+      "type": "string"
+    }
+  ]
+}

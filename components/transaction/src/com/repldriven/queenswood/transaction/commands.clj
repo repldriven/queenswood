@@ -11,7 +11,10 @@
   (if (error/anomaly? result)
     result
     (let [{:keys [schemas]} config]
-      (let-nom> [payload (avro/serialize (schemas "transaction") result)]
+      (let-nom> [payload (avro/serialize (schemas "transaction-command-reply")
+                                         (select-keys result
+                                                      [:bank-id
+                                                       :transaction-id]))]
         {:status "ACCEPTED" :payload payload}))))
 
 (def ^:private command-handlers

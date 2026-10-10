@@ -12,7 +12,8 @@
     result
     (let [{:keys [schemas]} config]
       {:status "ACCEPTED"
-       :payload (avro/serialize (schemas "payee-check") result)})))
+       :payload (avro/serialize (schemas "payee-check-command-reply")
+                                (select-keys result [:bank-id :check-id]))})))
 
 (def ^:private command-handlers
   {"check-payee" (fn [config data]

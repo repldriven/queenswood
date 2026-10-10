@@ -280,9 +280,9 @@ The commands are `invite`, `resend-invitation`, `withdraw-invitation`,
 `remove-member`, `leave` and `record-invitation-token`, each an Avro
 payload under `schemas/member/` registered in
 [avro-schemas.yml](/components/resources/resources/system/avro-schemas.yml),
-each replying with the record it wrote as the Avro `member` or
-`invitation`. The actor, the bank and the proof are what the base
-establishes and the command carries:
+each replying with the ids of the records it wrote as the Avro
+`MemberCommandReply`, which the base reads back. The actor, the bank
+and the proof are what the base establishes and the command carries:
 
 - **The actor** is the principal, as the `Actor` the base builds today.
 - **A recipient's proof** is the hash of the `Invitation-Token` header,

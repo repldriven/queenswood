@@ -28,11 +28,10 @@
     (let [{:keys [schemas]} config
           {:keys [bank member owner-invitation-id]} result]
       {:status "ACCEPTED"
-       :payload (avro/serialize (schemas "bank")
-                                (assoc bank
-                                       :member member
-                                       :owner-invitation-id
-                                       owner-invitation-id))})))
+       :payload (avro/serialize (schemas "bank-command-reply")
+                                {:bank-id (:bank-id bank)
+                                 :owner-invitation-id owner-invitation-id
+                                 :member-id (:member-id member)})})))
 
 (defn- create-bank
   [config data]

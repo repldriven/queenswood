@@ -1,13 +1,12 @@
-cash-account: schemas/cash-account/cash-account.avsc.json
+cash-account-command-reply: schemas/cash-account/cash-account-command-reply.avsc.json
 open-cash-account: schemas/cash-account/open-cash-account.avsc.json
 close-cash-account: schemas/cash-account/close-cash-account.avsc.json
 suspend-cash-account: schemas/cash-account/suspend-cash-account.avsc.json
 resume-cash-account: schemas/cash-account/resume-cash-account.avsc.json
 rotate-cash-account-address: schemas/cash-account/rotate-cash-account-address.avsc.json
-get-cash-account: schemas/cash-account/get-cash-account.avsc.json
 cash-account-status-changed: schemas/cash-account/cash-account-status-changed.avsc.json
 
-party: schemas/party/party.avsc.json
+party-command-reply: schemas/party/party-command-reply.avsc.json
 create-party: schemas/party/create-party.avsc.json
 merge-party: schemas/party/merge-party.avsc.json
 suspend-party: schemas/party/suspend-party.avsc.json
@@ -15,7 +14,7 @@ resume-party: schemas/party/resume-party.avsc.json
 close-party: schemas/party/close-party.avsc.json
 party-status-changed: schemas/party/party-status-changed.avsc.json
 
-bank: schemas/bank/bank.avsc.json
+bank-command-reply: schemas/bank/bank-command-reply.avsc.json
 create-bank: schemas/bank/create-bank.avsc.json
 change-bank-tier: schemas/bank/change-bank-tier.avsc.json
 change-bank-status: schemas/bank/change-bank-status.avsc.json
@@ -34,28 +33,23 @@ record-invitation-token: schemas/member/record-invitation-token.avsc.json
 member-command-reply: schemas/member/member-command-reply.avsc.json
 invitation-changed: schemas/member/invitation-changed.avsc.json
 
-idv: schemas/idv/idv.avsc.json
-initiate-idv: schemas/idv/initiate-idv.avsc.json
-get-idv: schemas/idv/get-idv.avsc.json
 submit-idv-check: schemas/idv/submit-idv-check.avsc.json
 idv-status-changed: schemas/idv/idv-status-changed.avsc.json
 idv-evidence-received: schemas/idv/idv-evidence-received.avsc.json
 idv-session-opened: schemas/idv/idv-session-opened.avsc.json
 idv-session-failed: schemas/idv/idv-session-failed.avsc.json
 open-idv-session: schemas/idv/open-idv-session.avsc.json
-idv-session: schemas/idv/idv-session.avsc.json
+idv-command-reply: schemas/idv/idv-command-reply.avsc.json
 idv-session-status-changed: schemas/idv/idv-session-status-changed.avsc.json
 
-payee-check: schemas/payee-check/payee-check.avsc.json
+payee-check-command-reply: schemas/payee-check/payee-check-command-reply.avsc.json
 check-payee: schemas/payee-check/check-payee.avsc.json
 
-transaction: schemas/transaction/transaction.avsc.json
+transaction-command-reply: schemas/transaction/transaction-command-reply.avsc.json
 record-transaction: schemas/transaction/record-transaction.avsc.json
 transaction-posted: schemas/transaction/transaction-posted.avsc.json
 
-inbound-payment: schemas/payment/inbound-payment.avsc.json
-internal-payment: schemas/payment/internal-payment.avsc.json
-outbound-payment: schemas/payment/outbound-payment.avsc.json
+payment-command-reply: schemas/payment/payment-command-reply.avsc.json
 submit-internal-payment: schemas/payment/submit-internal-payment.avsc.json
 submit-outbound-payment: schemas/payment/submit-outbound-payment.avsc.json
 outbound-payment-status-changed: schemas/payment/outbound-payment-status-changed.avsc.json

@@ -1,10 +1,5 @@
 (ns com.repldriven.queenswood.schema.interface-test
-  "The cash-account record and the reply schema registered as
-  `cash-account` describe one account between them, so what the record
-  carries the reply has to be able to carry.
-
-  The reply schema is hand-maintained — nothing generates it from the
-  proto — which is what these round-trips are for.
+  "A cash account reads back its retired addresses and its creator.
 
   The access records read back what was written, and a member
   written before a member could end reads as active. An inbound
@@ -62,10 +57,6 @@
          :rotation {:idempotency-key "01kprbmgcj35ptc8npmybhh4sh"
                     :status :address-rotation-status-completed}))
 
-(def ^:private reply-schema
-  (avro/json->schema (slurp (io/resource
-                             "schemas/cash-account/cash-account.avsc.json"))))
-
 (def ^:private opened-balance
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
    :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
@@ -109,27 +100,6 @@
       (is (not (contains? account :close-requested-from)))
       (is (= {:kind :actor-kind-operator :principal-id "test"}
              (:created-by account))))))
-
-(deftest cash-account-reply-schema-test
-  (is (not (error/anomaly? reply-schema)) "the reply schema parses")
-  (testing "an opened account round-trips"
-    ;; The empty vector is what `cash-account/commands` supplies: the
-    ;; array field has no null branch to fall back on.
-    (let [account (assoc opened-account :retired-payment-addresses [])
-          body (avro/deserialize-same reply-schema
-                                      (avro/serialize reply-schema account))]
-      (is (= "04000412345678" (:bban body)))
-      (is (= [] (:retired-payment-addresses body)))
-      (testing "and publishes none of the GL fields the record dropped"
-        (is (empty? (select-keys body
-                                 [:gl-code :gl-account-type :account-class
-                                  :required :gl-control-code]))))))
-  (testing "a rotated account's history round-trips"
-    (let [body (avro/deserialize-same reply-schema
-                                      (avro/serialize reply-schema
-                                                      rotated-account))]
-      (is (= [{:address payment-address :retired-at 1700000000500}]
-             (:retired-payment-addresses body))))))
 
 (def ^:private suspended-inbound
   "An inbound as `payment/domain` parks it: no creditor account and, until

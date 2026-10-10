@@ -6,6 +6,7 @@
 
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
+    [com.repldriven.queenswood.transaction.interface :as transactions]
 
     [com.repldriven.mono.error.interface :as error]))
 
@@ -14,6 +15,36 @@
   (let [{:keys [dispatchers]} request
         {:keys [transactions]} dispatchers]
     transactions))
+
+(def ^:private leg-keys
+  [:leg-id :transaction-id :account-id :balance-type :balance-status :side
+   :amount :currency])
+
+(defn- read-transfer
+  "The posted transaction, with its legs on `account-ids` and the account
+  it credited, as a response."
+  [txn bank-id transaction-id account-ids credited]
+  (let [result (transactions/get-transaction txn
+                                             bank-id
+                                             transaction-id
+                                             account-ids)]
+    (cond (error/anomaly? result)
+          (errors/anomaly->response result)
+
+          (nil? result)
+          (errors/anomaly->response
+           (error/fail :simulate/transaction-missing
+                       {:message "The posted transaction could not be read"
+                        :transaction-id transaction-id}))
+
+          :else
+          {:status 200
+           :body (-> result
+                     (select-keys [:transaction-id :transaction-type :currency
+                                   :reference :created-at :created-by])
+                     (assoc :account-id credited
+                            :legs (mapv (fn [leg] (select-keys leg leg-keys))
+                                        (:legs result))))})))
 
 (defn inbound-transfer
   [request]
@@ -60,7 +91,7 @@
                           (dispatcher request)
                           request
                           "record-transaction"
-                          "transaction"
+                          "transaction-command-reply"
                           {:bank-id bank-id
                            :transaction-type
                            :transaction-type-inbound-transfer
@@ -70,6 +101,10 @@
                            :actor (actor/actor auth)})]
             ;; The caller no longer chooses the account, so the answer
             ;; names the one credited.
-            (cond-> response
-                    (= 200 (:status response))
-                    (update :body assoc :account-id (:account-id house)))))))))
+            (commands/read-back response
+                                (fn [{:keys [transaction-id]}]
+                                  (read-transfer txn
+                                                 bank-id
+                                                 transaction-id
+                                                 (mapv :account-id checked-legs)
+                                                 (:account-id house))))))))))

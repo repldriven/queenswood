@@ -61,6 +61,21 @@
   [txn bank-id data]
   (core/record-and-post txn bank-id data))
 
+(defn get-transaction
+  "Load `bank-id`'s transaction with the legs it posted to each of
+  `account-ids`, in that order. A leg is keyed by its account, so the
+  caller names the accounts it wants legs for. Returns the transaction
+  map with `:legs`, nil where the bank has no such transaction, or an
+  anomaly.
+
+  Args:
+  - txn: FDB handle or open transaction.
+  - bank-id: the transaction's bank.
+  - transaction-id: the transaction's id.
+  - account-ids: the accounts whose legs to load."
+  [txn bank-id transaction-id account-ids]
+  (store/get-transaction txn bank-id transaction-id account-ids))
+
 (defn page-transactions
   "One page of an account's transaction legs, newest first by default,
   each enriched with the parent transaction's type, reference and
