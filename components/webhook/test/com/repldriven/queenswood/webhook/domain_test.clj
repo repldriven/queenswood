@@ -185,8 +185,8 @@
     (let [disabled (SUT/disable (endpoint :webhook-endpoint-status-enabled)
                                 actor
                                 permissive-policies)]
-      (is (= actor (:disabled-by disabled)))
-      (is (int? (:disabled-at disabled))))))
+      (is (= actor (:updated-by disabled)))
+      (is (int? (:updated-at disabled))))))
 
 (deftest transitions-guard-their-source-state-test
   (testing "each transition refuses the states it does not accept"
@@ -258,7 +258,7 @@
     (is (= "whsec_test" (:previous-secret rotated)))
     (is (= 1700000100000 (:previous-secret-expires-at rotated)))
     (is (= "ik-rotate" (:rotation-idempotency-key rotated)))
-    (is (= actor (:secret-rotated-by rotated)))))
+    (is (= actor (:updated-by rotated)))))
 
 (deftest not-found-is-a-rejection-test
   (is (= :webhook-endpoint/not-found
@@ -291,7 +291,7 @@
             (SUT/record-outcome delivery {:status 204} now retry-policy)]
         (is (= :webhook-delivery-status-delivered (:status updated)))
         (is (= 1 (:attempt-count updated)))
-        (is (= now (:delivered-at updated)))
+        (is (= now (:updated-at updated)))
         (is (nil? (:next-attempt-at updated)))))
     (testing "a non-2xx counts the attempt and schedules the next"
       (let [updated
@@ -322,7 +322,7 @@
             updated (SUT/record-outcome spent {:status 500} now retry-policy)]
         (is (= :webhook-delivery-status-failed (:status updated)))
         (is (= 11 (:attempt-count updated)))
-        (is (= now (:failed-at updated)))
+        (is (= now (:updated-at updated)))
         (is (nil? (:next-attempt-at updated)))))
     (testing "a delivery past the maximum age fails on its next failure"
       (let [updated (SUT/record-outcome delivery

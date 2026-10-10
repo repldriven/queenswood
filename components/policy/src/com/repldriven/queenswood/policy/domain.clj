@@ -55,8 +55,7 @@
     (let [now (utility/now)]
       (assoc policy
              :status :policy-status-archived
-             :archived-at now
-             :archived-by actor
+             :updated-by actor
              :updated-at now))))
 
 (defn new-binding

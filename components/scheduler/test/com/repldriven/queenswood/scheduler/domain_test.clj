@@ -81,7 +81,10 @@
 (deftest expected-end-at-test
   (testing "created-at plus the prior run's duration"
     (is (= 1150
-           (SUT/expected-end-at 1000 {:created-at 100 :completed-at 250}))))
+           (SUT/expected-end-at 1000
+                                {:status :scheduler-run-status-completed
+                                 :created-at 100
+                                 :updated-at 250}))))
   (testing "nil when the prior run never completed"
     (is (nil? (SUT/expected-end-at 1000 {:created-at 100})))
     (is (nil? (SUT/expected-end-at 1000 nil)))))

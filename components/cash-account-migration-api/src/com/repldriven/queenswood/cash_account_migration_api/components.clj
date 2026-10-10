@@ -46,7 +46,8 @@
    [:due-on {:optional true} [:ref "BusinessDay"]]
    [:created-at [:ref "Timestamp"]]
    [:created-by [:ref "Actor"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def MigrationList (list-schema "Migration" examples/MigrationList))
 

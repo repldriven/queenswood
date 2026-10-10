@@ -29,7 +29,7 @@
   Args:
   - config: FDB config map (`:record-db` / `:record-store`).
   - policy-id: policy id string.
-  - actor: who archived it, stamped as `archived-by`."
+  - actor: who archived it, stamped as `updated-by`."
   [config policy-id actor]
   (core/archive-policy config policy-id actor))
 

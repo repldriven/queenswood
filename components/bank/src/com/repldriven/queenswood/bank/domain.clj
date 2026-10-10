@@ -90,8 +90,7 @@
     (let [now (utility/now)]
       (assoc bank
              :tier tier
-             :tier-changed-at now
-             :tier-changed-by actor
+             :updated-by actor
              :updated-at now))))
 
 (defn change-status
@@ -116,6 +115,5 @@
     (let [now (utility/now)]
       (assoc bank
              :status new-status
-             :status-changed-at now
-             :status-changed-by actor
+             :updated-by actor
              :updated-at now))))

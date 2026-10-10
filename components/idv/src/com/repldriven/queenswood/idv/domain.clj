@@ -80,7 +80,6 @@
                             #{:idv-status-pending :idv-status-in-review})]
     (assoc idv
            :status :idv-status-accepted
-           :accepted-at (utility/now)
            :updated-at (utility/now))))
 
 (defn rejected-idv
@@ -91,7 +90,6 @@
                             #{:idv-status-pending :idv-status-in-review})]
     (assoc idv
            :status :idv-status-rejected
-           :rejected-at (utility/now)
            :updated-at (utility/now))))
 
 (defn cancelled-idv
@@ -102,7 +100,6 @@
                             #{:idv-status-pending :idv-status-in-review})]
     (assoc idv
            :status :idv-status-cancelled
-           :cancelled-at (utility/now)
            :updated-at (utility/now))))
 
 (def ^:private evidence-sections [:document :liveness :address :screening])

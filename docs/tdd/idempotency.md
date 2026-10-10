@@ -132,7 +132,7 @@ Each cache entry has one of two statuses:
   completes.
 - **`completed`** — handler finished; `response`, an
   `IdempotencyResponse` of `status`, `headers` and `body`, holds the
-  response to replay, and `completed_at` when it was kept.
+  response to replay, and `updated_at` when it was kept.
 
 A stale-`pending` entry (older than 60 s) is treated as abandoned —
 a server crashed, say. It is reclaimable by the next request, and
@@ -356,8 +356,8 @@ mints a fresh token.
 | `fingerprint` | string | SHA-256 of path, body and bank |
 | `response` | `IdempotencyResponse` | optional (completed only): `status` int32, `headers` and `body` transit+json |
 | `expires_at` | int64 | epoch ms |
-| `completed_at` | int64 | epoch ms, field 51, completed only |
 | `created_at` | int64 | epoch ms, field 101, when the key was claimed |
+| `updated_at` | int64 | epoch ms, field 103, when the response was kept |
 
 Primary key: `[principal_id, operation, idempotency_key]`. No
 secondary indexes.

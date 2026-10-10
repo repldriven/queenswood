@@ -125,8 +125,8 @@
                          payment-provider
                          operator)]
       (is (= :version-status-published (:status v)))
-      (is (number? (:published-at v)))
-      (is (= operator (:published-by v)))
+      (is (number? (:updated-at v)))
+      (is (= operator (:updated-by v)))
       (is (= "prv.3" (:version-id v)))
       (is (= 3 (:version-number v)))))
   (testing "rejects an address scheme the payment provider does not issue"
@@ -158,10 +158,10 @@
     (let [r (SUT/discard discarded-version permissive-policies operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
-  (testing "flips draft to :discarded and stamps :discarded-at"
+  (testing "flips draft to :discarded, by whom recorded"
     (let [v (SUT/discard draft-version permissive-policies operator)]
       (is (= :version-status-discarded (:status v)))
-      (is (some? (:discarded-at v))))))
+      (is (= operator (:updated-by v))))))
 
 (deftest new-version-test
   (testing "rejects with :draft-already-exists when versions contains a draft"

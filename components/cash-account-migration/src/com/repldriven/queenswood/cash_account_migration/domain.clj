@@ -185,8 +185,7 @@
     (let [now (utility/now)]
       (assoc migration
              :status :cash-account-migration-status-approved
-             :approved-at now
-             :approved-by actor
+             :updated-by actor
              :updated-at now))))
 
 (defn cancel-migration
@@ -205,8 +204,7 @@
     (let [now (utility/now)]
       (assoc migration
              :status :cash-account-migration-status-cancelled
-             :cancelled-at now
-             :cancelled-by actor
+             :updated-by actor
              :updated-at now))))
 
 (defn ensure-runnable
@@ -228,11 +226,10 @@
     [_ (ensure-status migration
                       #{:cash-account-migration-status-approved}
                       "completed")]
-    (let [now (utility/now)]
-      (assoc migration
-             :status :cash-account-migration-status-completed
-             :completed-at now
-             :updated-at now))))
+    (-> migration
+        (assoc :status :cash-account-migration-status-completed
+               :updated-at (utility/now))
+        (dissoc :updated-by))))
 
 (defn due?
   "Whether an approved migration is work for `business-day`.
@@ -330,7 +327,6 @@
     (utility/assoc-some (assoc run
                                :status
                                :cash-account-migration-run-status-completed
-                               :completed-at now
                                :updated-at now)
                         :accounts-seen (:seen tally)
                         :accounts-moved (:moved tally)
@@ -345,6 +341,5 @@
   (let [now (utility/now)]
     (assoc run
            :status :cash-account-migration-run-status-failed
-           :failed-at now
            :updated-at now
            :failure-reason (str (error/kind anomaly)))))

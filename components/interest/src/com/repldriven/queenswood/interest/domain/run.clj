@@ -51,7 +51,7 @@
   [run]
   (assoc run
          :status :interest-run-status-closed
-         :closed-at (utility/now)))
+         :updated-at (utility/now)))
 
 (defn closed
   [bank-id business-day kind]

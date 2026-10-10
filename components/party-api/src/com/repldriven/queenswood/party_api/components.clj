@@ -25,7 +25,8 @@
    [:external-reference {:optional true} [:maybe [:ref "ExternalReference"]]]
    [:created-at [:ref "Timestamp"]]
    [:created-by [:ref "Actor"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def ExternalReference
   "The customer's own id for the person, unique within the bank."
@@ -64,6 +65,7 @@
    [:created-at [:ref "Timestamp"]]
    [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]
    [:legal-name {:optional true} [:maybe :string]]])
 
 (def PartyEmbedQuery

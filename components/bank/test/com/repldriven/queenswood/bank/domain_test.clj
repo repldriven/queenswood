@@ -126,7 +126,7 @@
                                 idv-provider
                                 operator)]
       (is (= "growth" (:tier bank)))
-      (is (= operator (:tier-changed-by bank)))
+      (is (= operator (:updated-by bank)))
       (is (= "bnk.1" (:bank-id bank)))))
   (testing "rejects a bank that isn't test or live"
     (let [r (SUT/change-tier (assoc test-bank :status :bank-status-unknown)
@@ -161,7 +161,7 @@
   (testing "flips status"
     (let [bank (SUT/change-status test-bank :bank-status-test operator)]
       (is (= :bank-status-test (:status bank)))
-      (is (= operator (:status-changed-by bank)))
+      (is (= operator (:updated-by bank)))
       (is (= "bnk.1" (:bank-id bank)))))
   (testing "rejects a bank that isn't test or live"
     (let [r (SUT/change-status (assoc test-bank :status :bank-status-unknown)

@@ -68,7 +68,8 @@
    [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
    [:created-by [:ref "Actor"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def BankList (list-schema "Bank" examples/BankList))
 
@@ -106,7 +107,8 @@
    [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
    [:created-by [:ref "Actor"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def ChangeBankTierRequest
   [:map {:closed true :json-schema/example examples/ChangeBankTierRequest}
@@ -136,7 +138,8 @@
    [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
    [:created-by [:ref "Actor"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def Provider
   [:map

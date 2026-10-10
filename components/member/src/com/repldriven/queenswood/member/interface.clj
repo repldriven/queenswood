@@ -60,8 +60,8 @@
   (core/change-role txn bank-id member-id role opts))
 
 (defn remove-member
-  "Remove a member of the actor's bank, with `removed-at`,
-  `removed-by` and any reason as `removed-reason`. Refuses as
+  "Remove a member of the actor's bank, with the actor as `updated-by`
+  and any reason as `removed-reason`. Refuses as
   `change-role` does.
 
   Args:
@@ -76,7 +76,7 @@
 
 (defn leave
   "Leave a bank as the caller, ending their own Member as left, with
-  them as `left-by`. Refuses another person's Member as
+  them as `updated-by`. Refuses another person's Member as
   `:member/not-found`, an ended one as `:member/invalid-status`,
   and the bank's last active owner as `:member/last-owner`.
 
@@ -115,7 +115,7 @@
 (defn accept
   "Accept an invitation as its recipient: writes a Member with the
   invitation's role and `invitation-id`, and the invitation accepted
-  with the person as `accepted-by`. Refuses an invitation the proof
+  with the person as `updated-by`. Refuses an invitation the proof
   does not reach as `:invitation/not-found`, one that is not pending as
   `:invitation/invalid-status`, and a person already an active member of
   the bank as `:member/already-exists`.
@@ -133,7 +133,7 @@
 
 (defn decline
   "Decline an invitation as its recipient, with the person as
-  `declined-by`. Refuses as `accept` does, except for the check that
+  `updated-by`. Refuses as `accept` does, except for the check that
   they are not a member already.
 
   Args:
@@ -148,8 +148,8 @@
   (core/decline txn invitation-id proof opts))
 
 (defn withdraw
-  "Withdraw a pending invitation of the actor's bank, with
-  `withdrawn-at`, `withdrawn-by` and any reason as `withdrawn-reason`.
+  "Withdraw a pending invitation of the actor's bank, with the actor as
+  `updated-by` and any reason as `withdrawn-reason`.
   Refuses an unknown invitation as
   `:invitation/not-found`, one that is not pending as
   `:invitation/invalid-status`, and an invitation to a role the actor
@@ -167,8 +167,8 @@
 
 (defn resend
   "Resend a pending or expired invitation of the actor's bank under a
-  fresh `expires-at`, with `resent-at` and `resent-by` the latest
-  resend's, and its changelog entry. Its token hash returns to its id, so the token of an earlier
+  fresh `expires-at`, with the actor as `updated-by`, and its changelog
+  entry. Its token hash returns to its id, so the token of an earlier
   email no longer reaches it. Refuses as `withdraw` does, allowing an
   expired invitation.
 

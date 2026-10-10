@@ -30,9 +30,6 @@ message AccountReward {
   optional string transaction_id = 10;
   optional string deferred_reason = 11;
 
-  optional int64 deferred_at = 51;
-  optional int64 paid_at = 53;
-
   required int64 created_at = 101;
   optional int64 updated_at = 103;
 }

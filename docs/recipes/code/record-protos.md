@@ -41,33 +41,26 @@ message CashAccountMigration {
   required CashAccountMigrationStatus status = 4;
   optional int64 notified_on = 9; // epoch day
 
-  optional int64 approved_at = 51;
-  optional com.repldriven.queenswood.schema.actor.Actor approved_by = 52;
-  optional int64 completed_at = 53;
-  optional int64 cancelled_at = 55;
-  optional com.repldriven.queenswood.schema.actor.Actor cancelled_by = 56;
-
   required string idempotency_key = 100;
   required int64 created_at = 101;
   required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
   optional int64 updated_at = 103;
+  optional com.repldriven.queenswood.schema.actor.Actor updated_by = 104;
 }
 ```
 
 - **1 to 50, the record's own fields.** The primary key's fields first,
   in key order and set apart by a blank line, then the rest in the
-  order the domain reads them.
-- **51 to 99, its transitions.** One pair per transition, the `_at` on
-  the odd number and the `_by` on the even one after it. A transition
-  nobody performs, as the scheduler completing a migration, leaves its
-  `_by` number unused. A pair is named for the state it reaches, in the
-  verb the domain uses and the one every other record reaching that
-  state uses: `completed_at` wherever a status is `COMPLETED`.
+  order the domain reads them. A value the domain reads to decide,
+  such as the status a refused close returns an account to, is one of
+  these.
 - **100 to 104, creation and update.** `idempotency_key` 100,
   `created_at` 101, `created_by` 102, `updated_at` 103, `updated_by`
   104, each only where the record has it and it is not in the primary
   key. `updated_at` and `updated_by` are never required: a record
-  nobody has changed has neither, so its create leaves them unset. The
+  nobody has changed has neither, so its create leaves them unset. A
+  change a person or an operator makes sets both, and one the platform
+  makes sets `updated_at` and clears `updated_by`. The
   idempotency key is the key a repeat of the request that created the
   record is recognised by, whether the request is an API call carrying
   an `Idempotency-Key` or a changelog event a consumer may be handed
@@ -75,9 +68,9 @@ message CashAccountMigration {
 - **200, the failure.** `failure_reason` on any record whose own
   processing can go wrong, as an interest run or a delivery can. An
   outcome the domain expects, such as a payment the scheme declines,
-  is not a failure in this sense: its details sit beside its `_at`,
-  each named for the state it explains, as `failed_kind`,
-  `failed_reason_code` and `failed_reason` beside `failed_at`.
+  is not a failure in this sense: its details are the record's own
+  fields, each named for the state it explains, as `failed_kind`,
+  `failed_reason_code` and `failed_reason`.
 - **201 to 203, delivery.** On a record that retries an outbound call,
   as an email delivery does: `attempt_count` 201, `next_attempt_at` 202
   and `traceparent` 203. An in-flight item's `next_attempt_at` is when
@@ -110,7 +103,7 @@ pending gained one that failed. A record with one status calls it
 
 Declare a field `required` wherever every write gives it a value, a
 zero, `false` or empty string included, and `optional` only where a
-record legitimately lacks it: a transition that has not happened, a
+record legitimately lacks it: an outcome that has not happened, a
 term a version does not offer. Give no field an explicit
 `[default = …]`.
 
@@ -135,11 +128,8 @@ the record's fields in the proto's order.
   `com.repldriven.queenswood.schema.<folder>` and its Avro schemas the
   same namespace.
 - Set the primary key's fields apart from the rest by a blank line.
-- Name a transition's `_at` and `_by` for the state it reaches, in the
-  verb every record reaching that state uses.
 - Number the primary key's fields first in key order, the record's own
-  fields from 1 to 50, its transitions from 51 to 99 as `_at` and `_by`
-  pairs with the `_at` odd, `idempotency_key`, `created_at`,
+  fields from 1 to 50, `idempotency_key`, `created_at`,
   `created_by`, `updated_at` and `updated_by` at 100 to 104,
   `failure_reason` at 200, and, on a record that retries an outbound
   call, `attempt_count`, `next_attempt_at` and `traceparent` at 201 to
@@ -149,7 +139,7 @@ the record's fields in the proto's order.
 - Name a date `_on`, `business_day` excepted, an instant `_at`, an
   actor `_by`, a count `_count`, the reason a record's processing went
   wrong `failure_reason`, and an expected outcome's details by the
-  state they explain, beside its `_at`.
+  state they explain.
 - Name an enum `…Type` for what a thing is in banking, accounting or an
   outside standard, and `…Kind` for which of the platform's own variants
   selects the code that handles it.
@@ -163,15 +153,12 @@ the record's fields in the proto's order.
 - Give a field an explicit `[default = …]`.
 - Declare `updated_at` or `updated_by` `required`, or set either when
   a record is created.
-- Write `reserved` for an audit or transition number a record does not
-  use.
+- Give a record a field for when or by whom an act happened: the act's
+  audit entry holds both.
+- Write `reserved` for an audit number a record does not use.
 - Comment a record or field with how something elsewhere uses it.
 - Keep a retried attempt's error, a lease or a claim's holder on a
   record.
-
-**MAY:**
-
-- Leave a transition's `_by` unused where nobody performs it.
 
 ## Discussion
 
@@ -190,9 +177,11 @@ and several fields were optional for that reason alone. An explicit
 default would not help: the plugin ignores it, so a Java reader and a
 Clojure one would disagree about the same record.
 
-Who did what is an audit entry committed with the act, and the
-transition band leaves a record once its acts write one: see
+Who did what, and when, is an audit entry committed with the act, so a
+record keeps only its latest change's time and actor: see
 [ADR-0047](../../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md).
+A platform change clears `updated_by` so that a person is never named
+for what the platform did after them.
 
 ## References
 

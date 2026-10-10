@@ -38,19 +38,9 @@ message Party {
   optional string external_reference = 7;
   optional string merged_into_party_id = 8;
 
-  optional int64 activated_at = 51;
-  optional int64 rejected_at = 53;
-  optional int64 suspended_at = 55;
-  optional com.repldriven.queenswood.schema.actor.Actor suspended_by = 56;
-  optional int64 resumed_at = 57;
-  optional com.repldriven.queenswood.schema.actor.Actor resumed_by = 58;
-  optional int64 closed_at = 59;
-  optional com.repldriven.queenswood.schema.actor.Actor closed_by = 60;
-  optional int64 merged_at = 61;
-  optional com.repldriven.queenswood.schema.actor.Actor merged_by = 62;
-
   optional string idempotency_key = 100;
   required int64 created_at = 101;
   required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
   optional int64 updated_at = 103;
+  optional com.repldriven.queenswood.schema.actor.Actor updated_by = 104;
 }

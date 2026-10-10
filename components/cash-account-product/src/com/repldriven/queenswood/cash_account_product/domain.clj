@@ -285,8 +285,6 @@
     (let [now (utility/now)]
       (assoc existing
              :status :version-status-published
-             :published-at now
-             :published-by actor
              :updated-at now
              :updated-by actor))))
 
@@ -300,7 +298,5 @@
     (let [now (utility/now)]
       (assoc existing
              :status :version-status-discarded
-             :discarded-at now
-             :discarded-by actor
              :updated-at now
              :updated-by actor))))

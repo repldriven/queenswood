@@ -30,38 +30,30 @@
                 :external-reference
                 (:external-reference data))))
 
+(defn- moved
+  [party status]
+  (-> party
+      (assoc :status status :updated-at (utility/now))
+      (dissoc :updated-by)))
+
 (defn activate-party
   [party]
-  (let [now (utility/now)]
-    (assoc party
-           :status :party-status-active
-           :activated-at now
-           :updated-at now)))
+  (moved party :party-status-active))
 
 (defn reject-party
   [party]
-  (let [now (utility/now)]
-    (assoc party
-           :status :party-status-rejected
-           :rejected-at now
-           :updated-at now)))
+  (moved party :party-status-rejected))
 
 (defn- check-capability
   [action policies]
   (policy/check-capability policies :party {:action action}))
 
 (defn- transitioned
-  [party status at-key by-key actor]
-  (let [now (utility/now)]
-    (assoc party
-           :status
-           status
-           at-key
-           now
-           by-key
-           (actor-record actor)
-           :updated-at
-           now)))
+  [party status actor]
+  (assoc party
+         :status status
+         :updated-at (utility/now)
+         :updated-by (actor-record actor)))
 
 (defn suspend-party
   [party actor policies]
@@ -73,11 +65,7 @@
                         :status (:status party)
                         :allowed #{:party-status-active}}))
      _ (check-capability :party-action-suspend policies)]
-    (transitioned party
-                  :party-status-suspended
-                  :suspended-at
-                  :suspended-by
-                  actor)))
+    (transitioned party :party-status-suspended actor)))
 
 (defn resume-party
   [party actor policies]
@@ -89,7 +77,7 @@
                         :status (:status party)
                         :allowed #{:party-status-suspended}}))
      _ (check-capability :party-action-resume policies)]
-    (transitioned party :party-status-active :resumed-at :resumed-by actor)))
+    (transitioned party :party-status-active actor)))
 
 (defn close-party
   "Close an active or suspended party. `has-open-accounts?` is the
@@ -111,7 +99,7 @@
          (error/reject :party/open-accounts
                        {:message "Party has open cash accounts"
                         :party-id (:party-id party)}))]
-    (transitioned party :party-status-closed :closed-at :closed-by actor)))
+    (transitioned party :party-status-closed actor)))
 
 (defn merge-party
   "Merge `merged-away` into `survivor`: a tombstone-plus-pointer, not a
@@ -148,11 +136,7 @@
          (error/reject :party/open-accounts
                        {:message "Party has open cash accounts"
                         :party-id (:party-id merged-away)}))]
-    (assoc (transitioned merged-away
-                         :party-status-merged
-                         :merged-at
-                         :merged-by
-                         actor)
+    (assoc (transitioned merged-away :party-status-merged actor)
            :merged-into-party-id
            (:party-id survivor))))
 

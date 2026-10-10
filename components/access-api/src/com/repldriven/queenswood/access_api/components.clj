@@ -49,7 +49,8 @@
    [:invited-email {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
    [:created-by [:ref "Actor"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def MemberList (list-schema "Member" examples/MemberList))
 
@@ -66,7 +67,8 @@
    [:reason {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
    [:created-by [:ref "Actor"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def InvitationList (list-schema "Invitation" examples/InvitationList))
 

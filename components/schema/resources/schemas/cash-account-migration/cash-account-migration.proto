@@ -31,14 +31,9 @@ message CashAccountMigration {
   optional int64 notified_on = 9; // epoch day
   optional int64 due_on = 10; // epoch day
 
-  optional int64 approved_at = 51;
-  optional com.repldriven.queenswood.schema.actor.Actor approved_by = 52;
-  optional int64 completed_at = 53;
-  optional int64 cancelled_at = 55;
-  optional com.repldriven.queenswood.schema.actor.Actor cancelled_by = 56;
-
   required string idempotency_key = 100;
   required int64 created_at = 101;
   required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
   optional int64 updated_at = 103;
+  optional com.repldriven.queenswood.schema.actor.Actor updated_by = 104;
 }

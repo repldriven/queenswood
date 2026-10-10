@@ -298,8 +298,6 @@
     (let [now (utility/now)]
       (assoc endpoint
              :status enabled
-             :enabled-at now
-             :enabled-by actor
              :updated-at now
              :updated-by actor))))
 
@@ -311,8 +309,6 @@
     (let [now (utility/now)]
       (assoc endpoint
              :status disabled
-             :disabled-at now
-             :disabled-by actor
              :updated-at now
              :updated-by actor))))
 
@@ -324,8 +320,6 @@
     (let [now (utility/now)]
       (assoc endpoint
              :status removed
-             :removed-at now
-             :removed-by actor
              :updated-at now
              :updated-by actor))))
 
@@ -344,8 +338,6 @@
               :secret secret
               :previous-secret (:secret endpoint)
               :previous-secret-expires-at previous-expires-at
-              :secret-rotated-at now
-              :secret-rotated-by actor
               :updated-at now
               :updated-by actor)
        :rotation-idempotency-key
@@ -389,10 +381,10 @@
                  (dissoc :next-attempt-at))]
     (cond
      (delivered? status)
-     (assoc base :status delivery-delivered :delivered-at now)
+     (assoc base :status delivery-delivered :updated-at now)
 
      (circuit-breaker/give-up? retry-policy attempt-count age-ms)
-     (assoc base :status delivery-failed :failed-at now)
+     (assoc base :status delivery-failed :updated-at now)
 
      :else
      (assoc base

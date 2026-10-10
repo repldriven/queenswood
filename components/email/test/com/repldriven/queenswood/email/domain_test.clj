@@ -90,7 +90,7 @@
     (let [sent (SUT/mark-sent delivery "<id@queenswood.local>" now)]
       (is (= :email-delivery-status-sent (:status sent)))
       (is (= "<id@queenswood.local>" (:message-id sent)))
-      (is (= now (:sent-at sent)))
+      (is (= now (:updated-at sent)))
       (is (= 1 (:attempt-count sent)))
       (is (not (contains? sent :next-attempt-at)))))
   (testing "a superseded delivery has no next attempt"

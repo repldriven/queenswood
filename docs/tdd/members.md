@@ -195,16 +195,16 @@ anomaly kind has, as [service-apis.md](service-apis.md) records.
 Two record types under `schemas/member/`, registered where every
 record type is: the record-type union, the FDB record-type declaration,
 and the `pb->`, `->pb` and `->java` trio in the `schema` brick's
-`interface.clj`. Each act a person or an operator performs is recorded
-on the record it changes, as an `_at` and `_by` pair, as
-[ADR-0046](../adr/0046-who-did-what-is-recorded-on-the-record.md) has
-it.
+`interface.clj`. Each act a person or an operator performs is an audit
+entry, as
+[ADR-0047](../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md)
+has it, and the record keeps the latest change's `updated_at` and
+`updated_by`.
 
 - **`Member`** — bank id, member id (prefix `mem`), status
   (active, removed or left), role, user id, the invitation accepted to
-  create it, a removal as `removed_at`, `removed_by` and
-  `removed_reason`, a leave as `left_at` and `left_by`, and
-  `created_by` beside the timestamps.
+  create it, a removal's `removed_reason`, and `created_by` and
+  `updated_by` beside the timestamps.
   The primary key is `[bank_id, member_id]`, so a bank's members
   scan contiguously and a bank-scoped read finds no other bank's
   member. `Member_by_user`, unique on `[user_id, member_id]`, lists a
@@ -217,10 +217,8 @@ it.
   (pending, accepted, declined, withdrawn, expired), role, email as the
   inviter typed it and lower-cased for matching, the SHA-256 of the
   link's token, `expires_at`, the inviter's reason and a withdrawal's
-  as `withdrawn_reason`; the pairs `accepted_at` and `accepted_by`,
-  `declined_at` and `declined_by`, `withdrawn_at` and `withdrawn_by`,
-  and `resent_at` and `resent_by` for the latest resend; and
-  `created_by` beside the timestamps. The primary key is
+  as `withdrawn_reason`, and `created_by` and `updated_by` beside the
+  timestamps. The primary key is
   `[bank_id, invitation_id]`; indexed by the lower-cased email, and by
   token hash under a unique index. One pending invitation per address
   per bank is a domain rule inside the transaction, off a scan of the

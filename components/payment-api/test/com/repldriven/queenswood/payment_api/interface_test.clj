@@ -51,7 +51,6 @@
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
    :business-day "2023-11-14"
    :return-failed-reason "The payment could not be returned"
-   :settled-at 1700000000001
    :created-at 1700000000000
    :updated-at 1700000000001
    :scheme-payload "{}"})

@@ -8,11 +8,7 @@
 
 (defn- idv->avro
   [idv]
-  (-> idv
-      (dissoc :evidence :criteria)
-      (update :accepted-at (fn [t] (when (and t (pos? t)) t)))
-      (update :rejected-at (fn [t] (when (and t (pos? t)) t)))
-      (update :cancelled-at (fn [t] (when (and t (pos? t)) t)))))
+  (dissoc idv :evidence :criteria))
 
 (defn- ->response
   [config result]

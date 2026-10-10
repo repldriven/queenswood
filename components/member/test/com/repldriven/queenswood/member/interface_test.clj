@@ -152,7 +152,7 @@
                      "the invitation reads accepted by the person who accepted"
                      (is (= :invitation-status-accepted (:status accepted)))
                      (is (= "usr.accept.invitee"
-                            (get-in accepted [:accepted-by :principal-id])))
+                            (get-in accepted [:updated-by :principal-id])))
                      (is (not (contains? accepted :token-hash))))
                  by-email
                  (invite config bank-id owner "second@example.com" :role-viewer)

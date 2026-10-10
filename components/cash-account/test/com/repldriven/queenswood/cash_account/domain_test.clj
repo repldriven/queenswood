@@ -170,7 +170,7 @@
                                       "The account was declined")]
       (is (= :cash-account-status-refused (:status result)))
       (is (= "The account was declined" (:refused-reason result)))
-      (is (number? (:refused-at result))))))
+      (is (number? (:updated-at result))))))
 
 (defn- count-limit
   [bound filters]
@@ -243,8 +243,21 @@
                                     [(policy-allowing
                                       :cash-account-action-close)])]
       (is (= :cash-account-status-closing (:status result)))
-      (is (= operator (:close-requested-by result)))
-      (is (some? (:close-requested-at result))))))
+      (is (= operator (:updated-by result)))
+      (is (= :cash-account-status-suspended (:close-requested-from result))))))
+
+(deftest close-refused-account-test
+  (testing "a refused close returns the account to the status it left"
+    (doseq [from [:cash-account-status-opened :cash-account-status-suspended]]
+      (let [closing (SUT/close-account (account from)
+                                       []
+                                       operator
+                                       [(policy-allowing
+                                         :cash-account-action-close)])
+            result (SUT/close-refused-account closing)]
+        (is (= from (:status result)))
+        (is (nil? (:close-requested-from result)))
+        (is (nil? (:updated-by result)))))))
 
 (def ^:private posted-bucket
   {:balance-type :balance-type-default

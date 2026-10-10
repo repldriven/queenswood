@@ -24,10 +24,9 @@ message ZypheOutboundIntent {
   repeated string subjects = 5;
   optional string correlation_id = 6;
 
-  optional int64 sent_at = 51;
-
   required string idempotency_key = 100; // the command's dedup key
   required int64 created_at = 101;
+  optional int64 updated_at = 103;
 
   optional string failure_reason = 200;
 

@@ -99,7 +99,7 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - migration-id: the migration to approve.
-  - opts: `:actor`, who approves it, recorded as `:approved-by`, and
+  - opts: `:actor`, who approves it, recorded as `:updated-by`, and
     the `:request-id` the bank's audit log names.
 
   Returns the approved migration, a
@@ -121,7 +121,7 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - migration-id: the migration to cancel.
-  - opts: `:actor`, who cancels it, recorded as `:cancelled-by`, and
+  - opts: `:actor`, who cancels it, recorded as `:updated-by`, and
     the `:request-id` the bank's audit log names.
 
   Returns the cancelled migration or a

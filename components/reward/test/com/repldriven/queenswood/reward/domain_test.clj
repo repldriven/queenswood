@@ -85,15 +85,14 @@
                               {:message "Available balance would go negative"})
         deferred (SUT/deferred reward refusal)
         paid (SUT/paid deferred "txn.1")]
-    (testing "a deferred row says why and when, and is new rather than changed"
+    (testing "a deferred row says why, and is new rather than changed"
       (is (= :account-reward-status-deferred (:status deferred)))
       (is (re-find #"limit-exceeded" (:deferred-reason deferred)))
-      (is (some? (:deferred-at deferred)))
       (is (not (contains? deferred :updated-at))))
     (testing "a paid row carries the transaction and drops the reason"
       (is (SUT/paid? paid))
       (is (= "txn.1" (:transaction-id paid)))
-      (is (= (:paid-at paid) (:updated-at paid)))
+      (is (number? (:updated-at paid)))
       (is (not (contains? paid :deferred-reason)))))
   (testing "a reward paid as it is created was never changed"
     (is (not (contains? (SUT/paid (SUT/new-reward account 1000) "txn.2")

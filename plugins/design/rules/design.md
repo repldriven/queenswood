@@ -149,17 +149,17 @@ in one named for the mechanism that carries it, the folder named in the
 singular for the brick that owns it, its package
 `com.repldriven.queenswood.schema.<folder>` and its Avro namespace the
 same. Number the primary key's fields first in key order, set apart by a
-blank line, the record's own fields from 1 to 50, its transitions from 51 to
-99 as `_at` and `_by` pairs with the `_at` odd, `idempotency_key`,
+blank line, the record's own fields from 1 to 50, `idempotency_key`,
 `created_at`, `created_by`, `updated_at` and `updated_by` at 100 to 104,
 the key taken from the API call or changelog event that created the
 record, `failure_reason` at 200, and, on a record that retries an
 outbound call, `attempt_count`, `next_attempt_at` and `traceparent` at
 201 to 203, keeping no retried attempt's error, lease or claim holder;
-and write no `reserved` for a number a record does not use. Name a
-transition's pair for the state it reaches, in the verb every record
-reaching that state uses, and never declare `updated_at` or `updated_by`
-`required` or set either on create.
+and write no `reserved` for a number a record does not use. Give a
+record no field for when or by whom an act happened, which its audit
+entry holds, and never declare `updated_at` or `updated_by` `required`
+or set either on create; a person's or an operator's change sets both,
+and a platform change sets `updated_at` and clears `updated_by`.
 Name a date `_on`, `business_day` excepted, an instant `_at`, an actor
 `_by`, a count `_count`, and the reason a record failed
 `failure_reason`. Name an enum `…Type`
@@ -207,9 +207,9 @@ operator any bank's. Assert in the API scenario runner that every
 successful write call that was not a replay left an audit entry under
 its request id, except a retry after a lost reply and a step marked
 `:audited false` because its write changes nothing. Remove a transition's `_at` and `_by` pair once its act
-writes an audit entry, keeping a time the domain reads to decide as the
+writes an audit entry, keeping a value the domain reads to decide as the
 record's own field and leaving a platform transition to `status` and
-`updated_at`; keep the audit block — `created_at` and `created_by`, and
+`updated_at`, clearing `updated_by`; keep the audit block — `created_at` and `created_by`, and
 `updated_at` with `updated_by` set together — and publish only it.
 Remove a record kept only to remember an act, such as
 `MemberRoleChange`, and leave the changelog envelope without an actor.

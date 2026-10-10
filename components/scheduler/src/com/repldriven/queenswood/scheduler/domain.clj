@@ -117,10 +117,12 @@
         :job-id (:job-id job)}))))
 
 (defn run-duration
-  "Wall-clock duration of a completed run, or nil for any other."
+  "Wall-clock duration of a completed run, from its creation to its last
+  write, which is its completion; nil for any other."
   [run]
-  (when-let [completed-at (:completed-at run)]
-    (- completed-at (:created-at run))))
+  (let [{:keys [status created-at updated-at]} run]
+    (when (and (= :scheduler-run-status-completed status) updated-at)
+      (- updated-at created-at))))
 
 (def ^:private period-holding-statuses
   #{:scheduler-run-status-running :scheduler-run-status-completed})

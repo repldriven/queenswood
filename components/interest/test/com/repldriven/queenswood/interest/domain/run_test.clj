@@ -77,7 +77,7 @@
       (is (= 20260501 (:business-day run)))
       (is (= :interest-run-kind-accrue (:kind run)))
       (is (number? (:created-at run)))
-      (is (number? (:closed-at run))))))
+      (is (number? (:updated-at run))))))
 
 (deftest check-complete-test
   (testing "a pass with every account posted closes"

@@ -35,7 +35,6 @@
    :endpoint-id WebhookEndpointId
    :status :delivered
    :kind "cash-account.opened"
-   :delivered-at "2026-05-18T09:15:04Z"
    :created-at "2026-05-18T09:15:00Z"
    :attempt-count 1})
 

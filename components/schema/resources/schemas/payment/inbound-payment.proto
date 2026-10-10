@@ -39,13 +39,6 @@ message InboundPayment {
   optional string suspended_reason = 15;
   optional string return_failed_reason = 16;
 
-  optional int64 admitted_at = 51;
-  optional int64 held_at = 53;
-  optional int64 settled_at = 55;
-  optional int64 suspended_at = 57;
-  optional int64 returned_at = 59;
-  optional int64 return_failed_at = 61;
-
   required int64 created_at = 101;
   optional int64 updated_at = 103;
 }

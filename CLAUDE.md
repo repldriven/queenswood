@@ -147,8 +147,8 @@ non-trivial work on their topic.
   and [ADR-0021](docs/adr/0021-changelog-relay.md).
 - **Who did what** — proposed: an append-only audit entry committed
   with each act a person, a bank or an operator performs, an access
-  entry for every API call, joined by the request's id, and the
-  transition band leaving the record.
+  entry for every API call, joined by the request's id, and a record
+  keeping only its latest change's time and actor.
   See [ADR-0047](docs/adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md).
 
 ### Tests

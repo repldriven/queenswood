@@ -189,8 +189,8 @@
         (if (nil? task-kind)
           (let [now (utility/now)
                 run (assoc (ran base tasks now)
-                           :status :scheduler-run-status-completed
-                           :completed-at now)]
+                           :status
+                           :scheduler-run-status-completed)]
             (store/save-run config run)
             (record-run config bank-id (:job-id job) created-at)
             run)
@@ -216,7 +216,6 @@
                                            (map task-label more)))
                                     now)
                                :status :scheduler-run-status-failed
-                               :failed-at now
                                :failure-reason (error/format-anomaly result))]
                 (store/save-run config run)
                 result)
@@ -276,20 +275,12 @@
        (let-nom> [_ (domain/validate-system-edits job edits)
                   _ (domain/validate-schedule (:task-kinds job) schedule now)]
          (let [by (select-keys actor [:kind :principal-id])
-               updated (cond-> (assoc job
-                                      :schedule schedule
-                                      :status status
-                                      :next-run-at (scheduler/next-fire-at
-                                                    schedule
-                                                    now)
-                                      :updated-at now
-                                      :updated-by by)
-
-                               (domain/paused? job status)
-                               (assoc :paused-at now :paused-by by)
-
-                               (domain/resumed? job status)
-                               (assoc :resumed-at now :resumed-by by))
+               updated (assoc job
+                              :schedule schedule
+                              :status status
+                              :next-run-at (scheduler/next-fire-at schedule now)
+                              :updated-at now
+                              :updated-by by)
                kind (cond (domain/paused? job status)
                           :audit-event-kind-job-paused
 

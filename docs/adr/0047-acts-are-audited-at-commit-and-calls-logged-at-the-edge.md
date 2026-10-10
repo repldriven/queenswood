@@ -118,8 +118,8 @@ The decision has these parts:
   says `:audited false` because its write changes nothing.
 - Remove a transition's `_at` and `_by` pair from its record once
   its act writes an audit entry, keeping among the record's own fields
-  a time the domain reads to decide, and leaving a platform transition
-  to the record's `status` and `updated_at`.
+  a value the domain reads to decide, and leaving a platform transition
+  to the record's `status` and `updated_at`, clearing `updated_by`.
 - Keep the audit block on every record: `created_at` and `created_by`,
   and `updated_at` with `updated_by` where the record has an actor
   for its changes, the pair set together; publish only that block

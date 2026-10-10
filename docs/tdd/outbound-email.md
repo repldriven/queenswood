@@ -240,7 +240,7 @@ Two component kinds, registered from `system.clj`:
 - Delivery id (prefix `eml`), bank id, kind (invitation), and
   `kind_id`, the id of the record the kind names: the invitation's.
 - Status: pending, in flight, sent, superseded, failed.
-- The `message_id` the mail server was handed, and `sent_at`.
+- The `message_id` the mail server was handed.
 - The changelog event id as its `idempotency_key`, under a unique
   index, so a relay redrive writes nothing twice; `created_at` and
   `updated_at`.
@@ -274,8 +274,7 @@ For each claimed delivery the runner:
    delivery superseded. A failure or no reply is a failed attempt.
 4. Sends the message through `smtp/send`. An anomaly is a failed
    attempt.
-5. Marks the delivery sent with the Message-ID `send` answered and
-   `sent_at`.
+5. Marks the delivery sent with the Message-ID `send` answered.
 
 A failed attempt increments `attempt_count`, logs its error and sets
 `next_attempt_at` from the runner's `delivery-policy`, and past its

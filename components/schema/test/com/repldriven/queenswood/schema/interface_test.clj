@@ -105,8 +105,8 @@
     (let [account (SUT/pb->CashAccount (SUT/CashAccount->pb opened-account))]
       (is (not (contains? account :rotation))
           "an account that has never been rotated has no rotation")
-      (is (not (contains? account :suspended-at)))
-      (is (not (contains? account :suspended-by)))
+      (is (not (contains? account :updated-by)))
+      (is (not (contains? account :close-requested-from)))
       (is (= {:kind :actor-kind-operator :principal-id "test"}
              (:created-by account))))))
 
@@ -143,7 +143,6 @@
    :end-to-end-id "01a0b01c-546b-76ac-9462-53eec8a61307"
    :scheme-transaction-id "01a0b01c-5496-7d64-a052-ad4c57e5d0ef"
    :business-day 20713
-   :suspended-at 1700000000000
    :created-at 1700000000000})
 
 (deftest inbound-payment-record-round-trip-test
@@ -151,10 +150,8 @@
     (let [payment (SUT/pb->InboundPayment (SUT/InboundPayment->pb
                                            suspended-inbound))]
       (is (= :inbound-payment-status-suspended (:status payment)))
-      (is (= 1700000000000 (:suspended-at payment)))
       (is (not (contains? payment :creditor-account-id)))
       (is (not (contains? payment :transaction-id)))
-      (is (not (contains? payment :settled-at)))
       (is (not (contains? payment :updated-at)))))
   (testing "a settled record keeps both"
     (let [payment (SUT/pb->InboundPayment
@@ -186,8 +183,8 @@
     (let [ended (assoc owner
                        :role :role-viewer
                        :status :member-status-removed
-                       :removed-at 1700000000500
-                       :removed-by member-actor
+                       :updated-at 1700000000500
+                       :updated-by member-actor
                        :removed-reason "Left the company"
                        :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2")]
       (is (= ended (SUT/pb->Member (SUT/Member->pb ended))))
@@ -214,23 +211,21 @@
     (is (= pending-invitation
            (SUT/pb->Invitation (SUT/Invitation->pb pending-invitation))))
     (is (some? (SUT/Invitation->java pending-invitation))))
-  (testing "an operator's resent, then accepted, invitation keeps each act"
+  (testing "an accepted invitation keeps who created and who last changed it"
     (let [accepted (assoc pending-invitation
                           :status :invitation-status-accepted
                           :created-by operator-actor
                           :reason "Support ticket 42"
-                          :resent-at 1700000000100
-                          :resent-by operator-actor
-                          :accepted-at 1700000000200
-                          :accepted-by {:kind :actor-kind-member
-                                        :principal-id
-                                        "usr.01kprbmgcj35ptc8npmybhh4t3"})]
+                          :updated-at 1700000000200
+                          :updated-by {:kind :actor-kind-member
+                                       :principal-id
+                                       "usr.01kprbmgcj35ptc8npmybhh4t3"})]
       (is (= accepted (SUT/pb->Invitation (SUT/Invitation->pb accepted))))))
   (testing "a withdrawn invitation keeps who withdrew it and why"
     (let [withdrawn (assoc pending-invitation
                            :status :invitation-status-withdrawn
-                           :withdrawn-at 1700000000300
-                           :withdrawn-by operator-actor
+                           :updated-at 1700000000300
+                           :updated-by operator-actor
                            :withdrawn-reason "Sent to the wrong address")]
       (is (= withdrawn (SUT/pb->Invitation (SUT/Invitation->pb withdrawn)))))))
 
@@ -248,14 +243,13 @@
                     :next-attempt-at 1700000000000}]
       (is (= delivery (SUT/pb->EmailDelivery (SUT/EmailDelivery->pb delivery))))
       (is (some? (SUT/EmailDelivery->java delivery)))))
-  (testing "a sent delivery carries its attempts, message id and send"
+  (testing "a sent delivery carries its attempts and message id"
     (let [delivery {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
                     :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
                     :kind :email-kind-invitation
                     :status :email-delivery-status-sent
                     :kind-id "inv.01kprbmgcj35ptc8npmybhh4t2"
                     :message-id "<abc@queenswood.local>"
-                    :sent-at 1700000060000
                     :idempotency-key "01kprbmgcj35ptc8npmybhh4t8"
                     :created-at 1700000000000
                     :updated-at 1700000060000
@@ -341,11 +335,10 @@
    :amount 1000
    :currency "GBP"
    :deferred-reason "house account cannot cover it"
-   :deferred-at 1700000000000
    :created-at 1700000000000})
 
 (deftest account-reward-record-round-trip-test
-  (testing "a deferred reward carries no transaction, paid-at or update"
+  (testing "a deferred reward carries no transaction or update"
     (is (= deferred-reward
            (SUT/pb->AccountReward (SUT/AccountReward->pb deferred-reward))))
     (is (some? (SUT/AccountReward->java deferred-reward))))
@@ -354,7 +347,6 @@
                    (dissoc :deferred-reason)
                    (assoc :status :account-reward-status-paid
                           :transaction-id "txn.01kprbmgcj35ptc8npmybhh4tb"
-                          :paid-at 1700003600000
                           :updated-at 1700003600000))]
       (is (= paid (SUT/pb->AccountReward (SUT/AccountReward->pb paid))))
       (is (= (SUT/account-reward-status->int :account-reward-status-paid)
@@ -377,12 +369,11 @@
    :created-by member-actor})
 
 (deftest outbound-payment-record-round-trip-test
-  (testing "a failed record keeps its kind, code, reason and when"
+  (testing "a failed record keeps its kind, code and reason"
     (let [failed (assoc failed-outbound
                         :failed-kind :outbound-payment-failed-kind-refused
                         :failed-reason-code "NARR"
                         :failed-reason "HTTP 400"
-                        :failed-at 1700000000100
                         :updated-at 1700000000100)]
       (is (= failed
              (SUT/pb->OutboundPayment (SUT/OutboundPayment->pb failed))))))

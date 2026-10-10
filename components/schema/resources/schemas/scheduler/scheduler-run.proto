@@ -52,9 +52,6 @@ message SchedulerRun {
   optional int64 expected_end_at = 7;
   repeated SchedulerTaskRun tasks = 8;
 
-  optional int64 completed_at = 51;
-  optional int64 failed_at = 53;
-
   required int64 created_at = 101;
   optional com.repldriven.queenswood.schema.actor.Actor created_by = 102;
   optional int64 updated_at = 103;

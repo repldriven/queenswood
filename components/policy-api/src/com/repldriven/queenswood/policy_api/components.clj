@@ -34,7 +34,8 @@
    [:limits [:vector [:ref "Limit"]]]
    [:labels [:map-of string? string?]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def PolicyList (list-schema "Policy" examples/PolicyList))
 

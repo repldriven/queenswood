@@ -33,7 +33,7 @@
   (let [b (outcomes nil 0 :failed :failed :failed)]
     (testing "the threshold opens it for the cool-down"
       (is (= :circuit-breaker-status-open (:status b)))
-      (is (= 2 (:opened-at b)))
+      (is (= 2 (:updated-at b)))
       (is (= 1002 (:next-probe-at b))))
     (testing "an open breaker holds calls until the cool-down ends"
       (is (= [:open nil] (SUT/allow b 1001 500))))

@@ -33,16 +33,8 @@ message Invitation {
   optional string reason = 9;
   optional string withdrawn_reason = 10;
 
-  optional int64 accepted_at = 51;
-  optional com.repldriven.queenswood.schema.actor.Actor accepted_by = 52;
-  optional int64 declined_at = 53;
-  optional com.repldriven.queenswood.schema.actor.Actor declined_by = 54;
-  optional int64 withdrawn_at = 55;
-  optional com.repldriven.queenswood.schema.actor.Actor withdrawn_by = 56;
-  optional int64 resent_at = 57;
-  optional com.repldriven.queenswood.schema.actor.Actor resent_by = 58;
-
   required int64 created_at = 101;
   required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
   optional int64 updated_at = 103;
+  optional com.repldriven.queenswood.schema.actor.Actor updated_by = 104;
 }

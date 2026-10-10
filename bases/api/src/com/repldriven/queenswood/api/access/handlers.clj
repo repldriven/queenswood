@@ -121,7 +121,10 @@
                       :updated-at])
         (assoc :created-organisation (nil? invitation-id)
                :created-by (names/->actor (:created-by member) names))
-        (utility/assoc-some :bank-name bank-name
+        (utility/assoc-some :updated-by
+                            (some-> (:updated-by member)
+                                    (names/->actor names))
+                            :bank-name bank-name
                             :name (:name user)
                             :email (:email user)
                             :invitation-id invitation-id
@@ -165,7 +168,9 @@
                     (lookup txn)
                     (names/actor-ids
                      (concat (map (comp :created-by :invitation) records)
-                             (map (comp :created-by :member) records))))]
+                             (mapcat (comp (juxt :created-by :updated-by)
+                                           :member)
+                              records))))]
     (let [bank-names (into {}
                            (map (fn [bank-id] [bank-id
                                                (bank-name txn bank-id)]))
@@ -188,12 +193,16 @@
   (-> (select-keys invitation
                    [:invitation-id :bank-id :email :role :status :expires-at
                     :reason :created-at :updated-at])
-      (assoc :created-by (names/->actor (:created-by invitation) names))))
+      (assoc :created-by (names/->actor (:created-by invitation) names))
+      (utility/assoc-some :updated-by
+                          (some-> (:updated-by invitation)
+                                  (names/->actor names)))))
 
 (defn- inviter-names
   [txn invitations]
   (names/user-names (lookup txn)
-                    (names/actor-ids (map :created-by invitations))))
+                    (names/actor-ids (mapcat (juxt :created-by :updated-by)
+                                      invitations))))
 
 (defn- invitations
   [txn found]
