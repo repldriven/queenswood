@@ -1,8 +1,9 @@
 (ns com.repldriven.queenswood.migrator.schema-evolution-test
   "The working tree's record meta-data must be an evolution the migrator
-  accepts of the last stable tag's, built here from that tag's
-  declaration and protos — the check a changed index, record or version
-  meets before it reaches a store holding data."
+  accepts of the last stable tag's, or of the last release's while the
+  tree declares version 1, built here from that tag's declaration and
+  protos — the check a changed index, record or version meets before it
+  reaches a store holding data."
   (:require
     [com.repldriven.queenswood.fdb.interface :as fdb]
 
@@ -38,14 +39,23 @@
 
 (defn- repo-root [] (str/trim (sh! "git" "rev-parse" "--show-toplevel")))
 
+(defn- declaration [file] (env/config (str file) :default))
+
 (defn- baseline-tag
+  "The last release's tag while the working tree declares version 1, since
+  a store holding version 1 is emptied before it deploys until a release
+  carries version 1, and the last stable tag otherwise."
   [root]
-  (str/trim (sh! "git"
-                 "-C"
-                 root
-                 "describe"
-                 "--tags" "--match"
-                 "stable-*" "--abbrev=0")))
+  (let [version (get (declaration (io/file root declaration-path))
+                     "version")]
+    (str/trim (sh! "git"
+                   "-C"
+                   root
+                   "describe"
+                   "--tags"
+                   "--match"
+                   (if (= 1 version) "v*" "stable-*")
+                   "--abbrev=0"))))
 
 (defn- materialise
   "Writes the tag's declaration and protos under dir, at their repo paths."
@@ -119,8 +129,6 @@
                                  in
                                  registry))))
         (get schema-proto))))
-
-(defn- declaration [file] (env/config (str file) :default))
 
 (defn- reset?
   "Whether `new` starts the meta-data again at version 1 below `old`,
