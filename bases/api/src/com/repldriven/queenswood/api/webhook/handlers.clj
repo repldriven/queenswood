@@ -87,7 +87,7 @@
             (assoc :idempotency-key key))))
 
 (defn- with-request-id
-  "`opts` naming the request, so the write's audit event names it."
+  "`opts` naming the request, so the write's audit entry names it."
   [opts request]
   (assoc opts :request-id (:request-id request)))
 

@@ -571,9 +571,9 @@ const ACCESS_EVENT_KINDS = [
 
 // `next` is the previous page's `links.next`, which carries the kinds;
 // without it, the newest page.
-export function list_audit_events({ next, size = 8 } = {}) {
+export function list_audit_entries({ next, size = 8 } = {}) {
   return request(
     next ??
-      `/v1/bank/audit-events?kind=${ACCESS_EVENT_KINDS}&page[size]=${size}`,
+      `/v1/bank/audit-log?kind=${ACCESS_EVENT_KINDS}&page[size]=${size}`,
   );
 }

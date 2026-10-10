@@ -74,7 +74,7 @@
         {:invitation-id [:ref :invitation :invitation-id]}]]]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/bank/audit-events"
+             :path "/v1/bank/audit-log"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert

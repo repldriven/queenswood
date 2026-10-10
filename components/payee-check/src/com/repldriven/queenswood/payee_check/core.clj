@@ -59,7 +59,7 @@
        (let-nom> [_ (store/save-check txn check)
                   _ (audit/record txn
                                   {:bank-id bank-id
-                                   :kind :audit-event-kind-payee-check-made
+                                   :kind :audit-kind-payee-check-made
                                    :subject-kind :audit-subject-kind-payee-check
                                    :subject-id (:check-id check)
                                    :request-id request-id

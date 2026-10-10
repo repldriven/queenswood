@@ -8,8 +8,8 @@
 
 ## Context
 
-The property wanted is that every change a person, a bank or an
-operator makes to a bank's records can be attributed, act by act, and
+The property wanted is that every change a member, an operator or the
+bank's credential makes to a bank's records can be attributed, act by act, and
 that every call made to the API, a read included, can be accounted
 for. A regulator or a bank asking why customers' accounts moved onto
 new terms asks who approved it. One asking who looked at a customer's
@@ -54,7 +54,8 @@ The shortlist:
 
 ## Decision
 
-Every change a person, a bank or an operator makes commits an
+Every change a member, an operator or the bank's credential makes
+commits an
 append-only audit entry in the transaction that makes it, every call
 to the API leaves an access entry written at the edge, and the two
 share the id the API gives the request; a record keeps only the audit
@@ -62,7 +63,7 @@ block, and the transition band leaves it.
 
 The decision has these parts:
 
-- Append each entry, an `AuditEvent` message, under the bank and the
+- Append each entry, an `AuditEntry` message, under the bank and the
   versionstamp of the commit that makes it, outside the Record Layer,
   and an empty key beside it under the bank, the subject's id and that
   versionstamp, and under the bank, the kind and that versionstamp, so
@@ -75,7 +76,7 @@ The decision has these parts:
   [ADR-0045](0045-a-persons-identity-evidence-stays-with-the-customers-provider.md)
   has it, and indexed by nothing.
 - Number `AuditSubjectKind` in tens and each subject's
-  `AuditEventKind`s up from its own, so a kind's number shows its
+  `AuditKind`s up from its own, so a kind's number shows its
   subject.
 - Write one entry per act, naming the record it acts on, through one
   function in an `audit` brick, `record`, called in the transaction
@@ -107,8 +108,8 @@ The decision has these parts:
 - Keep audit entries for the life of the bank. Keep access entries for
   a period the installation configures, and delete older ones from a
   system job, the only deletion either store allows.
-- Serve a bank its own entries at `GET /v1/bank/audit-events`, which
-  takes a set of kinds, and `GET /v1/bank/access-entries`, and an
+- Serve a bank its own entries at `GET /v1/bank/audit-log`, which
+  takes a set of kinds, and `GET /v1/bank/access-log`, and an
   operator any bank's, each actor named on read as the access routes
   name one today.
 - Assert in the API scenario runner, after each step, that every

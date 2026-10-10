@@ -1439,33 +1439,33 @@
   (InvitationProto$InvitationStatus/forNumber
    (invitation-status->int invitation-status)))
 
-(defn pb->AuditEvent
-  "Parse AuditEvent protobuf bytes into a Clojure map, each optional
+(defn pb->AuditEntry
+  "Parse AuditEntry protobuf bytes into a Clojure map, each optional
   field present only when set and `created-by` a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (-> (audit/pb->AuditEvent input)
+  (-> (audit/pb->AuditEntry input)
       (without-unset {:request-id "" :details ""})
       (plain-embedded :created-by)))
 
-(defn audit-event-kind->int
-  "The protobuf number of an `:audit-event-kind-*` keyword, which keys
-  a bank's audit events by kind.
+(defn audit-kind->int
+  "The protobuf number of an `:audit-kind-*` keyword, which keys
+  a bank's audit entries by kind.
 
   Args:
-  - kind: `:audit-event-kind-*` keyword."
+  - kind: `:audit-kind-*` keyword."
   [kind]
-  (audit/AuditEventKind-label2val kind))
+  (audit/AuditKind-label2val kind))
 
-(defn AuditEvent->pb
-  "Serialise an AuditEvent map to protobuf bytes.
+(defn AuditEntry->pb
+  "Serialise an AuditEntry map to protobuf bytes.
 
   Args:
-  - m: AuditEvent map matching the generated schema."
+  - m: AuditEntry map matching the generated schema."
   [m]
-  (proto/->pb (audit/new-AuditEvent m)))
+  (proto/->pb (audit/new-AuditEntry m)))
 
 (def ^:private webhook-endpoint-unset
   {:description ""

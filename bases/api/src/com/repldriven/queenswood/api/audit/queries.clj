@@ -27,16 +27,16 @@
   audit log shows as fields of its own."
   [:subject-user-id :member-id :role-before :role-after :reason])
 
-(defn- ->audit-event
-  "An audit event as the bank's audit log shows it: its actor and the
+(defn- ->audit-entry
+  "An audit entry as the bank's audit log shows it: its actor and the
   person it concerns named, an invitation's address read from the
   invitation, and its details."
-  [event names emails]
-  (let [{:keys [subject-kind subject-id details created-by created-at]} event
+  [entry names emails]
+  (let [{:keys [subject-kind subject-id details created-by created-at]} entry
         invitation? (= :audit-subject-kind-invitation subject-kind)
         subject-user-id (:subject-user-id details)]
-    (-> (select-keys event
-                     [:audit-event-id :bank-id :kind :subject-kind :subject-id
+    (-> (select-keys entry
+                     [:audit-entry-id :bank-id :kind :subject-kind :subject-id
                       :request-id])
         (merge (cond-> (select-keys details access-details)
                        (:role-before details)
@@ -57,8 +57,8 @@
                             (when invitation? (get emails subject-id))))))
 
 (defn- invitation-emails
-  "The address of each invitation the events name, by invitation id."
-  [txn bank-id events]
+  "The address of each invitation the entries name, by invitation id."
+  [txn bank-id entries]
   (reduce (fn [emails invitation-id]
             (let [invitation (members/find-invitation txn
                                                       bank-id
@@ -71,18 +71,18 @@
                             (when (= :audit-subject-kind-invitation
                                      subject-kind)
                               subject-id))
-                          events))))
+                          entries))))
 
-(defn- named-audit-events
-  [txn bank-id events]
+(defn- named-audit-entries
+  [txn bank-id entries]
   (let-nom> [names (names/user-names
                     (lookup txn)
-                    (concat (names/actor-ids (map :created-by events))
-                            (keep (comp :subject-user-id :details) events)))]
-    (let [emails (invitation-emails txn bank-id events)]
-      (mapv (fn [event] (->audit-event event names emails)) events))))
+                    (concat (names/actor-ids (map :created-by entries))
+                            (keep (comp :subject-user-id :details) entries)))]
+    (let [emails (invitation-emails txn bank-id entries)]
+      (mapv (fn [entry] (->audit-entry entry names emails)) entries))))
 
-(defn list-audit-events
+(defn list-audit-entries
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
@@ -95,7 +95,8 @@
                                             (assoc (cursor/page-opts page)
                                                    :kinds
                                                    kind))
-                  named (named-audit-events txn bank-id (:audit-events found))]
+                  named
+                  (named-audit-entries txn bank-id (:audit-entries found))]
                  (cursor/page-body (cursor/request-path request)
                                    page
                                    named

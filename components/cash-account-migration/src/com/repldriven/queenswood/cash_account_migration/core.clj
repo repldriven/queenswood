@@ -31,8 +31,8 @@
      :else
      (first versions))))
 
-(defn- audit-event
-  "The audit event of an act on `migration`, by `actor` under the API
+(defn- audit-entry
+  "The audit entry of an act on `migration`, by `actor` under the API
   request `request-id`."
   [kind migration actor request-id details]
   {:bank-id (:bank-id migration)
@@ -73,7 +73,7 @@
               migration (domain/new-migration data source target)
               _ (store/save-migration txn migration)
               _ (audit/record txn
-                              (audit-event :audit-event-kind-migration-created
+                              (audit-entry :audit-kind-migration-created
                                            migration
                                            (:created-by data)
                                            (:request-id data)
@@ -310,7 +310,7 @@
           run (domain/new-run migration business-day dry-run? actor)
           _ (store/save-run txn run)
           _ (audit/record txn
-                          (audit-event :audit-event-kind-migration-previewed
+                          (audit-entry :audit-kind-migration-previewed
                                        migration
                                        actor
                                        request-id
@@ -373,7 +373,7 @@
         approved (domain/approve-migration migration actor)
         _ (store/save-migration txn approved)
         _ (audit/record txn
-                        (audit-event :audit-event-kind-migration-approved
+                        (audit-entry :audit-kind-migration-approved
                                      migration
                                      actor
                                      request-id
@@ -390,7 +390,7 @@
         cancelled (domain/cancel-migration migration actor)
         _ (store/save-migration txn cancelled)
         _ (audit/record txn
-                        (audit-event :audit-event-kind-migration-cancelled
+                        (audit-entry :audit-kind-migration-cancelled
                                      migration
                                      actor
                                      request-id

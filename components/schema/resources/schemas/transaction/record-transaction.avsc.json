@@ -59,6 +59,6 @@
                                                                                   "ACTOR_KIND_OPERATOR",
                                                                                   "ACTOR_KIND_BANK"]}},
                                             {"name": "principal_id", "type": "string"}]}],
-     "default": null, "doc": "who posts it, where a person or an operator does"}
+     "default": null, "doc": "who posts it, where a member, an operator or the bank's credential does"}
   ]
 }

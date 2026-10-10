@@ -78,9 +78,9 @@
   {:token-hash (q/token-hash (:token invitation))})
 
 (defn- access-history
-  "The bank's audit events, newest first."
+  "The bank's audit entries, newest first."
   [config bank-id]
-  (:audit-events (audit/list-by-bank config bank-id {:limit 50})))
+  (:audit-entries (audit/list-by-bank config bank-id {:limit 50})))
 
 (defn- kinds
   [events]
@@ -179,10 +179,10 @@
                                         :principal-id "usr.accept.second"}})
                  history (access-history config bank-id)
                  _ (testing "every act reads back from its record, newest first"
-                     (is (= [:audit-event-kind-invitation-accepted
-                             :audit-event-kind-invitation-created
-                             :audit-event-kind-invitation-accepted
-                             :audit-event-kind-invitation-created]
+                     (is (= [:audit-kind-invitation-accepted
+                             :audit-kind-invitation-created
+                             :audit-kind-invitation-accepted
+                             :audit-kind-invitation-created]
                             (kinds history)))
                      (is (= {:kind :actor-kind-member
                              :principal-id "usr.accept.invitee"}
@@ -227,7 +227,7 @@
                  _ (testing "and writes neither the member nor a change"
                      (is (= first-at (:updated-at loaded)))
                      (is (= :role-developer (:role loaded)))
-                     (is (= [:audit-event-kind-member-role-changed]
+                     (is (= [:audit-kind-member-role-changed]
                             (kinds history))))]))))
 
 (deftest expiry-is-read-and-never-written-test
@@ -414,11 +414,10 @@
                             (map error/kind (filter error/anomaly? results)))))
                  members (q/list-active-by-bank config bank-id)
                  history (access-history config bank-id)
-                 _ (testing "and the bank keeps one owner and one role change"
-                     (is (= [:role-admin :role-owner]
-                            (sort (map :role members))))
-                     (is (= [:audit-event-kind-member-role-changed]
-                            (kinds history))))]))))
+                 _
+                 (testing "and the bank keeps one owner and one role change"
+                   (is (= [:role-admin :role-owner] (sort (map :role members))))
+                   (is (= [:audit-kind-member-role-changed] (kinds history))))]))))
 
 (deftest concurrent-accepts-by-one-person-write-one-member-test
   (with-test-system

@@ -158,7 +158,7 @@ outbound call, `attempt_count`, `next_attempt_at` and `traceparent` at
 and write no `reserved` for a number a record does not use. Give a
 record no field for when or by whom an act happened, which its audit
 entry holds, and never declare `updated_at` or `updated_by` `required`
-or set either on create; a person's or an operator's change sets both,
+or set either on create; a member's, an operator's or the bank's credential's change sets both,
 and a platform change sets `updated_at` and clears `updated_by`.
 Name a date `_on`, `business_day` excepted, an instant `_at`, an actor
 `_by`, a count `_count`, and the reason a record failed
@@ -175,8 +175,8 @@ See [record-protos](../../../docs/recipes/code/record-protos.md).
 
 ## Acts are audited at commit, and calls logged at the edge
 
-Write one append-only `AuditEvent` for each act a person, a bank or an
-operator performs, naming the record it acts on, through the `audit`
+Write one append-only `AuditEntry` for each act a member, an operator
+or the bank's credential performs, naming the record it acts on, through the `audit`
 brick's `record`, in the transaction that saves the change; write none
 for what the platform does by itself, and leave a record the act writes
 as its consequence to its own `created_by`. Append it under the bank and
@@ -187,7 +187,7 @@ a page at a time. Hold the act's kind, the subject's kind and id, the
 actor as `created_by`, the request id, the time and `details`, a json
 string of whatever the act carried, indexed by nothing and never a
 person's name or contact details. Number `AuditSubjectKind` in tens and
-each subject's `AuditEventKind`s up from its own. Keep the log
+each subject's `AuditKind`s up from its own. Keep the log
 append-only: only the `audit` brick names its keys, which semgrep holds,
 and it exposes `record` and reads alone. Build the caller's actor in one
 place in the `api` base, give every request a uuidv7 id in an
@@ -201,8 +201,8 @@ duration, no body or query value — off the request's thread, many to a
 transaction, in the `access-log` brick behind a bounded queue whose
 dropped count is published. Keep audit entries for the bank's life and
 access entries for a configured period, deleted by a system job, the
-only deletion either allows. Serve them at `GET /v1/bank/audit-events`,
-which takes a set of kinds, and `GET /v1/bank/access-entries`, an
+only deletion either allows. Serve them at `GET /v1/bank/audit-log`,
+which takes a set of kinds, and `GET /v1/bank/access-log`, an
 operator any bank's. Assert in the API scenario runner that every
 successful write call that was not a replay left an audit entry under
 its request id, except a retry after a lost reply and a step marked

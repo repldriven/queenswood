@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.bank.core
   (:require
-    [com.repldriven.queenswood.bank.audit-events :as audit-events]
+    [com.repldriven.queenswood.bank.audit-entries :as audit-entries]
     [com.repldriven.queenswood.bank.changelog :as changelog]
     [com.repldriven.queenswood.bank.domain :as domain]
     [com.repldriven.queenswood.bank.store :as store]
@@ -255,14 +255,14 @@
                                     :role role
                                     :actor actor}))
        _ (audit/record txn
-                       (audit-events/bank :audit-event-kind-bank-created
-                                          bank
-                                          actor
-                                          (:request-id opts)
-                                          (when owner
-                                            {:subject-user-id (:user-id owner)
-                                             :member-id (:member-id owner)
-                                             :role-after (:role owner)})))
+                       (audit-entries/bank :audit-kind-bank-created
+                                           bank
+                                           actor
+                                           (:request-id opts)
+                                           (when owner
+                                             {:subject-user-id (:user-id owner)
+                                              :member-id (:member-id owner)
+                                              :role-after (:role owner)})))
        invitation (new-owner-invitation txn
                                         bank-id
                                         actor
@@ -344,12 +344,12 @@
                                        :tier-after tier})
         _ (store/save txn updated entry)
         _ (audit/record txn
-                        (audit-events/bank :audit-event-kind-bank-tier-changed
-                                           bank
-                                           (:actor opts)
-                                           (:request-id opts)
-                                           {:tier-before (:tier bank)
-                                            :tier-after tier}))]
+                        (audit-entries/bank :audit-kind-bank-tier-changed
+                                            bank
+                                            (:actor opts)
+                                            (:request-id opts)
+                                            {:tier-before (:tier bank)
+                                             :tier-after tier}))]
        updated))
    :bank/change-tier
    "Failed to change bank tier"))
@@ -377,8 +377,8 @@
                   :status-after (:status updated)})
           _ (store/save txn updated entry)
           _ (audit/record txn
-                          (audit-events/bank
-                           :audit-event-kind-bank-status-changed
+                          (audit-entries/bank
+                           :audit-kind-bank-status-changed
                            bank
                            actor
                            (:request-id opts)

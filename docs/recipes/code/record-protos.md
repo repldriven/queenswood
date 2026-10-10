@@ -59,9 +59,10 @@ message CashAccountMigration {
   104, each only where the record has it and it is not in the primary
   key. `updated_at` and `updated_by` are never required: a record
   nobody has changed has neither, so its create leaves them unset. A
-  change a person or an operator makes sets both, and one the platform
-  makes sets `updated_at` and clears `updated_by`. The
-  idempotency key is the key a repeat of the request that created the
+  change a member, an operator or the bank's credential makes sets
+  both, and one the platform makes sets `updated_at` and clears
+  `updated_by`. The idempotency key is the key a repeat of the request
+  that created the
   record is recognised by, whether the request is an API call carrying
   an `Idempotency-Key` or a changelog event a consumer may be handed
   twice.

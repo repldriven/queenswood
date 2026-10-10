@@ -97,7 +97,7 @@
                                   (:transaction-type result))
            _ (audit/record txn
                            {:bank-id bank-id
-                            :kind :audit-event-kind-transaction-simulated
+                            :kind :audit-kind-transaction-simulated
                             :subject-kind :audit-subject-kind-transaction
                             :subject-id (:transaction-id result)
                             :request-id (:request-id data)

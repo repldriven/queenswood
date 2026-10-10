@@ -100,8 +100,8 @@
       (or existing result))
     result))
 
-(defn- audit-event
-  "The audit event of an act on `account` the command in `data` asked
+(defn- audit-entry
+  "The audit entry of an act on `account` the command in `data` asked
   for."
   [kind account data details]
   {:bank-id (:bank-id account)
@@ -173,8 +173,8 @@
                  (record-opening txn account party product-version))
               _ (when (:audited? opts)
                   (audit/record txn
-                                (audit-event
-                                 :audit-event-kind-cash-account-opened
+                                (audit-entry
+                                 :audit-kind-cash-account-opened
                                  account
                                  data
                                  {:party-id party-id
@@ -209,8 +209,8 @@
                                   :cash-account-change-kind-close})
            _ (record-closing txn updated)
            _ (audit/record txn
-                           (audit-event
-                            :audit-event-kind-cash-account-close-requested
+                           (audit-entry
+                            :audit-kind-cash-account-close-requested
                             account
                             data
                             {}))]
@@ -277,7 +277,7 @@
                                   :change-kind
                                   :cash-account-change-kind-suspend})
            _ (audit/record txn
-                           (audit-event :audit-event-kind-cash-account-suspended
+                           (audit-entry :audit-kind-cash-account-suspended
                                         account
                                         data
                                         {}))]
@@ -305,7 +305,7 @@
                                   :change-kind
                                   :cash-account-change-kind-resume})
            _ (audit/record txn
-                           (audit-event :audit-event-kind-cash-account-resumed
+                           (audit-entry :audit-kind-cash-account-resumed
                                         account
                                         data
                                         {}))]
@@ -349,7 +349,7 @@
                _ (record-rotation txn updated)
                _ (audit/record
                   txn
-                  (audit-event :audit-event-kind-cash-account-rotation-requested
+                  (audit-entry :audit-kind-cash-account-rotation-requested
                                account
                                data
                                {}))]

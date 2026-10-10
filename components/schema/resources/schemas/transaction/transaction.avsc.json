@@ -26,7 +26,7 @@
                                                                                   "ACTOR_KIND_OPERATOR",
                                                                                   "ACTOR_KIND_BANK"]}},
                                             {"name": "principal_id", "type": "string"}]}],
-     "default": null, "doc": "who posted it, where a person or an operator did"},
+     "default": null, "doc": "who posted it, where a member, an operator or the bank's credential did"},
     {"name": "legs",
      "type": {"type": "array",
               "items": {

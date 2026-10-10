@@ -1,4 +1,4 @@
-(ns com.repldriven.queenswood.party.audit-events)
+(ns com.repldriven.queenswood.party.audit-entries)
 
 (defn party
   [kind party data details]

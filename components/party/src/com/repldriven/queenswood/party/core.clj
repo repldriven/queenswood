@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.party.core
   (:require
-    [com.repldriven.queenswood.party.audit-events :as audit-events]
+    [com.repldriven.queenswood.party.audit-entries :as audit-entries]
     [com.repldriven.queenswood.party.domain :as domain]
     [com.repldriven.queenswood.party.store :as store]
 
@@ -26,8 +26,8 @@
                                            :status-after status})
                   _ (when (:audited? opts)
                       (audit/record txn
-                                    (audit-events/party
-                                     :audit-event-kind-party-created
+                                    (audit-entries/party
+                                     :audit-kind-party-created
                                      party
                                      data
                                      {:party-type (:party-type party)})))]
@@ -126,7 +126,7 @@
                                       :party-id party-id
                                       :status-before (:status party)
                                       :status-after (:status updated)})
-            _ (audit/record txn (audit-events/party kind party data {}))]
+            _ (audit/record txn (audit-entries/party kind party data {}))]
            result))))))
 
 (defn suspend-party
@@ -137,7 +137,7 @@
                data
                opts
                domain/suspend-party
-               :audit-event-kind-party-suspended)))
+               :audit-kind-party-suspended)))
 
 (defn resume-party
   ([txn data]
@@ -147,7 +147,7 @@
                data
                opts
                domain/resume-party
-               :audit-event-kind-party-resumed)))
+               :audit-kind-party-resumed)))
 
 (defn- has-open-accounts?
   [txn bank-id party-id]
@@ -182,10 +182,10 @@
                                        :status-before (:status party)
                                        :status-after (:status updated)})
              _ (audit/record txn
-                             (audit-events/party :audit-event-kind-party-closed
-                                                 party
-                                                 data
-                                                 {}))]
+                             (audit-entries/party :audit-kind-party-closed
+                                                  party
+                                                  data
+                                                  {}))]
             result)))))))
 
 (defn merge-party
@@ -214,9 +214,9 @@
                                        :status-before (:status merged-away)
                                        :status-after (:status updated)})
              _ (audit/record txn
-                             (audit-events/party :audit-event-kind-party-merged
-                                                 merged-away
-                                                 data
-                                                 {:into-party-id
-                                                  into-party-id}))]
+                             (audit-entries/party :audit-kind-party-merged
+                                                  merged-away
+                                                  data
+                                                  {:into-party-id
+                                                   into-party-id}))]
             result)))))))

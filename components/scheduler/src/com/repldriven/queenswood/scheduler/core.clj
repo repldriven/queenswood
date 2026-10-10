@@ -88,7 +88,7 @@
                  runs)))
 
 (defn- job-event
-  "The audit event of an act on `job` by `actor` under the API request
+  "The audit entry of an act on `job` by `actor` under the API request
   `request-id`."
   [kind job actor request-id details]
   {:bank-id (:bank-id job)
@@ -121,7 +121,7 @@
                        _ (store/save-run txn opened)
                        _ (audit/record txn
                                        (job-event
-                                        :audit-event-kind-job-run-forced
+                                        :audit-kind-job-run-forced
                                         job
                                         (:created-by run)
                                         request-id
@@ -282,13 +282,13 @@
                               :updated-at now
                               :updated-by by)
                kind (cond (domain/paused? job status)
-                          :audit-event-kind-job-paused
+                          :audit-kind-job-paused
 
                           (domain/resumed? job status)
-                          :audit-event-kind-job-resumed
+                          :audit-kind-job-resumed
 
                           :else
-                          :audit-event-kind-job-schedule-updated)
+                          :audit-kind-job-schedule-updated)
                result (store/transact
                        config
                        (fn [txn]

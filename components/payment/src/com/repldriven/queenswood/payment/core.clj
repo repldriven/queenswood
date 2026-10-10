@@ -24,7 +24,7 @@
     [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- submitted
-  "The audit event of a payment the command in `data` submitted."
+  "The audit entry of a payment the command in `data` submitted."
   [kind subject-kind payment data]
   (let [{:keys [bank-id payment-id debtor-account-id amount currency]}
         payment]
@@ -130,7 +130,7 @@
                                   (store/save-internal-payment txn payment))
            _ (audit/record txn
                            (submitted
-                            :audit-event-kind-internal-payment-submitted
+                            :audit-kind-internal-payment-submitted
                             :audit-subject-kind-internal-payment
                             payment
                             data))]
@@ -267,7 +267,7 @@
                     _ (audit/record
                        txn
                        (submitted
-                        :audit-event-kind-outbound-payment-submitted
+                        :audit-kind-outbound-payment-submitted
                         :audit-subject-kind-outbound-payment
                         payment
                         data))]

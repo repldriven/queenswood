@@ -78,7 +78,7 @@
                                       aggregates
                                       policies)
           _ (store/save-version txn version)
-          _ (audited txn :audit-event-kind-product-created version opts)]
+          _ (audited txn :audit-kind-product-created version opts)]
          version))))))
 
 (defn open-draft
@@ -101,7 +101,7 @@
                                      (assoc data :created-by (:actor opts))
                                      policies)
          _ (store/save-version txn version)
-         _ (audited txn :audit-event-kind-product-version-drafted version opts)]
+         _ (audited txn :audit-kind-product-version-drafted version opts)]
         version)))))
 
 (defn update-draft
@@ -121,7 +121,7 @@
                                         policies
                                         (:actor opts))
          _ (store/save-version txn version)
-         _ (audited txn :audit-event-kind-product-version-updated version opts)]
+         _ (audited txn :audit-kind-product-version-updated version opts)]
         version)))))
 
 (defn discard-draft
@@ -137,7 +137,7 @@
          discarded (domain/discard existing policies (:actor opts))
          _ (store/save-version txn discarded)
          _ (audited txn
-                    :audit-event-kind-product-version-discarded
+                    :audit-kind-product-version-discarded
                     discarded
                     opts)]
         discarded)))))
@@ -158,7 +158,7 @@
                                    (:actor opts))
          _ (store/save-version txn published)
          _ (audited txn
-                    :audit-event-kind-product-version-published
+                    :audit-kind-product-version-published
                     published
                     opts)]
         published)))))

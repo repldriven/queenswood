@@ -200,7 +200,7 @@
                             criteria)
           _ (audit/record txn
                           {:bank-id bank-id
-                           :kind :audit-event-kind-verification-session-opened
+                           :kind :audit-kind-verification-session-opened
                            :subject-kind
                            :audit-subject-kind-verification-session
                            :subject-id (:session-id session)

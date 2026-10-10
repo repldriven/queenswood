@@ -195,7 +195,7 @@ anomaly kind has, as [service-apis.md](service-apis.md) records.
 Two record types under `schemas/member/`, registered where every
 record type is: the record-type union, the FDB record-type declaration,
 and the `pb->`, `->pb` and `->java` trio in the `schema` brick's
-`interface.clj`. Each act a person or an operator performs is an audit
+`interface.clj`. Each act a member or an operator performs is an audit
 entry, as
 [ADR-0047](../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md)
 has it, and the record keeps the latest change's `updated_at` and
@@ -234,15 +234,15 @@ has it, and the record keeps the latest change's `updated_at` and
 The access history the PRD's "What is recorded" reads is the bank's
 audit log, as
 [ADR-0047](../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md)
-has it: each act writes an `AuditEvent` through `audit/record` in the
+has it: each act writes an `AuditEntry` through `audit/record` in the
 transaction that makes it — the bank's creation, from the `bank`
 processor, each invitation's creation, resend, acceptance, refusal and
 withdrawal, each role change, and each member's removal or departure —
 naming the invitation or member it acts on, the API request in
 `request_id`, and in `details` the role before or after, the reason,
-and the person a member act concerns. Each event's id is `aev.` and its
+and the person a member act concerns. Each entry's id is `aud.` and its
 commit's versionstamp in Crockford base32, so the ids sort as the
-events committed and a cursor pages them.
+entries committed and a cursor pages them.
 
 ### A processor and a query brick
 
@@ -316,7 +316,7 @@ graph LR
     SPA["console SPA<br/>Bank-Id on every call"]
     API["api<br/>authenticate resolves bank and level<br/>authorize intersects"]
     BQ["member-query<br/>reads"]
-    BM["member processor<br/>Member, Invitation, audit events"]
+    BM["member processor<br/>Member, Invitation, audit entries"]
     BU["user"]
     BB["bank processor<br/>new-bank writes the owner invitation"]
     RL["changelog relay"]
@@ -536,14 +536,14 @@ Under the bank the header names:
 
 Under `/v1/bank`, the bank the header names:
 
-- `GET /v1/bank/audit-events` — `org:viewer` or `admin`, cursor-paged,
+- `GET /v1/bank/audit-log` — `org:viewer` or `admin`, cursor-paged,
   newest first, and narrowed to the comma-separated kinds a `kind`
-  query names. The bank's audit log: each event as an `AuditEvent`, its
-  id as `audit-event-id`, read through `audit/list-by-bank`. It
+  query names. The bank's audit log: each entry as an `AuditEntry`, its
+  id as `audit-entry-id`, read through `audit/list-by-bank`. It
   describes the bank rather than a record it holds, so it sits beside
   the bank's policies.
 
-Every `Actor` a route answers carries `name`, and every `AuditEvent`
+Every `Actor` a route answers carries `name`, and every `AuditEntry`
 with a subject carries `subject-name`, resolved on read in
 `access/names.clj`, each distinct id once per response: the user
 record's name, or its email when the name is blank, or `Queenswood` for

@@ -192,9 +192,9 @@
          {:name "Invitations"
           :description
           "Invitations to join the bank, and resending or withdrawing them."}
-         {:name "Audit"
+         {:name "Audit log"
           :description
-          "A bank's audit log: every act a person, the bank or an operator performed on its records, with who performed it and the request that asked for it."}
+          "A bank's audit log: every act a member, an operator or the bank's credential performed on its records, with who performed it and the request that asked for it."}
          {:name "Companies"
           :description
           "Looking a company up in the company registry before creating a bank for it."}

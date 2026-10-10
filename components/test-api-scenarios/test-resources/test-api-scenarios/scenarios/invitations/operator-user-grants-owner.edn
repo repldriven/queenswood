@@ -56,7 +56,7 @@
  :then
  [{:command :api/request
    :request {:method :get
-             :path "/v1/bank/audit-events"
+             :path "/v1/bank/audit-log"
              :auth :founder-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :query-params {"page[size]" 2}}

@@ -2,7 +2,7 @@
   (:require
     [com.repldriven.queenswood.me-api.interface :as me-api]))
 
-(def AuditEventId "aev.01kprbmgcj35ptc8npmybhh4sn")
+(def AuditEntryId "aud.01kprbmgcj35ptc8npmybhh4sn")
 
 (def ^:private member-id "mem.01kprbpdwa9q5n2t7vwsx84a3n")
 
@@ -11,8 +11,8 @@
 (def ^:private Actor
   {:kind :member :principal-id me-api/UserId :name "Ada Lovelace"})
 
-(def AuditEvent
-  {:audit-event-id AuditEventId
+(def AuditEntry
+  {:audit-entry-id AuditEntryId
    :bank-id me-api/BankId
    :kind :member-role-changed
    :subject-kind :member
@@ -27,8 +27,8 @@
    :reason "Leads the payments team"
    :occurred-at "2026-06-01T09:00:00Z"})
 
-(def AuditEventList
-  {:items [AuditEvent]
-   :links {:next (str "/v1/bank/audit-events?page[after]="
+(def AuditEntryList
+  {:items [AuditEntry]
+   :links {:next (str "/v1/bank/audit-log?page[after]="
                       "djE6YWV2LjAxa3ByYm1nY2ozNXB0YzhucG15YmhoNHNu"
                       "&page[size]=20")}})

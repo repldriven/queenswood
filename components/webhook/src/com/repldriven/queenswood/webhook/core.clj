@@ -135,7 +135,7 @@
                                           policies)
             _ (store/save-endpoint txn endpoint)
             _ (audited txn
-                       :audit-event-kind-webhook-endpoint-registered
+                       :audit-kind-webhook-endpoint-registered
                        endpoint
                        actor
                        opts
@@ -169,7 +169,7 @@
                                              (:platform-hosts opts)
                                              (:address-rule opts)
                                              policies)))
-                 :audit-event-kind-webhook-endpoint-updated
+                 :audit-kind-webhook-endpoint-updated
                  actor
                  opts))))
 
@@ -232,7 +232,7 @@
          _ (when-let [since (:since opts)]
              (backfill txn updated since (utility/now) actor))
          _ (audited txn
-                    :audit-event-kind-webhook-endpoint-enabled
+                    :audit-kind-webhook-endpoint-enabled
                     updated
                     actor
                     opts
@@ -249,7 +249,7 @@
                (fn [txn existing]
                  (let-nom> [policies (get-policies txn bank-id opts)]
                    (domain/disable existing actor policies)))
-               :audit-event-kind-webhook-endpoint-disabled
+               :audit-kind-webhook-endpoint-disabled
                actor
                opts)))
 
@@ -263,7 +263,7 @@
                (fn [txn existing]
                  (let-nom> [policies (get-policies txn bank-id opts)]
                    (domain/remove-endpoint existing actor policies)))
-               :audit-event-kind-webhook-endpoint-removed
+               :audit-kind-webhook-endpoint-removed
                actor
                opts)))
 
@@ -290,7 +290,7 @@
                                              idempotency-key
                                              actor
                                              policies))))
-                 :audit-event-kind-webhook-endpoint-secret-rotated
+                 :audit-kind-webhook-endpoint-secret-rotated
                  actor
                  opts))))
 
@@ -320,7 +320,7 @@
            delivery (domain/new-delivery notification endpoint now actor)
            _ (store/save-delivery txn delivery)
            _ (audited txn
-                      :audit-event-kind-webhook-endpoint-test-sent
+                      :audit-kind-webhook-endpoint-test-sent
                       endpoint
                       actor
                       opts
@@ -353,7 +353,7 @@
            delivery (domain/new-delivery notification endpoint now actor)
            _ (store/save-delivery txn delivery)
            _ (audited txn
-                      :audit-event-kind-webhook-endpoint-deliveries-resent
+                      :audit-kind-webhook-endpoint-deliveries-resent
                       endpoint
                       actor
                       opts
@@ -385,7 +385,7 @@
                      now
                      actor)
              _ (audited txn
-                        :audit-event-kind-webhook-endpoint-deliveries-resent
+                        :audit-kind-webhook-endpoint-deliveries-resent
                         endpoint
                         actor
                         opts

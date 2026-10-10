@@ -38,7 +38,7 @@
   import {
     list_members,
     list_invitations,
-    list_audit_events,
+    list_audit_entries,
     resend_invitation,
   } from "./api.mjs";
   import PeopleDrawer from "./PeopleDrawer.svelte";
@@ -89,7 +89,7 @@
       const [m, i, e] = await Promise.all([
         list_members(),
         list_invitations(),
-        list_audit_events(),
+        list_audit_entries(),
       ]);
       const bad = [m, i, e].find((r) => r.status < 200 || r.status >= 300);
       if (bad) {
@@ -111,7 +111,7 @@
     if (!nextEvents) return;
     loadingOlder = true;
     try {
-      const res = await list_audit_events({ next: nextEvents });
+      const res = await list_audit_entries({ next: nextEvents });
       if (res.status >= 200 && res.status < 300) {
         events = [...events, ...(res.body?.items ?? [])];
         nextEvents = res.body?.links?.next ?? null;
@@ -484,7 +484,7 @@
           {:else if events.length === 0}
             <Tr><Td colspan="6"><div class="empty">No access changes yet.</div></Td></Tr>
           {:else}
-            {#each events as e (e["audit-event-id"])}
+            {#each events as e (e["audit-entry-id"])}
               {@const kind = accessEnum(e.kind)}
               {@const before = e["role-before"] ? accessEnum(e["role-before"]) : null}
               {@const after = e["role-after"] ? accessEnum(e["role-after"]) : null}

@@ -62,7 +62,7 @@
 
 (def request-id
   "Gives every request an id, a uuidv7, as `:request-id`, which a write
-  passes to the domain beside the actor so the audit events it records
+  passes to the domain beside the actor so the audit entries it records
   name the request, and answers it in the `Request-Id` header."
   {:name ::request-id
    :enter (fn [ctx]

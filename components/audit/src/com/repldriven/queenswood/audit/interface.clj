@@ -10,35 +10,35 @@
     [com.repldriven.queenswood.audit.core :as core]))
 
 (defn record
-  "Appends `event` to its bank's audit log in `txn`, and to its
-  subject's history beside it. Records nothing when the event has no
+  "Appends `entry` to its bank's audit log in `txn`, and to its
+  subject's history beside it. Records nothing when the entry has no
   `:created-by`, which is an act the platform performed by itself.
   Returns nil, or an anomaly.
 
   Args:
-  - txn: the transaction that makes the change the event records.
-  - event: `{:bank-id :kind :subject-kind :subject-id :request-id
-    :details :created-by}`, `:kind` an `:audit-event-kind-*` and
+  - txn: the transaction that makes the change the entry records.
+  - entry: `{:bank-id :kind :subject-kind :subject-id :request-id
+    :details :created-by}`, `:kind` an `:audit-kind-*` and
     `:subject-kind` an `:audit-subject-kind-*` keyword, `:details` a map
     of whatever the act carried, of any depth, kept as json, so a keyword
     reads back as its name, and never a person's name or contact
     details, `:created-by` the actor,
     and `:created-at` optional, now by default."
-  [txn event]
-  (core/record txn event))
+  [txn entry]
+  (core/record txn entry))
 
 (defn list-by-bank
-  "A page of `bank-id`'s audit log, newest first: `{:audit-events
-  :before :after}`, each event carrying its `:audit-event-id`, `aev.`
+  "A page of `bank-id`'s audit log, newest first: `{:audit-entries
+  :before :after}`, each entry carrying its `:audit-entry-id`, `aud.`
   and its versionstamp in Crockford base32, which is also the cursor
   `:before` and `:after` give. Returns an anomaly on failure.
 
   Args:
   - txn: a Txn or `{:record-db :record-store}` config.
   - bank-id: the bank.
-  - opts: `{:limit :after :before :kinds}`, the cursors audit event ids
-    and `:kinds` the `:audit-event-kind-*` keywords to keep, every kind
-    when empty. A page across several kinds reads each kind's events
+  - opts: `{:limit :after :before :kinds}`, the cursors audit entry ids
+    and `:kinds` the `:audit-kind-*` keywords to keep, every kind
+    when empty. A page across several kinds reads each kind's entries
     and merges them, so it costs a read per kind."
   [txn bank-id opts]
   (core/list-by-bank txn bank-id opts))

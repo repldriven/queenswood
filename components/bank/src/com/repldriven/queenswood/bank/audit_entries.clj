@@ -1,4 +1,4 @@
-(ns com.repldriven.queenswood.bank.audit-events)
+(ns com.repldriven.queenswood.bank.audit-entries)
 
 (defn bank
   [kind bank actor request-id details]

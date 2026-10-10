@@ -8,29 +8,29 @@
 
     [clojure.string :as str]))
 
-(def AuditEventId (schema/id-schema "AuditEventId" "aev" examples/AuditEventId))
+(def AuditEntryId (schema/id-schema "AuditEntryId" "aud" examples/AuditEntryId))
 
-(def AuditEventKind
-  (coercion/audit-event-kind-enum-schema {:json-schema/example
-                                          "member-role-changed"}))
+(def AuditKind
+  (coercion/audit-kind-enum-schema {:json-schema/example
+                                    "member-role-changed"}))
 
 (def AuditSubjectKind
   (coercion/audit-subject-kind-enum-schema {:json-schema/example "member"}))
 
-(def AuditEvent
+(def AuditEntry
   [:map
-   {:json-schema/example examples/AuditEvent
+   {:json-schema/example examples/AuditEntry
     :description
     "One act in the bank's audit log: what was done, to which record,
     who did it, the request that asked for it and any reason given. An
-    invitation's events name the invitation, its address and its role
+    invitation's entries name the invitation, its address and its role
     as `role-after`; a member's name the member and `role-before`, and a
     role change `role-after`. `subject-name` names the person a member
     act concerns from their user record, and is absent when they have
     none."}
-   [:audit-event-id [:ref "AuditEventId"]]
+   [:audit-entry-id [:ref "AuditEntryId"]]
    [:bank-id [:ref "BankId"]]
-   [:kind [:ref "AuditEventKind"]]
+   [:kind [:ref "AuditKind"]]
    [:subject-kind [:ref "AuditSubjectKind"]]
    [:subject-id string?]
    [:actor [:ref "Actor"]]
@@ -45,9 +45,9 @@
    [:reason {:optional true} string?]
    [:occurred-at [:ref "Timestamp"]]])
 
-(def AuditEventList (list-schema "AuditEvent" examples/AuditEventList))
+(def AuditEntryList (list-schema "AuditEntry" examples/AuditEntryList))
 
-(def AuditEventQuery
+(def AuditEntryQuery
   "The audit log's query: a page, and optionally the kinds of act to
   list, comma-separated."
   [:map {:closed true}
@@ -55,8 +55,8 @@
    [:kind {:optional true}
     [:vector
      {:decode/api (fn [v] (if (string? v) (str/split v #",") v))}
-     [:ref "AuditEventKind"]]]])
+     [:ref "AuditKind"]]]])
 
 (def registry
-  (components-registry [#'AuditEvent #'AuditEventId #'AuditEventKind
-                        #'AuditEventList #'AuditSubjectKind]))
+  (components-registry [#'AuditEntry #'AuditEntryId #'AuditKind #'AuditEntryList
+                        #'AuditSubjectKind]))

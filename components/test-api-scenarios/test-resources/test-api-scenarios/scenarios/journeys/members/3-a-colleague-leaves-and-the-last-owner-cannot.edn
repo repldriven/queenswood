@@ -138,7 +138,7 @@
                     :role "owner"}]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/bank/audit-events"
+             :path "/v1/bank/audit-log"
              :auth :admin-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :query-params {"page[size]" 3}}

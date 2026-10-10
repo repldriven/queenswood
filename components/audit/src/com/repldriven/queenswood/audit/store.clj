@@ -14,22 +14,22 @@
 (def ^:private by-kind "audit-kind")
 
 (defn append
-  [txn event]
-  (let [{:keys [bank-id subject-id kind]} event]
+  [txn entry]
+  (let [{:keys [bank-id subject-id kind]} entry]
     (fdb/transact txn
                   (fn [txn]
                     (fdb/append txn
                                 [[log bank-id]
                                  [by-subject bank-id subject-id]
                                  [by-kind bank-id
-                                  (schema/audit-event-kind->int kind)]]
-                                (schema/AuditEvent->pb event)))
+                                  (schema/audit-kind->int kind)]]
+                                (schema/AuditEntry->pb entry)))
                   :audit/record
-                  "Failed to record an audit event")))
+                  "Failed to record an audit entry")))
 
 (defn- decoded
   [{:keys [versionstamp value]}]
-  (assoc (schema/pb->AuditEvent value) :versionstamp versionstamp))
+  (assoc (schema/pb->AuditEntry value) :versionstamp versionstamp))
 
 (defn- loaded
   [txn bank-id entries]
@@ -73,7 +73,7 @@
                              (fdb/scan-appended
                               txn
                               [by-kind bank-id
-                               (schema/audit-event-kind->int kind)]
+                               (schema/audit-kind->int kind)]
                               opts))
                            kinds)]
            (if-let [failed (first (filter error/anomaly? pages))]
@@ -85,7 +85,7 @@
                  :entries
                  (partial mapv decoded))))
      :audit/list
-     "Failed to list audit events")))
+     "Failed to list audit entries")))
 
 (defn list-by-subject
   [txn bank-id subject-id opts]
@@ -97,4 +97,4 @@
                           :entries
                           (partial loaded txn bank-id)))
                 :audit/list
-                "Failed to list audit events"))
+                "Failed to list audit entries"))

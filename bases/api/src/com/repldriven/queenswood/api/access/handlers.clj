@@ -61,7 +61,7 @@
     (if (= 200 (:status result)) (success (:body result)) result)))
 
 (defn- caller
-  "The principal as an audit event records it: the caller as an actor,
+  "The principal as an audit entry records it: the caller as an actor,
   a member with the role of the member the call resolved to."
   [auth]
   (let [actor (actor/actor auth)]

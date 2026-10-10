@@ -46,7 +46,7 @@
   allow as `:member/role-not-granted` (unauthorized), and a demotion
   of the bank's last active owner as `:member/last-owner`. After the
   same refusals, a role equal to the current one returns the member
-  unchanged and writes neither the member nor an audit event.
+  unchanged and writes neither the member nor an audit entry.
 
   Args:
   - txn: FDB transaction or config.

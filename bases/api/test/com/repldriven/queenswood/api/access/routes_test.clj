@@ -48,7 +48,7 @@
 (def ^:private own-bank-routes
   "The routes under the bank's own path, each open to its members at
   the level named and to an operator."
-  {[:get "/v1/bank/audit-events"] "org:viewer"})
+  {[:get "/v1/bank/audit-log"] "org:viewer"})
 
 (def ^:private bank-id-header "#/components/parameters/BankIdHeader")
 

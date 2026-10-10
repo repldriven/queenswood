@@ -10,7 +10,7 @@
 
 (def ^:private crockford "0123456789abcdefghjkmnpqrstvwxyz")
 
-(def ^:private id-prefix "aev.")
+(def ^:private id-prefix "aud.")
 
 (def ^:private id-chars 26)
 
@@ -52,23 +52,23 @@
           out)))))
 
 (defn record
-  [txn event]
-  (when (:created-by event)
-    (let-nom> [details (when (seq (:details event))
-                         (json/write-str (:details event)))]
+  [txn entry]
+  (when (:created-by entry)
+    (let-nom> [details (when (seq (:details entry))
+                         (json/write-str (:details entry)))]
       (store/append txn
-                    (-> event
+                    (-> entry
                         (assoc :details details)
                         (update :created-by select-keys [:kind :principal-id])
                         (update :created-at (fnil identity (utility/now)))
                         (->> (into {} (filter (comp some? val)))))))))
 
 (defn- presented
-  [{:keys [versionstamp details] :as event}]
+  [{:keys [versionstamp details] :as entry}]
   (let-nom> [details (if details (json/read-str details :key-fn keyword) {})]
-    (-> event
+    (-> entry
         (dissoc :versionstamp)
-        (assoc :audit-event-id (encode versionstamp) :details details))))
+        (assoc :audit-entry-id (encode versionstamp) :details details))))
 
 (defn- cursors
   [opts]
@@ -80,14 +80,14 @@
 (defn- page
   [found]
   (let [{:keys [entries before after]} found]
-    (let-nom> [events (reduce (fn [events entry]
-                                (let [event (presented entry)]
-                                  (if (error/anomaly? event)
-                                    (reduced event)
-                                    (conj events event))))
-                              []
-                              entries)]
-      {:audit-events events
+    (let-nom> [audit-entries (reduce (fn [audit-entries found-entry]
+                                       (let [entry (presented found-entry)]
+                                         (if (error/anomaly? entry)
+                                           (reduced entry)
+                                           (conj audit-entries entry))))
+                                     []
+                                     entries)]
+      {:audit-entries audit-entries
        :before (some-> before
                        encode)
        :after (some-> after

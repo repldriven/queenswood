@@ -1,6 +1,6 @@
-(ns com.repldriven.queenswood.member.audit-events)
+(ns com.repldriven.queenswood.member.audit-entries)
 
-(defn- event
+(defn- entry
   [kind subject-kind subject-id bank-id opts now details]
   {:bank-id bank-id
    :kind kind
@@ -14,7 +14,7 @@
 (defn invitation
   [kind invitation opts now details]
   (let [{:keys [bank-id invitation-id role]} invitation]
-    (event kind
+    (entry kind
            :audit-subject-kind-invitation
            invitation-id
            bank-id
@@ -25,7 +25,7 @@
 (defn member
   [kind member opts now details]
   (let [{:keys [bank-id member-id user-id]} member]
-    (event kind
+    (entry kind
            :audit-subject-kind-member
            member-id
            bank-id

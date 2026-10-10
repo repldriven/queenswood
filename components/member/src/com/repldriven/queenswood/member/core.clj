@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.member.core
   (:require
-    [com.repldriven.queenswood.member.audit-events :as audit-events]
+    [com.repldriven.queenswood.member.audit-entries :as audit-entries]
     [com.repldriven.queenswood.member.domain :as domain]
     [com.repldriven.queenswood.member.store :as store]
 
@@ -89,8 +89,8 @@
                                             now)
           _ (store/save-invitation txn invitation invitation-created)
           _ (audit/record txn
-                          (audit-events/invitation
-                           :audit-event-kind-invitation-created
+                          (audit-entries/invitation
+                           :audit-kind-invitation-created
                            invitation
                            opts
                            now
@@ -123,8 +123,8 @@
           _ (store/save-invitation txn accepted)
           _ (store/save-member txn member)
           _ (audit/record txn
-                          (audit-events/invitation
-                           :audit-event-kind-invitation-accepted
+                          (audit-entries/invitation
+                           :audit-kind-invitation-accepted
                            accepted
                            opts
                            now
@@ -147,8 +147,8 @@
           declined (domain/decline-invitation invitation actor now)
           _ (store/save-invitation txn declined)
           _ (audit/record txn
-                          (audit-events/invitation
-                           :audit-event-kind-invitation-declined
+                          (audit-entries/invitation
+                           :audit-kind-invitation-declined
                            declined
                            opts
                            now
@@ -169,8 +169,8 @@
           _ (domain/check-grant :invite actor {:role (:role invitation)})
           _ (store/save-invitation txn withdrawn)
           _ (audit/record txn
-                          (audit-events/invitation
-                           :audit-event-kind-invitation-withdrawn
+                          (audit-entries/invitation
+                           :audit-kind-invitation-withdrawn
                            withdrawn
                            opts
                            now
@@ -191,8 +191,8 @@
           _ (domain/check-grant :invite actor {:role (:role invitation)})
           _ (store/save-invitation txn resent invitation-resent)
           _ (audit/record txn
-                          (audit-events/invitation
-                           :audit-event-kind-invitation-resent
+                          (audit-entries/invitation
+                           :audit-kind-invitation-resent
                            resent
                            opts
                            now
@@ -237,8 +237,8 @@
               (store/save-member txn changed))
           _ (when-not unchanged?
               (audit/record txn
-                            (audit-events/member
-                             :audit-event-kind-member-role-changed
+                            (audit-entries/member
+                             :audit-kind-member-role-changed
                              member
                              opts
                              now
@@ -266,12 +266,12 @@
                                    now)
           _ (store/save-member txn ended)
           _ (audit/record txn
-                          (audit-events/member :audit-event-kind-member-removed
-                                               member
-                                               opts
-                                               now
-                                               {:role-before (:role member)
-                                                :reason reason}))]
+                          (audit-entries/member :audit-kind-member-removed
+                                                member
+                                                opts
+                                                now
+                                                {:role-before (:role member)
+                                                 :reason reason}))]
          ended)))
    :member/remove
    "Failed to remove member"))
@@ -292,11 +292,11 @@
                                    now)
           _ (store/save-member txn ended)
           _ (audit/record txn
-                          (audit-events/member :audit-event-kind-member-left
-                                               member
-                                               opts
-                                               now
-                                               {:role-before (:role member)}))]
+                          (audit-entries/member :audit-kind-member-left
+                                                member
+                                                opts
+                                                now
+                                                {:role-before (:role member)}))]
          ended)))
    :member/leave
    "Failed to leave"))

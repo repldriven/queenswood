@@ -22,10 +22,10 @@
 
 (def ^:private ledger-accounts-path "/v1/ledger-accounts")
 
-(def ^:private audit-events-path "/v1/bank/audit-events")
+(def ^:private audit-log-path "/v1/bank/audit-log")
 
 (def ^:private audit-page-size
-  "How many of a bank's newest audit events the check reads. A step's
+  "How many of a bank's newest audit entries the check reads. A step's
   own event is among the newest, since steps run one at a time."
   50)
 
@@ -81,7 +81,7 @@
 (defn- audit-request-ids
   [base-url admin-token bank-id]
   (let [res (http/request {:method :get
-                           :url (str base-url audit-events-path)
+                           :url (str base-url audit-log-path)
                            :query-params {"page[size]" audit-page-size}
                            :headers {"Authorization" (str "Bearer " admin-token)
                                      "Bank-Id" bank-id}})]
@@ -89,7 +89,7 @@
 
 (defn verify-audited
   "Assert that the write the step just made, when it was a successful,
-  fresh write to the API, left an audit event under its request id in
+  fresh write to the API, left an audit entry under its request id in
   one of the banks it may have acted on. Returns `ctx` without the
   pending check. `ctx` is the runner context — `:pending-audit` is set
   by `verbs` on each request step."
@@ -102,7 +102,7 @@
         (str (str/upper-case (name method))
              " "
              path
-             " left no audit event under its request id "
+             " left no audit entry under its request id "
              request-id
              " in "
              (pr-str bank-ids))))
