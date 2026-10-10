@@ -13,6 +13,7 @@
     component/test-startup {:local/root "../../components/test-startup"}
     component/test-resources {:local/root "../../components/test-resources"}}}}
  :deps {ext/mono {:local/root "../../deps/mono"}
+        component/audit {:local/root "../../components/audit"}
         component/fdb {:local/root "../../components/fdb"}
         component/balance {:local/root "../../components/balance"}
         component/balance-query {:local/root "../../components/balance-query"}

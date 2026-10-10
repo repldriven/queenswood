@@ -64,28 +64,30 @@
 
 (defn- change-bank-tier
   [config data]
-  (let [{:keys [bank-id tier actor]} data
+  (let [{:keys [bank-id tier actor request-id]} data
         result (core/change-tier config
                                  bank-id
                                  tier
                                  {:idv-providers (get-in config
                                                          [:providers
                                                           :idv])
-                                  :actor actor})]
+                                  :actor actor
+                                  :request-id request-id})]
     (if (error/anomaly? result)
       result
       (->response config {:bank result}))))
 
 (defn- change-bank-status
   [config data]
-  (let [{:keys [bank-id status audience actor]} data
+  (let [{:keys [bank-id status audience actor request-id]} data
         result (core/change-status config
                                    bank-id
                                    status
                                    {:identity-provider (:identity-provider
                                                         config)
                                     :audience audience
-                                    :actor actor})]
+                                    :actor actor
+                                    :request-id request-id})]
     (if (error/anomaly? result)
       result
       (->response config {:bank result}))))

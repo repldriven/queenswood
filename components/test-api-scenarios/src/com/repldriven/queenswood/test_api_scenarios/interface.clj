@@ -99,11 +99,14 @@
   `invariants/verify-books-tie`) against every bank the run holds a
   token for, so a step that leaves a bank's trial balance out of
   balance, or a control out of step with the sub-ledger it controls,
-  fails the scenario at the offending step."
+  fails the scenario at the offending step. A step that made a
+  successful write to the API must have left an audit event under its
+  request id (see `invariants/verify-audited`)."
   [ctx commands]
   (reduce (fn [ctx command]
-            (invariants/verify-books-tie
-             (verbs/dispatch (update ctx :counter inc) command)))
+            (-> (verbs/dispatch (update ctx :counter inc) command)
+                invariants/verify-audited
+                invariants/verify-books-tie))
           ctx
           commands))
 

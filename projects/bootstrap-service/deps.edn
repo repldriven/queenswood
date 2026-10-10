@@ -22,6 +22,7 @@
  ;; `bank-query` to read a bank's providers, which brings `balance`,
  ;; `balance-query`, `cash-account-query` and `transaction` with it.
  :deps {ext/mono {:local/root "../../deps/mono"}
+        component/audit {:local/root "../../components/audit"}
         component/bank-activity {:local/root "../../components/bank-activity"}
         component/changelog-relay {:local/root
                                    "../../components/changelog-relay"}

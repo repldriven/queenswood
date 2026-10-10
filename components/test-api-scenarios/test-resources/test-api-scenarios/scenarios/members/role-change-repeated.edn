@@ -62,6 +62,7 @@
             :body {:member-id [:ref :member-member :member-id]
                    :role "admin"}}}
   {:command :api/request
+   :audited false
    :request {:method :post
              :path "/v1/members/{member-id}/change-role"
              :path-params {:member-id [:ref :member-member

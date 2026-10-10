@@ -342,7 +342,14 @@
         entry (changelog/tier-changed {:bank-id bank-id
                                        :tier-before (:tier bank)
                                        :tier-after tier})
-        _ (store/save txn updated entry)]
+        _ (store/save txn updated entry)
+        _ (audit/record txn
+                        (audit-events/bank :audit-event-kind-bank-tier-changed
+                                           bank
+                                           (:actor opts)
+                                           (:request-id opts)
+                                           {:tier-before (:tier bank)
+                                            :tier-after tier}))]
        updated))
    :bank/change-tier
    "Failed to change bank tier"))
@@ -368,7 +375,15 @@
                  {:bank-id bank-id
                   :status-before (:status bank)
                   :status-after (:status updated)})
-          _ (store/save txn updated entry)]
+          _ (store/save txn updated entry)
+          _ (audit/record txn
+                          (audit-events/bank
+                           :audit-event-kind-bank-status-changed
+                           bank
+                           actor
+                           (:request-id opts)
+                           {:status-before (:status bank)
+                            :status-after (:status updated)}))]
          updated)))
    :bank/change-status
    "Failed to change bank status"))

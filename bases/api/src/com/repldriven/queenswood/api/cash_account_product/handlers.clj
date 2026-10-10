@@ -78,7 +78,7 @@
     (respond (products/new-product (config request)
                                    bank-id
                                    (with-idempotency-key body request)
-                                   {:actor (shared.actor/actor auth)})
+                                   (shared.actor/act request))
              created)))
 
 (defn open-draft
@@ -91,7 +91,7 @@
                                   bank-id
                                   product-id
                                   body
-                                  {:actor (shared.actor/actor auth)})
+                                  (shared.actor/act request))
              created)))
 
 (defn update-draft
@@ -105,7 +105,7 @@
                                     product-id
                                     version-id
                                     body
-                                    {:actor (shared.actor/actor auth)})
+                                    (shared.actor/act request))
              ok)))
 
 (defn discard-draft
@@ -118,7 +118,7 @@
                                      bank-id
                                      product-id
                                      version-id
-                                     {:actor (shared.actor/actor auth)})
+                                     (shared.actor/act request))
              no-content)))
 
 (defn publish-draft
@@ -132,6 +132,7 @@
                                  bank-id
                                  product-id
                                  version-id
-                                 {:payment-provider declaration
-                                  :actor (shared.actor/actor auth)}))
+                                 (assoc (shared.actor/act request)
+                                        :payment-provider
+                                        declaration)))
              ok)))

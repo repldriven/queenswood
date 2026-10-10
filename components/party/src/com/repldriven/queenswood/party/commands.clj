@@ -18,7 +18,8 @@
 
 (def ^:private command-handlers
   {"create-party" (fn [config data]
-                    (->response config (core/new-party config data)))
+                    (->response config
+                                (core/new-party config data {:audited? true})))
    "merge-party" (fn [config data]
                    (->response config (core/merge-party config data)))
    "suspend-party" (fn [config data]
@@ -30,7 +31,7 @@
 
 (defn- dispatch
   [config message]
-  (let [{:keys [command id payload]} message
+  (let [{:keys [command id causation-id payload]} message
         handler (get command-handlers command)]
     (if (nil? handler)
       (error/reject :party/unknown-command
@@ -42,7 +43,9 @@
                       {:message "No schema found for command"
                        :command command})
           (let-nom> [raw (avro/deserialize-same schema payload)
-                     data (assoc raw :idempotency-key id)]
+                     data (assoc raw
+                                 :idempotency-key id
+                                 :request-id causation-id)]
             (handler config data)))))))
 
 (defrecord PartyProcessor [config]

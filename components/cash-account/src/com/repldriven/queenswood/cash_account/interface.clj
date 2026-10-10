@@ -17,6 +17,10 @@
   Closing an account doesn't need to inform the fountain; there's
   nothing to release.
 
+  Each act a command asks for is an event in the bank's audit log,
+  committed with it and naming the data's `:request-id`; what the
+  provider drives is the platform's.
+
   Reads live in `cash-account-query`; this brick reuses them inside
   its own transactions. `api` requires the query brick, not this
   one — state changes reach the processor as commands over the bus."
@@ -43,7 +47,9 @@
   - data: map with `:bank-id`, `:party-id`, `:product-id`,
     `:currency`, `:name`.
   - opts (optional): map; `:policies` overrides policy resolution
-    for the capability and limit checks."
+    for the capability and limit checks, and `:audited? true` records
+    the opening in the bank's audit log, as the open command does and an
+    account another act opens does not."
   ([txn data]
    (core/open-account txn data))
   ([txn data opts]

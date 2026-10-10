@@ -44,7 +44,7 @@
 
 (defn- dispatch
   [config message]
-  (let [{:keys [command payload]} message
+  (let [{:keys [command causation-id payload]} message
         handler (get command-handlers command)]
     (if (nil? handler)
       (error/reject :idv/unknown-command
@@ -55,8 +55,8 @@
           (error/fail :idv/process-command
                       {:message "No schema found for command"
                        :command command})
-          (let-nom> [data (avro/deserialize-same schema payload)]
-            (handler config data)))))))
+          (let-nom> [raw (avro/deserialize-same schema payload)]
+            (handler config (assoc raw :request-id causation-id))))))))
 
 (defrecord IdvProcessor [config]
   processor/Processor

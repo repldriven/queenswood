@@ -26,7 +26,8 @@
     (q/get-account config bank-id account-id)))
 
 (def ^:private command-fns
-  {"open-cash-account" core/open-account
+  {"open-cash-account" (fn [config data]
+                         (core/open-account config data {:audited? true}))
    "close-cash-account" core/close-account
    "suspend-cash-account" core/suspend-account
    "resume-cash-account" core/resume-account
@@ -35,9 +36,9 @@
 
 (defn- decode
   [schema message]
-  (let [{:keys [id payload]} message]
+  (let [{:keys [id causation-id payload]} message]
     (let-nom> [raw (avro/deserialize-same schema payload)]
-      (assoc raw :idempotency-key id))))
+      (assoc raw :idempotency-key id :request-id causation-id))))
 
 (defn- dispatch
   [config message]

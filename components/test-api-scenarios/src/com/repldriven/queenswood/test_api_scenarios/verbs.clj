@@ -465,13 +465,58 @@
              (pr-str (:body response))))
     (capture ctx token-as token)))
 
+(defn- token-bank
+  "The bank whose token the request was sent with, if the run holds it."
+  [ctx auth]
+  (let [token (resolve-auth ctx auth)]
+    (some (fn [[bank-id bank]] (when (= token (:token bank)) bank-id))
+          (:banks ctx))))
+
+(defn- lost-reply-retry?
+  "True when the request resends a key whose earlier reply the run lost:
+  the act committed under that earlier request, so this one, answered
+  from what it wrote, records none of its own."
+  [request]
+  (some-> (get-in request [:headers (idempotency-header (:headers request))])
+          (str/starts-with? lost-reply-prefix)))
+
+(defn- pending-audit
+  "What the audit check after this step looks for: the request id a
+  successful, fresh write to the API answered with, and the banks it may
+  have acted on — the one its header names, the one its body names and
+  the one its token belongs to, or every bank the run holds where none
+  does. Nil for anything else, a retry after a lost reply, and a step
+  that says `:audited false` because the write changes nothing."
+  [ctx step request response]
+  (let [{:keys [method base path headers auth]} request
+        {:keys [status]} response]
+    (when (and (not (false? (:audited step)))
+               (not (lost-reply-retry? request))
+               (write-methods method)
+               (nil? base)
+               (some? path)
+               (str/starts-with? path "/v1/")
+               (<= 200 status 299)
+               (not (replayed? response)))
+      {:request-id (get-in response [:headers :request-id])
+       :method method
+       :path path
+       :bank-ids (or (seq (distinct (keep identity
+                                          [(get headers :bank-id)
+                                           (get-in response [:body :bank-id])
+                                           (token-bank ctx auth)])))
+                     (keys (:banks ctx)))})))
+
 (defmethod dispatch :api/request
   [{:keys [captures] :as ctx} {:keys [request as token-as] :as step}]
   (let [resolved
         (with-idempotency-key ctx step (refs/resolve-all captures request))
         response (send-once ctx resolved)
         created-bank (created-bank? resolved response)
-        ctx' (cond-> (assoc ctx :last-response response)
+        ctx' (cond-> (assoc ctx
+                            :last-response response
+                            :pending-audit
+                            (pending-audit ctx step resolved response))
                      as
                      (capture as (:body response))
 

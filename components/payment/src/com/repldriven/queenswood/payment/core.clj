@@ -7,6 +7,7 @@
     [com.repldriven.queenswood.payment.provider :as provider]
     [com.repldriven.queenswood.payment.store :as store]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.balance.interface :as balances]
     [com.repldriven.queenswood.bank-activity.interface :as bank-activity]
     [com.repldriven.queenswood.cash-account-query.interface :as
@@ -21,6 +22,21 @@
     [com.repldriven.mono.error.interface :refer [let-nom>]]
     [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
+
+(defn- submitted
+  "The audit event of a payment the command in `data` submitted."
+  [kind subject-kind payment data]
+  (let [{:keys [bank-id payment-id debtor-account-id amount currency]}
+        payment]
+    {:bank-id bank-id
+     :kind kind
+     :subject-kind subject-kind
+     :subject-id payment-id
+     :request-id (:request-id data)
+     :details {:debtor-account-id debtor-account-id
+               :amount amount
+               :currency currency}
+     :created-by (:actor data)}))
 
 (defn- or-already-submitted
   "On a uniqueness violation — a redelivered submit-payment command
@@ -111,7 +127,13 @@
                                                   business-day
                                                   transaction-id)
            _ (telemetry/with-span ["payment-save"]
-                                  (store/save-internal-payment txn payment))]
+                                  (store/save-internal-payment txn payment))
+           _ (audit/record txn
+                           (submitted
+                            :audit-event-kind-internal-payment-submitted
+                            :audit-subject-kind-internal-payment
+                            payment
+                            data))]
           payment)))
     :payment/submit-internal
     "Failed to submit internal payment")
@@ -241,7 +263,14 @@
                         {:change-kind :outbound-payment-change-kind-submit}))
                     _ (telemetry/with-span
                        ["payment-record-activity"]
-                       (record-submitted txn payment debtor-account))]
+                       (record-submitted txn payment debtor-account))
+                    _ (audit/record
+                       txn
+                       (submitted
+                        :audit-event-kind-outbound-payment-submitted
+                        :audit-subject-kind-outbound-payment
+                        payment
+                        data))]
                    {:payment payment :debtor-account debtor-account})))
              :payment/submit-outbound
              "Failed to submit outbound payment")]

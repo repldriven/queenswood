@@ -79,12 +79,13 @@
   - bank-id: owning bank id.
   - migration-id: the migration to evaluate.
   - business-day: epoch-day the run is recorded against.
-  - actor: who asks for the preview, recorded as the run's creator.
+  - opts: `:actor`, who asks for the preview, recorded as the run's
+    creator, and the `:request-id` the bank's audit log names.
 
   Returns the run map — `:accounts-seen`, `:accounts-moved`,
   `:accounts-ineligible` — or an anomaly."
-  [txn bank-id migration-id business-day actor]
-  (core/preview-migration txn bank-id migration-id business-day actor))
+  [txn bank-id migration-id business-day opts]
+  (core/preview-migration txn bank-id migration-id business-day opts))
 
 (defn approve-migration
   "Approve a draft, making it work the scheduler will pick up on its due
@@ -98,14 +99,15 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - migration-id: the migration to approve.
-  - actor: who approves it, recorded as `:approved-by`.
+  - opts: `:actor`, who approves it, recorded as `:approved-by`, and
+    the `:request-id` the bank's audit log names.
 
   Returns the approved migration, a
   `:cash-account-migration/invalid-status` rejection when it is not a
   draft, or `:cash-account-migration/notice-required` when either date
   is missing."
-  [txn bank-id migration-id actor]
-  (core/approve-migration txn bank-id migration-id actor))
+  [txn bank-id migration-id opts]
+  (core/approve-migration txn bank-id migration-id opts))
 
 (defn cancel-migration
   "Cancel a draft or an approved migration, taking it off the work list.
@@ -119,12 +121,13 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - migration-id: the migration to cancel.
-  - actor: who cancels it, recorded as `:cancelled-by`.
+  - opts: `:actor`, who cancels it, recorded as `:cancelled-by`, and
+    the `:request-id` the bank's audit log names.
 
   Returns the cancelled migration or a
   `:cash-account-migration/invalid-status` rejection."
-  [txn bank-id migration-id actor]
-  (core/cancel-migration txn bank-id migration-id actor))
+  [txn bank-id migration-id opts]
+  (core/cancel-migration txn bank-id migration-id opts))
 
 (defn run-migration
   "Run an approved migration for real, moving every eligible account onto

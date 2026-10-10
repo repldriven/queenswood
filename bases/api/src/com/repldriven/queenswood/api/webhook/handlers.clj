@@ -86,6 +86,11 @@
             key
             (assoc :idempotency-key key))))
 
+(defn- with-request-id
+  "`opts` naming the request, so the write's audit event names it."
+  [opts request]
+  (assoc opts :request-id (:request-id request)))
+
 (defn register
   [request]
   (let [{:keys [auth parameters]} request
@@ -95,7 +100,8 @@
                                bank-id
                                (with-idempotency-key body request)
                                (shared.actor/actor auth)
-                               (address-opts request))
+                               (with-request-id (address-opts request)
+                                                request))
              registered)))
 
 (defn update-endpoint
@@ -108,7 +114,8 @@
                                       (:endpoint-id path)
                                       body
                                       (shared.actor/actor auth)
-                                      (address-opts request))
+                                      (with-request-id (address-opts request)
+                                                       request))
              ok)))
 
 (defn enable
@@ -120,7 +127,10 @@
                              bank-id
                              (:endpoint-id path)
                              (shared.actor/actor auth)
-                             (utility/assoc-some {} :since (:since body)))
+                             (with-request-id (utility/assoc-some {}
+                                                                  :since
+                                                                  (:since body))
+                                              request))
              ok)))
 
 (defn disable
@@ -131,7 +141,8 @@
     (respond (webhook/disable (config request)
                               bank-id
                               (:endpoint-id path)
-                              (shared.actor/actor auth))
+                              (shared.actor/actor auth)
+                              (with-request-id {} request))
              ok)))
 
 (defn remove-endpoint
@@ -142,7 +153,8 @@
     (respond (webhook/remove-endpoint (config request)
                                       bank-id
                                       (:endpoint-id path)
-                                      (shared.actor/actor auth))
+                                      (shared.actor/actor auth)
+                                      (with-request-id {} request))
              no-content)))
 
 (defn rotate-secret
@@ -154,7 +166,8 @@
                                     bank-id
                                     (:endpoint-id path)
                                     (with-idempotency-key {} request)
-                                    (shared.actor/actor auth))
+                                    (shared.actor/actor auth)
+                                    (with-request-id {} request))
              rotated)))
 
 (defn test-notification
@@ -165,7 +178,8 @@
     (respond (webhook/test-notification (config request)
                                         bank-id
                                         (:endpoint-id path)
-                                        (shared.actor/actor auth))
+                                        (shared.actor/actor auth)
+                                        (with-request-id {} request))
              created-delivery)))
 
 (defn resend
@@ -177,7 +191,8 @@
                              bank-id
                              (:endpoint-id path)
                              (:delivery-id path)
-                             (shared.actor/actor auth))
+                             (shared.actor/actor auth)
+                             (with-request-id {} request))
              created-delivery)))
 
 (defn resend-window
@@ -189,5 +204,6 @@
                                     bank-id
                                     (:endpoint-id path)
                                     body
-                                    (shared.actor/actor auth))
+                                    (shared.actor/actor auth)
+                                    (with-request-id {} request))
              resent)))

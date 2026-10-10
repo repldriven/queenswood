@@ -8,7 +8,9 @@
 
   Suspend and resume are the reversible pause; close is terminal. They
   are a separate axis from the pending → active → rejected path IDV
-  drives.
+  drives. Each act a command asks for — create, suspend, resume, close
+  and merge — is an event in the bank's audit log, committed with it and
+  naming the data's `:request-id`; what IDV drives is the platform's.
 
   Reads live in `bank-party-query`; this brick reuses them inside its
   own transactions. `bank-api` requires the query brick, not this one —
@@ -45,7 +47,10 @@
     `:actor` creating it, the person's names, an optional
     external-reference, and on the command path the envelope's
     `:idempotency-key`).
-  - opts: optional map; `:policies` overrides policy resolution.
+  - opts: optional map; `:policies` overrides policy resolution, and
+    `:audited? true` records the creation in the bank's audit log, as
+    the create-party command does and a party another act creates does
+    not.
 
   Returns the party map or an anomaly."
   ([txn data]

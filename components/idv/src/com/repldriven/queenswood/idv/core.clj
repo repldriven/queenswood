@@ -4,6 +4,7 @@
     [com.repldriven.queenswood.idv.domain :as domain]
     [com.repldriven.queenswood.idv.store :as store]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.bank-activity.interface :as bank-activity]
     [com.repldriven.queenswood.bank-query.interface :as bank-query]
     [com.repldriven.queenswood.idv-provider.interface :as idv-provider]
@@ -196,7 +197,17 @@
                             (assoc session
                                    :channel (:channel data)
                                    :email (:email data))
-                            criteria)]
+                            criteria)
+          _ (audit/record txn
+                          {:bank-id bank-id
+                           :kind :audit-event-kind-verification-session-opened
+                           :subject-kind
+                           :audit-subject-kind-verification-session
+                           :subject-id (:session-id session)
+                           :request-id (:request-id data)
+                           :details {:party-id party-id
+                                     :channel (:channel data)}
+                           :created-by (:actor data)})]
          session))
      :idv/open-session
      "Failed to open a verification session")))

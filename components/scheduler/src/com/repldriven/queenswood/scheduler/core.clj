@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.scheduler.domain :as domain]
     [com.repldriven.queenswood.scheduler.store :as store]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.cash-account-migration.interface :as migrations]
     [com.repldriven.queenswood.interest.interface :as interest]
 
@@ -86,12 +87,24 @@
   (first (filter (fn [run] (= :scheduler-run-status-completed (:status run)))
                  runs)))
 
+(defn- job-event
+  "The audit event of an act on `job` by `actor` under the API request
+  `request-id`."
+  [kind job actor request-id details]
+  {:bank-id (:bank-id job)
+   :kind kind
+   :subject-kind :audit-subject-kind-job
+   :subject-id (:job-id job)
+   :request-id request-id
+   :details details
+   :created-by actor})
+
 (defn- open-run
   "Write `run` as running, with the end the job's last success suggests,
   in the transaction that reads the job's runs, unless
   `domain/period-refusal` refuses it, which it then returns. Returns the
   run written."
-  [config job run]
+  [config job run request-id]
   (store/transact config
                   (fn [txn]
                     (let-nom>
@@ -105,7 +118,14 @@
                                (domain/expected-end-at (:created-at run)
                                                        (last-completed-run
                                                         runs)))
-                       _ (store/save-run txn opened)]
+                       _ (store/save-run txn opened)
+                       _ (audit/record txn
+                                       (job-event
+                                        :audit-event-kind-job-run-forced
+                                        job
+                                        (:created-by run)
+                                        request-id
+                                        {:run-id (:run-id run)}))]
                       opened))
                   :scheduler/open-run
                   "Failed to open scheduler run"))
@@ -143,9 +163,10 @@
   remaining tasks skipped. `as-of-date` is today (epoch-day); the
   underlying interest tasks are idempotent and guarded by the
   daily-limit policy, so a re-run records a failed run rather than
-  double-posting. A forced run records the `actor` that forced it.
+  double-posting. A forced run records the `actor` that forced it, and
+  the bank's audit log the API request `request-id`.
   Returns the final run map, or the task anomaly on failure."
-  [config bank-id job trigger-source actor]
+  [config bank-id job trigger-source actor request-id]
   (let [created-at (utility/now)
         as-of-date (utility/today)
         task-kinds (vec (:task-kinds job))
@@ -162,7 +183,7 @@
                                              (select-keys [:kind
                                                            :principal-id])))]
     (let-nom>
-      [base (open-run config job unopened)]
+      [base (open-run config job unopened request-id)]
       (loop [[task-kind & more] task-kinds
              tasks []]
         (if (nil? task-kind)
@@ -208,28 +229,37 @@
 (defn force-start
   "Run `job-id` now with trigger source forced, in the period now falls
   in, which a run that is running or completed there refuses. The run
-  records the `actor` that forced it."
-  [config bank-id job-id actor]
-  (let [job (store/get-job config bank-id job-id)]
-    (cond
-     (error/anomaly? job)
-     job
+  records the `actor` that forced it, and the bank's audit log the
+  request `opts` names."
+  ([config bank-id job-id actor]
+   (force-start config bank-id job-id actor {}))
+  ([config bank-id job-id actor opts]
+   (let [job (store/get-job config bank-id job-id)]
+     (cond
+      (error/anomaly? job)
+      job
 
-     (nil? job)
-     (error/reject :scheduler/job-not-found
-                   {:bank-id bank-id :job-id job-id})
+      (nil? job)
+      (error/reject :scheduler/job-not-found
+                    {:bank-id bank-id :job-id job-id})
 
-     :else
-     (run-job config bank-id job :scheduler-trigger-source-forced actor))))
+      :else
+      (run-job config
+               bank-id
+               job
+               :scheduler-trigger-source-forced
+               actor
+               (:request-id opts))))))
 
 (defn update-schedule
   "Edit a job's schedule or status, the schedule within what its tasks
-  allow, recording the `actor` who did.
+  allow, recording the `actor` who did, and in the bank's audit log
+  the request `opts` names.
   Persists the change, recomputes `next-run-at`, and reflects it on the
   live trigger when a scheduler is present in `config`."
   [config bank-id job-id
    {:keys [schedule status] :as edits}
-   actor]
+   actor opts]
   (let [job (store/get-job config bank-id job-id)]
     (cond
      (error/anomaly? job)
@@ -260,7 +290,26 @@
 
                                (domain/resumed? job status)
                                (assoc :resumed-at now :resumed-by by))
-               result (store/save-job config updated)]
+               kind (cond (domain/paused? job status)
+                          :audit-event-kind-job-paused
+
+                          (domain/resumed? job status)
+                          :audit-event-kind-job-resumed
+
+                          :else
+                          :audit-event-kind-job-schedule-updated)
+               result (store/transact
+                       config
+                       (fn [txn]
+                         (let-nom> [_ (store/save-job txn updated)]
+                           (audit/record txn
+                                         (job-event kind
+                                                    job
+                                                    by
+                                                    (:request-id opts)
+                                                    {:schedule schedule}))))
+                       :scheduler/update-schedule
+                       "Failed to update the job's schedule")]
            (if (error/anomaly? result)
              result
              (do
@@ -354,6 +403,7 @@
                   bank-id
                   job
                   :scheduler-trigger-source-scheduled
+                  nil
                   nil)))))
 
 (defn- register!

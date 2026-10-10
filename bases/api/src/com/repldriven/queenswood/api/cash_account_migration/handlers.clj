@@ -29,7 +29,8 @@
         data (assoc body
                     :bank-id bank-id
                     :idempotency-key (get headers "idempotency-key")
-                    :created-by (shared.actor/actor auth))
+                    :created-by (shared.actor/actor auth)
+                    :request-id (:request-id request))
         result (migrations/create-migration (config request) data)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
@@ -45,7 +46,7 @@
         result (f (config request)
                   bank-id
                   migration-id
-                  (shared.actor/actor auth))]
+                  (shared.actor/act request))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body (migration-api/->migration-body result)})))
@@ -74,7 +75,7 @@
                                              bank-id
                                              migration-id
                                              (utility/today)
-                                             (shared.actor/actor auth))]
+                                             (shared.actor/act request))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 201

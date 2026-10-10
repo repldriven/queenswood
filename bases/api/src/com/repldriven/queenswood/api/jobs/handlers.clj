@@ -22,7 +22,8 @@
         result (scheduler/force-start config
                                       bank-id
                                       job-id
-                                      (shared.actor/actor auth))]
+                                      (shared.actor/actor auth)
+                                      {:request-id (:request-id request)})]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 201
@@ -50,7 +51,9 @@
                                             bank-id
                                             job-id
                                             (view/api->edits job body)
-                                            (shared.actor/actor auth)))]
+                                            (shared.actor/actor auth)
+                                            {:request-id (:request-id
+                                                          request)}))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body (view/job->api result)})))

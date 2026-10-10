@@ -21,7 +21,7 @@
 
 (defn- dispatch
   [config message]
-  (let [{:keys [command id payload]} message
+  (let [{:keys [command id causation-id payload]} message
         handler (get command-handlers command)]
     (if (nil? handler)
       (error/reject :transaction/unknown-command
@@ -33,7 +33,9 @@
                       {:message "No schema found for command"
                        :command command})
           (let-nom> [raw (avro/deserialize-same schema payload)
-                     data (assoc raw :idempotency-key id)]
+                     data (assoc raw
+                                 :idempotency-key id
+                                 :request-id causation-id)]
             (handler config data)))))))
 
 (defrecord TransactionProcessor [config]

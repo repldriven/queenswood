@@ -113,8 +113,9 @@ The decision has these parts:
   name one today.
 - Assert in the API scenario runner, after each step, that every
   successful write call that was not a replay left at least one audit
-  entry under its request id, naming in the runner any route that
-  writes no audited record.
+  entry under its request id, exempting a retry after a lost reply,
+  whose act committed under the request that lost it, and a step that
+  says `:audited false` because its write changes nothing.
 - Remove a transition's `_at` and `_by` pair from its record once
   its act writes an audit entry, keeping among the record's own fields
   a time the domain reads to decide, and leaving a platform transition

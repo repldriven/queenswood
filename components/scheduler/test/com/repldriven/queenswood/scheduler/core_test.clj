@@ -100,7 +100,8 @@
                                                       bank-id
                                                       "daily-interest"
                                                       {:schedule "0 0 5 * * ?"}
-                                                      operator)
+                                                      operator
+                                                      {})
                                _ (is (= "0 0 17 * * ?"
                                         (registered config
                                                     bank-id
@@ -115,7 +116,8 @@
                                     bank-id
                                     "daily-interest"
                                     {:status :scheduler-job-status-paused}
-                                    operator)
+                                    operator
+                                    {})
                                  _ (SUT/reconcile! config)
                                  _ (is (nil? (registered config
                                                          bank-id
@@ -125,6 +127,7 @@
                                                        bank-id
                                                        "daily-interest"
                                                        {:schedule "0 5 * * * ?"}
-                                                       operator)]
+                                                       operator
+                                                       {})]
                        (is (= :scheduler/periodicity-not-allowed
                               (error/kind result)))))]))))

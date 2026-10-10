@@ -769,10 +769,6 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 
 ## Known Limitations
 
-- **The audit log holds access changes only.** The bank's creation and
-  the member and invitation acts write audit events; a payment, an
-  account, a product or a policy change writes none yet.
-
 - **No invitation without mail.** An installation with no mail server
   configured records invitations that nobody receives, except an
   invitee who signs in with the invited address verified and finds it

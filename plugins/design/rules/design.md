@@ -205,7 +205,8 @@ only deletion either allows. Serve them at `GET /v1/bank/audit-events`,
 which takes a set of kinds, and `GET /v1/bank/access-entries`, an
 operator any bank's. Assert in the API scenario runner that every
 successful write call that was not a replay left an audit entry under
-its request id. Remove a transition's `_at` and `_by` pair once its act
+its request id, except a retry after a lost reply and a step marked
+`:audited false` because its write changes nothing. Remove a transition's `_at` and `_by` pair once its act
 writes an audit entry, keeping a time the domain reads to decide as the
 record's own field and leaving a platform transition to `status` and
 `updated_at`; keep the audit block — `created_at` and `created_by`, and
