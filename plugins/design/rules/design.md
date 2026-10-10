@@ -173,20 +173,41 @@ something elsewhere uses it. Change the folder's `.avsc.json` files with its
 protos.
 See [record-protos](../../../docs/recipes/code/record-protos.md).
 
-## Who did what is recorded on the record
+## Acts are audited at commit, and calls logged at the edge
 
-Record every act a person or an operator performs on a record on that
-record as an `_at` and a `_by` pair, the `_by` an `Actor`, required
-where an actor always exists and set by the domain from the caller the
-API passes in: creation as `created_at` and `created_by`, the last
-change as `updated_at` and `updated_by` where it matters, each
-transition as a pair in the transition band. Record no actor for what
-the platform does by itself. Build the caller's actor in one place in
-the API, `api/shared/actor.clj`, and pass it to the domain. Keep a
-record's history on its store's changelog, with the actor on the
-envelope once that is built, and show who did what through a console
-view per kind of record.
-See [ADR-0046](../../../docs/adr/0046-who-did-what-is-recorded-on-the-record.md).
+Commit an append-only `AuditEvent` in the transaction that makes every
+change a person, a bank or an operator makes, one per record the act
+creates or changes, through the `audit` brick's `record`, called by
+the writing brick's store; write none for what the platform does by
+itself. Key it `[bank_id, audit_event_id]` with a uuidv7 id, with a
+version index on `bank_id` for commit order and an index on
+`[bank_id, subject_id]` for a record's history, and hold the act's
+kind, the subject's kind and id, the actor, the request id, the time
+and a `details` map of strings naming only what the act carried, never
+a person's name or contact details. Keep the store append-only: the
+`audit` brick exposes `record` and reads, saves with an existence check,
+and is the only brick that names the store, which semgrep holds. Build
+the caller's actor in one place in the `api` base, give every request a
+uuidv7 id in an interceptor there, and pass both to the domain wherever
+the actor goes. Write an access entry for every call from that
+interceptor once the response is chosen — request id, principal, bank,
+method, route template, path ids, status, rejection type, replayed or
+not, client address and duration, no body or query value — off the
+request's thread, many to a transaction, in the `access-log` brick
+behind a bounded queue whose dropped count is published. Keep audit
+entries for the bank's life and access entries for a configured period,
+deleted by a system job, the only deletion either store allows. Serve
+them at `GET /v1/bank/audit-events` and `GET /v1/bank/access-entries`,
+an operator any bank's. Assert in the API scenario runner that every
+successful write call that was not a replay left an audit entry under
+its request id. Remove a transition's `_at` and `_by` pair once its act
+writes an audit entry, keeping a time the domain reads to decide as the
+record's own field and leaving a platform transition to `status` and
+`updated_at`; keep the audit block — `created_at` and `created_by`, and
+`updated_at` with `updated_by` set together — and publish only it.
+Remove a record kept only to remember an act, such as
+`MemberRoleChange`, and leave the changelog envelope without an actor.
+See [ADR-0047](../../../docs/adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md).
 
 ## A service's `application.yml` includes shared groups, never copies
 

@@ -4,7 +4,7 @@
 
 ## Status
 
-**Proposed**
+**Superseded by** [ADR-0047](0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md)
 
 ## Context
 

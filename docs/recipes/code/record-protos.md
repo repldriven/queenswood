@@ -190,8 +190,9 @@ and several fields were optional for that reason alone. An explicit
 default would not help: the plugin ignores it, so a Java reader and a
 Clojure one would disagree about the same record.
 
-A record's `_by` fields are what makes it attributable: see
-[ADR-0046](../../adr/0046-who-did-what-is-recorded-on-the-record.md).
+Who did what is an audit entry committed with the act, and the
+transition band leaves a record once its acts write one: see
+[ADR-0047](../../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md).
 
 ## References
 
@@ -199,5 +200,5 @@ A record's `_by` fields are what makes it attributable: see
   already holds data.
 - [code-generation](code-generation.md) — the build that writes a set
   required field.
-- [ADR-0046](../../adr/0046-who-did-what-is-recorded-on-the-record.md) —
-  who did what is recorded on the record.
+- [ADR-0047](../../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md) —
+  acts are audited at commit, and calls logged at the edge.

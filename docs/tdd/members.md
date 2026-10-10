@@ -771,9 +771,11 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 
 ## Known Limitations
 
-- **The audit log holds access changes only.** No other record names
-  the principal that wrote it, so a payment, an account, a product or a
-  policy change appears in no bank's audit log.
+- **The audit log holds access changes only.** It is read from the
+  access records' transition fields, so a payment, an account, a
+  product or a policy change appears in no bank's audit log.
+  [ADR-0047](../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md)
+  proposes an audit entry per act, which the log would read instead.
 
 - **No invitation without mail.** An installation with no mail server
   configured records invitations that nobody receives, except an
@@ -835,6 +837,9 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   carries the invitation entries to the email adapter.
 - [ADR-0046](../adr/0046-who-did-what-is-recorded-on-the-record.md) —
   who did what is recorded on the record, which the access history reads.
+- [ADR-0047](../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md) —
+  acts audited at commit and calls logged at the edge, which supersedes
+  it.
 - [schema-evolution](../recipes/code/schema-evolution.md) — the
   declaration steps for the stores.
 - [lifecycle-transitions](../recipes/code/lifecycle-transitions.md) —
