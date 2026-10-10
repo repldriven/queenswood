@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "PartyCommandReply",
+  "namespace": "com.repldriven.queenswood.schema.party",
+  "doc": "The party a party command committed, as its proto bytes",
+  "fields": [
+    {
+      "name": "record",
+      "type": "bytes"
+    }
+  ]
+}

@@ -2,7 +2,9 @@
   (:require
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.payee-check.queries :as queries]
-    [com.repldriven.queenswood.api.shared.actor :as shared.actor]))
+    [com.repldriven.queenswood.api.shared.actor :as actor]
+
+    [com.repldriven.queenswood.schema.interface :as schema]))
 
 (defn- dispatcher
   [request]
@@ -18,11 +20,12 @@
         response (commands/send (dispatcher request)
                                 request
                                 "check-payee"
-                                "payee-check"
+                                "payee-check-command-reply"
                                 (assoc body
                                        :bank-id bank-id
-                                       :actor (shared.actor/actor auth)))]
-    (commands/created (cond-> response
-                              (= 200 (:status response))
-                              (update :body queries/->body))
+                                       :actor (actor/actor auth)))]
+    (commands/created (commands/reply-body
+                       response
+                       (fn [{:keys [record]}]
+                         (queries/->body (schema/pb->PayeeCheck record))))
                       #(str "/v1/payee-checks/" (:check-id %)))))

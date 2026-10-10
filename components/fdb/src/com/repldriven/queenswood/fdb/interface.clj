@@ -8,6 +8,7 @@
   (:require
     [com.repldriven.queenswood.fdb.system.core]
 
+    [com.repldriven.queenswood.fdb.appended :as appended]
     [com.repldriven.queenswood.fdb.changelog :as changelog]
     [com.repldriven.queenswood.fdb.check :as check]
     [com.repldriven.queenswood.fdb.counter :as counter]
@@ -384,6 +385,41 @@
                          log-name
                          record-id
                          changelog-bytes))
+
+(defn append
+  "Appends `value` under the first key parts of `parts-list`, keyed by
+  this transaction's commit versionstamp, and an empty value under each
+  of the rest with the same versionstamp, so they index the first. A
+  blind write: it reads nothing and conflicts with no other writer, and
+  the key exists only from its commit, so nothing can overwrite it.
+
+  Args:
+  - txn: the Txn the append commits with.
+  - parts-list: one or more vectors of key parts, the first holding the
+    value.
+  - value: the bytes to append."
+  [txn parts-list value]
+  (appended/append (:context txn) (:prefix txn) parts-list value))
+
+(defn scan-appended
+  "Cursor-paginated scan of what `append` wrote under `parts`, returning
+  `{:entries :before :after}`, each entry `{:versionstamp :value}` and
+  each cursor a versionstamp's 12 bytes, phrased as `scan-records`
+  phrases them. A snapshot read.
+
+  Args:
+  - txn: an open Txn.
+  - parts: the key parts entries were appended under.
+  - opts: `{:after :before :limit :order}`, `:order` `:asc` (default) or
+    `:desc`, newest first."
+  [txn parts opts]
+  (appended/scan (:context txn) (:prefix txn) parts opts))
+
+(defn load-appended
+  "The value `append` wrote under `parts` at `versionstamp`, its 12
+  bytes, or nil. A snapshot read."
+  [txn parts versionstamp]
+  (appended/load-entry (:context txn) (:prefix txn) parts versionstamp))
 
 (defn bump-stamp
   "Sets the stamp named `stamp-name` to this transaction's commit

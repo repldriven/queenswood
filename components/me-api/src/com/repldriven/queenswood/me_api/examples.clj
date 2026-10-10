@@ -27,6 +27,7 @@
    :role :owner
    :created-organisation true
    :created-at "2026-05-18T09:15:00Z"
+   :created-by {:kind :member :principal-id UserId :name "Ada Lovelace"}
    :updated-at "2026-05-18T09:15:00Z"})
 
 (def Me (assoc User :operator false))

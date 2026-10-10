@@ -131,8 +131,8 @@ with it. Never clear a store's meta-data to make a refused save land.
 Where every installation's FoundationDB is emptied before it deploys,
 the declaration MAY be reset to `version: 1`, every `added` and
 `modified` at 1, with no `since` or `former-indexes` and no deprecated
-fields; the guard skips a version-1 tree whose last `stable-*` tag is
-above it. Run the migrator before the services roll: it opens every
+fields; the guard compares a version-1 tree with the last release's
+tag and skips it while that release is above version 1. Run the migrator before the services roll: it opens every
 store and
 builds online each index of the store's record type the open left
 disabled, which a store past a few hundred records leaves a new one.
@@ -149,17 +149,17 @@ in one named for the mechanism that carries it, the folder named in the
 singular for the brick that owns it, its package
 `com.repldriven.queenswood.schema.<folder>` and its Avro namespace the
 same. Number the primary key's fields first in key order, set apart by a
-blank line, the record's own fields from 1 to 50, its transitions from 51 to
-99 as `_at` and `_by` pairs with the `_at` odd, `idempotency_key`,
+blank line, the record's own fields from 1 to 50, `idempotency_key`,
 `created_at`, `created_by`, `updated_at` and `updated_by` at 100 to 104,
 the key taken from the API call or changelog event that created the
 record, `failure_reason` at 200, and, on a record that retries an
 outbound call, `attempt_count`, `next_attempt_at` and `traceparent` at
 201 to 203, keeping no retried attempt's error, lease or claim holder;
-and write no `reserved` for a number a record does not use. Name a
-transition's pair for the state it reaches, in the verb every record
-reaching that state uses, and never declare `updated_at` or `updated_by`
-`required` or set either on create.
+and write no `reserved` for a number a record does not use. Give a
+record no field for when or by whom an act happened, which its audit
+entry holds, and never declare `updated_at` or `updated_by` `required`
+or set either on create; a member's, an operator's or the bank's credential's change sets both,
+and a platform change sets `updated_at` and clears `updated_by`.
 Name a date `_on`, `business_day` excepted, an instant `_at`, an actor
 `_by`, a count `_count`, and the reason a record failed
 `failure_reason`. Name an enum `…Type`
@@ -169,24 +169,62 @@ handles it. Hold a state as a status enum, never a `bool`, and call a
 record's one status `status`. Declare a field `required` wherever every
 write gives it a value, never with an explicit `[default = …]`. Comment
 a record with what it is and a field with its unit, never with how
-something elsewhere uses it. Change the folder's `.avsc.json` files with its
-protos.
+something elsewhere uses it. Give a field holding a person's data, a
+credential or the platform's own workings its Fideslang data category
+with the `fideslang.data_category` option, a key not
+deprecated in the pinned copy of the taxonomy, which only
+`just fideslang-update` replaces. Change the folder's `.avsc.json`
+files with its protos.
+Commands: `just fideslang-update`.
 See [record-protos](../../../docs/recipes/code/record-protos.md).
 
-## Who did what is recorded on the record
+## Acts are audited at commit, and calls logged at the edge
 
-Record every act a person or an operator performs on a record on that
-record as an `_at` and a `_by` pair, the `_by` an `Actor`, required
-where an actor always exists and set by the domain from the caller the
-API passes in: creation as `created_at` and `created_by`, the last
-change as `updated_at` and `updated_by` where it matters, each
-transition as a pair in the transition band. Record no actor for what
-the platform does by itself. Build the caller's actor in one place in
-the API, `api/shared/actor.clj`, and pass it to the domain. Keep a
-record's history on its store's changelog, with the actor on the
-envelope once that is built, and show who did what through a console
-view per kind of record.
-See [ADR-0046](../../../docs/adr/0046-who-did-what-is-recorded-on-the-record.md).
+Write one append-only `AuditEntry` for each act a member, an operator
+or the bank's credential performs, naming the record it acts on, through the `audit`
+brick's `record`, in the transaction that saves the change; write none
+for what the platform does by itself, and leave a record the act writes
+as its consequence to its own `created_by`. Append it under the bank and
+its commit's versionstamp, outside the Record Layer, with empty keys
+beside it under the bank and subject and under the bank and kind, so a
+bank's log, a record's history and a set of kinds each read newest first
+a page at a time. Hold the act's kind, the subject's kind and id, the
+actor as `performed_by`, the time as `performed_at`, the request id and
+a `changeset` of the subject's fields the act changed and no others,
+`before` as they were, absent on a create, and `after` as the act left
+them, each a json object indexed by nothing, without the audit block, a
+retried call's bookkeeping, or any field whose Fideslang data category
+falls under `user` or `system`. An act that changes no
+record already there names the record it creates, and anything an act
+carries that a reader needs, such as a role's reason, is kept on its
+record so the changeset carries it. Number `AuditSubjectKind` in tens and
+each subject's `AuditKind`s up from its own. Keep the log
+append-only: only the `audit` brick names its keys, which semgrep holds,
+and it exposes `record` and reads alone. Build the caller's actor in one
+place in the `api` base, give every request a uuidv7 id in an
+interceptor there, answer it as `Request-Id`, and pass both to the
+domain: the request id as a command's causation id, which the processor
+passes on beside the actor, or in a synchronous call's arguments. Write
+an access entry for every call from that interceptor once the response
+is chosen — request id, principal, bank, method, route template, path
+ids, status, rejection type, replayed or not, client address and
+duration, no body or query value — off the request's thread, many to a
+transaction, in the `access-log` brick behind a bounded queue whose
+dropped count is published. Keep audit entries for the bank's life and
+access entries for a configured period, deleted by a system job, the
+only deletion either allows. Serve them at `GET /v1/bank/audit-log`,
+which takes a set of kinds, and `GET /v1/bank/access-log`, an
+operator any bank's. Assert in the API scenario runner that every
+successful write call that was not a replay left an audit entry under
+its request id, except a retry after a lost reply and a step marked
+`:audited false` because its write changes nothing. Remove a transition's `_at` and `_by` pair once its act
+writes an audit entry, keeping a value the domain reads to decide as the
+record's own field and leaving a platform transition to `status` and
+`updated_at`, clearing `updated_by`; keep the audit block — `created_at` and `created_by`, and
+`updated_at` with `updated_by` set together — and publish only it.
+Remove a record kept only to remember an act, such as
+`MemberRoleChange`, and leave the changelog envelope without an actor.
+See [ADR-0047](../../../docs/adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md).
 
 ## A service's `application.yml` includes shared groups, never copies
 

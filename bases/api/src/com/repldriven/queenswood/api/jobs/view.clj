@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.api.jobs.view
   (:require
+    [com.repldriven.queenswood.job-api.interface :as job-api]
     [com.repldriven.queenswood.scheduler.interface :as scheduler]
 
     [com.repldriven.mono.utility.interface :as utility]
@@ -69,11 +70,11 @@
   [job]
   (let [{:keys [schedule task-kinds]} job]
     (-> job
-        (dissoc :schedule :updated-by)
         (merge (schedule->cadence schedule))
         (assoc :allowed-periodicities
                (allowed-cadences task-kinds
-                                 (utility/now))))))
+                                 (utility/now)))
+        job-api/->job-body)))
 
 (defn api->edits
   "A schedule edit as the API sends it, in the job's own terms: the
@@ -108,8 +109,7 @@
                                          (:status task))
                           (:label task)))
                       tasks)]
-    (utility/assoc-some (-> run
-                            (dissoc :created-by :updated-at)
-                            (assoc :tasks-completed (count completed)))
-                        :current-task
-                        current)))
+    (-> run
+        (assoc :tasks-completed (count completed))
+        (utility/assoc-some :current-task current)
+        job-api/->run-body)))

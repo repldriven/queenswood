@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.cash-account-product.domain :as domain]
     [com.repldriven.queenswood.cash-account-product.store :as store]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.cash-account-product-query.interface :as q]
     [com.repldriven.queenswood.policy.interface :as policy]
 
@@ -41,6 +42,21 @@
       (or existing result))
     result))
 
+(defn- audited
+  "Records in the bank's audit log the act taking a version from `before`
+  to `after` that `opts` asks for, where it asks for one."
+  [txn kind before after opts]
+  (when (:audited? opts)
+    (audit/record txn
+                  {:bank-id (:bank-id after)
+                   :kind kind
+                   :subject-kind :audit-subject-kind-product-version
+                   :subject-id (:version-id after)
+                   :request-id (:request-id opts)
+                   :before before
+                   :after after
+                   :performed-by (:actor opts)})))
+
 (defn new-product
   ([txn bank-id data]
    (new-product txn bank-id data {}))
@@ -61,7 +77,8 @@
                                       (assoc data :created-by (:actor opts))
                                       aggregates
                                       policies)
-          _ (store/save-version txn version)]
+          _ (store/save-version txn version)
+          _ (audited txn :audit-kind-product-created nil version opts)]
          version))))))
 
 (defn open-draft
@@ -83,7 +100,8 @@
                                      template
                                      (assoc data :created-by (:actor opts))
                                      policies)
-         _ (store/save-version txn version)]
+         _ (store/save-version txn version)
+         _ (audited txn :audit-kind-product-version-drafted nil version opts)]
         version)))))
 
 (defn update-draft
@@ -97,8 +115,17 @@
         [policies (get-policies txn bank-id product-id opts)
          existing (q/get-version txn bank-id product-id version-id)
          template (q/get-template txn (:template-id existing))
-         version (domain/update-version existing template data policies)
-         _ (store/save-version txn version)]
+         version (domain/update-version existing
+                                        template
+                                        data
+                                        policies
+                                        (:actor opts))
+         _ (store/save-version txn version)
+         _ (audited txn
+                    :audit-kind-product-version-updated
+                    existing
+                    version
+                    opts)]
         version)))))
 
 (defn discard-draft
@@ -112,7 +139,12 @@
         [policies (get-policies txn bank-id product-id opts)
          existing (q/get-version txn bank-id product-id version-id)
          discarded (domain/discard existing policies (:actor opts))
-         _ (store/save-version txn discarded)]
+         _ (store/save-version txn discarded)
+         _ (audited txn
+                    :audit-kind-product-version-discarded
+                    existing
+                    discarded
+                    opts)]
         discarded)))))
 
 (defn publish
@@ -129,7 +161,12 @@
                                    policies
                                    (:payment-provider opts)
                                    (:actor opts))
-         _ (store/save-version txn published)]
+         _ (store/save-version txn published)
+         _ (audited txn
+                    :audit-kind-product-version-published
+                    existing
+                    published
+                    opts)]
         published)))))
 
 (defn new-template

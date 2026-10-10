@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.transaction.domain :as domain]
     [com.repldriven.queenswood.transaction.store :as store]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.balance.interface :as balances]
     [com.repldriven.queenswood.bank-activity.interface :as bank-activity]
 
@@ -93,5 +94,13 @@
            _ (balances/apply-legs txn
                                   bank-id
                                   (:legs result)
-                                  (:transaction-type result))]
+                                  (:transaction-type result))
+           _ (audit/record txn
+                           {:bank-id bank-id
+                            :kind :audit-kind-transaction-simulated
+                            :subject-kind :audit-subject-kind-transaction
+                            :subject-id (:transaction-id result)
+                            :request-id (:request-id data)
+                            :after (dissoc result :legs)
+                            :performed-by (:actor data)})]
           result))))))

@@ -32,8 +32,6 @@ message EmailDelivery {
   required string kind_id = 5; // the id of the record the kind names
   optional string message_id = 6; // Message-ID
 
-  optional int64 sent_at = 51;
-
   required string idempotency_key = 100; // the changelog entry that asked for it
   required int64 created_at = 101;
   optional int64 updated_at = 103;

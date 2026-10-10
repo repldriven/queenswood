@@ -308,30 +308,29 @@
           (is (not (mentions? result "hash-1"))))))
     (testing "accept, decline and withdraw move a pending invitation"
       (is (= {:status :invitation-status-accepted
-              :accepted-at now
-              :accepted-by (recipient "usr.new")
-              :updated-at now}
+              :updated-at now
+              :updated-by (recipient "usr.new")}
              (select-keys (SUT/accept-invitation pending
                                                  (recipient "usr.new")
                                                  {:active-members []}
                                                  now)
-                          [:status :accepted-at :accepted-by :updated-at])))
+                          [:status :updated-at :updated-by])))
       (is (= {:status :invitation-status-declined
-              :declined-at now
-              :declined-by (recipient "usr.new")}
+              :updated-at now
+              :updated-by (recipient "usr.new")}
              (select-keys
               (SUT/decline-invitation pending (recipient "usr.new") now)
-              [:status :declined-at :declined-by])))
+              [:status :updated-at :updated-by])))
       (is (= {:status :invitation-status-withdrawn
-              :withdrawn-at now
-              :withdrawn-by operator-actor
+              :updated-at now
+              :updated-by operator-actor
               :withdrawn-reason "Sent to the wrong address"}
              (select-keys (SUT/withdraw-invitation pending
                                                    {:actor operator-actor
                                                     :reason
                                                     "Sent to the wrong address"}
                                                    now)
-                          [:status :withdrawn-at :withdrawn-by
+                          [:status :updated-at :updated-by
                            :withdrawn-reason]))))
     (testing "withdraw omits a blank reason"
       (is (not (contains? (SUT/withdraw-invitation pending
@@ -343,8 +342,8 @@
       (let [resent (SUT/resend-invitation pending operator-actor now)]
         (is (= "inv.1" (:token-hash resent)))
         (is (= (+ now SUT/invitation-lifetime-ms) (:expires-at resent)))
-        (is (= now (:resent-at resent)))
-        (is (= operator-actor (:resent-by resent)))))))
+        (is (= now (:updated-at resent)))
+        (is (= operator-actor (:updated-by resent)))))))
 
 (deftest one-active-member-test
   (let [existing (member "mem.1" "usr.1" :role-viewer)
@@ -489,9 +488,13 @@
       (is (not (contains? inv :reason)))
       (is (= {:kind :actor-kind-member :principal-id "usr.role-admin"}
              (:created-by inv)))))
-  (testing "change-role sets the role at now"
+  (testing "change-role sets the role, and who changed it, at now"
     (let [m (member "mem.1" "usr.1" :role-viewer)]
-      (is (= (assoc m :role :role-developer :updated-at now)
+      (is (= (assoc m
+                    :role :role-developer
+                    :updated-at now
+                    :updated-by {:kind :actor-kind-member
+                                 :principal-id "usr.role-admin"})
              (SUT/change-role m
                               :role-developer
                               {:actor (:admin actors) :active-members [m]}
@@ -500,11 +503,10 @@
     (let [m (member "mem.1" "usr.1" :role-viewer)]
       (is (= (assoc m
                     :status :member-status-removed
-                    :removed-at now
-                    :removed-by {:kind :actor-kind-operator
-                                 :principal-id "ops.1"}
                     :removed-reason "Left the company"
-                    :updated-at now)
+                    :updated-at now
+                    :updated-by {:kind :actor-kind-operator
+                                 :principal-id "ops.1"})
              (SUT/end-member m
                              :remove
                              {:actor operator-actor
@@ -516,21 +518,5 @@
                                       :leave
                                       {:actor (recipient "usr.1")
                                        :active-members [m]}
-                                      now))))))
-  (testing "new-role-change records the move, by whom and why"
-    (let [m (member "mem.1" "usr.1" :role-viewer)
-          change (SUT/new-role-change m
-                                      :role-admin
-                                      {:actor (:owner actors)
-                                       :reason "Leads the team"}
-                                      now)]
-      (is (re-find #"^rch\." (:role-change-id change)))
-      (is (= {:bank-id "bnk.1"
-              :member-id "mem.1"
-              :role-before :role-viewer
-              :role-after :role-admin
-              :reason "Leads the team"
-              :created-at now
-              :created-by {:kind :actor-kind-member
-                           :principal-id "usr.role-owner"}}
-             (dissoc change :role-change-id))))))
+                                      now)))))))
+

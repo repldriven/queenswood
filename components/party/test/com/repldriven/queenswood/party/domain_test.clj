@@ -66,8 +66,8 @@
                                     operator
                                     allow-suspend)]
       (is (= :party-status-suspended (:status result)))
-      (is (= operator (:suspended-by result)))
-      (is (= (:suspended-at result) (:updated-at result))))))
+      (is (= operator (:updated-by result)))
+      (is (number? (:updated-at result))))))
 
 (deftest resume-party-source-state-guard-test
   (testing
@@ -211,5 +211,5 @@
       (is (= :party-status-merged (:status result)))
       (is (= "pty.survivor" (:merged-into-party-id result)))
       (is (= "pty.merged" (:party-id result)))
-      (is (= operator (:merged-by result)))
-      (is (= (:merged-at result) (:updated-at result))))))
+      (is (= operator (:updated-by result)))
+      (is (number? (:updated-at result))))))

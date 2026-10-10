@@ -185,8 +185,7 @@
     (let [now (utility/now)]
       (assoc migration
              :status :cash-account-migration-status-approved
-             :approved-at now
-             :approved-by actor
+             :updated-by actor
              :updated-at now))))
 
 (defn cancel-migration
@@ -205,8 +204,7 @@
     (let [now (utility/now)]
       (assoc migration
              :status :cash-account-migration-status-cancelled
-             :cancelled-at now
-             :cancelled-by actor
+             :updated-by actor
              :updated-at now))))
 
 (defn ensure-runnable
@@ -228,11 +226,10 @@
     [_ (ensure-status migration
                       #{:cash-account-migration-status-approved}
                       "completed")]
-    (let [now (utility/now)]
-      (assoc migration
-             :status :cash-account-migration-status-completed
-             :completed-at now
-             :updated-at now))))
+    (-> migration
+        (assoc :status :cash-account-migration-status-completed
+               :updated-at (utility/now))
+        (dissoc :updated-by))))
 
 (defn due?
   "Whether an approved migration is work for `business-day`.
@@ -276,15 +273,19 @@
 (defn new-run
   "A run opens as running, and is closed by whatever finishes it. A
   preview and a run are the same record: `dry-run?` decides only
-  whether accounts are written, never what is decided about them."
-  [migration business-day dry-run?]
-  {:bank-id (:bank-id migration)
-   :run-id (str (utility/uuidv7))
-   :migration-id (:migration-id migration)
-   :status :cash-account-migration-run-status-running
-   :dry-run dry-run?
-   :business-day business-day
-   :created-at (utility/now)})
+  whether accounts are written, never what is decided about them.
+  `actor` is who asked for a preview, and nil for a run the scheduler
+  makes."
+  [migration business-day dry-run? actor]
+  (utility/assoc-some {:bank-id (:bank-id migration)
+                       :run-id (str (utility/uuidv7))
+                       :migration-id (:migration-id migration)
+                       :status :cash-account-migration-run-status-running
+                       :dry-run dry-run?
+                       :business-day business-day
+                       :created-at (utility/now)}
+                      :created-by
+                      actor))
 
 (def moved-verdict
   "What a run records for an account it actually moved, onto the
@@ -322,21 +323,23 @@
   reader wants them before any individual verdict, and totalling every
   row to find them is the expensive way."
   [run tally]
-  (utility/assoc-some (assoc run
-                             :status
-                             :cash-account-migration-run-status-completed
-                             :completed-at (utility/now))
-                      :accounts-seen (:seen tally)
-                      :accounts-moved (:moved tally)
-                      :accounts-ineligible (:ineligible tally)
-                      :accounts-failed (:failed tally)))
+  (let [now (utility/now)]
+    (utility/assoc-some (assoc run
+                               :status
+                               :cash-account-migration-run-status-completed
+                               :updated-at now)
+                        :accounts-seen (:seen tally)
+                        :accounts-moved (:moved tally)
+                        :accounts-ineligible (:ineligible tally)
+                        :accounts-failed (:failed tally))))
 
 (defn fail-run
   "Closes a run that could not finish. Distinct from a run that finished
   having found every account ineligible — that one decided about them
   all and succeeded."
   [run anomaly]
-  (assoc run
-         :status :cash-account-migration-run-status-failed
-         :failed-at (utility/now)
-         :failure-reason (str (error/kind anomaly))))
+  (let [now (utility/now)]
+    (assoc run
+           :status :cash-account-migration-run-status-failed
+           :updated-at now
+           :failure-reason (str (error/kind anomaly)))))

@@ -31,9 +31,7 @@ message Policy {
   repeated Limit limits = 7;
   map<string, string> labels = 8;
 
-  optional int64 archived_at = 51;
-  optional com.repldriven.queenswood.schema.actor.Actor archived_by = 52;
-
   required int64 created_at = 101;
   optional int64 updated_at = 103;
+  optional com.repldriven.queenswood.schema.actor.Actor updated_by = 104;
 }

@@ -21,7 +21,7 @@ export const ROLE_BLURB = {
 export function accessEnum(x) {
   return String(x ?? "")
     .replace(/^:/, "")
-    .replace(/^(role|invitation-status|audit-event-kind|actor-kind)-/, "");
+    .replace(/^(role|invitation-status|audit-kind|actor-kind)-/, "");
 }
 
 export function grantableBy(role) {
@@ -54,7 +54,7 @@ export const EVENT_LABEL = {
   "invitation-accepted": "invitation accepted",
   "invitation-declined": "invitation declined",
   "invitation-withdrawn": "invitation withdrawn",
-  "role-changed": "role changed",
+  "member-role-changed": "role changed",
   "member-removed": "member removed",
   "member-left": "member left",
 };
@@ -67,7 +67,7 @@ export const EVENT_FAMILY = {
   "invitation-accepted": "accept",
   "invitation-declined": "end",
   "invitation-withdrawn": "end",
-  "role-changed": "role",
+  "member-role-changed": "role",
   "member-removed": "end",
   "member-left": "end",
 };

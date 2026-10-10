@@ -1,10 +1,5 @@
 (ns com.repldriven.queenswood.schema.interface-test
-  "The cash-account record and the reply schema registered as
-  `cash-account` describe one account between them, so what the record
-  carries the reply has to be able to carry.
-
-  The reply schema is hand-maintained — nothing generates it from the
-  proto — which is what these round-trips are for.
+  "A cash account reads back its retired addresses and its creator.
 
   The access records read back what was written, and a member
   written before a member could end reads as active. An inbound
@@ -18,17 +13,27 @@
   order a deploy puts them in.
 
   A required field holding zero reaches the Java parse, and one left out
-  is still refused by it."
+  is still refused by it.
+
+  Every data category a proto gives a field is a key in the pinned copy
+  of Fideslang's taxonomy, and not one it deprecates, and a record reads
+  back without the fields of the categories asked for, at any depth."
   (:require
     [com.repldriven.queenswood.schema.interface :as SUT]
 
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.json.interface :as json]
 
     [clojure.java.io :as io]
     [clojure.test :refer [deftest is testing]])
   (:import
-    (com.google.protobuf InvalidProtocolBufferException)))
+    (com.google.protobuf Descriptors$Descriptor
+                         Descriptors$FieldDescriptor
+                         Descriptors$FileDescriptor
+                         InvalidProtocolBufferException)
+    (com.repldriven.queenswood.schema SchemaProto)
+    (com.repldriven.queenswood.schema.fideslang DataCategoryProto)))
 
 (def ^:private payment-address
   {:scheme :payment-address-scheme-scan
@@ -61,10 +66,6 @@
                                       :retired-at 1700000000500}]
          :rotation {:idempotency-key "01kprbmgcj35ptc8npmybhh4sh"
                     :status :address-rotation-status-completed}))
-
-(def ^:private reply-schema
-  (avro/json->schema (slurp (io/resource
-                             "schemas/cash-account/cash-account.avsc.json"))))
 
 (def ^:private opened-balance
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
@@ -105,31 +106,10 @@
     (let [account (SUT/pb->CashAccount (SUT/CashAccount->pb opened-account))]
       (is (not (contains? account :rotation))
           "an account that has never been rotated has no rotation")
-      (is (not (contains? account :suspended-at)))
-      (is (not (contains? account :suspended-by)))
+      (is (not (contains? account :updated-by)))
+      (is (not (contains? account :close-requested-from)))
       (is (= {:kind :actor-kind-operator :principal-id "test"}
              (:created-by account))))))
-
-(deftest cash-account-reply-schema-test
-  (is (not (error/anomaly? reply-schema)) "the reply schema parses")
-  (testing "an opened account round-trips"
-    ;; The empty vector is what `cash-account/commands` supplies: the
-    ;; array field has no null branch to fall back on.
-    (let [account (assoc opened-account :retired-payment-addresses [])
-          body (avro/deserialize-same reply-schema
-                                      (avro/serialize reply-schema account))]
-      (is (= "04000412345678" (:bban body)))
-      (is (= [] (:retired-payment-addresses body)))
-      (testing "and publishes none of the GL fields the record dropped"
-        (is (empty? (select-keys body
-                                 [:gl-code :gl-account-type :account-class
-                                  :required :gl-control-code]))))))
-  (testing "a rotated account's history round-trips"
-    (let [body (avro/deserialize-same reply-schema
-                                      (avro/serialize reply-schema
-                                                      rotated-account))]
-      (is (= [{:address payment-address :retired-at 1700000000500}]
-             (:retired-payment-addresses body))))))
 
 (def ^:private suspended-inbound
   "An inbound as `payment/domain` parks it: no creditor account and, until
@@ -143,7 +123,6 @@
    :end-to-end-id "01a0b01c-546b-76ac-9462-53eec8a61307"
    :scheme-transaction-id "01a0b01c-5496-7d64-a052-ad4c57e5d0ef"
    :business-day 20713
-   :suspended-at 1700000000000
    :created-at 1700000000000})
 
 (deftest inbound-payment-record-round-trip-test
@@ -151,10 +130,8 @@
     (let [payment (SUT/pb->InboundPayment (SUT/InboundPayment->pb
                                            suspended-inbound))]
       (is (= :inbound-payment-status-suspended (:status payment)))
-      (is (= 1700000000000 (:suspended-at payment)))
       (is (not (contains? payment :creditor-account-id)))
       (is (not (contains? payment :transaction-id)))
-      (is (not (contains? payment :settled-at)))
       (is (not (contains? payment :updated-at)))))
   (testing "a settled record keeps both"
     (let [payment (SUT/pb->InboundPayment
@@ -186,8 +163,8 @@
     (let [ended (assoc owner
                        :role :role-viewer
                        :status :member-status-removed
-                       :removed-at 1700000000500
-                       :removed-by member-actor
+                       :updated-at 1700000000500
+                       :updated-by member-actor
                        :removed-reason "Left the company"
                        :invitation-id "inv.01kprbmgcj35ptc8npmybhh4t2")]
       (is (= ended (SUT/pb->Member (SUT/Member->pb ended))))
@@ -214,43 +191,23 @@
     (is (= pending-invitation
            (SUT/pb->Invitation (SUT/Invitation->pb pending-invitation))))
     (is (some? (SUT/Invitation->java pending-invitation))))
-  (testing "an operator's resent, then accepted, invitation keeps each act"
+  (testing "an accepted invitation keeps who created and who last changed it"
     (let [accepted (assoc pending-invitation
                           :status :invitation-status-accepted
                           :created-by operator-actor
                           :reason "Support ticket 42"
-                          :resent-at 1700000000100
-                          :resent-by operator-actor
-                          :accepted-at 1700000000200
-                          :accepted-by {:kind :actor-kind-member
-                                        :principal-id
-                                        "usr.01kprbmgcj35ptc8npmybhh4t3"})]
+                          :updated-at 1700000000200
+                          :updated-by {:kind :actor-kind-member
+                                       :principal-id
+                                       "usr.01kprbmgcj35ptc8npmybhh4t3"})]
       (is (= accepted (SUT/pb->Invitation (SUT/Invitation->pb accepted))))))
   (testing "a withdrawn invitation keeps who withdrew it and why"
     (let [withdrawn (assoc pending-invitation
                            :status :invitation-status-withdrawn
-                           :withdrawn-at 1700000000300
-                           :withdrawn-by operator-actor
+                           :updated-at 1700000000300
+                           :updated-by operator-actor
                            :withdrawn-reason "Sent to the wrong address")]
       (is (= withdrawn (SUT/pb->Invitation (SUT/Invitation->pb withdrawn)))))))
-
-(deftest member-role-change-record-round-trip-test
-  (let [change {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
-                :member-id "mem.01kprbmgcj35ptc8npmybhh4t5"
-                :role-change-id "rch.01kprbmgcj35ptc8npmybhh4t4"
-                :role-before :role-viewer
-                :role-after :role-admin
-                :created-at 1700000000000
-                :created-by member-actor}]
-    (testing "a role change carries the roles either side and who moved it"
-      (is (= change
-             (SUT/pb->MemberRoleChange (SUT/MemberRoleChange->pb change))))
-      (is (some? (SUT/MemberRoleChange->java change))))
-    (testing "and the reason when one was given"
-      (let [with-reason (assoc change :reason "Leads the team")]
-        (is (= with-reason
-               (SUT/pb->MemberRoleChange (SUT/MemberRoleChange->pb
-                                          with-reason))))))))
 
 (deftest email-delivery-record-round-trip-test
   (testing "a pending delivery carries no message id, send or failure"
@@ -266,14 +223,13 @@
                     :next-attempt-at 1700000000000}]
       (is (= delivery (SUT/pb->EmailDelivery (SUT/EmailDelivery->pb delivery))))
       (is (some? (SUT/EmailDelivery->java delivery)))))
-  (testing "a sent delivery carries its attempts, message id and send"
+  (testing "a sent delivery carries its attempts and message id"
     (let [delivery {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
                     :delivery-id "eml.01kprbmgcj35ptc8npmybhh4t7"
                     :kind :email-kind-invitation
                     :status :email-delivery-status-sent
                     :kind-id "inv.01kprbmgcj35ptc8npmybhh4t2"
                     :message-id "<abc@queenswood.local>"
-                    :sent-at 1700000060000
                     :idempotency-key "01kprbmgcj35ptc8npmybhh4t8"
                     :created-at 1700000000000
                     :updated-at 1700000060000
@@ -359,11 +315,10 @@
    :amount 1000
    :currency "GBP"
    :deferred-reason "house account cannot cover it"
-   :deferred-at 1700000000000
    :created-at 1700000000000})
 
 (deftest account-reward-record-round-trip-test
-  (testing "a deferred reward carries no transaction, paid-at or update"
+  (testing "a deferred reward carries no transaction or update"
     (is (= deferred-reward
            (SUT/pb->AccountReward (SUT/AccountReward->pb deferred-reward))))
     (is (some? (SUT/AccountReward->java deferred-reward))))
@@ -372,7 +327,6 @@
                    (dissoc :deferred-reason)
                    (assoc :status :account-reward-status-paid
                           :transaction-id "txn.01kprbmgcj35ptc8npmybhh4tb"
-                          :paid-at 1700003600000
                           :updated-at 1700003600000))]
       (is (= paid (SUT/pb->AccountReward (SUT/AccountReward->pb paid))))
       (is (= (SUT/account-reward-status->int :account-reward-status-paid)
@@ -395,12 +349,11 @@
    :created-by member-actor})
 
 (deftest outbound-payment-record-round-trip-test
-  (testing "a failed record keeps its kind, code, reason and when"
+  (testing "a failed record keeps its kind, code and reason"
     (let [failed (assoc failed-outbound
                         :failed-kind :outbound-payment-failed-kind-refused
                         :failed-reason-code "NARR"
                         :failed-reason "HTTP 400"
-                        :failed-at 1700000000100
                         :updated-at 1700000000100)]
       (is (= failed
              (SUT/pb->OutboundPayment (SUT/OutboundPayment->pb failed))))))
@@ -441,3 +394,62 @@
     (testing "a reader on the current schema reads the creditor BBAN"
       (let [body (avro/deserialize-same transaction-rejected-schema event)]
         (is (= "04000412345678" (:creditor-bban body)))))))
+
+(defn- files
+  [^Descriptors$FileDescriptor file]
+  (into #{file} (mapcat files) (.getDependencies file)))
+
+(defn- messages
+  [^Descriptors$Descriptor message]
+  (cons message (mapcat messages (.getNestedTypes message))))
+
+(defn- used-categories
+  "Each data category a field of a record, or of a message a record's
+  file imports, is given, with the field it is on."
+  []
+  (for [^Descriptors$FileDescriptor file (files (SchemaProto/getDescriptor))
+        message (mapcat messages (.getMessageTypes file))
+        ^Descriptors$FieldDescriptor field (.getFields ^Descriptors$Descriptor
+                                                       message)
+        :let [options (.getOptions field)]
+        :when (.hasExtension options DataCategoryProto/dataCategory)]
+    [(.getFullName field)
+     (.getExtension options DataCategoryProto/dataCategory)]))
+
+(deftest data-categories-are-fideslang-keys-test
+  (let [taxonomy (json/read-str (slurp (io/resource
+                                        "fideslang/data-categories.json"))
+                                :key-fn
+                                keyword)
+        current (into #{}
+                      (comp (remove :version_deprecated) (map :fides_key))
+                      (:data_category taxonomy))
+        used (used-categories)]
+    (is (seq used))
+    (doseq [[field fides-key] used]
+      (is (contains? current fides-key)
+          (str field
+               " names "
+               fides-key
+               ", which Fideslang "
+               (:tag taxonomy)
+               " does not offer")))))
+
+(deftest without-data-categories-test
+  (let [check {:bank-id "bnk.a"
+               :check-id "chk.a"
+               :request {:creditor-name "Ada Lovelace"
+                         :account {:sort-code "040004"
+                                   :account-number "12345678"}}
+               :result {:match-result :match-result-close-match
+                        :actual-name "Ada King"}}]
+    (testing "a field nested in a message is left out"
+      (is (= {:bank-id "bnk.a"
+              :check-id "chk.a"
+              :request {:account {}}
+              :result {:match-result :match-result-close-match}}
+             (SUT/without-data-categories :payee-check check ["user"]))))
+    (testing "a prefix takes in the keys below it, and nothing else"
+      (is (= check
+             (SUT/without-data-categories :payee-check check ["system"]))))
+    (is (nil? (SUT/without-data-categories :payee-check nil ["user"])))))

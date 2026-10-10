@@ -45,6 +45,7 @@
    [:request [:ref "PayeeCheckRequest"]]
    [:result [:ref "PayeeCheckResult"]]
    [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
    [:expires-at [:ref "Timestamp"]]])
 
 (def PayeeCheckList (schema/list-schema "PayeeCheck" examples/PayeeCheckList))

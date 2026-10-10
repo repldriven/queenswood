@@ -68,7 +68,7 @@ record and its FDB store:
 - **The record.** `CircuitBreaker` in
   `schemas/circuit-breaker/circuit-breaker.proto`, keyed by `destination`, with
   its `status` (closed, open or half-open), `failure_count`,
-  `next_probe_at`, `cool_down_ms` and `opened_at`, in a
+  `next_probe_at`, `cool_down_ms` and `updated_at`, in a
   `circuit-breakers` store, per
   [schema-evolution](../recipes/code/schema-evolution.md).
 - **Writes.** A failed call increments the count, and a transition

@@ -2,29 +2,11 @@
   (:require
     [com.repldriven.queenswood.idv.core :as core]
 
+    [com.repldriven.queenswood.schema.interface :as schema]
+
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.processor.interface :as processor]))
-
-(defn- idv->avro
-  [idv]
-  (-> idv
-      (dissoc :evidence :criteria)
-      (update :accepted-at (fn [t] (when (and t (pos? t)) t)))
-      (update :rejected-at (fn [t] (when (and t (pos? t)) t)))
-      (update :cancelled-at (fn [t] (when (and t (pos? t)) t)))))
-
-(defn- ->response
-  [config result]
-  (if (error/anomaly? result)
-    result
-    (let [{:keys [schemas]} config]
-      {:status "ACCEPTED"
-       :payload (avro/serialize (schemas "idv") (idv->avro result))})))
-
-(def ^:private session-keys
-  [:bank-id :session-id :verification-id :party-id :channel :return-url
-   :status :created-at :updated-at])
 
 (defn- open-idv-session
   [config data]
@@ -33,18 +15,15 @@
       result
       (let [{:keys [schemas]} config]
         {:status "ACCEPTED"
-         :payload (avro/serialize (schemas "idv-session")
-                                  (select-keys result session-keys))}))))
+         :payload (avro/serialize (schemas "idv-command-reply")
+                                  {:record (schema/IdvSession->pb
+                                            result)})}))))
 
-(def ^:private command-handlers
-  {"initiate-idv" (fn [config data]
-                    (->response config (core/initiate config data)))
-   "get-idv" (fn [config data] (->response config (core/get config data)))
-   "open-idv-session" open-idv-session})
+(def ^:private command-handlers {"open-idv-session" open-idv-session})
 
 (defn- dispatch
   [config message]
-  (let [{:keys [command payload]} message
+  (let [{:keys [command causation-id payload]} message
         handler (get command-handlers command)]
     (if (nil? handler)
       (error/reject :idv/unknown-command
@@ -55,8 +34,8 @@
           (error/fail :idv/process-command
                       {:message "No schema found for command"
                        :command command})
-          (let-nom> [data (avro/deserialize-same schema payload)]
-            (handler config data)))))))
+          (let-nom> [raw (avro/deserialize-same schema payload)]
+            (handler config (assoc raw :request-id causation-id))))))))
 
 (defrecord IdvProcessor [config]
   processor/Processor

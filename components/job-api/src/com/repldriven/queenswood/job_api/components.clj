@@ -62,7 +62,9 @@
    [:last-run-at {:optional true} [:ref "Timestamp"]]
    [:next-run-at {:optional true} [:ref "Timestamp"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:created-by {:optional true} [:ref "Actor"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def JobList (list-schema "Job" examples/JobList))
 
@@ -92,10 +94,10 @@
    [:current-task {:optional true} string?]
    [:expected-end-at {:optional true} [:ref "Timestamp"]]
    [:tasks [:vector [:ref "TaskRun"]]]
-   [:completed-at {:optional true} [:ref "Timestamp"]]
-   [:failed-at {:optional true} [:ref "Timestamp"]]
+   [:failure-reason {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
-   [:failure-reason {:optional true} string?]])
+   [:created-by {:optional true} [:ref "Actor"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def RunList (list-schema "Run" examples/RunList))
 
@@ -109,6 +111,28 @@
    [:monthly-day {:optional true} [:ref "MonthlyDay"]]
    [:run-time-minutes {:optional true} [:int {:min 0 :max 1439}]]
    [:status {:optional true} [:ref "JobStatus"]]])
+
+(defn- declared-keys
+  [schema]
+  (into [] (comp (filter vector?) (map first)) schema))
+
+(def ^:private job-keys (declared-keys Job))
+
+(def ^:private task-run-keys (declared-keys TaskRun))
+
+(def ^:private run-keys (declared-keys Run))
+
+(defn ->job-body
+  [job]
+  (select-keys job job-keys))
+
+(defn ->run-body
+  [run]
+  (-> run
+      (select-keys run-keys)
+      (update :tasks
+              (fn [tasks]
+                (mapv (fn [task] (select-keys task task-run-keys)) tasks)))))
 
 (def registry
   (components-registry [#'JobId #'RunId #'Periodicity #'JobTaskKind #'RunStatus

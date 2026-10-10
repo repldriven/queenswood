@@ -4,6 +4,7 @@
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
+    [com.repldriven.queenswood.bank-api.interface :as bank-api]
     [com.repldriven.queenswood.bank-query.interface :as banks]
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]
@@ -25,19 +26,21 @@
   of its accounts as the account routes return one."
   [request bank]
   (let [recorded (into {} (map (juxt :kind :provider)) (:providers bank))]
-    (cond-> (assoc bank
-                   :providers
-                   (into {}
-                         (map (fn [{:keys [kind default]}]
-                                [(keyword kind)
-                                 (get recorded kind (name default))]))
-                         (offered request)))
-            (contains? bank :party)
-            (update :party party-api/->body)
+    (-> (cond-> (assoc bank
+                       :providers
+                       (into {}
+                             (map (fn [{:keys [kind default]}]
+                                    [(keyword kind)
+                                     (get recorded kind (name default))]))
+                             (offered request)))
+                (contains? bank :party)
+                (update :party party-api/->body)
 
-            (contains? bank :accounts)
-            (update :accounts
-                    (fn [accounts] (mapv cash-account-api/->body accounts))))))
+                (contains? bank :accounts)
+                (update :accounts
+                        (fn [accounts]
+                          (mapv cash-account-api/->body accounts))))
+        bank-api/->body)))
 
 (defn list-providers
   [request]

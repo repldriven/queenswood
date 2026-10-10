@@ -115,12 +115,12 @@
 
 (defn new-ledger-account
   "Build a `LedgerAccount` map for one template `row` in `currency`,
-  stamping a fresh `led.` id and timestamps. Gated on the
-  `:ledger-account` open capability in `policies` (opening a ledger
-  account mirrors opening a cash account), so a tier that denies it
-  (e.g. micro) cannot mint ledger accounts; returns the account map or
-  the deny anomaly."
-  [bank-id currency row policies]
+  stamping a fresh `led.` id, the time and `actor` as its creator. Gated
+  on the `:ledger-account` open capability in `policies` (opening a
+  ledger account mirrors opening a cash account), so a tier that denies
+  it (e.g. micro) cannot mint ledger accounts; returns the account map
+  or the deny anomaly."
+  [bank-id currency row policies actor]
   (let-nom>
     [_ (policy/check-capability policies
                                 :ledger-account
@@ -131,7 +131,8 @@
              :currency currency
              :ledger-account-id (utility/generate-id "led")
              :status :ledger-account-status-open
-             :created-at now))))
+             :created-at now
+             :created-by actor))))
 
 (defn opening-balance
   "The single default-posted balance bucket a ledger account other than

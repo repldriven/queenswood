@@ -9,35 +9,13 @@
 
 (def InvitationId (schema/id-schema "InvitationId" "inv" examples/InvitationId))
 
-(def AuditEventId (schema/id-schema "AuditEventId" "aev" examples/AuditEventId))
-
 (def InvitationStatus
   (coercion/invitation-status-enum-schema {:json-schema/example "pending"}))
-
-(def ActorKind
-  (coercion/actor-kind-enum-schema {:json-schema/example "member"}))
-
-(def AuditEventKind
-  (coercion/audit-event-kind-enum-schema {:json-schema/example "role-changed"}))
 
 (def EmailAddress
   [:re
    {:title "EmailAddress" :json-schema/example "c.babbage@example.com"}
    #"^[^\s@]{1,64}@[^\s@]{1,255}$"])
-
-(def Actor
-  [:map
-   {:json-schema/example examples/Actor
-    :description
-    "Who made a change: a member by user id, or an operator by user id or
-    client id. A member, or an operator signed in as a user, is named from
-    their user record whether or not still a member, by their email when
-    the record has no name; the platform's own client is named
-    `Queenswood`. To the person an invitation was sent to, an inviter with
-    no name on record is named by the organisation."}
-   [:kind [:ref "ActorKind"]]
-   [:principal-id string?]
-   [:name string?]])
 
 (def Member
   [:map
@@ -59,29 +37,27 @@
    [:invited-by {:optional true} [:ref "Actor"]]
    [:invited-email {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:created-by [:ref "Actor"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def MemberList (list-schema "Member" examples/MemberList))
 
 (def Invitation
   [:map
    {:json-schema/example examples/Invitation
-    :description
-    "An invitation to the bank, as the bank's members see it. Once
-    accepted it names the accepting user and the address they signed in
-    with."}
+    :description "An invitation to the bank, as the bank's members see it."}
    [:invitation-id [:ref "InvitationId"]]
    [:bank-id [:ref "BankId"]]
    [:email string?]
    [:role [:ref "Role"]]
    [:status [:ref "InvitationStatus"]]
    [:expires-at [:ref "Timestamp"]]
-   [:invited-by [:ref "Actor"]]
    [:reason {:optional true} string?]
-   [:accepted-by-user-id {:optional true} [:ref "UserId"]]
-   [:accepted-email {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:created-by [:ref "Actor"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def InvitationList (list-schema "Invitation" examples/InvitationList))
 
@@ -96,8 +72,8 @@
    [:role [:ref "Role"]]
    [:status [:ref "InvitationStatus"]]
    [:expires-at [:ref "Timestamp"]]
-   [:invited-by [:ref "Actor"]]
-   [:created-at [:ref "Timestamp"]]])
+   [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]])
 
 (def RecipientInvitationList
   (list-schema "RecipientInvitation" examples/RecipientInvitationList))
@@ -117,36 +93,8 @@
   [:map {:closed true :json-schema/example examples/ReasonRequest}
    [:reason {:optional true} [:string {:min 1 :max 500}]]])
 
-(def AuditEvent
-  [:map
-   {:json-schema/example examples/AuditEvent
-    :description
-    "One entry in the bank's audit log: a change to who may act for the
-    bank, who made it and why. An invitation's events name
-    the invitation, its address and its role as `role-after`; a
-    member's name the member, the member and `role-before`, and a
-    role change `role-after`. `subject-name` names the member from their
-    user record, and is absent when they have none."}
-   [:audit-event-id [:ref "AuditEventId"]]
-   [:bank-id [:ref "BankId"]]
-   [:kind [:ref "AuditEventKind"]]
-   [:actor [:ref "Actor"]]
-   [:subject-user-id {:optional true} [:ref "UserId"]]
-   [:subject-name {:optional true} string?]
-   [:member-id {:optional true} [:ref "MemberId"]]
-   [:invitation-id {:optional true} [:ref "InvitationId"]]
-   [:email {:optional true} string?]
-   [:role-before {:optional true} [:ref "Role"]]
-   [:role-after {:optional true} [:ref "Role"]]
-   [:reason {:optional true} string?]
-   [:occurred-at [:ref "Timestamp"]]])
-
-(def AuditEventList (list-schema "AuditEvent" examples/AuditEventList))
-
 (def registry
-  (components-registry [#'Actor #'AuditEvent #'AuditEventId #'AuditEventKind
-                        #'AuditEventList #'ActorKind #'ChangeRoleRequest
-                        #'CreateInvitationRequest #'EmailAddress #'Invitation
-                        #'InvitationId #'InvitationStatus #'InvitationList
-                        #'Member #'MemberList #'ReasonRequest
-                        #'RecipientInvitation #'RecipientInvitationList]))
+  (components-registry
+   [#'ChangeRoleRequest #'CreateInvitationRequest #'EmailAddress #'Invitation
+    #'InvitationId #'InvitationStatus #'InvitationList #'Member #'MemberList
+    #'ReasonRequest #'RecipientInvitation #'RecipientInvitationList]))

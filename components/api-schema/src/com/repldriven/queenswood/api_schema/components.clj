@@ -333,6 +333,30 @@
                   "ach" :payment-address-scheme-ach}
                  :payment-address-scheme-unknown))
 
+(def ^:private actor-kind-enum
+  (enum-coercion {"member" :actor-kind-member
+                  "operator" :actor-kind-operator
+                  "bank" :actor-kind-bank}
+                 :actor-kind-unknown))
+
+(def ActorKind ((:enum-schema actor-kind-enum) {:json-schema/example "member"}))
+
+(def Actor
+  [:map
+   {:json-schema/example {:kind "member"
+                          :principal-id "usr.01kprbmgcj35ptc8npmybhh4s7"}
+    :description
+    "Who did something: a member by user id, the bank by its client id, or
+    an operator by user id or client id. The routes about a bank's people
+    also name them: a member, or an operator signed in as a user, from
+    their user record whether or not still a member, by their email when
+    the record has no name, and the platform's own client as
+    `Queenswood`; to the person an invitation was sent to, an inviter with
+    no name on record is named by the organisation."}
+   [:kind [:ref "ActorKind"]]
+   [:principal-id string?]
+   [:name {:optional true} string?]])
+
 (def ProductType
   ((:enum-schema product-type-enum) {:json-schema/example "current"}))
 
@@ -341,8 +365,8 @@
 
 (def registry
   (components-registry
-   [#'AccountNumber #'Amount #'Bban #'BankId #'BusinessDay #'Currency
-    #'CurrencyCode #'Date #'EmbedQuery #'IdempotencyKey #'MinorUnits #'Name
-    #'PartyId #'PaymentAddressScheme #'PaymentMinorUnits #'PageLinks #'PageQuery
-    #'ProductId #'ProductType #'SignedAmount #'SignedBasisPoints
+   [#'AccountNumber #'Actor #'ActorKind #'Amount #'Bban #'BankId #'BusinessDay
+    #'Currency #'CurrencyCode #'Date #'EmbedQuery #'IdempotencyKey #'MinorUnits
+    #'Name #'PartyId #'PaymentAddressScheme #'PaymentMinorUnits #'PageLinks
+    #'PageQuery #'ProductId #'ProductType #'SignedAmount #'SignedBasisPoints
     #'SignedMinorUnits #'SortCode #'Timestamp #'VersionId]))

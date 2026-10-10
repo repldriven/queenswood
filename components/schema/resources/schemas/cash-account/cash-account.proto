@@ -7,6 +7,7 @@ import "schemas/account-product-type/account-product-type.proto";
 import "schemas/actor/actor.proto";
 import "schemas/cash-account-product/types.proto";
 import "schemas/cash-account/types.proto";
+import "schemas/fideslang/data-category.proto";
 
 option java_outer_classname = "CashAccountProto";
 
@@ -22,8 +23,8 @@ enum CashAccountStatus {
 
 // A UK sort code and account number.
 message ScanAddress {
-  required string sort_code = 1;
-  required string account_number = 2;
+  required string sort_code = 1 [(fideslang.data_category) = "user.financial.bank_account"];
+  required string account_number = 2 [(fideslang.data_category) = "user.financial.bank_account"];
 }
 
 // An address payments reach the account at.
@@ -48,7 +49,7 @@ enum AddressRotationStatus {
 
 // The latest change of an account's payment addresses.
 message AddressRotation {
-  required string idempotency_key = 1;
+  required string idempotency_key = 1 [(fideslang.data_category) = "system.operations"];
   required AddressRotationStatus status = 2;
   optional string failed_reason = 3;
 }
@@ -70,26 +71,16 @@ message CashAccount {
   required AccountType account_type = 10;
   required string currency = 11; // ISO 4217
   repeated PaymentAddress payment_addresses = 12;
-  optional string bban = 13; // sort code and account number
+  optional string bban = 13 [(fideslang.data_category) = "user.financial.bank_account"]; // sort code and account number
   repeated RetiredPaymentAddress retired_payment_addresses = 14;
-  optional string provider_account_id = 15;
+  optional string provider_account_id = 15 [(fideslang.data_category) = "system.operations"];
   optional AddressRotation rotation = 16;
   optional string refused_reason = 17;
-
-  optional int64 opened_at = 51;
-  optional int64 refused_at = 53;
-  optional int64 suspended_at = 55;
-  optional com.repldriven.queenswood.schema.actor.Actor suspended_by = 56;
-  optional int64 resumed_at = 57;
-  optional com.repldriven.queenswood.schema.actor.Actor resumed_by = 58;
-  optional int64 close_requested_at = 59;
-  optional com.repldriven.queenswood.schema.actor.Actor close_requested_by = 60;
-  optional int64 closed_at = 61;
-  optional int64 address_rotated_at = 63;
-  optional com.repldriven.queenswood.schema.actor.Actor address_rotated_by = 64;
+  optional CashAccountStatus close_requested_from = 18;
 
   optional string idempotency_key = 100;
   required int64 created_at = 101;
   required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
   optional int64 updated_at = 103;
+  optional com.repldriven.queenswood.schema.actor.Actor updated_by = 104;
 }

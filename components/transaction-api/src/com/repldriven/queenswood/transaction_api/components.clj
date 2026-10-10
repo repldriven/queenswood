@@ -31,7 +31,8 @@
    [:amount [:ref "MinorUnits"]]
    [:currency [:ref "CurrencyCode"]]
    [:reference {:optional true} [:maybe string?]]
-   [:created-at [:ref "Timestamp"]]])
+   [:created-at [:ref "Timestamp"]]
+   [:created-by {:optional true} [:ref "Actor"]]])
 
 (def TransactionList (list-schema "Transaction" nil))
 

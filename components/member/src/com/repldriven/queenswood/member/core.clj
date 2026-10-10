@@ -1,8 +1,10 @@
 (ns com.repldriven.queenswood.member.core
   (:require
+    [com.repldriven.queenswood.member.audit-entries :as audit-entries]
     [com.repldriven.queenswood.member.domain :as domain]
     [com.repldriven.queenswood.member.store :as store]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.member-query.interface :as q]
     [com.repldriven.queenswood.user.interface :as user]
 
@@ -15,10 +17,6 @@
 (defn- clock
   [opts]
   (or (:now opts) (utility/now)))
-
-(defn- member-actor
-  [user-id]
-  {:kind :actor-kind-member :principal-id user-id})
 
 (defn- as-read
   [invitation now]
@@ -89,18 +87,24 @@
                                              :member-emails emails
                                              :invitations invitations}
                                             now)
-          _ (store/save-invitation txn invitation invitation-created)]
+          _ (store/save-invitation txn invitation invitation-created)
+          _ (audit/record txn
+                          (audit-entries/invitation
+                           :audit-kind-invitation-created
+                           nil
+                           invitation
+                           opts
+                           now))]
          (as-read invitation now))))
    :invitation/invite
    "Failed to create invitation"))
 
 (defn accept
-  [txn invitation-id proof {:keys [user-id] :as opts}]
+  [txn invitation-id proof {:keys [user-id actor] :as opts}]
   (store/transact
    txn
    (fn [txn]
-     (let [now (clock opts)
-           actor (member-actor user-id)]
+     (let [now (clock opts)]
        (let-nom>
          [invitation (q/get-invitation-record-for-recipient txn
                                                             invitation-id
@@ -117,13 +121,20 @@
                                      :actor actor}
                                     now)
           _ (store/save-invitation txn accepted)
-          _ (store/save-member txn member)]
+          _ (store/save-member txn member)
+          _ (audit/record txn
+                          (audit-entries/invitation
+                           :audit-kind-invitation-accepted
+                           invitation
+                           accepted
+                           opts
+                           now))]
          member)))
    :invitation/accept
    "Failed to accept invitation"))
 
 (defn decline
-  [txn invitation-id proof {:keys [user-id] :as opts}]
+  [txn invitation-id proof {:keys [actor] :as opts}]
   (store/transact
    txn
    (fn [txn]
@@ -132,10 +143,15 @@
          [invitation (q/get-invitation-record-for-recipient txn
                                                             invitation-id
                                                             proof)
-          declined (domain/decline-invitation invitation
-                                              (member-actor user-id)
-                                              now)
-          _ (store/save-invitation txn declined)]
+          declined (domain/decline-invitation invitation actor now)
+          _ (store/save-invitation txn declined)
+          _ (audit/record txn
+                          (audit-entries/invitation
+                           :audit-kind-invitation-declined
+                           invitation
+                           declined
+                           opts
+                           now))]
          (as-read declined now))))
    :invitation/decline
    "Failed to decline invitation"))
@@ -150,7 +166,14 @@
          [invitation (q/get-invitation-record txn bank-id invitation-id)
           withdrawn (domain/withdraw-invitation invitation opts now)
           _ (domain/check-grant :invite actor {:role (:role invitation)})
-          _ (store/save-invitation txn withdrawn)]
+          _ (store/save-invitation txn withdrawn)
+          _ (audit/record txn
+                          (audit-entries/invitation
+                           :audit-kind-invitation-withdrawn
+                           invitation
+                           withdrawn
+                           opts
+                           now))]
          (as-read withdrawn now))))
    :invitation/withdraw
    "Failed to withdraw invitation"))
@@ -165,7 +188,14 @@
          [invitation (q/get-invitation-record txn bank-id invitation-id)
           resent (domain/resend-invitation invitation actor now)
           _ (domain/check-grant :invite actor {:role (:role invitation)})
-          _ (store/save-invitation txn resent invitation-resent)]
+          _ (store/save-invitation txn resent invitation-resent)
+          _ (audit/record txn
+                          (audit-entries/invitation
+                           :audit-kind-invitation-resent
+                           invitation
+                           resent
+                           opts
+                           now))]
          (as-read resent now))))
    :invitation/resend
    "Failed to resend invitation"))
@@ -199,15 +229,20 @@
           changed (domain/change-role member
                                       role
                                       {:actor actor
-                                       :active-members members}
+                                       :active-members members
+                                       :reason (:reason opts)}
                                       now)
           unchanged? (= role (:role member))
           _ (when-not unchanged?
               (store/save-member txn changed))
           _ (when-not unchanged?
-              (store/save-role-change
-               txn
-               (domain/new-role-change member role opts now)))]
+              (audit/record txn
+                            (audit-entries/member
+                             :audit-kind-member-role-changed
+                             member
+                             changed
+                             opts
+                             now)))]
          changed)))
    :member/change-role
    "Failed to change role"))
@@ -227,18 +262,23 @@
                                     :active-members members
                                     :reason reason}
                                    now)
-          _ (store/save-member txn ended)]
+          _ (store/save-member txn ended)
+          _ (audit/record txn
+                          (audit-entries/member :audit-kind-member-removed
+                                                member
+                                                ended
+                                                opts
+                                                now))]
          ended)))
    :member/remove
    "Failed to remove member"))
 
 (defn leave
-  [txn member-id {:keys [user-id] :as opts}]
+  [txn member-id {:keys [user-id actor] :as opts}]
   (store/transact
    txn
    (fn [txn]
-     (let [now (clock opts)
-           actor (member-actor user-id)]
+     (let [now (clock opts)]
        (let-nom>
          [member (q/find-user-member txn user-id member-id)
           members (q/list-active-by-bank txn (:bank-id member))
@@ -247,7 +287,13 @@
                                    {:actor actor
                                     :active-members members}
                                    now)
-          _ (store/save-member txn ended)]
+          _ (store/save-member txn ended)
+          _ (audit/record txn
+                          (audit-entries/member :audit-kind-member-left
+                                                member
+                                                ended
+                                                opts
+                                                now))]
          ended)))
    :member/leave
    "Failed to leave"))

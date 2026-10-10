@@ -4,6 +4,7 @@ package com.repldriven.queenswood.schema.payment;
 
 import "record_metadata_options.proto";
 import "schemas/actor/actor.proto";
+import "schemas/fideslang/data-category.proto";
 import "schemas/scheme-type/scheme-type.proto";
 
 option java_outer_classname = "OutboundPaymentProto";
@@ -34,8 +35,8 @@ message OutboundPayment {
   required OutboundPaymentStatus status = 3;
   required com.repldriven.queenswood.schema.scheme_type.SchemeType scheme_type = 4;
   required string debtor_account_id = 5;
-  required string creditor_name = 6;
-  required string creditor_bban = 7; // sort code and account number
+  required string creditor_name = 6 [(fideslang.data_category) = "user.name"];
+  required string creditor_bban = 7 [(fideslang.data_category) = "user.financial.bank_account"]; // sort code and account number
   required int64 amount = 8; // minor units
   required string currency = 9; // ISO 4217
   optional string reference = 10;
@@ -46,11 +47,6 @@ message OutboundPayment {
   optional string failed_reason = 15;
   optional string returned_reason_code = 16; // ISO 20022
   optional string returned_reason = 17;
-
-  optional int64 held_at = 51;
-  optional int64 completed_at = 53;
-  optional int64 failed_at = 55;
-  optional int64 returned_at = 57;
 
   required string idempotency_key = 100;
   required int64 created_at = 101;

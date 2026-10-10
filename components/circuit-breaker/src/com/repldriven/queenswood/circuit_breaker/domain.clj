@@ -18,7 +18,6 @@
   [breaker now cool-down-ms]
   (assoc breaker
          :status opened
-         :opened-at now
          :next-probe-at (+ now cool-down-ms)
          :cool-down-ms cool-down-ms
          :updated-at now))

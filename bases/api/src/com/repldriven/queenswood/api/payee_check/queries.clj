@@ -11,7 +11,8 @@
   "`check` as the payee-check routes return it: its id, request, result,
   when it was made, and when it stops standing."
   [check]
-  (assoc (select-keys check [:check-id :request :result :created-at])
+  (assoc (select-keys check
+                      [:check-id :request :result :created-at :created-by])
          :expires-at
          (payee-checks/expires-at check)))
 

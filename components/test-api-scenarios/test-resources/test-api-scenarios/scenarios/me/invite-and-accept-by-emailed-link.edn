@@ -105,6 +105,4 @@
     {:items [:m/embeds
              [{:invitation-id [:ref :invitation :invitation-id]
                :email "link-invitee@example.test"
-               :accepted-email "link-invitee@queenswood.local"
-               :accepted-by-user-id [:ref :accepted :user-id]
                :status "accepted"}]]}}}]}

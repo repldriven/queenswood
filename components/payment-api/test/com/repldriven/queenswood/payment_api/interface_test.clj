@@ -31,6 +31,8 @@
    :reference "Towel"
    :business-day "2023-11-14"
    :created-at 1700000000000
+   :created-by {:kind :actor-kind-bank
+                :principal-id "bnk.01kprbmgcj35ptc8npmybhh4s7"}
    :updated-at 1700000000001
    :idempotency-key "5b2f0f6e-outbound"})
 
@@ -49,7 +51,6 @@
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
    :business-day "2023-11-14"
    :return-failed-reason "The payment could not be returned"
-   :settled-at 1700000000001
    :created-at 1700000000000
    :updated-at 1700000000001
    :scheme-payload "{}"})
@@ -65,6 +66,8 @@
    :reference "Rent"
    :business-day "2023-11-14"
    :created-at 1700000000000
+   :created-by {:kind :actor-kind-bank
+                :principal-id "bnk.01kprbmgcj35ptc8npmybhh4s7"}
    :updated-at 1700000000001
    :idempotency-key "5b2f0f6e-internal"})
 

@@ -5,6 +5,7 @@
     [com.repldriven.queenswood.webhook.signing :as signing]
     [com.repldriven.queenswood.webhook.store :as store]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -81,17 +82,50 @@
   (let-nom> [endpoint (store/find-endpoint txn bank-id endpoint-id)]
     (domain/ensure-found endpoint bank-id endpoint-id)))
 
+(defn- audited
+  "Records an act by `actor` taking an endpoint from `before` to `after`
+  in the bank's audit log, naming the request `opts` carries."
+  [txn kind before after actor opts]
+  (audit/record txn
+                {:bank-id (:bank-id after)
+                 :kind kind
+                 :subject-kind :audit-subject-kind-webhook-endpoint
+                 :subject-id (:endpoint-id after)
+                 :request-id (:request-id opts)
+                 :before before
+                 :after after
+                 :performed-by actor}))
+
+(defn- deliveries-audited
+  "Records the delivery of each of `deliveries` an act by `actor` asked
+  for in the bank's audit log, naming the request `opts` carries."
+  [txn kind deliveries actor opts]
+  (reduce (fn [_ delivery]
+            (let [res (audit/record txn
+                                    {:bank-id (:bank-id delivery)
+                                     :kind kind
+                                     :subject-kind
+                                     :audit-subject-kind-webhook-delivery
+                                     :subject-id (:delivery-id delivery)
+                                     :request-id (:request-id opts)
+                                     :after delivery
+                                     :performed-by actor})]
+              (when (error/anomaly? res) (reduced res))))
+          nil
+          deliveries))
+
 (defn- transition
-  "Load, apply `f` to the loaded endpoint, save. Every lifecycle
-  operation but registration has this shape."
-  [txn bank-id endpoint-id f]
+  "Load, apply `f` to the loaded endpoint, save, and record the act as
+  `kind`. Every lifecycle operation but registration has this shape."
+  [txn bank-id endpoint-id f kind actor opts]
   (store/transact
    txn
    (fn [txn]
      (let-nom>
        [existing (load-endpoint txn bank-id endpoint-id)
         updated (f txn existing)
-        _ (store/save-endpoint txn updated)]
+        _ (store/save-endpoint txn updated)
+        _ (audited txn kind existing updated actor opts)]
        updated))))
 
 (defn register
@@ -118,7 +152,13 @@
                                           (:address-rule opts)
                                           existing-count
                                           policies)
-            _ (store/save-endpoint txn endpoint)]
+            _ (store/save-endpoint txn endpoint)
+            _ (audited txn
+                       :audit-kind-webhook-endpoint-registered
+                       nil
+                       endpoint
+                       actor
+                       opts)]
            endpoint)))))))
 
 (defn get-endpoint
@@ -147,7 +187,10 @@
                                              addresses
                                              (:platform-hosts opts)
                                              (:address-rule opts)
-                                             policies)))))))
+                                             policies)))
+                 :audit-kind-webhook-endpoint-updated
+                 actor
+                 opts))))
 
 (defn- save-deliveries
   "One pending delivery of each notification to `endpoint`, asked for
@@ -206,7 +249,13 @@
          updated (domain/enable existing actor policies)
          _ (store/save-endpoint txn updated)
          _ (when-let [since (:since opts)]
-             (backfill txn updated since (utility/now) actor))]
+             (backfill txn updated since (utility/now) actor))
+         _ (audited txn
+                    :audit-kind-webhook-endpoint-enabled
+                    existing
+                    updated
+                    actor
+                    opts)]
         updated)))))
 
 (defn disable
@@ -218,7 +267,10 @@
                endpoint-id
                (fn [txn existing]
                  (let-nom> [policies (get-policies txn bank-id opts)]
-                   (domain/disable existing actor policies))))))
+                   (domain/disable existing actor policies)))
+               :audit-kind-webhook-endpoint-disabled
+               actor
+               opts)))
 
 (defn remove-endpoint
   ([txn bank-id endpoint-id actor]
@@ -229,7 +281,10 @@
                endpoint-id
                (fn [txn existing]
                  (let-nom> [policies (get-policies txn bank-id opts)]
-                   (domain/remove-endpoint existing actor policies))))))
+                   (domain/remove-endpoint existing actor policies)))
+               :audit-kind-webhook-endpoint-removed
+               actor
+               opts)))
 
 (defn rotate-secret
   ([txn bank-id endpoint-id data actor]
@@ -253,7 +308,10 @@
                                              expires-at
                                              idempotency-key
                                              actor
-                                             policies))))))))
+                                             policies))))
+                 :audit-kind-webhook-endpoint-secret-rotated
+                 actor
+                 opts))))
 
 (defn- load-deliverable
   [txn bank-id endpoint-id opts]
@@ -275,10 +333,16 @@
            notification (domain/test-notification
                          endpoint
                          (components/->wire-endpoint-body endpoint)
-                         now)
+                         now
+                         actor)
            _ (store/save-notification txn notification)
            delivery (domain/new-delivery notification endpoint now actor)
-           _ (store/save-delivery txn delivery)]
+           _ (store/save-delivery txn delivery)
+           _ (deliveries-audited txn
+                                 :audit-kind-webhook-test-sent
+                                 [delivery]
+                                 actor
+                                 opts)]
           delivery))))))
 
 (defn resend
@@ -305,7 +369,12 @@
                          bank-id
                          (:notification-id existing))
            delivery (domain/new-delivery notification endpoint now actor)
-           _ (store/save-delivery txn delivery)]
+           _ (store/save-delivery txn delivery)
+           _ (deliveries-audited txn
+                                 :audit-kind-webhook-delivery-resent
+                                 [delivery]
+                                 actor
+                                 opts)]
           delivery))))))
 
 (defn resend-window
@@ -331,7 +400,12 @@
                               notifications)
                      endpoint
                      now
-                     actor)]
+                     actor)
+             _ (deliveries-audited txn
+                                   :audit-kind-webhook-delivery-resent
+                                   resent
+                                   actor
+                                   opts)]
             {:deliveries resent})))))))
 
 (defn get-deliveries

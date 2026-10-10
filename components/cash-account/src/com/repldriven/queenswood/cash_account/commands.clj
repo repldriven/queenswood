@@ -2,7 +2,7 @@
   (:require
     [com.repldriven.queenswood.cash-account.core :as core]
 
-    [com.repldriven.queenswood.cash-account-query.interface :as q]
+    [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -12,32 +12,24 @@
   [config result]
   (if (error/anomaly? result)
     result
-    (let [{:keys [schemas]} config
-          ;; An account that has never been rotated carries no
-          ;; `:retired-payment-addresses` key, and the reply schema's
-          ;; array field has no null branch to fall back on.
-          account (update result :retired-payment-addresses #(or % []))]
+    (let [{:keys [schemas]} config]
       {:status "ACCEPTED"
-       :payload (avro/serialize (schemas "cash-account") account)})))
-
-(defn- get-account
-  [config data]
-  (let [{:keys [bank-id account-id]} data]
-    (q/get-account config bank-id account-id)))
+       :payload (avro/serialize (schemas "cash-account-command-reply")
+                                {:record (schema/CashAccount->pb result)})})))
 
 (def ^:private command-fns
-  {"open-cash-account" core/open-account
+  {"open-cash-account" (fn [config data]
+                         (core/open-account config data {:audited? true}))
    "close-cash-account" core/close-account
    "suspend-cash-account" core/suspend-account
    "resume-cash-account" core/resume-account
-   "rotate-cash-account-address" core/rotate-address
-   "get-cash-account" get-account})
+   "rotate-cash-account-address" core/rotate-address})
 
 (defn- decode
   [schema message]
-  (let [{:keys [id payload]} message]
+  (let [{:keys [id causation-id payload]} message]
     (let-nom> [raw (avro/deserialize-same schema payload)]
-      (assoc raw :idempotency-key id))))
+      (assoc raw :idempotency-key id :request-id causation-id))))
 
 (defn- dispatch
   [config message]

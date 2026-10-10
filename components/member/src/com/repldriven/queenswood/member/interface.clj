@@ -3,8 +3,8 @@
   in a Bank, with a role, and is ended, never deleted; an Invitation is accepted
   by a recipient proving the token its email carried or a verified
   email. Each act is recorded on the record it changes, as its `_at`
-  and `_by`, and a role change as a MemberRoleChange of its own;
-  every write runs in its own FDB transaction, reading what its rules
+  and `_by`, and as an event in the bank's audit log, naming the API
+  request in `opts`' `:request-id`; every write runs in its own FDB transaction, reading what its rules
   need through `member-query` inside it. A create or a resend
   co-commits an `invitation-created` or `invitation-resent` entry to the
   invitations changelog. The `member/processor` kind answers the
@@ -39,13 +39,14 @@
   (core/new-member txn input))
 
 (defn change-role
-  "Set a member's role, recording a MemberRoleChange. Refuses a
+  "Set a member's role, recording the change in the bank's audit log.
+  Refuses a
   member of another bank as `:member/not-found`, an ended one
   as `:member/invalid-status`, a change the actor's role does not
   allow as `:member/role-not-granted` (unauthorized), and a demotion
   of the bank's last active owner as `:member/last-owner`. After the
   same refusals, a role equal to the current one returns the member
-  unchanged and writes neither the member nor a role change.
+  unchanged and writes neither the member nor an audit entry.
 
   Args:
   - txn: FDB transaction or config.
@@ -59,8 +60,8 @@
   (core/change-role txn bank-id member-id role opts))
 
 (defn remove-member
-  "Remove a member of the actor's bank, with `removed-at`,
-  `removed-by` and any reason as `removed-reason`. Refuses as
+  "Remove a member of the actor's bank, with the actor as `updated-by`
+  and any reason as `removed-reason`. Refuses as
   `change-role` does.
 
   Args:
@@ -75,14 +76,14 @@
 
 (defn leave
   "Leave a bank as the caller, ending their own Member as left, with
-  them as `left-by`. Refuses another person's Member as
+  them as `updated-by`. Refuses another person's Member as
   `:member/not-found`, an ended one as `:member/invalid-status`,
   and the bank's last active owner as `:member/last-owner`.
 
   Args:
   - txn: FDB transaction or config.
   - member-id: the caller's Member.
-  - opts: `:user-id` of the caller, and optional `:now`.
+  - opts: `:user-id` and `:actor` of the caller, and optional `:now`.
 
   Returns the ended Member map or an anomaly."
   [txn member-id opts]
@@ -114,7 +115,7 @@
 (defn accept
   "Accept an invitation as its recipient: writes a Member with the
   invitation's role and `invitation-id`, and the invitation accepted
-  with the person as `accepted-by`. Refuses an invitation the proof
+  with the person as `updated-by`. Refuses an invitation the proof
   does not reach as `:invitation/not-found`, one that is not pending as
   `:invitation/invalid-status`, and a person already an active member of
   the bank as `:member/already-exists`.
@@ -123,7 +124,8 @@
   - txn: FDB transaction or config.
   - invitation-id: the invitation.
   - proof: as `member-query`'s `find-invitation-for-recipient`.
-  - opts: `:user-id` of the accepting person, and optional `:now`.
+  - opts: `:user-id` and `:actor` of the accepting person, and optional
+    `:now`.
 
   Returns the new Member map or an anomaly."
   [txn invitation-id proof opts]
@@ -131,22 +133,23 @@
 
 (defn decline
   "Decline an invitation as its recipient, with the person as
-  `declined-by`. Refuses as `accept` does, except for the check that
+  `updated-by`. Refuses as `accept` does, except for the check that
   they are not a member already.
 
   Args:
   - txn: FDB transaction or config.
   - invitation-id: the invitation.
   - proof: as `member-query`'s `find-invitation-for-recipient`.
-  - opts: `:user-id` of the declining person, and optional `:now`.
+  - opts: `:user-id` and `:actor` of the declining person, and optional
+    `:now`.
 
   Returns the declined Invitation map or an anomaly."
   [txn invitation-id proof opts]
   (core/decline txn invitation-id proof opts))
 
 (defn withdraw
-  "Withdraw a pending invitation of the actor's bank, with
-  `withdrawn-at`, `withdrawn-by` and any reason as `withdrawn-reason`.
+  "Withdraw a pending invitation of the actor's bank, with the actor as
+  `updated-by` and any reason as `withdrawn-reason`.
   Refuses an unknown invitation as
   `:invitation/not-found`, one that is not pending as
   `:invitation/invalid-status`, and an invitation to a role the actor
@@ -164,8 +167,8 @@
 
 (defn resend
   "Resend a pending or expired invitation of the actor's bank under a
-  fresh `expires-at`, with `resent-at` and `resent-by` the latest
-  resend's, and its changelog entry. Its token hash returns to its id, so the token of an earlier
+  fresh `expires-at`, with the actor as `updated-by`, and its changelog
+  entry. Its token hash returns to its id, so the token of an earlier
   email no longer reaches it. Refuses as `withdraw` does, allowing an
   expired invitation.
 

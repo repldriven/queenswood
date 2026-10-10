@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "PayeeCheckCommandReply",
+  "namespace": "com.repldriven.queenswood.schema.payee_check",
+  "doc": "The check a payee-check command committed, as its proto bytes",
+  "fields": [
+    {
+      "name": "record",
+      "type": "bytes"
+    }
+  ]
+}

@@ -15,7 +15,8 @@
              :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:party-id [:ref :party-0 :party :party-id]
-                   :status "suspended"}}}
+                   :status "suspended"
+                   :updated-by {:kind "bank"}}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/parties/{party-id}/resume"

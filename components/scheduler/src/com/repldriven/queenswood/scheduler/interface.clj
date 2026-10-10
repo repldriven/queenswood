@@ -40,9 +40,10 @@
 
   Args:
   - txn: an open FDB transaction or a config map.
-  - bank-id: the bank to seed jobs for."
-  [txn bank-id]
-  (core/seed-jobs txn bank-id))
+  - bank-id: the bank to seed jobs for.
+  - actor: who creates the bank, recorded as each job's creator."
+  [txn bank-id actor]
+  (core/seed-jobs txn bank-id actor))
 
 (defn force-start
   "Run `job-id` now (trigger source forced), as the run for the last
@@ -55,9 +56,13 @@
   - config: FDB+interfaces map.
   - bank-id: the bank owning the job.
   - job-id: the job to run.
-  - actor: who forced the run."
-  [config bank-id job-id actor]
-  (core/force-start config bank-id job-id actor))
+  - actor: who forced the run.
+  - opts (optional): `:request-id`, the API request the bank's audit log
+    names."
+  ([config bank-id job-id actor]
+   (core/force-start config bank-id job-id actor))
+  ([config bank-id job-id actor opts]
+   (core/force-start config bank-id job-id actor opts)))
 
 (defn update-schedule
   "Edit a job's `:schedule` and/or `:status`, the schedule within what
@@ -73,9 +78,13 @@
   - bank-id: the bank owning the job.
   - job-id: the job to edit.
   - edits: map of any of `:schedule` `:status`.
-  - actor: who made the edit."
-  [config bank-id job-id edits actor]
-  (core/update-schedule config bank-id job-id edits actor))
+  - actor: who made the edit.
+  - opts (optional): `:request-id`, the API request the bank's audit log
+    names."
+  ([config bank-id job-id edits actor]
+   (core/update-schedule config bank-id job-id edits actor {}))
+  ([config bank-id job-id edits actor opts]
+   (core/update-schedule config bank-id job-id edits actor opts)))
 
 (defn list-jobs
   "One page of `bank-id`'s scheduled jobs, in job-id order. Returns

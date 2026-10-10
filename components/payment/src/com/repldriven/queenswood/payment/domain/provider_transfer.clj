@@ -115,22 +115,12 @@
                         :debtor-account-id
                         debtor)))
 
-(def ^:private outcome-at
-  {:payment-provider-transfer-status-completed :completed-at
-   :payment-provider-transfer-status-failed :failed-at})
-
 (defn transfer-outcome
   "The transfer as its outcome leaves it, recording when, or nil where it
   is no longer pending."
   [transfer status reason]
   (when (= :payment-provider-transfer-status-pending (:status transfer))
     (let [now (utility/now)]
-      (utility/assoc-some (assoc transfer
-                                 :status
-                                 status
-                                 (outcome-at status)
-                                 now
-                                 :updated-at
-                                 now)
+      (utility/assoc-some (assoc transfer :status status :updated-at now)
                           :failed-reason
                           reason))))

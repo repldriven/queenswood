@@ -1,12 +1,10 @@
 (ns com.repldriven.queenswood.member.store-test
-  "The three access records against a real record store (AC-02): a
+  "The two access records against a real record store (AC-02): a
   member is found through its bank and its user and no other, an
-  invitation and a role change round-trip, every invitation index
-  answers, a second invitation under a taken token hash is refused, and
-  a role change reads back as its own bank's history. An
-  invitation saved under an event name co-commits one changelog entry,
-  and one saved without writes none. Reads go through
-  `member-query`.
+  invitation round-trips, every invitation index answers, and a second
+  invitation under a taken token hash is refused. An invitation saved
+  under an event name co-commits one changelog entry, and one saved
+  without writes none. Reads go through `member-query`.
 
   The transactions live in `interface-test`; the pure rules in
   `domain-test`."
@@ -85,13 +83,13 @@
                  _ (SUT/save-member config
                                     (assoc member
                                            :status :member-status-removed
-                                           :removed-at 1700000001000
-                                           :removed-by owner-actor
-                                           :removed-reason "Left the company"))
+                                           :removed-reason "Left the company"
+                                           :updated-at 1700000001000
+                                           :updated-by owner-actor))
                  ended (q/find-by-id config bank-id "mem.scoped")
                  _ (testing "an ended member keeps how, by whom and why"
                      (is (= :member-status-removed (:status ended)))
-                     (is (= owner-actor (:removed-by ended)))
+                     (is (= owner-actor (:updated-by ended)))
                      (is (= "Left the company" (:removed-reason ended))))
                  active (q/list-active-by-bank config bank-id)
                  listed (q/list-by-bank config bank-id)
@@ -112,14 +110,14 @@
      (nom-test> [_ (SUT/save-invitation config
                                         (assoc pending
                                                :reason "Joining the team"
-                                               :accepted-at created-at
-                                               :accepted-by accepter))
+                                               :updated-at created-at
+                                               :updated-by accepter))
                  loaded (q/get-invitation-record config bank-id "inv.store.1")
                  _ (testing "an invitation round-trips through the trio"
                      (is (= (assoc pending
                                    :reason "Joining the team"
-                                   :accepted-at created-at
-                                   :accepted-by accepter)
+                                   :updated-at created-at
+                                   :updated-by accepter)
                             loaded)))
                  _ (SUT/save-invitation config pending)
                  loaded (q/get-invitation-record config bank-id "inv.store.1")
@@ -232,39 +230,3 @@
                            "inv.changelog.1:1700700000000"]
                           (mapv :dedup-key @seen))))]))))
 
-(deftest role-change-round-trips-test
-  (with-test-system
-   [sys config-file]
-   (let [config (fdb-config sys)
-         bank-id "bnk.store.history"
-         change {:bank-id bank-id
-                 :member-id "mem.subject"
-                 :role-change-id "rch.01j00000000000000000000001"
-                 :role-before :role-viewer
-                 :role-after :role-admin
-                 :reason "Promoted"
-                 :created-at created-at
-                 :created-by owner-actor}]
-     (nom-test> [_ (SUT/save-role-change config change)
-                 _ (SUT/save-role-change
-                    config
-                    (assoc change :bank-id "bnk.store.other"))
-                 found (q/list-audit-events config
-                                            {:bank-id bank-id
-                                             :created-at 0
-                                             :created-by owner-actor})
-                 _ (testing "a role change reads back as its bank's history"
-                     (is (= [:audit-event-kind-role-changed
-                             :audit-event-kind-bank-created]
-                            (mapv :kind found)))
-                     (is (= {:kind :audit-event-kind-role-changed
-                             :actor owner-actor
-                             :member-id "mem.subject"
-                             :role-before :role-viewer
-                             :role-after :role-admin
-                             :reason "Promoted"
-                             :occurred-at created-at}
-                            (select-keys (first found)
-                                         [:kind :actor :member-id
-                                          :role-before :role-after :reason
-                                          :occurred-at]))))]))))

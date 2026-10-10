@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "IdvCommandReply",
+  "namespace": "com.repldriven.queenswood.schema.idv",
+  "doc": "The session an identity verification command committed, as its proto bytes",
+  "fields": [
+    {
+      "name": "record",
+      "type": "bytes"
+    }
+  ]
+}

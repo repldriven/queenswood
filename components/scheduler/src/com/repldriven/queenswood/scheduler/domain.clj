@@ -88,6 +88,18 @@
   [schedule]
   (drop 3 (str/split (str/trim schedule) #"\s+")))
 
+(defn paused?
+  "True when an edit moves `job` from active to `status` paused."
+  [job status]
+  (and (= :scheduler-job-status-active (:status job))
+       (= :scheduler-job-status-paused status)))
+
+(defn resumed?
+  "True when an edit moves `job` from paused to `status` active."
+  [job status]
+  (and (= :scheduler-job-status-paused (:status job))
+       (= :scheduler-job-status-active status)))
+
 (defn validate-system-edits
   "Rejects when a system job's `edits` pause it or change the days its
   schedule fires on: only its time of day is editable."
@@ -105,10 +117,12 @@
         :job-id (:job-id job)}))))
 
 (defn run-duration
-  "Wall-clock duration of a completed run, or nil for any other."
+  "Wall-clock duration of a completed run, from its creation to its last
+  write, which is its completion; nil for any other."
   [run]
-  (when-let [completed-at (:completed-at run)]
-    (- completed-at (:created-at run))))
+  (let [{:keys [status created-at updated-at]} run]
+    (when (and (= :scheduler-run-status-completed status) updated-at)
+      (- updated-at created-at))))
 
 (def ^:private period-holding-statuses
   #{:scheduler-run-status-running :scheduler-run-status-completed})

@@ -180,31 +180,26 @@
              :balance-status balance-status})
           bp)))
 
+(defn- moved
+  [account status]
+  (-> account
+      (assoc :status status :updated-at (utility/now))
+      (dissoc :updated-by)))
+
 (defn opened-account
   [account]
-  (let [now (utility/now)]
-    (assoc account
-           :status :cash-account-status-opened
-           :opened-at now
-           :updated-at now)))
+  (moved account :cash-account-status-opened))
 
 (defn provider-opened-account
   [account {:keys [provider-account-id addresses]}]
-  (let [now (utility/now)]
-    (assoc (with-addresses account addresses provider-account-id)
-           :status :cash-account-status-opened
-           :opened-at now
-           :updated-at now)))
+  (moved (with-addresses account addresses provider-account-id)
+         :cash-account-status-opened))
 
 (defn refused-account
   [account reason]
-  (let [now (utility/now)]
-    (assoc-some (assoc account
-                       :status :cash-account-status-refused
-                       :refused-at now
-                       :updated-at now)
-                :refused-reason
-                reason)))
+  (assoc-some (moved account :cash-account-status-refused)
+              :refused-reason
+              reason))
 
 (defn close-account
   [account balances actor policies]
@@ -231,34 +226,23 @@
                        {:message "Account has non-zero balance buckets"
                         :account-id (:account-id account)
                         :balances (reported-buckets offending)}))]
-    (let [now (utility/now)]
-      (assoc account
-             :status :cash-account-status-closing
-             :close-requested-at now
-             :close-requested-by actor
-             :updated-at now))))
+    (assoc account
+           :status :cash-account-status-closing
+           :close-requested-from (:status account)
+           :updated-at (utility/now)
+           :updated-by actor)))
 
 (defn closed-account
   [account]
-  (let [now (utility/now)]
-    (assoc account
-           :status :cash-account-status-closed
-           :closed-at now
-           :updated-at now)))
-
-(defn- suspended-when-closed?
-  [account]
-  (let [{:keys [suspended-at resumed-at]} account]
-    (boolean (and suspended-at (> suspended-at (or resumed-at 0))))))
+  (-> account
+      (moved :cash-account-status-closed)
+      (dissoc :close-requested-from)))
 
 (defn close-refused-account
   [account]
   (-> account
-      (dissoc :close-requested-at :close-requested-by)
-      (assoc :status (if (suspended-when-closed? account)
-                       :cash-account-status-suspended
-                       :cash-account-status-opened)
-             :updated-at (utility/now))))
+      (moved (:close-requested-from account :cash-account-status-opened))
+      (dissoc :close-requested-from)))
 
 (defn suspend-account
   [account actor policies]
@@ -275,8 +259,7 @@
     (let [now (utility/now)]
       (assoc account
              :status :cash-account-status-suspended
-             :suspended-at now
-             :suspended-by actor
+             :updated-by actor
              :updated-at now))))
 
 (defn resume-account
@@ -294,8 +277,7 @@
     (let [now (utility/now)]
       (assoc account
              :status :cash-account-status-opened
-             :resumed-at now
-             :resumed-by actor
+             :updated-by actor
              :updated-at now))))
 
 (defn request-rotation
@@ -316,8 +298,7 @@
       (assoc account
              :rotation {:idempotency-key rotation-key
                         :status :address-rotation-status-pending}
-             :address-rotated-at now
-             :address-rotated-by (:actor data)
+             :updated-by (:actor data)
              :updated-at now))))
 
 (defn reissue-failed-account
@@ -327,7 +308,8 @@
               assoc-some
               :status :address-rotation-status-failed
               :failed-reason reason)
-      (assoc :updated-at (utility/now))))
+      (assoc :updated-at (utility/now))
+      (dissoc :updated-by)))
 
 (defn reissued-account
   [account {:keys [provider-account-id addresses]}]
@@ -340,7 +322,8 @@
         (with-addresses addresses provider-account-id)
         (assoc :retired-payment-addresses
                (into (vec (:retired-payment-addresses account)) retired)
-               :updated-at now))))
+               :updated-at now)
+        (dissoc :updated-by))))
 
 (defn migrate-product
   "Repin an opened account to another product version. Direct
@@ -369,8 +352,9 @@
      _ (check-capability :cash-account-action-migrate
                          (:account-type account)
                          policies)]
-    (assoc account
-           :product-id (:product-id target-version)
-           :version-id (:version-id target-version)
-           :version-from-on as-of
-           :updated-at (utility/now))))
+    (-> account
+        (assoc :product-id (:product-id target-version)
+               :version-id (:version-id target-version)
+               :version-from-on as-of
+               :updated-at (utility/now))
+        (dissoc :updated-by))))

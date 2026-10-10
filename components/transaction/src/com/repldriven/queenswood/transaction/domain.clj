@@ -6,7 +6,7 @@
 (defn new-transaction
   [data]
   (let [{:keys [bank-id idempotency-key transaction-type currency
-                reference]}
+                reference actor]}
         data]
     (if (nil? bank-id)
       (error/reject :transaction/missing-bank-id
@@ -19,7 +19,10 @@
         :currency currency
         :created-at (utility/now)}
        :reference
-       reference))))
+       reference
+       :created-by
+       (some-> actor
+               (select-keys [:kind :principal-id]))))))
 
 (defn- leg-total
   [side legs]

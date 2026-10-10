@@ -42,7 +42,7 @@
    :as :invitation
    :assert {:status 201
             :body {:role "owner"
-                   :invited-by {:kind "operator"
+                   :created-by {:kind "operator"
                                 :principal-id [:ref :ops-me :user-id]
                                 :name [:ref :ops-me :name]}
                    :token [:m/absent]}}}
@@ -56,7 +56,7 @@
  :then
  [{:command :api/request
    :request {:method :get
-             :path "/v1/bank/audit-events"
+             :path "/v1/bank/audit-log"
              :auth :founder-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :query-params {"page[size]" 2}}
@@ -64,13 +64,13 @@
    {:status 200
     :body
     {:items [{:kind "invitation-accepted"
-              :actor {:kind "member"
-                      :principal-id [:ref :founder-member :user-id]}}
+              :performed-by {:kind "member"
+                             :principal-id [:ref :founder-member :user-id]}}
              {:kind "invitation-created"
-              :actor {:kind "operator"
-                      :principal-id [:ref :ops-me :user-id]
-                      :name [:ref :ops-me :name]}
-              :invitation-id [:ref :invitation :invitation-id]
-              :email "opsgrant-founder@queenswood.local"
-              :role-after "owner"
-              :reason "The founder asked to be set up as owner"}]}}}]}
+              :performed-by {:kind "operator"
+                             :principal-id [:ref :ops-me :user-id]
+                             :name [:ref :ops-me :name]}
+              :subject-id [:ref :invitation :invitation-id]
+              :changeset {:after {:role "role-owner"
+                                  :reason
+                                  "The founder asked to be set up as owner"}}}]}}}]}

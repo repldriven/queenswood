@@ -24,8 +24,6 @@ message CircuitBreaker {
   optional int64 next_probe_at = 4;
   optional int64 cool_down_ms = 5;
 
-  optional int64 opened_at = 51;
-
   required int64 created_at = 101;
   optional int64 updated_at = 103;
 }

@@ -556,9 +556,24 @@ export function decline_invitation(invitation_id, token) {
   });
 }
 
-// `next` is the previous page's `links.next`; without it, the newest page.
-export function list_audit_events({ next, size = 8 } = {}) {
+// The kinds of act the People page shows: who may act for the bank.
+const ACCESS_EVENT_KINDS = [
+  "bank-created",
+  "invitation-created",
+  "invitation-resent",
+  "invitation-accepted",
+  "invitation-declined",
+  "invitation-withdrawn",
+  "member-role-changed",
+  "member-removed",
+  "member-left",
+].join(",");
+
+// `next` is the previous page's `links.next`, which carries the kinds;
+// without it, the newest page.
+export function list_audit_entries({ next, size = 8 } = {}) {
   return request(
-    next ?? `/v1/bank/audit-events?page[size]=${size}`,
+    next ??
+      `/v1/bank/audit-log?kind=${ACCESS_EVENT_KINDS}&page[size]=${size}`,
   );
 }

@@ -1,9 +1,11 @@
 (ns com.repldriven.queenswood.bank.core
   (:require
+    [com.repldriven.queenswood.bank.audit-entries :as audit-entries]
     [com.repldriven.queenswood.bank.changelog :as changelog]
     [com.repldriven.queenswood.bank.domain :as domain]
     [com.repldriven.queenswood.bank.store :as store]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.bank-query.interface :as bank-query]
     [com.repldriven.queenswood.cash-account-product.interface :as products]
     [com.repldriven.queenswood.cash-account.interface :as cash-accounts]
@@ -42,14 +44,16 @@
   the bootstrap `policies` (the platform tier, which grants it) so
   seeding is allowed even for a tier that denies the capability
   per-bank. Runs inside `new-bank`'s transaction, so a failed row
-  rolls the whole bank creation back."
-  [txn bank-id currencies policies]
+  rolls the whole bank creation back. `actor`, who creates the bank,
+  creates each account."
+  [txn bank-id currencies policies actor]
   (reduce (fn [_ [currency row]]
             (let [result (ledger-accounts/new-account txn
                                                       bank-id
                                                       currency
                                                       row
-                                                      {:policies policies})]
+                                                      {:policies policies
+                                                       :actor actor})]
               (if (error/anomaly? result) (reduced result) nil)))
           nil
           (for [currency currencies
@@ -156,13 +160,15 @@
   "Owner of a new bank")
 
 (defn- new-owner-invitation
-  [txn bank-id actor owner-invitation]
+  [txn bank-id actor request-id owner-invitation]
   (when owner-invitation
     (members/invite txn
                     bank-id
                     {:email (:email owner-invitation) :role :role-owner}
-                    {:actor actor
-                     :reason owner-invitation-reason})))
+                    (utility/assoc-some {:actor actor
+                                         :reason owner-invitation-reason}
+                                        :request-id
+                                        request-id))))
 
 (defn choose-providers
   [offered requested]
@@ -232,7 +238,7 @@
                             :display-name bank-name
                             :actor actor}
                            {:policies policies})
-       _ (new-ledger-accounts txn bank-id currencies policies)
+       _ (new-ledger-accounts txn bank-id currencies policies actor)
        _ (new-house-accounts txn
                              bank-id
                              party-id
@@ -241,14 +247,24 @@
                              payment-provider
                              actor)
        _ (bind-policies txn bank-id tier-policies actor)
-       _ (scheduler/seed-jobs txn bank-id)
+       _ (scheduler/seed-jobs txn bank-id actor)
        owner (when member
                (members/new-member txn
                                    {:user-id user-id
                                     :bank-id bank-id
                                     :role role
                                     :actor actor}))
-       invitation (new-owner-invitation txn bank-id actor owner-invitation)]
+       _ (audit/record txn
+                       (audit-entries/bank :audit-kind-bank-created
+                                           nil
+                                           bank
+                                           actor
+                                           (:request-id opts)))
+       invitation (new-owner-invitation txn
+                                        bank-id
+                                        actor
+                                        (:request-id opts)
+                                        owner-invitation)]
       {:bank bank
        :member owner
        :owner-invitation-id (:invitation-id invitation)})))
@@ -323,7 +339,13 @@
         entry (changelog/tier-changed {:bank-id bank-id
                                        :tier-before (:tier bank)
                                        :tier-after tier})
-        _ (store/save txn updated entry)]
+        _ (store/save txn updated entry)
+        _ (audit/record txn
+                        (audit-entries/bank :audit-kind-bank-tier-changed
+                                            bank
+                                            updated
+                                            (:actor opts)
+                                            (:request-id opts)))]
        updated))
    :bank/change-tier
    "Failed to change bank tier"))
@@ -349,7 +371,14 @@
                  {:bank-id bank-id
                   :status-before (:status bank)
                   :status-after (:status updated)})
-          _ (store/save txn updated entry)]
+          _ (store/save txn updated entry)
+          _ (audit/record txn
+                          (audit-entries/bank
+                           :audit-kind-bank-status-changed
+                           bank
+                           updated
+                           actor
+                           (:request-id opts)))]
          updated)))
    :bank/change-status
    "Failed to change bank status"))

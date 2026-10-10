@@ -67,6 +67,11 @@
       (errors/anomaly->response result)
       {:status 200 :body result})))
 
+(defn session-body
+  "`session` as the verification session routes return it."
+  [session]
+  (party-api/->session-body (idv-query/session session (utility/now))))
+
 (defn get-verification-session
   [request]
   (let [{:keys [auth parameters]} request
@@ -75,8 +80,7 @@
         result (let-nom>
                  [session (idv-query/get-session request bank-id session-id)]
                  (if (and session (= party-id (:party-id session)))
-                   (party-api/->session-body
-                    (idv-query/session session (utility/now)))
+                   (session-body session)
                    (error/reject :idv/session-not-found
                                  {:message "No such verification session"
                                   :session-id session-id})))]

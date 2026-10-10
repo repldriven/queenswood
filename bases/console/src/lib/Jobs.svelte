@@ -418,7 +418,7 @@
                             <span class="r-dur mono">
                               {run.status === "running"
                                 ? fmtRel(run["created-at"], now)
-                                : (fmtElapsed(run["created-at"], run["completed-at"] ?? run["failed-at"]) ?? "—")}
+                                : (fmtElapsed(run["created-at"], run["updated-at"]) ?? "—")}
                             </span>
                             <span class="r-status">
                               <JobStatusBadge outcome={run.status} />

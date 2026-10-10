@@ -45,25 +45,24 @@
    :created-at (utility/now)})
 
 (defn- changed
-  "`reward` as it reaches `status`, recording when: a new one is
-  created in it, an existing one is updated into it."
-  [reward status at-key]
-  (let [now (utility/now)]
-    (cond-> (assoc reward :status status at-key now)
-            (:status reward)
-            (assoc :updated-at now))))
+  "`reward` as it reaches `status`: a new one is created in it, an
+  existing one is updated into it, recording when."
+  [reward status]
+  (cond-> (assoc reward :status status)
+          (:status reward)
+          (assoc :updated-at (utility/now))))
 
 (defn paid
   [reward transaction-id]
   (-> reward
       (dissoc :deferred-reason)
-      (changed :account-reward-status-paid :paid-at)
+      (changed :account-reward-status-paid)
       (assoc :transaction-id transaction-id)))
 
 (defn deferred
   [reward anomaly]
   (-> reward
-      (changed :account-reward-status-deferred :deferred-at)
+      (changed :account-reward-status-deferred)
       (assoc :deferred-reason (error/format-anomaly anomaly))))
 
 (defn reward-transaction

@@ -62,7 +62,8 @@
          id (or (:id envelope) (str (utility/uuidv7)))
          envelope (assoc envelope
                          :id id
-                         :correlation-id (or (:correlation-id envelope) id))
+                         :correlation-id (or (:correlation-id envelope) id)
+                         :causation-id (:request-id request))
          result (let-nom>
                   [schema (get-schema avro command-name)
                    payload (avro/serialize schema data)]
@@ -84,6 +85,15 @@
         (if (error/anomaly? body)
           (errors/anomaly->response body)
           {:status 200 :body body}))))))
+
+(defn reply-body
+  "A command's 200 reply with its body replaced by `(f body)`, which
+  renders the record the reply carries as its GET renders it. Any other
+  reply passes through."
+  [response f]
+  (cond-> response
+          (= 200 (:status response))
+          (update :body f)))
 
 (defn created
   "The 201 of a command that created a resource: its 200 reply, with the

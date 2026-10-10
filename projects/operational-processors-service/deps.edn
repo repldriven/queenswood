@@ -17,6 +17,7 @@
  {ext/mono {:local/root "../../deps/mono"}
   component/bank-activity {:local/root "../../components/bank-activity"}
   component/fdb {:local/root "../../components/fdb"}
+  component/audit {:local/root "../../components/audit"}
   component/balance {:local/root "../../components/balance"}
   component/balance-query {:local/root "../../components/balance-query"}
   component/bank {:local/root "../../components/bank"}

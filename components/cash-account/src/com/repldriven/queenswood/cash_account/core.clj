@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.cash-account.domain :as domain]
     [com.repldriven.queenswood.cash-account.store :as store]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.balance-query.interface :as balances-q]
     [com.repldriven.queenswood.bank-activity.interface :as bank-activity]
     [com.repldriven.queenswood.balance.interface :as balances]
@@ -99,6 +100,19 @@
       (or existing result))
     result))
 
+(defn- audit-entry
+  "The audit entry of an act the command in `data` asked for, taking
+  the account from `before` to `after`."
+  [kind before after data]
+  {:bank-id (:bank-id after)
+   :kind kind
+   :subject-kind :audit-subject-kind-cash-account
+   :subject-id (:account-id after)
+   :request-id (:request-id data)
+   :before before
+   :after after
+   :performed-by (:actor data)})
+
 (defn open-account
   ([txn data]
    (open-account txn data {}))
@@ -157,7 +171,14 @@
                                        :cash-account-change-kind-open}))
               _ (telemetry/with-span
                  ["cash-account-record-activity"]
-                 (record-opening txn account party product-version))]
+                 (record-opening txn account party product-version))
+              _ (when (:audited? opts)
+                  (audit/record txn
+                                (audit-entry
+                                 :audit-kind-cash-account-opened
+                                 nil
+                                 account
+                                 data)))]
              account)))
        :cash-account/open
        "Failed to open account")))))
@@ -185,7 +206,13 @@
                                   :status-after (:status updated)
                                   :change-kind
                                   :cash-account-change-kind-close})
-           _ (record-closing txn updated)]
+           _ (record-closing txn updated)
+           _ (audit/record txn
+                           (audit-entry
+                            :audit-kind-cash-account-close-requested
+                            account
+                            updated
+                            data))]
           updated)))
     :cash-account/close
     "Failed to close account")))
@@ -247,7 +274,12 @@
                                   :status-before (:status account)
                                   :status-after (:status updated)
                                   :change-kind
-                                  :cash-account-change-kind-suspend})]
+                                  :cash-account-change-kind-suspend})
+           _ (audit/record txn
+                           (audit-entry :audit-kind-cash-account-suspended
+                                        account
+                                        updated
+                                        data))]
           updated)))
     :cash-account/suspend
     "Failed to suspend account")))
@@ -270,7 +302,12 @@
                                   :status-before (:status account)
                                   :status-after (:status updated)
                                   :change-kind
-                                  :cash-account-change-kind-resume})]
+                                  :cash-account-change-kind-resume})
+           _ (audit/record txn
+                           (audit-entry :audit-kind-cash-account-resumed
+                                        account
+                                        updated
+                                        data))]
           updated)))
     :cash-account/resume
     "Failed to resume account")))
@@ -308,7 +345,13 @@
                    :status-after (:status updated)
                    :change-kind
                    :cash-account-change-kind-rotate-requested})
-               _ (record-rotation txn updated)]
+               _ (record-rotation txn updated)
+               _ (audit/record
+                  txn
+                  (audit-entry :audit-kind-cash-account-rotation-requested
+                               account
+                               updated
+                               data))]
               updated)))))
     :cash-account/rotate-address
     "Failed to rotate account address")))

@@ -25,7 +25,7 @@
                                       :email "handover-owner@queenswood.local"
                                       :role "owner"
                                       :status "pending"
-                                      :invited-by {:kind "operator"
+                                      :created-by {:kind "operator"
                                                    :principal-id
                                                    "queenswood-admin"}
                                       :token [:m/absent]}}}}
@@ -78,7 +78,7 @@
                                  :principal-id "queenswood-admin"}}]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/bank/audit-events"
+             :path "/v1/bank/audit-log"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert
@@ -86,14 +86,13 @@
     :body
     {:items
      [{:kind "invitation-created"
-       :actor {:kind "member" :principal-id [:ref :owner-member :user-id]}
-       :role-after "admin"}
+       :performed-by {:kind "member" :principal-id [:ref :owner-member :user-id]}
+       :changeset {:after {:role "role-admin"}}}
       {:kind "invitation-accepted"
-       :actor {:kind "member" :principal-id [:ref :owner-member :user-id]}
-       :role-after "owner"}
+       :performed-by {:kind "member" :principal-id [:ref :owner-member :user-id]}
+       :changeset {:after {:status "invitation-status-accepted"}}}
       {:kind "invitation-created"
-       :actor {:kind "operator" :principal-id "queenswood-admin"}
-       :email "handover-owner@queenswood.local"
-       :role-after "owner"}
+       :performed-by {:kind "operator" :principal-id "queenswood-admin"}
+       :changeset {:after {:role "role-owner"}}}
       {:kind "bank-created"
-       :actor {:kind "operator" :principal-id "queenswood-admin"}}]}}}]}
+       :performed-by {:kind "operator" :principal-id "queenswood-admin"}}]}}}]}

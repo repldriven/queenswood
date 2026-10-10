@@ -137,8 +137,7 @@ new `account-rewards` store:
 - `bank_id`, `reward_id` (`rwd.` prefix), `status` (`DEFERRED`,
   `PAID`), `kind` (`REWARD_KIND_OPENING`), `account_id`, `product_id`,
   `version_id`, `amount`, `currency`, `transaction_id`,
-  `deferred_reason`, `deferred_at`, `paid_at`, `created_at` and
-  `updated_at`.
+  `deferred_reason`, `created_at` and `updated_at`.
 - Primary key `[bank_id, reward_id]`; index
   `AccountReward_by_bank_account` on `[bank_id, account_id, kind]`,
   which is the once-only check.

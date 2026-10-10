@@ -19,6 +19,7 @@
   component/circuit-breaker {:local/root "../../components/circuit-breaker"}
   component/fdb {:local/root "../../components/fdb"}
   component/api-schema {:local/root "../../components/api-schema"}
+  component/audit {:local/root "../../components/audit"}
   component/balance {:local/root "../../components/balance"}
   component/balance-query {:local/root "../../components/balance-query"}
   component/cash-account-api {:local/root "../../components/cash-account-api"}
@@ -27,6 +28,7 @@
   component/payment-provider {:local/root "../../components/payment-provider"}
   component/reward-api {:local/root "../../components/reward-api"}
   component/access-api {:local/root "../../components/access-api"}
+  component/audit-api {:local/root "../../components/audit-api"}
   component/balance-api {:local/root "../../components/balance-api"}
   component/bank-api {:local/root "../../components/bank-api"}
   component/cash-account-migration-api

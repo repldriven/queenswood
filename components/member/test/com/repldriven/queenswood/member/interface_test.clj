@@ -13,6 +13,7 @@
     [com.repldriven.queenswood.testcontainers.interface]
 
     [com.repldriven.queenswood.member.interface :as SUT]
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.member-query.interface :as q]
 
     [com.repldriven.mono.error.interface :as error]
@@ -77,10 +78,9 @@
   {:token-hash (q/token-hash (:token invitation))})
 
 (defn- access-history
-  "The access history of a bank created at time zero by the operator."
+  "The bank's audit entries, newest first."
   [config bank-id]
-  (q/list-audit-events config
-                       {:bank-id bank-id :created-at 0 :created-by operator}))
+  (:audit-entries (audit/list-by-bank config bank-id {:limit 50})))
 
 (defn- kinds
   [events]
@@ -118,7 +118,10 @@
                  member (SUT/accept config
                                     (:invitation-id invitation)
                                     (token-proof invitation)
-                                    {:user-id "usr.accept.invitee"})
+                                    {:user-id "usr.accept.invitee"
+                                     :actor {:kind :actor-kind-member
+                                             :principal-id
+                                             "usr.accept.invitee"}})
                  _
                  (testing "accepting writes a member with the invitation's role"
                    (is (= :member-status-active (:status member)))
@@ -129,7 +132,10 @@
                      (let [again (SUT/accept config
                                              (:invitation-id invitation)
                                              (token-proof invitation)
-                                             {:user-id "usr.accept.invitee"})]
+                                             {:user-id "usr.accept.invitee"
+                                              :actor {:kind :actor-kind-member
+                                                      :principal-id
+                                                      "usr.accept.invitee"}})]
                        (is (refused? :invitation/invalid-status again))
                        (is (= :invitation-status-accepted
                               (:status (error/payload again))))
@@ -146,7 +152,7 @@
                      "the invitation reads accepted by the person who accepted"
                      (is (= :invitation-status-accepted (:status accepted)))
                      (is (= "usr.accept.invitee"
-                            (get-in accepted [:accepted-by :principal-id])))
+                            (get-in accepted [:updated-by :principal-id])))
                      (is (not (contains? accepted :token-hash))))
                  by-email
                  (invite config bank-id owner "second@example.com" :role-viewer)
@@ -168,22 +174,24 @@
                                (:invitation-id by-email)
                                {:email "second@example.com"
                                 :email-verified? true}
-                               {:user-id "usr.accept.second"})
+                               {:user-id "usr.accept.second"
+                                :actor {:kind :actor-kind-member
+                                        :principal-id "usr.accept.second"}})
                  history (access-history config bank-id)
                  _ (testing "every act reads back from its record, newest first"
-                     (is (= [:audit-event-kind-invitation-accepted
-                             :audit-event-kind-invitation-created
-                             :audit-event-kind-invitation-accepted
-                             :audit-event-kind-invitation-created
-                             :audit-event-kind-bank-created]
+                     (is (= [:audit-kind-invitation-accepted
+                             :audit-kind-invitation-created
+                             :audit-kind-invitation-accepted
+                             :audit-kind-invitation-created]
                             (kinds history)))
                      (is (= {:kind :actor-kind-member
                              :principal-id "usr.accept.invitee"}
-                            (:actor (nth history 2))))
-                     (is (= "usr.accept.invitee"
-                            (:subject-user-id (nth history 2))))
+                            (:performed-by (nth history 2))))
+                     (is (= {:before {:status "invitation-status-pending"}
+                             :after {:status "invitation-status-accepted"}}
+                            (:changeset (nth history 2))))
                      (is (= "usr.accept.owner"
-                            (:subject-user-id (peek history)))))]))))
+                            (:principal-id (:performed-by (peek history))))))]))))
 
 (deftest an-unchanged-role-records-nothing-test
   (with-test-system
@@ -219,8 +227,7 @@
                  _ (testing "and writes neither the member nor a change"
                      (is (= first-at (:updated-at loaded)))
                      (is (= :role-developer (:role loaded)))
-                     (is (= [:audit-event-kind-role-changed
-                             :audit-event-kind-bank-created]
+                     (is (= [:audit-kind-member-role-changed]
                             (kinds history))))]))))
 
 (deftest expiry-is-read-and-never-written-test
@@ -260,16 +267,22 @@
                      (is (= :invitation-status-expired (:status by-recipient)))
                      (is (= [] pending)))
                  _ (testing "and accept, decline and withdraw are refused"
-                     (doseq [result [(SUT/accept config
-                                                 id
-                                                 proof
-                                                 {:user-id "usr.expiry.late"
-                                                  :now later})
-                                     (SUT/decline config
-                                                  id
-                                                  proof
-                                                  {:user-id "usr.expiry.late"
-                                                   :now later})
+                     (doseq [result [(SUT/accept
+                                      config
+                                      id
+                                      proof
+                                      {:user-id "usr.expiry.late"
+                                       :actor {:kind :actor-kind-member
+                                               :principal-id "usr.expiry.late"}
+                                       :now later})
+                                     (SUT/decline
+                                      config
+                                      id
+                                      proof
+                                      {:user-id "usr.expiry.late"
+                                       :actor {:kind :actor-kind-member
+                                               :principal-id "usr.expiry.late"}
+                                       :now later})
                                      (SUT/withdraw config
                                                    bank-id
                                                    id
@@ -300,6 +313,8 @@
                                     id
                                     (token-proof fresh)
                                     {:user-id "usr.expiry.late"
+                                     :actor {:kind :actor-kind-member
+                                             :principal-id "usr.expiry.late"}
                                      :now (inc later)})
                  _ (testing "while the fresh one accepts"
                      (is (= :role-viewer (:role member))))]))))
@@ -334,7 +349,10 @@
                      (is (refused? :member/not-found
                                    (SUT/leave config
                                               (:member-id target)
-                                              {:user-id "usr.reach.owner-a"}))))
+                                              {:user-id "usr.reach.owner-a"
+                                               :actor {:kind :actor-kind-member
+                                                       :principal-id
+                                                       "usr.reach.owner-a"}}))))
                  _ (testing "an unknown member is not found"
                      (is (refused? :member/not-found
                                    (SUT/change-role config
@@ -346,9 +364,8 @@
                  history-b (access-history config "bnk.reach.b")
                  _ (testing "and nothing is written"
                      (is (= target loaded))
-                     (is (= [:audit-event-kind-bank-created] (kinds history-a)))
-                     (is (= [:audit-event-kind-bank-created]
-                            (kinds history-b))))]))))
+                     (is (empty? history-a))
+                     (is (empty? history-b)))]))))
 
 (defn- latched
   "Runs `f` inside a transaction of its own on another thread, holding
@@ -397,12 +414,10 @@
                             (map error/kind (filter error/anomaly? results)))))
                  members (q/list-active-by-bank config bank-id)
                  history (access-history config bank-id)
-                 _ (testing "and the bank keeps one owner and one role change"
-                     (is (= [:role-admin :role-owner]
-                            (sort (map :role members))))
-                     (is (= [:audit-event-kind-role-changed
-                             :audit-event-kind-bank-created]
-                            (kinds history))))]))))
+                 _
+                 (testing "and the bank keeps one owner and one role change"
+                   (is (= [:role-admin :role-owner] (sort (map :role members))))
+                   (is (= [:audit-kind-member-role-changed] (kinds history))))]))))
 
 (deftest concurrent-accepts-by-one-person-write-one-member-test
   (with-test-system
@@ -429,7 +444,11 @@
                                                    %
                                                    (:invitation-id invitation)
                                                    (token-proof invitation)
-                                                   {:user-id "usr.race.one"})))
+                                                   {:user-id "usr.race.one"
+                                                    :actor {:kind
+                                                            :actor-kind-member
+                                                            :principal-id
+                                                            "usr.race.one"}})))
                                a (accept work)
                                b (accept aliased)]
                            [@a @b])

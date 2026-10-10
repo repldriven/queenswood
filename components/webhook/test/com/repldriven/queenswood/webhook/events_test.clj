@@ -667,7 +667,6 @@
      :currency "GBP"
      :status :account-reward-status-paid
      :transaction-id "txn.events.reward"
-     :paid-at now
      :created-at now}))
 
 (defn- seed-reward

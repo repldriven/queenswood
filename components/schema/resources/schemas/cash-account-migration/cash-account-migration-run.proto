@@ -3,6 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schema.cash_account_migration;
 
 import "record_metadata_options.proto";
+import "schemas/actor/actor.proto";
 
 option java_outer_classname = "CashAccountMigrationRunProto";
 
@@ -29,10 +30,9 @@ message CashAccountMigrationRun {
   optional int32 accounts_ineligible = 9;
   optional int32 accounts_failed = 10;
 
-  optional int64 completed_at = 51;
-  optional int64 failed_at = 53;
-
   required int64 created_at = 101;
+  optional com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+  optional int64 updated_at = 103;
 
   optional string failure_reason = 200;
 }

@@ -60,6 +60,23 @@ openapi-diff ref:
     diff -u --label "{{ ref }}" --label "working tree" \
       "$work/ref.yaml" "$work/working.yaml" || true
 
+# Copy Fideslang's data categories at tag (3.1.4) into the schema brick, then check every proto's keys against them
+fideslang-update tag:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    sha=$(gh api "repos/ethyca/fideslang/commits/{{ tag }}" --jq .sha)
+    upstream=$(gh api "repos/ethyca/fideslang/contents/data_files/data_categories.json?ref=$sha" --jq .content | base64 -d)
+    jq -n --arg tag "{{ tag }}" --arg sha "$sha" --argjson upstream "$upstream" '
+      {source: "https://github.com/ethyca/fideslang/blob/\($sha)/data_files/data_categories.json",
+       license: "CC-BY-4.0, Ethyca Inc.",
+       tag: $tag,
+       commit: $sha,
+       data_category: [$upstream.data_category[]
+                       | {fides_key, name, description, parent_key,
+                          version_added, version_deprecated, replaced_by}]}' \
+      > components/schema/resources/fideslang/data-categories.json
+    clojure -M:poly test brick:schema project:dev :all
+
 # Force re-run code generation for the bank profile
 force-prep:
     clj -X:deps prep :aliases '[{{ DOMAIN_ALIASES }} :dev]' :force true

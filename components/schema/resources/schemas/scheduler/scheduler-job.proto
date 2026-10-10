@@ -4,6 +4,7 @@ package com.repldriven.queenswood.schema.scheduler;
 
 import "record_metadata_options.proto";
 import "schemas/actor/actor.proto";
+import "schemas/fideslang/data-category.proto";
 
 option java_outer_classname = "SchedulerJobProto";
 
@@ -38,10 +39,11 @@ message SchedulerJob {
   required SchedulerJobKind kind = 5;
   repeated SchedulerTaskKind task_kinds = 6;
   required string schedule = 7; // Quartz cron, UTC
-  optional int64 last_run_at = 8;
-  optional int64 next_run_at = 9;
+  optional int64 last_run_at = 8 [(fideslang.data_category) = "system.operations"];
+  optional int64 next_run_at = 9 [(fideslang.data_category) = "system.operations"];
 
   required int64 created_at = 101;
+  optional com.repldriven.queenswood.schema.actor.Actor created_by = 102;
   optional int64 updated_at = 103;
   optional com.repldriven.queenswood.schema.actor.Actor updated_by = 104;
 }

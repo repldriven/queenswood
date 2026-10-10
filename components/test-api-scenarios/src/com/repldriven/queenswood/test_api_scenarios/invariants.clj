@@ -17,9 +17,17 @@
   (:require
     [com.repldriven.mono.http-client.interface :as http]
 
+    [clojure.string :as str]
     [clojure.test :refer [is]]))
 
 (def ^:private ledger-accounts-path "/v1/ledger-accounts")
+
+(def ^:private audit-log-path "/v1/bank/audit-log")
+
+(def ^:private audit-page-size
+  "How many of a bank's newest audit entries the check reads. A step's
+  own event is among the newest, since steps run one at a time."
+  50)
 
 (defn- read-ledger
   "Read the bank's chart and its per-currency trial-balance block."
@@ -69,3 +77,33 @@
   (doseq [bank (vals banks)]
     (assert-bank base-url bank))
   ctx)
+
+(defn- audit-request-ids
+  [base-url admin-token bank-id]
+  (let [res (http/request {:method :get
+                           :url (str base-url audit-log-path)
+                           :query-params {"page[size]" audit-page-size}
+                           :headers {"Authorization" (str "Bearer " admin-token)
+                                     "Bank-Id" bank-id}})]
+    (into #{} (keep :request-id) (:items (http/res->edn res)))))
+
+(defn verify-audited
+  "Assert that the write the step just made, when it was a successful,
+  fresh write to the API, left an audit entry under its request id in
+  one of the banks it may have acted on. Returns `ctx` without the
+  pending check. `ctx` is the runner context — `:pending-audit` is set
+  by `verbs` on each request step."
+  [{:keys [base-url admin-token pending-audit] :as ctx}]
+  (when-let [{:keys [request-id method path bank-ids]} pending-audit]
+    (is (some (fn [bank-id]
+                (contains? (audit-request-ids base-url admin-token bank-id)
+                           request-id))
+              bank-ids)
+        (str (str/upper-case (name method))
+             " "
+             path
+             " left no audit entry under its request id "
+             request-id
+             " in "
+             (pr-str bank-ids))))
+  (dissoc ctx :pending-audit))

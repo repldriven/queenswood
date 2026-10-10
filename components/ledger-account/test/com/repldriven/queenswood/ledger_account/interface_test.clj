@@ -54,6 +54,9 @@
    :ledger-account-code-own-funds "3100"
    :ledger-account-code-interest-expense "5100"})
 
+(def ^:private operator
+  {:kind :actor-kind-operator :principal-id "usr.operator"})
+
 (def ^:private list-cap
   "The row cap `list-accounts` scans a bank's chart under."
   1000)
@@ -63,7 +66,11 @@
   created accounts or the first anomaly."
   [config bank-id]
   (reduce (fn [acc row]
-            (let [result (SUT/new-account config bank-id "GBP" row)]
+            (let [result (SUT/new-account config
+                                          bank-id
+                                          "GBP"
+                                          row
+                                          {:actor operator})]
               (if (error/anomaly? result)
                 (reduced result)
                 (conj acc result))))
@@ -226,7 +233,8 @@
                                                   bank-id
                                                   (str "X" n)
                                                   row
-                                                  {:policies policies})]
+                                                  {:policies policies
+                                                   :actor operator})]
                       (if (error/anomaly? result) (reduced result) (inc acc))))
                   0
                   (range (inc list-cap)))

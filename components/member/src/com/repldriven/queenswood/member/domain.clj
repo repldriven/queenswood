@@ -79,11 +79,8 @@
 (def ^:private active :member-status-active)
 
 (def ^:private ended
-  {:remove {:status :member-status-removed
-            :at :removed-at
-            :by :removed-by
-            :reason :removed-reason}
-   :leave {:status :member-status-left :at :left-at :by :left-by}})
+  {:remove {:status :member-status-removed :reason :removed-reason}
+   :leave {:status :member-status-left}})
 
 (defn- some-reason
   [reason]
@@ -177,7 +174,7 @@
                       invitation-id))
 
 (defn change-role
-  [member new-role {:keys [actor active-members]} now]
+  [member new-role {:keys [actor active-members reason]} now]
   (let-nom>
     [_ (ensure-member-status member #{active})
      _ (check-grant :change-role
@@ -186,20 +183,16 @@
      _ (check-not-last-owner active-members member new-role)]
     (if (= new-role (:role member))
       member
-      (assoc member :role new-role :updated-at now))))
+      (-> member
+          (assoc :role new-role
+                 :updated-by (actor-record actor)
+                 :updated-at now)
+          (cond->
+           (some? reason)
+           (assoc :role-reason reason)
 
-(defn new-role-change
-  [member new-role {:keys [actor reason]} now]
-  (let [{:keys [bank-id member-id role]} member]
-    (utility/assoc-some {:bank-id bank-id
-                         :member-id member-id
-                         :role-change-id (utility/generate-id "rch")
-                         :role-before role
-                         :role-after new-role
-                         :created-at now
-                         :created-by (actor-record actor)}
-                        :reason
-                        (some-reason reason))))
+           (nil? reason)
+           (dissoc :role-reason))))))
 
 (defn end-member
   [member action {:keys [actor active-members reason]} now]
@@ -207,16 +200,11 @@
     [_ (ensure-member-status member #{active})
      _ (check-grant action actor {:target-role (:role member)})
      _ (check-not-last-owner active-members member nil)]
-    (let [{:keys [status at by] :as ending} (ended action)]
+    (let [{:keys [status] :as ending} (ended action)]
       (cond-> (assoc member
-                     :status
-                     status
-                     at
-                     now
-                     by
-                     (actor-record actor)
-                     :updated-at
-                     now)
+                     :status status
+                     :updated-at now
+                     :updated-by (actor-record actor))
 
               (and (:reason ending) (some-reason reason))
               (assoc (:reason ending) (some-reason reason))))))
@@ -253,8 +241,7 @@
      _ (check-not-member active-members (:principal-id actor))]
     (assoc invitation
            :status accepted
-           :accepted-at now
-           :accepted-by (actor-record actor)
+           :updated-by (actor-record actor)
            :updated-at now)))
 
 (defn decline-invitation
@@ -263,8 +250,7 @@
     [_ (ensure-invitation-status invitation #{pending} now)]
     (assoc invitation
            :status declined
-           :declined-at now
-           :declined-by (actor-record actor)
+           :updated-by (actor-record actor)
            :updated-at now)))
 
 (defn withdraw-invitation
@@ -273,8 +259,7 @@
     [_ (ensure-invitation-status invitation #{pending} now)]
     (utility/assoc-some (assoc invitation
                                :status withdrawn
-                               :withdrawn-at now
-                               :withdrawn-by (actor-record actor)
+                               :updated-by (actor-record actor)
                                :updated-at now)
                         :withdrawn-reason
                         (some-reason reason))))
@@ -287,8 +272,7 @@
            :status pending
            :token-hash (:invitation-id invitation)
            :expires-at (+ now invitation-lifetime-ms)
-           :resent-at now
-           :resent-by (actor-record actor)
+           :updated-by (actor-record actor)
            :updated-at now)))
 
 (defn record-invitation-token
@@ -299,6 +283,6 @@
                (error/reject :invitation/superseded
                              {:message "The invitation was sent again since"
                               :invitation-id (:invitation-id invitation)}))]
-    (assoc invitation
-           :token-hash token-hash
-           :updated-at now)))
+    (-> invitation
+        (assoc :token-hash token-hash :updated-at now)
+        (dissoc :updated-by))))

@@ -122,15 +122,14 @@
 
 (defn moved
   "`intent` moved to `outcome`, with `attempt-count` where given and
-  `changes` merged in. A move to `sent` records when it was sent."
+  `changes` merged in, recording when."
   [intent outcome attempt-count changes]
-  (cond-> (merge (assoc-some (assoc intent :status outcome)
-                             :attempt-count
-                             attempt-count)
-                 changes)
-          (and (= :outbound-intent-status-sent outcome)
-               (not= :outbound-intent-status-sent (:status intent)))
-          (assoc :sent-at (utility/now))))
+  (assoc (merge (assoc-some (assoc intent :status outcome)
+                            :attempt-count
+                            attempt-count)
+                changes)
+         :updated-at
+         (utility/now)))
 
 (defn advanced
   "`intent` kept pending with `ctx` for its next step, from a fresh

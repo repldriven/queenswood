@@ -1,8 +1,10 @@
 (ns com.repldriven.queenswood.api.cash-account-migration.handlers
   (:require
     [com.repldriven.queenswood.api.errors :as errors]
-    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
+    [com.repldriven.queenswood.api.shared.actor :as actor]
 
+    [com.repldriven.queenswood.cash-account-migration-api.interface :as
+     migration-api]
     [com.repldriven.queenswood.cash-account-migration.interface :as migrations]
 
     [com.repldriven.mono.error.interface :as error]
@@ -27,13 +29,14 @@
         data (assoc body
                     :bank-id bank-id
                     :idempotency-key (get headers "idempotency-key")
-                    :created-by (shared.actor/actor auth))
+                    :created-by (actor/actor auth)
+                    :request-id (:request-id request))
         result (migrations/create-migration (config request) data)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 201
        :headers {"Location" (migration-uri result)}
-       :body result})))
+       :body (migration-api/->migration-body result)})))
 
 (defn- transition
   [request f]
@@ -43,10 +46,10 @@
         result (f (config request)
                   bank-id
                   migration-id
-                  (shared.actor/actor auth))]
+                  (actor/act request))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body result})))
+      {:status 200 :body (migration-api/->migration-body result)})))
 
 (defn approve-migration
   "Approve a migration. Moves nothing — it makes the migration work the
@@ -71,11 +74,12 @@
         result (migrations/preview-migration (config request)
                                              bank-id
                                              migration-id
-                                             (utility/today))]
+                                             (utility/today)
+                                             (actor/act request))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 201
        :headers {"Location" (str (migration-uri {:migration-id migration-id})
                                  "/previews/"
                                  (:run-id result))}
-       :body result})))
+       :body (migration-api/->run-body result)})))

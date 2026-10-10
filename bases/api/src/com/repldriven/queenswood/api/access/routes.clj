@@ -4,16 +4,14 @@
 
     [com.repldriven.queenswood.api.shared.headers :as shared.headers]
     [com.repldriven.queenswood.api.shared.idempotency :as shared.idempotency]
-    [com.repldriven.queenswood.api.shared.interceptors :as shared.interceptors]
     [com.repldriven.queenswood.api.shared.parameters :as shared.parameters]
 
-    [com.repldriven.queenswood.access-api.interface :refer
+    [com.repldriven.queenswood.access-api.interface :as access-api :refer
      [InvitationAlreadyExists InvitationAlreadyMember InvitationInvalidStatus
       InvitationNotFound MemberAlreadyExists MemberInvalidStatus
       MemberLastOwner MemberNotFound ReasonRequired RoleNotGranted]]
     [com.repldriven.queenswood.api-schema.interface :refer
      [ErrorExamples ErrorResponse]]
-    [com.repldriven.queenswood.bank-api.interface :refer [BankUnnamed]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))
@@ -338,30 +336,4 @@
                           409 (ErrorResponse [#'InvitationInvalidStatus])})
              :handler handlers/resend-invitation}}]]])
 
-;; The bank the `Bank-Id` header names: a member's own, or any an
-;; operator names. `named-bank` refuses an operator who names none.
-(def ^:private audit-events
-  ["/bank/audit-events"
-   {:openapi {:tags ["Audit"]
-              :security [{"bearerAuth" ["org:viewer"]}
-                         {"bearerAuth" ["admin"]}]}
-    :interceptors [shared.interceptors/named-bank]
-    :get {:summary "List the bank's audit events"
-          :openapi {:operationId "ListAuditEvents"
-                    :description
-                    (str "The audit log of the bank the `Bank-Id` header "
-                         "names, newest first: every change to who may act "
-                         "for it — its creation, invitations, role changes, "
-                         "removals and departures, and the operator's own "
-                         "acts — each naming who made it and any reason "
-                         "given.")
-                    :parameters ^:replace
-                                [shared.parameters/ref-page
-                                 shared.parameters/ref-bank-id-header]}
-          :parameters {:query shared.parameters/page-query}
-          :responses {200 {:description "One page of the bank's audit events."
-                           :body [:ref "AuditEventList"]}
-                      403 (ErrorExamples [#'BankUnnamed])}
-          :handler handlers/list-audit-events}}])
-
-(def routes [my-members my-invitations members invitations audit-events])
+(def routes [my-members my-invitations members invitations])

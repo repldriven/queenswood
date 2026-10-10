@@ -145,6 +145,12 @@ non-trivial work on their topic.
   handler guards as an idempotency gate rather than a rejection.
   See [lifecycle-transitions.md](docs/recipes/code/lifecycle-transitions.md)
   and [ADR-0021](docs/adr/0021-changelog-relay.md).
+- **Who did what** — proposed: an append-only audit entry committed
+  with each act a member, an operator or the bank's credential performs,
+  an access
+  entry for every API call, joined by the request's id, and a record
+  keeping only its latest change's time and actor.
+  See [ADR-0047](docs/adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md).
 
 ### Tests
 

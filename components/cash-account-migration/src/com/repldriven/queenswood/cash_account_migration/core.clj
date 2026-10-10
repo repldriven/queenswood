@@ -2,6 +2,8 @@
   (:require
     [com.repldriven.queenswood.cash-account-migration.domain :as domain]
     [com.repldriven.queenswood.cash-account-migration.store :as store]
+
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.cash-account-product-query.interface :as
      products]
     [com.repldriven.queenswood.cash-account-query.interface :as accounts]
@@ -28,6 +30,19 @@
 
      :else
      (first versions))))
+
+(defn- audit-entry
+  "The audit entry of an act taking a migration from `before` to
+  `after`, by `actor` under the API request `request-id`."
+  [kind before after actor request-id]
+  {:bank-id (:bank-id after)
+   :kind kind
+   :subject-kind :audit-subject-kind-migration
+   :subject-id (:migration-id after)
+   :request-id request-id
+   :before before
+   :after after
+   :performed-by actor})
 
 (defn create-migration
   "Author a migration in draft. Reads the source and target inside one
@@ -57,7 +72,13 @@
                                            target-product-id
                                            target-version-id)
               migration (domain/new-migration data source target)
-              _ (store/save-migration txn migration)]
+              _ (store/save-migration txn migration)
+              _ (audit/record txn
+                              (audit-entry :audit-kind-migration-created
+                                           nil
+                                           migration
+                                           (:created-by data)
+                                           (:request-id data)))]
              migration)))))))
 
 (defn get-migration
@@ -276,8 +297,9 @@
   preview of the migration is running. The checks and the save share a
   transaction, so of two previews opened at once one is refused, and a
   refused pass leaves no run behind saying it started."
-  [txn migration business-day dry-run? policies]
-  (let [{:keys [bank-id migration-id]} migration]
+  [txn migration business-day dry-run? policies opts]
+  (let [{:keys [bank-id migration-id]} migration
+        {:keys [actor request-id]} opts]
     (store/transact
      txn
      (fn [txn]
@@ -286,8 +308,16 @@
           _ (if dry-run?
               (check-preview-limit txn bank-id business-day policies)
               (check-run-limit txn bank-id migration policies))
-          run (domain/new-run migration business-day dry-run?)
-          _ (store/save-run txn run)]
+          run (domain/new-run migration business-day dry-run? actor)
+          _ (store/save-run txn run)
+          _ (audit/record txn
+                          {:bank-id bank-id
+                           :kind :audit-kind-migration-previewed
+                           :subject-kind :audit-subject-kind-migration-run
+                           :subject-id (:run-id run)
+                           :request-id request-id
+                           :after run
+                           :performed-by actor})]
          run))
      :cash-account-migration/open-run
      "Failed to open cash-account migration run")))
@@ -299,7 +329,7 @@
   A run is closed as failed only when the pass itself could not finish.
   A pass that decided about every account and moved none succeeded — it
   is the accounts that were ineligible, not the run."
-  [txn bank-id migration-id business-day dry-run?]
+  [txn bank-id migration-id business-day dry-run? opts]
   (let-nom>
     [migration (get-migration txn bank-id migration-id)
      target (products/get-version txn
@@ -311,7 +341,7 @@
      ;; account would let a policy change mid-cohort and move half a
      ;; bank under one set of rules and half under another.
      policies (policy/get-effective-policies txn {:bank-id bank-id})
-     run (open-run txn migration business-day dry-run? policies)
+     run (open-run txn migration business-day dry-run? policies opts)
      tally (evaluate-accounts txn
                               {:migration migration
                                :target target
@@ -331,30 +361,43 @@
   Previews may be re-run as often as wanted, including after approval:
   accounts open and close and balances move, so a preview is a forecast
   of what a run would do rather than a promise, and being able to
-  look again is what makes that drift visible."
-  [txn bank-id migration-id business-day]
-  (pass txn bank-id migration-id business-day true))
+  look again is what makes that drift visible. `opts` names who asked
+  and the request."
+  [txn bank-id migration-id business-day opts]
+  (pass txn bank-id migration-id business-day true opts))
 
 (defn approve-migration
-  [txn bank-id migration-id actor]
+  [txn bank-id migration-id {:keys [actor request-id]}]
   (store/transact
    txn
    (fn [txn]
      (let-nom>
        [migration (get-migration txn bank-id migration-id)
         approved (domain/approve-migration migration actor)
-        _ (store/save-migration txn approved)]
+        _ (store/save-migration txn approved)
+        _ (audit/record txn
+                        (audit-entry :audit-kind-migration-approved
+                                     migration
+                                     approved
+                                     actor
+                                     request-id))]
        approved))))
 
 (defn cancel-migration
-  [txn bank-id migration-id actor]
+  [txn bank-id migration-id {:keys [actor request-id]}]
   (store/transact
    txn
    (fn [txn]
      (let-nom>
        [migration (get-migration txn bank-id migration-id)
         cancelled (domain/cancel-migration migration actor)
-        _ (store/save-migration txn cancelled)]
+        _ (store/save-migration txn cancelled)
+        _ (audit/record txn
+                        (audit-entry :audit-kind-migration-cancelled
+                                     migration
+                                     cancelled
+                                     actor
+                                     request-id))]
        cancelled))))
 
 (defn run-migration
@@ -367,7 +410,7 @@
   (let-nom>
     [migration (get-migration txn bank-id migration-id)
      _ (domain/ensure-runnable migration)
-     run (pass txn bank-id migration-id business-day false)
+     run (pass txn bank-id migration-id business-day false nil)
      completed (domain/complete-migration migration)
      _ (store/save-migration txn completed)]
     run))

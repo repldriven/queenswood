@@ -49,7 +49,6 @@
   [delivery message-id now]
   (-> (settled delivery now)
       (assoc :status sent
-             :sent-at now
              :attempt-count (inc (:attempt-count delivery)))
       (utility/assoc-some :message-id message-id)))
 

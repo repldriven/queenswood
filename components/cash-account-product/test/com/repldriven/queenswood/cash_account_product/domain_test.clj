@@ -71,33 +71,36 @@
 
 (def ^:private good-data {:name "v2" :currency "GBP" :effective-from 20089})
 
+(def ^:private operator
+  {:kind :actor-kind-operator :principal-id "queenswood-admin"})
+
 (deftest update-version-test
   (testing "rejects with :version-immutable when existing is published"
     (let [r (SUT/update-version published-version
                                 template
                                 good-data
-                                permissive-policies)]
+                                permissive-policies
+                                operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "rejects with :version-immutable when existing is discarded"
     (let [r (SUT/update-version discarded-version
                                 template
                                 good-data
-                                permissive-policies)]
+                                permissive-policies
+                                operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "succeeds when existing is a draft, preserving id and number"
     (let [v (SUT/update-version draft-version
                                 template
                                 (assoc good-data :name "renamed")
-                                permissive-policies)]
+                                permissive-policies
+                                operator)]
       (is (= "prv.3" (:version-id v)))
       (is (= 3 (:version-number v)))
       (is (= "renamed" (:name v)))
       (is (= :version-status-draft (:status v))))))
-
-(def ^:private operator
-  {:kind :actor-kind-operator :principal-id "queenswood-admin"})
 
 (def ^:private payment-provider {:addresses ["scan"]})
 
@@ -122,8 +125,8 @@
                          payment-provider
                          operator)]
       (is (= :version-status-published (:status v)))
-      (is (number? (:published-at v)))
-      (is (= operator (:published-by v)))
+      (is (number? (:updated-at v)))
+      (is (= operator (:updated-by v)))
       (is (= "prv.3" (:version-id v)))
       (is (= 3 (:version-number v)))))
   (testing "rejects an address scheme the payment provider does not issue"
@@ -155,10 +158,10 @@
     (let [r (SUT/discard discarded-version permissive-policies operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
-  (testing "flips draft to :discarded and stamps :discarded-at"
+  (testing "flips draft to :discarded, by whom recorded"
     (let [v (SUT/discard draft-version permissive-policies operator)]
       (is (= :version-status-discarded (:status v)))
-      (is (some? (:discarded-at v))))))
+      (is (= operator (:updated-by v))))))
 
 (deftest new-version-test
   (testing "rejects with :draft-already-exists when versions contains a draft"
@@ -261,11 +264,13 @@
                        draft-version
                        template
                        (assoc good-data :opening-reward {:amount 2500})
-                       permissive-policies)
+                       permissive-policies
+                       operator)
           without (SUT/update-version draft-version
                                       template
                                       good-data
-                                      permissive-policies)]
+                                      permissive-policies
+                                      operator)]
       (is (= [{:kind :reward-kind-opening :amount 2500}]
              (:reward-terms with-reward)))
       (is (not (contains? without :reward-terms)))))
@@ -284,6 +289,7 @@
     (let [r (SUT/update-version published-version
                                 template
                                 (assoc good-data :opening-reward {:amount 1000})
-                                permissive-policies)]
+                                permissive-policies
+                                operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r))))))

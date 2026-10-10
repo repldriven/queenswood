@@ -47,18 +47,21 @@
       (throw (ex-info "fdb-record-layer-core JAR not found" {:classpath cp})))
     (extract-protos-from-jar jar target)))
 
-(defn- strip-fdb-requires
-  "Remove spurious com.apple.foundationdb requires from
-  generated Clojure files. protoc-gen-clojure emits requires
-  for imported proto packages, but the FDB options proto has
-  no Clojure counterpart."
+(defn- strip-option-requires
+  "Remove spurious com.apple.foundationdb and com.google.protobuf
+  requires from generated Clojure files. protoc-gen-clojure emits
+  requires for imported proto packages, but the FDB options proto and
+  `descriptor.proto`, which a custom option extends, have no Clojure
+  counterpart."
   [clj-out]
   (doseq [f (->> (file-seq (io/file clj-out))
                  (filter #(str/ends-with? (.getName %) ".cljc")))]
     (let [content (slurp f)
-          stripped (str/replace content
-                                #"\n\s+\[com\.apple\.foundationdb\.[^\]]*\]"
-                                "")]
+          stripped
+          (str/replace
+           content
+           #"\n\s+\[com\.(apple\.foundationdb|google\.protobuf)[^\]]*\]"
+           "")]
       (when (not= content stripped) (spit f stripped)))))
 
 (defn- message-required
@@ -200,7 +203,7 @@
 
                                       true
                                       (into protos))})
-    (strip-fdb-requires clj-out)
+    (strip-option-requires clj-out)
     (write-required-fields clj-out descriptor-set)
     (b/javac {:src-dirs [java-out]
               :class-dir class-out

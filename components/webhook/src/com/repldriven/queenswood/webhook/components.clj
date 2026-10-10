@@ -80,7 +80,9 @@
     [:unique-vector-lax [:ref "WebhookNotificationKind"]]]
    [:status [:ref "WebhookEndpointStatus"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:created-by [:ref "Actor"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def ^:private endpoint-keys
   (into [] (comp (filter vector?) (map first)) WebhookEndpoint))
@@ -139,11 +141,10 @@
    [:endpoint-id [:ref "WebhookEndpointId"]]
    [:status [:ref "WebhookDeliveryStatus"]]
    [:kind [:ref "WebhookNotificationKind"]]
-   [:delivered-at {:optional true} [:ref "Timestamp"]]
-   [:failed-at {:optional true} [:ref "Timestamp"]]
-   [:created-at [:ref "Timestamp"]]
    [:attempt-count nat-int?]
-   [:next-attempt-at {:optional true} [:ref "Timestamp"]]])
+   [:next-attempt-at {:optional true} [:ref "Timestamp"]]
+   [:created-at [:ref "Timestamp"]]
+   [:created-by {:optional true} [:ref "Actor"]]])
 
 (def ^:private delivery-keys
   (into [] (comp (filter vector?) (map first)) WebhookDelivery))

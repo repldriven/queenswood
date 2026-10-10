@@ -2,6 +2,8 @@
   (:require
     [com.repldriven.queenswood.transaction.core :as core]
 
+    [com.repldriven.queenswood.schema.interface :as schema]
+
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.processor.interface :as processor]))
@@ -11,7 +13,12 @@
   (if (error/anomaly? result)
     result
     (let [{:keys [schemas]} config]
-      (let-nom> [payload (avro/serialize (schemas "transaction") result)]
+      (let-nom> [payload (avro/serialize
+                          (schemas "transaction-command-reply")
+                          {:record (schema/Transaction->pb (dissoc result
+                                                            :legs))
+                           :legs (mapv schema/TransactionLeg->pb
+                                       (:legs result))})]
         {:status "ACCEPTED" :payload payload}))))
 
 (def ^:private command-handlers
@@ -21,7 +28,7 @@
 
 (defn- dispatch
   [config message]
-  (let [{:keys [command id payload]} message
+  (let [{:keys [command id causation-id payload]} message
         handler (get command-handlers command)]
     (if (nil? handler)
       (error/reject :transaction/unknown-command
@@ -33,7 +40,9 @@
                       {:message "No schema found for command"
                        :command command})
           (let-nom> [raw (avro/deserialize-same schema payload)
-                     data (assoc raw :idempotency-key id)]
+                     data (assoc raw
+                                 :idempotency-key id
+                                 :request-id causation-id)]
             (handler config data)))))))
 
 (defrecord TransactionProcessor [config]

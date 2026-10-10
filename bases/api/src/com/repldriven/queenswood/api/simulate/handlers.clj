@@ -2,9 +2,11 @@
   (:require
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.errors :as errors]
+    [com.repldriven.queenswood.api.shared.actor :as actor]
 
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
+    [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.error.interface :as error]))
 
@@ -13,6 +15,22 @@
   (let [{:keys [dispatchers]} request
         {:keys [transactions]} dispatchers]
     transactions))
+
+(def ^:private transaction-keys
+  [:transaction-id :transaction-type :currency :reference :created-at
+   :created-by])
+
+(def ^:private leg-keys
+  [:leg-id :transaction-id :account-id :balance-type :balance-status :side
+   :amount :currency])
+
+(defn- transfer-body
+  "The posted transaction the reply carries, with its legs."
+  [{:keys [record legs]}]
+  (assoc (select-keys (schema/pb->Transaction record) transaction-keys)
+         :legs
+         (mapv (fn [leg] (select-keys (schema/pb->TransactionLeg leg) leg-keys))
+               legs)))
 
 (defn inbound-transfer
   [request]
@@ -59,15 +77,18 @@
                           (dispatcher request)
                           request
                           "record-transaction"
-                          "transaction"
+                          "transaction-command-reply"
                           {:bank-id bank-id
                            :transaction-type
                            :transaction-type-inbound-transfer
                            :currency currency
                            :reference "Simulated inbound transfer"
-                           :legs checked-legs})]
+                           :legs checked-legs
+                           :actor (actor/actor auth)})]
             ;; The caller no longer chooses the account, so the answer
             ;; names the one credited.
-            (cond-> response
-                    (= 200 (:status response))
-                    (update :body assoc :account-id (:account-id house)))))))))
+            (commands/reply-body response
+                                 (fn [reply]
+                                   (assoc (transfer-body reply)
+                                          :account-id
+                                          (:account-id house))))))))))

@@ -45,7 +45,7 @@
       (is (number? (:created-at m)))))
   (testing "nothing about it is approved or dated by authoring it"
     (let [m (SUT/new-migration data savings-v1 savings-v2)]
-      (is (not (contains? m :approved-at)))
+      (is (not (contains? m :updated-by)))
       (is (not (contains? m :notified-on)))
       (is (not (contains? m :due-on)))))
   (testing "an empty version narrowing is left off rather than stored empty"
@@ -192,7 +192,7 @@
 
 (deftest run-lifecycle-test
   (let [migration {:bank-id "org.1" :migration-id "mig.1"}
-        run (SUT/new-run migration 20260801 true)]
+        run (SUT/new-run migration 20260801 true nil)]
     (testing "a run opens as running, and a preview says so on the record"
       (is (= :cash-account-migration-run-status-running (:status run)))
       (is (true? (:dry-run run)))
@@ -205,11 +205,11 @@
         (is (= :cash-account-migration-run-status-completed (:status closed)))
         (is (= 9588 (:accounts-seen closed)))
         (is (= 412 (:accounts-ineligible closed)))
-        (is (number? (:completed-at closed)))))
+        (is (number? (:updated-at closed)))))
     (testing "a run that could not finish is failed, not completed"
       (let [failed (SUT/fail-run run (error/reject :some/anomaly {}))]
         (is (= :cash-account-migration-run-status-failed (:status failed)))
-        (is (number? (:failed-at failed)))
+        (is (number? (:updated-at failed)))
         (is (string? (:failure-reason failed)))))))
 
 (deftest preview-running-test
@@ -274,8 +274,8 @@
   (testing "a draft with a notice window is approved, by whom recorded"
     (let [approved (SUT/approve-migration approvable operator)]
       (is (= :cash-account-migration-status-approved (:status approved)))
-      (is (number? (:approved-at approved)))
-      (is (= operator (:approved-by approved)))))
+      (is (number? (:updated-at approved)))
+      (is (= operator (:updated-by approved)))))
   (testing "approving without a notice window is refused"
     ;; Approving commits to moving customers' accounts. A draft may sit
     ;; without dates while an operator decides; approving one may not.
@@ -300,8 +300,8 @@
       (let [cancelled (SUT/cancel-migration (assoc approvable :status status)
                                             operator)]
         (is (= :cash-account-migration-status-cancelled (:status cancelled)))
-        (is (number? (:cancelled-at cancelled)))
-        (is (= operator (:cancelled-by cancelled))))))
+        (is (number? (:updated-at cancelled)))
+        (is (= operator (:updated-by cancelled))))))
   (testing "a completed migration cannot be cancelled"
     ;; Its accounts have moved; saying otherwise would misdescribe them.
     (let [result
@@ -325,7 +325,7 @@
       (is (nil? (SUT/ensure-runnable approved)))
       (let [completed (SUT/complete-migration approved)]
         (is (= :cash-account-migration-status-completed (:status completed)))
-        (is (number? (:completed-at completed)))))))
+        (is (number? (:updated-at completed)))))))
 
 (deftest due?-test
   (let [approved

@@ -22,7 +22,6 @@
    :currency "GBP"
    :status "paid"
    :transaction-id "txn.01kprbmgcj35ptc8npmybhh4sb"
-   :paid-at "2025-01-01T00:00:00Z"
    :created-at "2025-01-01T00:00:00Z"
    :updated-at "2025-01-01T00:00:00Z"})
 

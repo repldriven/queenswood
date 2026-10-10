@@ -78,7 +78,8 @@
   - product-id: product id.
   - version-id: version id.
   - data: version fields (see `new-product`).
-  - opts (optional): map; `:policies` overrides policy resolution."
+  - opts (optional): map; `:actor` who edits it, recorded as
+    `updated-by`, and `:policies` to override policy resolution."
   ([txn bank-id product-id version-id data]
    (core/update-draft txn bank-id product-id version-id data))
   ([txn bank-id product-id version-id data opts]

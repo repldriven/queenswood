@@ -276,7 +276,7 @@ scenario proves a replay, and every literal is unique across files.
 
 **Layout and names.** One directory per OpenAPI tag, named for it in
 kebab case, holds the scenarios whose subject is a route under that tag:
-`me/`, `members/`, `invitations/` and `audit/` where a person's
+`me/`, `members/`, `invitations/` and `audit-log/` where a person's
 access to a bank is concerned, `banks/`, `companies/`, `oauth/`,
 `parties/`, `payee-checks/`, `cash-account-products/`, `rewards/`,
 `cash-accounts/`, `cash-account-migrations/`, `payments/`,
@@ -345,7 +345,15 @@ consumer's commit, the runner's poll and its call.
 The invariants wait for nothing. The API runner asserts the
 trial-balance tie from one `GET /v1/ledger-accounts`, which reads the
 chart in one transaction, and leaves the control reconciliation to the
-domain runner, which reads both sides in one snapshot.
+domain runner, which reads both sides in one snapshot. After a step that
+made a successful write to the API and was not a replay, it also reads
+the newest page of `GET /v1/bank/audit-log` for the bank the write
+named, or every bank the run holds, and asserts an event under the
+response's `Request-Id`, as
+[ADR-0047](../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md)
+has it. A retry after a lost reply is exempt, its act recorded under
+the request whose reply was lost, and a step whose write changes
+nothing says `:audited false`.
 
 ### Webhook delivery
 

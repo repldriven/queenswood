@@ -109,13 +109,9 @@ message CashAccountProduct {
   required int64 effective_from = 16; // epoch day
   optional int64 effective_to = 17; // epoch day
 
-  optional int64 published_at = 51;
-  optional com.repldriven.queenswood.schema.actor.Actor published_by = 52;
-  optional int64 discarded_at = 53;
-  optional com.repldriven.queenswood.schema.actor.Actor discarded_by = 54;
-
   optional string idempotency_key = 100;
   required int64 created_at = 101;
   required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
   optional int64 updated_at = 103;
+  optional com.repldriven.queenswood.schema.actor.Actor updated_by = 104;
 }

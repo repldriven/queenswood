@@ -162,7 +162,7 @@
         { name: "Invite Trillian as a developer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
         { name: "Invite Marvin as a viewer", raw: [{ method: "POST", path: "/v1/invitations", tag: "request" }] },
         { name: "Resend Trillian's invitation", raw: [{ method: "POST", path: "/v1/invitations/{id}/resend", tag: "request" }] },
-        { name: "The audit log records each act", raw: [{ method: "GET", path: "/v1/bank/audit-events", tag: "request" }] },
+        { name: "The audit log records each act", raw: [{ method: "GET", path: "/v1/bank/audit-log", tag: "request" }] },
       ],
     },
     {
@@ -581,7 +581,7 @@
         if (!ok2xx(r)) throw new Error(`resend: ${r.status}`);
       });
       await step(3, async () => {
-        const r = await api.list_audit_events({ size: 8 });
+        const r = await api.list_audit_entries({ size: 8 });
         if (!ok2xx(r)) throw new Error(`audit log: ${r.status}`);
       });
     },

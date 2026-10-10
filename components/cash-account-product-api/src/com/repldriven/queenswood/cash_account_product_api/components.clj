@@ -64,9 +64,9 @@
    [:effective-from [:ref "BusinessDay"]]
    [:effective-to {:optional true} [:ref "BusinessDay"]]
    [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]
-   [:published-at {:optional true} [:ref "Timestamp"]]
-   [:discarded-at {:optional true} [:ref "Timestamp"]]])
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def CashAccountProduct
   [:map {:json-schema/example examples/CashAccountProduct}

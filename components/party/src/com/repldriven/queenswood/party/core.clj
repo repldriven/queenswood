@@ -1,8 +1,10 @@
 (ns com.repldriven.queenswood.party.core
   (:require
+    [com.repldriven.queenswood.party.audit-entries :as audit-entries]
     [com.repldriven.queenswood.party.domain :as domain]
     [com.repldriven.queenswood.party.store :as store]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.party-query.interface :as q]
     [com.repldriven.queenswood.policy.interface :as policy]
@@ -11,18 +13,25 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
 (defn- create
-  [txn data]
+  [txn data opts]
   (store/transact
    txn
    (fn [txn]
      (let [party (domain/new-party data)
            {:keys [bank-id party-id status]} party]
-       (store/save-party
-        txn
-        party
-        {:bank-id bank-id
-         :party-id party-id
-         :status-after status})))))
+       (let-nom> [saved (store/save-party txn
+                                          party
+                                          {:bank-id bank-id
+                                           :party-id party-id
+                                           :status-after status})
+                  _ (when (:audited? opts)
+                      (audit/record txn
+                                    (audit-entries/party
+                                     :audit-kind-party-created
+                                     nil
+                                     party
+                                     data)))]
+         saved)))))
 
 (defn- get-policies
   [txn bank-id opts cache]
@@ -66,7 +75,7 @@
      (let [result (or-already-created
                    txn
                    data
-                   (create txn data))]
+                   (create txn data opts))]
        (if (store/uniqueness-violation? result)
          (error/reject :party/external-reference-taken
                        {:message "A party already has this external reference"
@@ -101,7 +110,7 @@
   "Read the party, apply the domain fn `f` to it with the effective
   policies, and save the result with its status transition. The shape
   shared by the direct single-phase lifecycle flips."
-  [txn data opts f]
+  [txn data opts f kind]
   (let [cache (:policy-cache txn)]
     (store/transact
      txn
@@ -116,20 +125,30 @@
                                      {:bank-id bank-id
                                       :party-id party-id
                                       :status-before (:status party)
-                                      :status-after (:status updated)})]
+                                      :status-after (:status updated)})
+            _ (audit/record txn
+                            (audit-entries/party kind party updated data))]
            result))))))
 
 (defn suspend-party
   ([txn data]
    (suspend-party txn data {}))
   ([txn data opts]
-   (transition txn data opts domain/suspend-party)))
+   (transition txn
+               data
+               opts
+               domain/suspend-party
+               :audit-kind-party-suspended)))
 
 (defn resume-party
   ([txn data]
    (resume-party txn data {}))
   ([txn data opts]
-   (transition txn data opts domain/resume-party)))
+   (transition txn
+               data
+               opts
+               domain/resume-party
+               :audit-kind-party-resumed)))
 
 (defn- has-open-accounts?
   [txn bank-id party-id]
@@ -162,7 +181,12 @@
                                       {:bank-id bank-id
                                        :party-id party-id
                                        :status-before (:status party)
-                                       :status-after (:status updated)})]
+                                       :status-after (:status updated)})
+             _ (audit/record txn
+                             (audit-entries/party :audit-kind-party-closed
+                                                  party
+                                                  updated
+                                                  data))]
             result)))))))
 
 (defn merge-party
@@ -189,5 +213,10 @@
                                       {:bank-id bank-id
                                        :party-id party-id
                                        :status-before (:status merged-away)
-                                       :status-after (:status updated)})]
+                                       :status-after (:status updated)})
+             _ (audit/record txn
+                             (audit-entries/party :audit-kind-party-merged
+                                                  merged-away
+                                                  updated
+                                                  data))]
             result)))))))

@@ -133,23 +133,16 @@
           payments)))
 
 (defn- moved
-  [payment status at-key]
-  (let [now (utility/now)]
-    (assoc payment
-           :status
-           status
-           at-key
-           now
-           :updated-at
-           now)))
+  [payment status]
+  (assoc payment :status status :updated-at (utility/now)))
 
 (defn completed-outbound-payment
   [payment]
-  (moved payment :outbound-payment-status-completed :completed-at))
+  (moved payment :outbound-payment-status-completed))
 
 (defn held-outbound-payment
   [payment]
-  (moved payment :outbound-payment-status-held :held-at))
+  (moved payment :outbound-payment-status-held))
 
 (def ^:private failed-kinds
   {:failure-kind-declined :outbound-payment-failed-kind-declined
@@ -160,7 +153,7 @@
   [payment rejection]
   (let [{:keys [failure-kind reason-code cancellation-reason]} rejection]
     (utility/assoc-some
-     (assoc (moved payment :outbound-payment-status-failed :failed-at)
+     (assoc (moved payment :outbound-payment-status-failed)
             :failed-kind (get failed-kinds
                               failure-kind
                               :outbound-payment-failed-kind-declined)
@@ -172,7 +165,7 @@
   [payment returned]
   (let [{:keys [reason-code reason]} returned]
     (utility/assoc-some
-     (assoc (moved payment :outbound-payment-status-returned :returned-at)
+     (assoc (moved payment :outbound-payment-status-returned)
             :returned-reason-code
             reason-code)
      :returned-reason

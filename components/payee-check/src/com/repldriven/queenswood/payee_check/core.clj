@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.payee-check.domain :as domain]
     [com.repldriven.queenswood.payee-check.store :as store]
 
+    [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.bank-query.interface :as bank-query]
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.payment-provider.interface :as
@@ -50,16 +51,29 @@
          :reason reason}))))
 
 (defn check-payee
-  [config bank-id request result actor]
+  [config bank-id request result actor request-id]
   (let [check (domain/new-check bank-id request result actor)]
-    (let-nom> [_ (store/save-check config check)]
-      check)))
+    (store/transact
+     config
+     (fn [txn]
+       (let-nom> [_ (store/save-check txn check)
+                  _ (audit/record txn
+                                  {:bank-id bank-id
+                                   :kind :audit-kind-payee-check-made
+                                   :subject-kind :audit-subject-kind-payee-check
+                                   :subject-id (:check-id check)
+                                   :request-id request-id
+                                   :after check
+                                   :performed-by actor})]
+         check))
+     :payee-check/save
+     "Failed to save payee check")))
 
 (defn check-and-save
   [config data]
   (let [{:keys [payment-providers adapter-urls]} config
-        {:keys [bank-id account-id actor]} data
-        request (dissoc data :bank-id :account-id :actor)]
+        {:keys [bank-id account-id actor request-id]} data
+        request (dissoc data :bank-id :account-id :actor :request-id)]
     (let-nom> [_ (when account-id
                    (cash-accounts/get-account config bank-id account-id))
                bank (bank-query/find-bank config bank-id)
@@ -74,7 +88,8 @@
                     (get adapter-urls (keyword provider))
                     bank-id
                     (assoc request :account-id account-id))
-                   actor))))
+                   actor
+                   request-id))))
 
 (defn get-check
   [txn bank-id check-id]

@@ -1,9 +1,11 @@
 (ns com.repldriven.queenswood.api.party.commands
   (:require
     [com.repldriven.queenswood.api.commands :as commands]
-    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
+    [com.repldriven.queenswood.api.party.queries :as queries]
+    [com.repldriven.queenswood.api.shared.actor :as actor]
 
-    [com.repldriven.queenswood.party-api.interface :as party-api]))
+    [com.repldriven.queenswood.party-api.interface :as party-api]
+    [com.repldriven.queenswood.schema.interface :as schema]))
 
 (defn- dispatcher
   [request]
@@ -12,11 +14,12 @@
     parties))
 
 (defn- party-reply
-  "A party command's reply, its body as the API shows a party."
+  "A party command's reply, the party it committed as the API shows a
+  party."
   [response]
-  (cond-> response
-          (= 200 (:status response))
-          (update :body party-api/->body)))
+  (commands/reply-body response
+                       (fn [{:keys [record]}]
+                         (party-api/->body (schema/pb->Party record)))))
 
 (defn create-party
   [request]
@@ -27,10 +30,10 @@
                        (commands/send (dispatcher request)
                                       request
                                       "create-party"
-                                      "party"
+                                      "party-command-reply"
                                       (assoc body
                                              :bank-id bank-id
-                                             :actor (shared.actor/actor
+                                             :actor (actor/actor
                                                      auth))))
                       #(str "/v1/parties/" (:party-id %)))))
 
@@ -43,10 +46,10 @@
     (party-reply (commands/send (dispatcher request)
                                 request
                                 command
-                                "party"
+                                "party-command-reply"
                                 {:bank-id bank-id
                                  :party-id party-id
-                                 :actor (shared.actor/actor auth)}
+                                 :actor (actor/actor auth)}
                                 {:ordering-key party-id}))))
 
 (defn suspend-party
@@ -71,11 +74,11 @@
     (party-reply (commands/send (dispatcher request)
                                 request
                                 "merge-party"
-                                "party"
+                                "party-command-reply"
                                 {:bank-id bank-id
                                  :party-id party-id
                                  :into-party-id into-party-id
-                                 :actor (shared.actor/actor auth)}
+                                 :actor (actor/actor auth)}
                                 {:ordering-key party-id}))))
 
 (def ^:private channel-names
@@ -91,20 +94,20 @@
         response (commands/send (:idvs dispatchers)
                                 request
                                 "open-idv-session"
-                                "idv-session"
+                                "idv-command-reply"
                                 {:bank-id bank-id
                                  :party-id party-id
                                  :channel (channel-names channel)
                                  :return-url return-url
                                  :email email
-                                 :actor (shared.actor/actor auth)}
+                                 :actor (actor/actor auth)}
                                 {:ordering-key party-id})]
     (if (= 200 (:status response))
-      (let [session (:body response)]
+      (let [session (schema/pb->IdvSession (:record (:body response)))]
         {:status 202
          :headers {"Location" (str "/v1/parties/"
                                    party-id
                                    "/verification-sessions/"
                                    (:session-id session))}
-         :body (party-api/->session-body session)})
+         :body (queries/session-body session)})
       response)))

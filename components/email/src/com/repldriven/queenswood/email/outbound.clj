@@ -57,7 +57,7 @@
            nil
            (let-nom> [invitation invitation
                       bank (bank-query/get-bank txn bank-id)
-                      inviter (inviter-name txn (:invited-by invitation))
+                      inviter (inviter-name txn (:created-by invitation))
                       newer? (store/newer-delivery? txn delivery)]
              {:invitation invitation
               :bank-name (:name bank)

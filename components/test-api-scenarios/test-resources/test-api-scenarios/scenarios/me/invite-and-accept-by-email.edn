@@ -54,7 +54,7 @@
               :role "developer"
               :status "pending"
               :expires-at [:m/any]
-              :invited-by {:kind "member"
+              :created-by {:kind "member"
                            :principal-id [:ref :owner-member :user-id]}}]}}}
   {:command :api/request
    :request {:method :post
@@ -80,7 +80,6 @@
             :body {:invitation-id [:ref :invitation :invitation-id]
                    :bank-id [:ref :bank :bank-id]
                    :status "accepted"
-                   :accepted-email "match-invitee@queenswood.local"
                    :token [:m/absent]}}}
   {:command :api/request
    :request {:method :get

@@ -16,7 +16,7 @@
 (defn new-bank
   "Provision a new bank with a service-account client, an organization
   party, and a default chart of ledger accounts per currency, and bind
-  the tier policies to it, recording a bank-created audit event in the
+  the tier policies to it, recording a bank-created audit entry in the
   actor's name. When `:member` is supplied, also create the owner
   member, and when `:owner-invitation` is supplied, a pending owner
   invitation in the actor's name, in the same transaction. The client
@@ -91,7 +91,7 @@
     policies to bind.
   - opts: map; `:idv-providers` (required) is the `idv-provider/providers`
     instance, whose entry for the bank gives the declaration checked,
-    and `:actor` who changed the tier, stamped as `tier-changed-by`."
+    and `:actor` who changed the tier, stamped as `updated-by`."
   [txn bank-id tier opts]
   (core/change-tier txn bank-id tier opts))
 
@@ -114,6 +114,6 @@
     `aud` claim to stamp on tokens for the target status — bank-api
     resolves this from its status→audience config, same as the
     `create-bank` pattern; `:actor` is who changed the status, stamped
-    as `status-changed-by`."
+    as `updated-by`."
   [txn bank-id new-status opts]
   (core/change-status txn bank-id new-status opts))

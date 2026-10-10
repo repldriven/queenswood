@@ -7,6 +7,8 @@
     [com.repldriven.queenswood.payment.events.provider-transfer :as
      provider-transfer]
 
+    [com.repldriven.queenswood.schema.interface :as schema]
+
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.processor.interface :as processor]))
@@ -19,23 +21,31 @@
       (let-nom> [payload (avro/serialize (schemas schema-name) result)]
         {:status "ACCEPTED" :payload payload}))))
 
+(defn- ->reply
+  [->pb result]
+  (if (error/anomaly? result) result {:record (->pb result)}))
+
 (def ^:private command-handlers
-  {"submit-internal-payment"
-   (fn [config data]
-     (->response config "internal-payment" (core/submit-internal config data)))
+  {"submit-internal-payment" (fn [config data]
+                               (->response
+                                config
+                                "payment-command-reply"
+                                (->reply schema/InternalPayment->pb
+                                         (core/submit-internal config data))))
    "admit-inbound-payment" (fn [config data]
                              (->response config
                                          "admit-inbound-payment-reply"
                                          (inbound/admit-inbound config data)))
    "submit-outbound-payment" (fn [config data]
-                               (->response config
-                                           "outbound-payment"
-                                           (core/submit-outbound config
-                                                                 data)))})
+                               (->response
+                                config
+                                "payment-command-reply"
+                                (->reply schema/OutboundPayment->pb
+                                         (core/submit-outbound config data))))})
 
 (defn- dispatch
   [config message]
-  (let [{:keys [command id payload]} message
+  (let [{:keys [command id causation-id payload]} message
         handler (get command-handlers command)]
     (if (nil? handler)
       (error/reject :payment/unknown-command
@@ -47,7 +57,9 @@
                       {:message "No schema found for command"
                        :command command})
           (let-nom> [raw (avro/deserialize-same schema payload)
-                     data (assoc raw :idempotency-key id)]
+                     data (assoc raw
+                                 :idempotency-key id
+                                 :request-id causation-id)]
             (handler config data)))))))
 
 (defrecord PaymentProcessor [config]

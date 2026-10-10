@@ -28,9 +28,6 @@ message PaymentProviderTransfer {
   required string currency = 8; // ISO 4217
   optional string failed_reason = 9;
 
-  optional int64 completed_at = 51;
-  optional int64 failed_at = 53;
-
   required int64 created_at = 101;
   optional int64 updated_at = 103;
 }

@@ -106,9 +106,7 @@
       notifiedOn: m["notified-on"] ?? null,
       dueOn: m["due-on"] ?? null,
       createdAt: m["created-at"] ?? null,
-      approvedAt: m["approved-at"] ?? null,
-      completedAt: m["completed-at"] ?? null,
-      cancelledAt: m["cancelled-at"] ?? null,
+      updatedAt: m["updated-at"] ?? null,
     };
   }
 
@@ -157,11 +155,11 @@
   }
 
   function timing(m) {
-    if (m.status === "completed" && m.completedAt) {
-      return `completed ${fmtDay(m.completedAt.slice(0, 10))}`;
+    if (m.status === "completed" && m.updatedAt) {
+      return `completed ${fmtDay(m.updatedAt.slice(0, 10))}`;
     }
-    if (m.status === "cancelled" && m.cancelledAt) {
-      return `cancelled ${fmtDay(m.cancelledAt.slice(0, 10))}`;
+    if (m.status === "cancelled" && m.updatedAt) {
+      return `cancelled ${fmtDay(m.updatedAt.slice(0, 10))}`;
     }
     return m.dueOn ? `due ${fmtDay(m.dueOn)}` : "no due date";
   }

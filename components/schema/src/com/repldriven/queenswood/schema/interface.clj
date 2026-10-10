@@ -9,6 +9,7 @@
     [com.repldriven.queenswood.schema.account_product_type :as
      account-product-type]
     [com.repldriven.queenswood.schema.actor :as actor]
+    [com.repldriven.queenswood.schema.audit :as audit]
     [com.repldriven.queenswood.schema.balance :as balance]
     [com.repldriven.queenswood.schema.bank :as bank]
     [com.repldriven.queenswood.schema.cash_account :as cash-account]
@@ -41,8 +42,14 @@
     [com.repldriven.queenswood.schema.webhook :as webhook]
     [com.repldriven.queenswood.schema.zyphe :as zyphe]
 
-    [protojure.protobuf :as proto])
+    [protojure.protobuf :as proto]
+
+    [clojure.string :as str])
   (:import
+    (com.google.protobuf Descriptors$Descriptor
+                         Descriptors$FieldDescriptor
+                         Descriptors$FieldDescriptor$JavaType)
+    (com.repldriven.queenswood.schema.fideslang DataCategoryProto)
     (com.repldriven.queenswood.schema.balance
      AccountBalanceProto$AccountBalance)
     (com.repldriven.queenswood.schema.cash_account_migration
@@ -103,8 +110,7 @@
      InvitationProto$InvitationStatus
      MemberProto$Member
      MemberProto$MemberStatus
-     MemberProto$Role
-     MemberRoleChangeProto$MemberRoleChange)
+     MemberProto$Role)
     (com.repldriven.queenswood.schema.webhook
      WebhookDeliveryProto$WebhookDelivery
      WebhookDeliveryAttemptProto$WebhookDeliveryAttempt
@@ -269,8 +275,8 @@
   "Parse CashAccountProduct protobuf bytes into a Clojure map, without the
   optional fields the version was never given: a zero `effective_to`,
   `published_at` or `discarded_at`, an empty idempotency key, no interest
-  terms, or no publishing or discarding actor. An embedded message is a
-  plain map.
+  terms, or no publishing, discarding or updating actor. An embedded
+  message is a plain map.
 
   Args:
   - input: protobuf bytes."
@@ -280,7 +286,7 @@
      (reduce
       plain-embedded
       (update version :reward-terms (fn [terms] (mapv #(into {} %) terms)))
-      [:created-by :published-by :discarded-by])
+      [:created-by :updated-by])
 
      (nil? (:interest-terms version))
      (dissoc :interest-terms)
@@ -291,20 +297,11 @@
      (some? (:interest-terms version))
      (update :interest-terms plain-interest)
 
-     (nil? (:published-by version))
-     (dissoc :published-by)
-
-     (nil? (:discarded-by version))
-     (dissoc :discarded-by)
+     (nil? (:updated-by version))
+     (dissoc :updated-by)
 
      (zero? (:effective-to version 0))
      (dissoc :effective-to)
-
-     (zero? (:published-at version 0))
-     (dissoc :published-at)
-
-     (zero? (:discarded-at version 0))
-     (dissoc :discarded-at)
 
      (= "" (:idempotency-key version))
      (dissoc :idempotency-key))))
@@ -401,14 +398,14 @@
 
 (defn pb->Idempotency
   "Parse Idempotency protobuf bytes into a Clojure map. A pending entry
-  carries no `:response` or `:completed-at`; a completed one's response
+  carries no `:response` or `:updated-at`; a completed one's response
   is a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
   (-> (idempotency/pb->Idempotency input)
-      (without-unset {:response nil :completed-at 0})
+      (without-unset {:response nil :updated-at 0})
       (plain-embedded :response)))
 
 (defn Idempotency->pb
@@ -421,22 +418,17 @@
   [m]
   (IdempotencyProto$Idempotency/parseFrom (Idempotency->pb m)))
 
-(def ^:private bank-unset
-  {:updated-at 0
-   :status-changed-at 0
-   :status-changed-by nil
-   :tier-changed-at 0
-   :tier-changed-by nil})
+(def ^:private bank-unset {:updated-at 0 :updated-by nil})
 
 (defn pb->Bank
-  "Parse Bank protobuf bytes into a Clojure map, a status or tier
-  change's `_at` and `_by` present only when set, its actors plain maps,
-  and its company binding, where it has one, as a company is."
+  "Parse Bank protobuf bytes into a Clojure map, its last change's
+  `updated-at` and `updated-by` present only when set, its actors plain
+  maps, and its company binding, where it has one, as a company is."
   [input]
   (let [bank (reduce plain-embedded
                      (without-unset (bank/pb->Bank input)
                                     (assoc bank-unset :company-binding nil))
-                     [:created-by :status-changed-by :tier-changed-by])]
+                     [:created-by :updated-by])]
     (cond-> bank
             (:company-binding bank)
             (update :company-binding plain-company))))
@@ -461,21 +453,11 @@
   {:display-name ""
    :external-reference ""
    :merged-into-party-id ""
-   :activated-at 0
-   :rejected-at 0
-   :suspended-at 0
-   :suspended-by nil
-   :resumed-at 0
-   :resumed-by nil
-   :closed-at 0
-   :closed-by nil
-   :merged-at 0
-   :merged-by nil
    :idempotency-key ""
-   :updated-at 0})
+   :updated-at 0
+   :updated-by nil})
 
-(def ^:private party-actors
-  [:created-by :suspended-by :resumed-by :closed-by :merged-by])
+(def ^:private party-actors [:created-by :updated-by])
 
 (defn pb->Party
   "Parse Party protobuf bytes into a Clojure map. Each optional field is
@@ -509,7 +491,7 @@
   - input: protobuf bytes."
   [input]
   (without-unset (idv/pb->Idv input)
-                 {:accepted-at 0 :rejected-at 0 :cancelled-at 0 :updated-at 0}))
+                 {:updated-at 0}))
 
 (defn Idv->pb
   "Serialise an Idv map to protobuf bytes.
@@ -557,14 +539,15 @@
   (IdvSessionProto$IdvSession/parseFrom (IdvSession->pb m)))
 
 (defn pb->CashAccountMigration
-  "Parse CashAccountMigration protobuf bytes into a Clojure map, an
-  `updated-at` present only when set.
+  "Parse CashAccountMigration protobuf bytes into a Clojure map, its last
+  change's `updated-at` and `updated-by` present only when set.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (without-unset (cash-account-migration/pb->CashAccountMigration input)
-                 {:updated-at 0}))
+  (-> (cash-account-migration/pb->CashAccountMigration input)
+      (without-unset {:updated-at 0 :updated-by nil})
+      (plain-embedded :updated-by)))
 
 (defn CashAccountMigration->pb
   "Serialise a CashAccountMigration map to protobuf bytes.
@@ -584,9 +567,16 @@
   (CashAccountMigrationProto$CashAccountMigration/parseFrom
    (CashAccountMigration->pb m)))
 
-(def ^{:doc "Parse CashAccountMigrationRun protobuf bytes into a map."}
-     pb->CashAccountMigrationRun
-  cash-account-migration/pb->CashAccountMigrationRun)
+(defn pb->CashAccountMigrationRun
+  "Parse CashAccountMigrationRun protobuf bytes into a map, a preview's
+  creator a plain map and present only when set.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (cash-account-migration/pb->CashAccountMigrationRun input)
+      (without-unset {:created-by nil})
+      (plain-embedded :created-by)))
 
 (defn CashAccountMigrationRun->pb
   "Serialise a CashAccountMigrationRun map to protobuf bytes.
@@ -704,18 +694,20 @@
    (InterestAccountRun->pb m)))
 
 (def ^:private scheduler-job-unset
-  {:last-run-at 0 :next-run-at 0 :updated-at 0 :updated-by nil})
+  {:last-run-at 0 :next-run-at 0 :created-by nil :updated-at 0 :updated-by nil})
 
 (defn pb->SchedulerJob
   "Parse SchedulerJob protobuf bytes into a Clojure map. A run's
-  `last-run-at` and `next-run-at`, and an edit's `updated-at` and
-  `updated-by`, are present only when set, the actor a plain map.
+  `last-run-at` and `next-run-at`, a pause's, a resume's or an edit's
+  `_at` and `_by`, and a seeding's `created-by`, are present only when
+  set, every actor a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
   (-> (scheduler/pb->SchedulerJob input)
       (without-unset scheduler-job-unset)
+      (plain-embedded :created-by)
       (plain-embedded :updated-by)))
 
 (defn SchedulerJob->pb
@@ -735,12 +727,7 @@
   (SchedulerJobProto$SchedulerJob/parseFrom (SchedulerJob->pb m)))
 
 (def ^:private scheduler-run-unset
-  {:expected-end-at 0
-   :completed-at 0
-   :failed-at 0
-   :created-by nil
-   :updated-at 0
-   :failure-reason ""})
+  {:expected-end-at 0 :created-by nil :updated-at 0 :failure-reason ""})
 
 (def ^:private scheduler-task-run-unset
   {:started-at 0 :finished-at 0 :failure-reason ""})
@@ -782,33 +769,23 @@
   {:bban ""
    :rotation nil
    :refused-reason ""
-   :opened-at 0
-   :refused-at 0
-   :suspended-at 0
-   :suspended-by nil
-   :resumed-at 0
-   :resumed-by nil
-   :close-requested-at 0
-   :close-requested-by nil
-   :closed-at 0
-   :address-rotated-at 0
-   :address-rotated-by nil
-   :updated-at 0})
+   :close-requested-from :cash-account-status-unknown
+   :updated-at 0
+   :updated-by nil})
 
 (defn pb->CashAccount
   "Parse CashAccount protobuf bytes into a Clojure map. Strips the
   optional fields an account was never given, as they deserialise as
   proto2 defaults: an empty `bban` or `refused-reason`, no `rotation` or
-  a rotation's empty `failed-reason`, and a transition's zero `_at` and
-  absent `_by`. Downstream
+  a rotation's empty `failed-reason`, and a zero `updated-at` and absent
+  `updated-by`. Downstream
   read sites use `(when (:bban account) ...)` to tell an account with
   addresses from one without. An embedded message is a plain map."
   [input]
   (let [account (reduce plain-embedded
                         (without-unset (cash-account/pb->CashAccount input)
                                        cash-account-unset)
-                        [:rotation :created-by :suspended-by :resumed-by
-                         :close-requested-by :address-rotated-by])]
+                        [:rotation :created-by :updated-by])]
     (cond-> account
             (:rotation account)
             (update :rotation without-unset {:failed-reason ""}))))
@@ -831,12 +808,14 @@
 
 (defn pb->LedgerAccount
   "Parse LedgerAccount protobuf bytes into a Clojure map, an `updated-at`
-  present only when set.
+  present only when set and the creator a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (without-unset (ledger-account/pb->LedgerAccount input) {:updated-at 0}))
+  (-> (ledger-account/pb->LedgerAccount input)
+      (without-unset {:updated-at 0})
+      (plain-embedded :created-by)))
 
 (defn LedgerAccount->pb
   "Serialise a LedgerAccount map to protobuf bytes.
@@ -862,12 +841,6 @@
    :suspended-reason-code ""
    :suspended-reason ""
    :return-failed-reason ""
-   :admitted-at 0
-   :held-at 0
-   :settled-at 0
-   :suspended-at 0
-   :returned-at 0
-   :return-failed-at 0
    :updated-at 0})
 
 (defn pb->InboundPayment
@@ -912,10 +885,6 @@
    :failed-reason ""
    :returned-reason-code ""
    :returned-reason ""
-   :held-at 0
-   :completed-at 0
-   :failed-at 0
-   :returned-at 0
    :updated-at 0})
 
 (defn pb->OutboundPayment
@@ -985,9 +954,11 @@
 
 (defn pb->Transaction
   "Parse Transaction protobuf bytes into a Clojure map, without an
-  unset `reference`."
+  unset `reference` or `created-by`, the creator a plain map."
   [input]
-  (without-unset (transaction/pb->Transaction input) {:reference ""}))
+  (-> (transaction/pb->Transaction input)
+      (without-unset {:reference "" :created-by nil})
+      (plain-embedded :created-by)))
 
 (defn Transaction->pb
   "Serialise a Transaction map to protobuf bytes.
@@ -1231,11 +1202,7 @@
    (Form3OutboundIntent->pb m)))
 
 (def ^:private payment-provider-transfer-unset
-  {:debtor-account-id ""
-   :failed-reason ""
-   :completed-at 0
-   :failed-at 0
-   :updated-at 0})
+  {:debtor-account-id "" :failed-reason "" :updated-at 0})
 
 (defn pb->PaymentProviderTransfer
   "Parse PaymentProviderTransfer protobuf bytes into a Clojure map. Each
@@ -1267,20 +1234,19 @@
   (PaymentProviderTransferProto$PaymentProviderTransfer/parseFrom
    (PaymentProviderTransfer->pb m)))
 
-(def ^:private policy-unset
-  {:description "" :archived-at 0 :archived-by nil :updated-at 0})
+(def ^:private policy-unset {:description "" :updated-at 0 :updated-by nil})
 
 (defn pb->Policy
   "Parse Policy protobuf bytes into a Clojure map, a `description`,
-  `archived-at`, `archived-by` and `updated-at` present only when set,
-  and `archived-by` a plain map.
+  `updated-at` and `updated-by` present only when set, and `updated-by`
+  a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
   (-> (policy/pb->Policy input)
       (without-unset policy-unset)
-      (plain-embedded :archived-by)))
+      (plain-embedded :updated-by)))
 
 (defn Policy->pb
   "Serialise a Policy map to protobuf bytes.
@@ -1363,18 +1329,17 @@
    (identity-provider->int identity-provider)))
 
 (def ^:private member-unset
-  {:removed-at 0
-   :removed-by nil
-   :removed-reason ""
-   :left-at 0
-   :left-by nil
+  {:removed-reason ""
+   :role-reason ""
    :invitation-id ""
-   :updated-at 0})
+   :updated-at 0
+   :updated-by nil})
 
 (defn pb->Member
-  "Parse Member protobuf bytes into a Clojure map. A removal's or a
-  leave's `_at`, `_by` and reason, and `invitation-id`, are present only
-  when set, and every actor is a plain map.
+  "Parse Member protobuf bytes into a Clojure map. A removal's reason,
+  the reason for its role, `invitation-id`, and the last change's
+  `updated-at` and `updated-by` are present only when set, and every
+  actor is a plain map.
 
   Args:
   - input: protobuf bytes."
@@ -1382,8 +1347,7 @@
   (-> (member/pb->Member input)
       (without-unset member-unset)
       (plain-embedded :created-by)
-      (plain-embedded :removed-by)
-      (plain-embedded :left-by)))
+      (plain-embedded :updated-by)))
 
 (defn Member->pb
   "Serialise a Member map to protobuf bytes.
@@ -1440,20 +1404,9 @@
   (ActorProto$ActorKind/forNumber (actor-kind->int actor-kind)))
 
 (def ^:private invitation-unset
-  {:reason ""
-   :withdrawn-reason ""
-   :accepted-at 0
-   :accepted-by nil
-   :declined-at 0
-   :declined-by nil
-   :withdrawn-at 0
-   :withdrawn-by nil
-   :resent-at 0
-   :resent-by nil
-   :updated-at 0})
+  {:reason "" :withdrawn-reason "" :updated-at 0 :updated-by nil})
 
-(def ^:private invitation-actors
-  [:created-by :accepted-by :declined-by :withdrawn-by :resent-by])
+(def ^:private invitation-actors [:created-by :updated-by])
 
 (defn pb->Invitation
   "Parse Invitation protobuf bytes into a Clojure map. The reasons and
@@ -1497,48 +1450,148 @@
   (InvitationProto$InvitationStatus/forNumber
    (invitation-status->int invitation-status)))
 
-(defn pb->MemberRoleChange
-  "Parse MemberRoleChange protobuf bytes into a Clojure map. `reason`
-  is present only when set, and `created-by` is a plain map.
+(defn pb->AuditEntry
+  "Parse AuditEntry protobuf bytes into a Clojure map, each optional
+  field present only when set, and `performed-by` and `changeset` plain
+  maps.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (-> (member/pb->MemberRoleChange input)
-      (without-unset {:reason ""})
-      (plain-embedded :created-by)))
+  (let [entry (-> (audit/pb->AuditEntry input)
+                  (without-unset {:request-id ""})
+                  (plain-embedded :performed-by))]
+    (cond-> entry
+            (some? (:changeset entry))
+            (update :changeset without-unset {:before "" :after ""}))))
 
-(defn MemberRoleChange->pb
-  "Serialise a MemberRoleChange map to protobuf bytes.
+(def ^:private record-descriptors
+  {:bank (BankProto$Bank/getDescriptor)
+   :invitation (InvitationProto$Invitation/getDescriptor)
+   :member (MemberProto$Member/getDescriptor)
+   :party (PartyProto$Party/getDescriptor)
+   :idv-session (IdvSessionProto$IdvSession/getDescriptor)
+   :cash-account (CashAccountProto$CashAccount/getDescriptor)
+   :cash-account-product
+   (CashAccountProductProto$CashAccountProduct/getDescriptor)
+   :cash-account-migration
+   (CashAccountMigrationProto$CashAccountMigration/getDescriptor)
+   :cash-account-migration-run
+   (CashAccountMigrationRunProto$CashAccountMigrationRun/getDescriptor)
+   :internal-payment (InternalPaymentProto$InternalPayment/getDescriptor)
+   :outbound-payment (OutboundPaymentProto$OutboundPayment/getDescriptor)
+   :payee-check (PayeeCheckProto$PayeeCheck/getDescriptor)
+   :transaction (TransactionProto$Transaction/getDescriptor)
+   :webhook-endpoint (WebhookEndpointProto$WebhookEndpoint/getDescriptor)
+   :webhook-delivery (WebhookDeliveryProto$WebhookDelivery/getDescriptor)
+   :scheduler-job (SchedulerJobProto$SchedulerJob/getDescriptor)
+   :scheduler-run (SchedulerRunProto$SchedulerRun/getDescriptor)})
+
+(defn- field-key
+  [^Descriptors$FieldDescriptor field]
+  (keyword (str/replace (.getName field) "_" "-")))
+
+(defn- categories
+  "Each field of `descriptor` carrying a data category, as its Fideslang
+  key, and each message field holding one, as its own categories."
+  [^Descriptors$Descriptor descriptor]
+  (into {}
+        (keep (fn [^Descriptors$FieldDescriptor field]
+                (let [options (.getOptions field)]
+                  (cond
+                   (.hasExtension options DataCategoryProto/dataCategory)
+                   [(field-key field)
+                    (.getExtension options
+                                   DataCategoryProto/dataCategory)]
+
+                   (= Descriptors$FieldDescriptor$JavaType/MESSAGE
+                      (.getJavaType field))
+                   (when-some [nested (not-empty (categories
+                                                  (.getMessageType field)))]
+                     [(field-key field) nested])))))
+        (.getFields descriptor)))
+
+(def ^:private record-categories (update-vals record-descriptors categories))
+
+(defn data-categories
+  "The data category of each field of `record-type` its proto marks with
+  one, as a Fideslang key, and of each field nested in a message field,
+  under that field.
 
   Args:
-  - m: MemberRoleChange map matching the generated schema."
-  [m]
-  (proto/->pb (member/new-MemberRoleChange m)))
+  - record-type: `:party`, `:cash-account` or another record type an
+    act is performed on."
+  [record-type]
+  (get record-categories record-type))
 
-(defn MemberRoleChange->java
-  "Parse a MemberRoleChange map into the generated Java protobuf
-  class.
+(defn- in-category?
+  [prefixes fides-key]
+  (some (fn [prefix]
+          (or (= prefix fides-key)
+              (str/starts-with? fides-key (str prefix "."))))
+        prefixes))
+
+(defn- without-categories
+  [categorised prefixes record]
+  (reduce-kv (fn [record k category]
+               (let [v (get record k)]
+                 (cond
+                  (string? category)
+                  (cond-> record
+                          (in-category? prefixes category)
+                          (dissoc k))
+
+                  (map? v)
+                  (assoc record k (without-categories category prefixes v))
+
+                  (sequential? v)
+                  (assoc record
+                         k
+                         (mapv (fn [item]
+                                 (without-categories category prefixes item))
+                               v))
+
+                  :else
+                  record)))
+             (into {} record)
+             categorised))
+
+(defn without-data-categories
+  "`record` without the fields, at any depth, whose data category is one
+  of `prefixes` or falls under one, as `user` takes in `user.name`; nil
+  passes through.
 
   Args:
-  - m: MemberRoleChange map matching the generated schema."
+  - record-type: `:party`, `:cash-account` or another record type an
+    act is performed on.
+  - record: a map of that record, or nil.
+  - prefixes: Fideslang keys, such as `[\"user\" \"system\"]`."
+  [record-type record prefixes]
+  (when record
+    (without-categories (data-categories record-type) prefixes record)))
+
+(defn audit-kind->int
+  "The protobuf number of an `:audit-kind-*` keyword, which keys
+  a bank's audit entries by kind.
+
+  Args:
+  - kind: `:audit-kind-*` keyword."
+  [kind]
+  (audit/AuditKind-label2val kind))
+
+(defn AuditEntry->pb
+  "Serialise an AuditEntry map to protobuf bytes.
+
+  Args:
+  - m: AuditEntry map matching the generated schema."
   [m]
-  (MemberRoleChangeProto$MemberRoleChange/parseFrom
-   (MemberRoleChange->pb m)))
+  (proto/->pb (audit/new-AuditEntry m)))
 
 (def ^:private webhook-endpoint-unset
   {:description ""
    :previous-secret ""
    :previous-secret-expires-at 0
    :rotation-idempotency-key ""
-   :disabled-at 0
-   :disabled-by nil
-   :enabled-at 0
-   :enabled-by nil
-   :removed-at 0
-   :removed-by nil
-   :secret-rotated-at 0
-   :secret-rotated-by nil
    :updated-at 0
    :updated-by nil})
 
@@ -1552,8 +1605,7 @@
   (reduce plain-embedded
           (without-unset (webhook/pb->WebhookEndpoint input)
                          webhook-endpoint-unset)
-          [:created-by :disabled-by :enabled-by :removed-by :secret-rotated-by
-           :updated-by]))
+          [:created-by :updated-by]))
 
 (defn WebhookEndpoint->pb
   "Serialise a WebhookEndpoint map to protobuf bytes.
@@ -1573,14 +1625,17 @@
 
 (defn pb->WebhookNotification
   "Parse WebhookNotification protobuf bytes into a Clojure map, without
-  its unset optional fields.
+  its unset optional fields, a test notification's creator a plain map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (without-unset
-   (webhook/pb->WebhookNotification input)
-   {:status-before "" :status-after "" :resource-idempotency-key ""}))
+  (-> (webhook/pb->WebhookNotification input)
+      (without-unset {:status-before ""
+                      :status-after ""
+                      :resource-idempotency-key ""
+                      :created-by nil})
+      (plain-embedded :created-by)))
 
 (defn WebhookNotification->pb
   "Serialise a WebhookNotification map to protobuf bytes.
@@ -1607,9 +1662,8 @@
   - input: protobuf bytes."
   [input]
   (-> (webhook/pb->WebhookDelivery input)
-      (without-unset {:delivered-at 0
-                      :failed-at 0
-                      :created-by nil
+      (without-unset {:created-by nil
+                      :updated-at 0
                       :next-attempt-at 0
                       :traceparent ""})
       (plain-embedded :created-by)))
@@ -1667,7 +1721,6 @@
 
 (def ^:private email-delivery-unset
   {:message-id ""
-   :sent-at 0
    :next-attempt-at 0
    :traceparent ""
    :failure-reason ""
@@ -1706,7 +1759,7 @@
   email/EmailKind-label2val)
 
 (def ^:private circuit-breaker-unset
-  {:next-probe-at 0 :cool-down-ms 0 :opened-at 0 :updated-at 0})
+  {:next-probe-at 0 :cool-down-ms 0 :updated-at 0})
 
 (defn pb->CircuitBreaker
   "Parse CircuitBreaker protobuf bytes into a Clojure map. `next-probe-at`,
@@ -1735,11 +1788,7 @@
   (CircuitBreakerProto$CircuitBreaker/parseFrom (CircuitBreaker->pb m)))
 
 (def ^:private account-reward-unset
-  {:transaction-id ""
-   :deferred-reason ""
-   :deferred-at 0
-   :paid-at 0
-   :updated-at 0})
+  {:transaction-id "" :deferred-reason "" :updated-at 0})
 
 (defn pb->AccountReward
   "Parse AccountReward protobuf bytes into a Clojure map. A paid one's

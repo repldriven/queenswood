@@ -217,7 +217,7 @@
                  policies)))
 
 (defn update-version
-  [existing template data policies]
+  [existing template data policies actor]
   (let [{:keys [bank-id product-id version-id
                 version-number status created-at created-by]}
         existing
@@ -242,7 +242,8 @@
                :currency currency
                :created-at created-at
                :created-by created-by
-               :updated-at (utility/now)}
+               :updated-at (utility/now)
+               :updated-by actor}
               fields)
        :effective-from effective-from
        :effective-to effective-to
@@ -284,9 +285,8 @@
     (let [now (utility/now)]
       (assoc existing
              :status :version-status-published
-             :published-at now
-             :published-by actor
-             :updated-at now))))
+             :updated-at now
+             :updated-by actor))))
 
 (defn discard
   [existing policies actor]
@@ -298,6 +298,5 @@
     (let [now (utility/now)]
       (assoc existing
              :status :version-status-discarded
-             :discarded-at now
-             :discarded-by actor
-             :updated-at now))))
+             :updated-at now
+             :updated-by actor))))

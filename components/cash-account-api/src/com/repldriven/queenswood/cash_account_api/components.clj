@@ -65,7 +65,9 @@
    [:available-balance {:optional true} [:ref "SignedAmount"]]
    [:transactions {:optional true} [:vector [:ref "Transaction"]]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]])
+   [:created-by [:ref "Actor"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
 
 (def RetiredPaymentAddress
   [:map {:closed true}

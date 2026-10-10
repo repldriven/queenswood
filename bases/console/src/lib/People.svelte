@@ -38,7 +38,7 @@
   import {
     list_members,
     list_invitations,
-    list_audit_events,
+    list_audit_entries,
     resend_invitation,
   } from "./api.mjs";
   import PeopleDrawer from "./PeopleDrawer.svelte";
@@ -89,7 +89,7 @@
       const [m, i, e] = await Promise.all([
         list_members(),
         list_invitations(),
-        list_audit_events(),
+        list_audit_entries(),
       ]);
       const bad = [m, i, e].find((r) => r.status < 200 || r.status >= 300);
       if (bad) {
@@ -111,7 +111,7 @@
     if (!nextEvents) return;
     loadingOlder = true;
     try {
-      const res = await list_audit_events({ next: nextEvents });
+      const res = await list_audit_entries({ next: nextEvents });
       if (res.status >= 200 && res.status < 300) {
         events = [...events, ...(res.body?.items ?? [])];
         nextEvents = res.body?.links?.next ?? null;
@@ -126,6 +126,24 @@
   $effect(() => {
     load();
   });
+
+  function subjectOf(e) {
+    const id = e["subject-id"];
+    if (e["subject-kind"] === "member") {
+      const m = members.find((m) => m["member-id"] === id);
+      return m ? { name: m.name ?? m.email, email: m.name ? m.email : null } : null;
+    }
+    if (e["subject-kind"] === "invitation") {
+      const i = invitations.find((i) => i["invitation-id"] === id);
+      return i ? { name: i.email, email: null } : null;
+    }
+    return null;
+  }
+
+  function reasonOf(e) {
+    const after = e.changeset?.after ?? {};
+    return after["role-reason"] ?? after["removed-reason"] ?? after["withdrawn-reason"] ?? after.reason ?? null;
+  }
 
   const membersShown = $derived.by(() => {
     const q = memberQuery.trim().toLowerCase();
@@ -396,9 +414,6 @@
                 <Td>
                   <div class="person">
                     <span class="name">{i.email}</span>
-                    {#if i["accepted-email"] && i["accepted-email"] !== i.email}
-                      <span class="mail">accepted as {i["accepted-email"]}</span>
-                    {/if}
                   </div>
                 </Td>
                 <Td><RolePill {role} /></Td>
@@ -413,8 +428,8 @@
                 </Td>
                 <Td>
                   <span class="actor">
-                    {i["invited-by"]?.name ?? "—"}
-                    {#if accessEnum(i["invited-by"]?.kind) === "operator"}<Tag tone="operator">operator</Tag>{/if}
+                    {i["created-by"]?.name ?? "—"}
+                    {#if accessEnum(i["created-by"]?.kind) === "operator"}<Tag tone="operator">operator</Tag>{/if}
                   </span>
                   <span class="sub">{fmtUtcDate(i["created-at"])}</span>
                 </Td>
@@ -487,27 +502,29 @@
           {:else if events.length === 0}
             <Tr><Td colspan="6"><div class="empty">No access changes yet.</div></Td></Tr>
           {:else}
-            {#each events as e (e["audit-event-id"])}
+            {#each events as e (e["audit-entry-id"])}
               {@const kind = accessEnum(e.kind)}
-              {@const before = e["role-before"] ? accessEnum(e["role-before"]) : null}
-              {@const after = e["role-after"] ? accessEnum(e["role-after"]) : null}
+              {@const before = e.changeset?.before?.role ? accessEnum(e.changeset.before.role) : null}
+              {@const after = e.changeset?.after?.role ? accessEnum(e.changeset.after.role) : null}
+              {@const subject = subjectOf(e)}
+              {@const reason = reasonOf(e)}
               <Tr>
-                <Td mono muted>{fmtUtcDateTime(e["occurred-at"])}</Td>
+                <Td mono muted>{fmtUtcDateTime(e["performed-at"])}</Td>
                 <Td><span class="kind {EVENT_FAMILY[kind] ?? ''}">{EVENT_LABEL[kind] ?? kind}</span></Td>
                 <Td>
                   <span class="actor">
-                    {e.actor?.name ?? "—"}
-                    {#if accessEnum(e.actor?.kind) === "operator"}<Tag tone="operator">operator</Tag>{/if}
+                    {e["performed-by"]?.name ?? "—"}
+                    {#if accessEnum(e["performed-by"]?.kind) === "operator"}<Tag tone="operator">operator</Tag>{/if}
                   </span>
                 </Td>
                 <Td>
-                  {#if e["subject-name"] || e.email}
+                  {#if subject}
                     <div class="person">
-                      <span class="name">{e["subject-name"] ?? e.email}</span>
-                      {#if e["subject-name"] && e.email}<span class="mail">{e.email}</span>{/if}
+                      <span class="name">{subject.name}</span>
+                      {#if subject.email}<span class="mail">{subject.email}</span>{/if}
                     </div>
                   {:else}
-                    <span class="em">—</span>
+                    <span class="em mono">{e["subject-id"]}</span>
                   {/if}
                 </Td>
                 <Td>
@@ -515,15 +532,13 @@
                     <span class="delta"><RolePill role={before} /><span class="arrow">→</span><RolePill role={after} /></span>
                   {:else if after}
                     <RolePill role={after} />
-                  {:else if before}
-                    <span class="delta"><RolePill role={before} /><span class="arrow">→</span><span class="em">ended</span></span>
                   {:else}
                     <span class="em">—</span>
                   {/if}
                 </Td>
                 <Td>
-                  {#if e.reason}
-                    <span class="reason" title={e.reason}>{e.reason}</span>
+                  {#if reason}
+                    <span class="reason" title={reason}>{reason}</span>
                   {:else}
                     <span class="em">—</span>
                   {/if}

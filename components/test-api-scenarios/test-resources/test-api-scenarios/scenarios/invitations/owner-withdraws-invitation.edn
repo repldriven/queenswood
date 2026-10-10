@@ -74,7 +74,7 @@
         {:invitation-id [:ref :invitation :invitation-id]}]]]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/bank/audit-events"
+             :path "/v1/bank/audit-log"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :assert
@@ -82,9 +82,10 @@
     :body
     {:items [:m/embeds
              [{:kind "invitation-withdrawn"
-               :actor
+               :performed-by
                {:kind "member" :principal-id [:ref :owner-member :user-id]}
-               :invitation-id [:ref :invitation :invitation-id]
-               :email "withdraw-invitee@example.test"
-               :role-after "viewer"
-               :reason "Sent to the wrong address"}]]}}}]}
+               :subject-id [:ref :invitation :invitation-id]
+               :changeset
+               {:before {:status "invitation-status-pending"}
+                :after {:status "invitation-status-withdrawn"
+                        :withdrawn-reason "Sent to the wrong address"}}}]]}}}]}

@@ -159,6 +159,17 @@
    :required true
    :schema {:$ref "#/components/schemas/InboundPaymentStatus"}})
 
+(def AuditKindQuery
+  "`kind` query parameter on the audit log: the kinds of act to list,
+  comma-separated, every kind when absent."
+  {:name "kind"
+   :in "query"
+   :required false
+   :style "form"
+   :explode false
+   :schema {:type "array" :items {:$ref "#/components/schemas/AuditKind"}}
+   :example "member-role-changed,member-removed"})
+
 (def PartyEmbedQuery
   "`embed` query parameter for optional sub-resource embedding on the
   party detail endpoint, deepObject-styled so clients send
@@ -192,6 +203,7 @@
 (def ref-endpoint-id {:$ref "#/components/parameters/EndpointId"})
 (def ref-delivery-id {:$ref "#/components/parameters/DeliveryId"})
 (def ref-delivery-filter {:$ref "#/components/parameters/DeliveryFilterQuery"})
+(def ref-audit-kind {:$ref "#/components/parameters/AuditKindQuery"})
 (def ref-inbound-payment-status
   {:$ref "#/components/parameters/InboundPaymentStatusQuery"})
 
@@ -200,6 +212,7 @@
   into the top-level OpenAPI `:components :parameters` in `api.clj`."
   {"IdempotencyKey" IdempotencyKey
    "PageQuery" PageQuery
+   "AuditKindQuery" AuditKindQuery
    "EmbedQuery" EmbedQuery
    "PartyEmbedQuery" PartyEmbedQuery
    "AccountId" AccountId

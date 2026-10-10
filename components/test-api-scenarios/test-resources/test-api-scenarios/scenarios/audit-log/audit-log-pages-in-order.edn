@@ -1,8 +1,9 @@
-{:name "The audit log pages newest first, and its pages add up to the list"
+{:name "The audit log pages newest first, by every kind or a set of them, and its pages add up to the list"
  ;; Seven events at two a page: the bank's creation and the owner's
  ;; invitation (one transaction), the owner's acceptance, then a
  ;; member's invitation, acceptance, role change and removal. The
- ;; unpaged read is the reference each page is compared against.
+ ;; unpaged read is the reference each page is compared against, and
+ ;; the two invitation kinds, three a page, page through their own four.
  :given
  [{:command :auth/mint-user-token
    :realm :queenswood
@@ -73,7 +74,7 @@
  :when
  [{:command :api/request
    :request {:method :get
-             :path "/v1/bank/audit-events"
+             :path "/v1/bank/audit-log"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}}
    :as :all
@@ -82,37 +83,42 @@
     :body
     {:items
      [{:kind "member-removed"
-       :actor {:kind "member" :principal-id [:ref :owner-member :user-id]}
-       :subject-user-id [:ref :member-member :user-id]
-       :member-id [:ref :member-member :member-id]
-       :role-before "admin"
-       :reason "Left the company"}
-      {:kind "role-changed"
-       :actor {:kind "member" :principal-id [:ref :owner-member :user-id]}
-       :subject-user-id [:ref :member-member :user-id]
-       :role-before "developer"
-       :role-after "admin"
-       :reason "Leads the platform team"}
+       :subject-kind "member"
+       :subject-id [:ref :member-member :member-id]
+       :request-id [:m/regex "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$"]
+       :performed-by {:kind "member" :principal-id [:ref :owner-member :user-id]}
+       :changeset {:before {:status "member-status-active"}
+                   :after {:status "member-status-removed"
+                           :removed-reason "Left the company"}}}
+      {:kind "member-role-changed"
+       :performed-by {:kind "member" :principal-id [:ref :owner-member :user-id]}
+       :changeset {:before {:role "role-developer"}
+                   :after {:role "role-admin"
+                           :role-reason "Leads the platform team"}}}
       {:kind "invitation-accepted"
-       :actor {:kind "member" :principal-id [:ref :member-member :user-id]}
-       :subject-user-id [:ref :member-member :user-id]
-       :invitation-id [:ref :invitation :invitation-id]}
+       :subject-id [:ref :invitation :invitation-id]
+       :performed-by {:kind "member" :principal-id [:ref :member-member :user-id]}
+       :changeset {:before {:status "invitation-status-pending"}
+                   :after {:status "invitation-status-accepted"}}}
       {:kind "invitation-created"
-       :actor {:kind "member" :principal-id [:ref :owner-member :user-id]}
-       :invitation-id [:ref :invitation :invitation-id]
-       :email "history-member@queenswood.local"
-       :role-after "developer"
-       :reason "Joining the platform team"}
+       :subject-kind "invitation"
+       :subject-id [:ref :invitation :invitation-id]
+       :performed-by {:kind "member" :principal-id [:ref :owner-member :user-id]}
+       :changeset {:before [:m/absent]
+                   :after {:role "role-developer"
+                           :reason "Joining the platform team"
+                           :email [:m/absent]
+                           :token-hash [:m/absent]}}}
       {:kind "invitation-accepted"
-       :subject-user-id [:ref :owner-member :user-id]}
+       :performed-by {:kind "member" :principal-id [:ref :owner-member :user-id]}}
       {:kind "invitation-created"
-       :actor {:kind "operator" :principal-id "queenswood-admin"}}
+       :performed-by {:kind "operator" :principal-id "queenswood-admin"}}
       {:kind "bank-created"
-       :actor {:kind "operator" :principal-id "queenswood-admin"}}]
+       :performed-by {:kind "operator" :principal-id "queenswood-admin"}}]
      :links [:m/absent]}}}
   {:command :api/request
    :request {:method :get
-             :path "/v1/bank/audit-events"
+             :path "/v1/bank/audit-log"
              :auth :owner-token
              :headers {:bank-id [:ref :bank :bank-id]}
              :query-params {"page[size]" 2}}
@@ -121,7 +127,7 @@
    {:status 200
     :body {:items [:m/equals
                    [[:ref :all :items 0] [:ref :all :items 1]]]
-           :links {:next [:m/regex "^/v1/bank/audit-events\\?"]}}}}
+           :links {:next [:m/regex "^/v1/bank/audit-log\\?"]}}}}
   {:command :api/request
    :request {:method :get
              :url [:ref :page-1 :links :next]
@@ -152,4 +158,27 @@
    :assert
    {:status 200
     :body {:items [:m/equals [[:ref :all :items 6]]]
+           :links {:next [:m/absent]}}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-log"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"kind" "invitation-created,invitation-accepted"
+                            "page[size]" 3}}
+   :as :invitations-1
+   :assert
+   {:status 200
+    :body {:items [:m/equals
+                   [[:ref :all :items 2] [:ref :all :items 3]
+                    [:ref :all :items 4]]]
+           :links {:next [:m/regex "kind=invitation-created"]}}}}
+  {:command :api/request
+   :request {:method :get
+             :url [:ref :invitations-1 :links :next]
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert
+   {:status 200
+    :body {:items [:m/equals [[:ref :all :items 5]]]
            :links {:next [:m/absent]}}}}]}

@@ -3,7 +3,7 @@
     [com.repldriven.queenswood.api.jobs.view :as view]
 
     [com.repldriven.queenswood.api.errors :as errors]
-    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
+    [com.repldriven.queenswood.api.shared.actor :as actor]
 
     [com.repldriven.queenswood.scheduler.interface :as scheduler]
 
@@ -22,7 +22,8 @@
         result (scheduler/force-start config
                                       bank-id
                                       job-id
-                                      (shared.actor/actor auth))]
+                                      (actor/actor auth)
+                                      {:request-id (:request-id request)})]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 201
@@ -50,7 +51,9 @@
                                             bank-id
                                             job-id
                                             (view/api->edits job body)
-                                            (shared.actor/actor auth)))]
+                                            (actor/actor auth)
+                                            {:request-id (:request-id
+                                                          request)}))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body (view/job->api result)})))

@@ -2,6 +2,8 @@
   (:require
     [com.repldriven.queenswood.payee-check.core :as core]
 
+    [com.repldriven.queenswood.schema.interface :as schema]
+
     [com.repldriven.mono.avro.interface :as avro]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.processor.interface :as processor]))
@@ -12,7 +14,8 @@
     result
     (let [{:keys [schemas]} config]
       {:status "ACCEPTED"
-       :payload (avro/serialize (schemas "payee-check") result)})))
+       :payload (avro/serialize (schemas "payee-check-command-reply")
+                                {:record (schema/PayeeCheck->pb result)})})))
 
 (def ^:private command-handlers
   {"check-payee" (fn [config data]
@@ -20,7 +23,7 @@
 
 (defn- dispatch
   [config message]
-  (let [{:keys [command payload]} message
+  (let [{:keys [command causation-id payload]} message
         handler (get command-handlers command)]
     (if (nil? handler)
       (error/reject :payee-check/unknown-command
@@ -31,8 +34,8 @@
           (error/fail :payee-check/process-command
                       {:message "No schema found for command"
                        :command command})
-          (let-nom> [data (avro/deserialize-same schema payload)]
-            (handler config data)))))))
+          (let-nom> [raw (avro/deserialize-same schema payload)]
+            (handler config (assoc raw :request-id causation-id))))))))
 
 (defrecord PayeeCheckProcessor [config]
   processor/Processor

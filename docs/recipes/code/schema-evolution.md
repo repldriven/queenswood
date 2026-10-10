@@ -38,7 +38,8 @@ unreadable, and the guard runs the same validator between the last
 
 - The change to the protos under `components/schema/resources`, or to
   the declaration, made.
-- `protoc` on the path, and the `stable-*` tags fetched.
+- `protoc` on the path, and the `stable-*` and `v*` release tags
+  fetched.
 
 1. Bump `version` at the top of the declaration by one.
 
@@ -139,8 +140,10 @@ unreadable, and the guard runs the same validator between the last
 - Reset the declaration to `version: 1`, every index `added` and
   `modified` at 1, with no `since` and no `former-indexes`, and the
   protos free of deprecated fields, where every installation's
-  FoundationDB is emptied before the reset is deployed. The guard skips
-  a working tree at version 1 whose last `stable-*` tag is above it.
+  FoundationDB is emptied before the reset is deployed. The guard
+  compares a working tree at version 1 with the last release's tag, not
+  the last `stable-*` tag, and skips it while that release is above
+  version 1.
 
 ## Discussion
 
@@ -190,7 +193,10 @@ before it evolves from every tag before that. An instance whose stored
 meta-data fell behind the tags is what the migrator's log line is for.
 A reset breaks the chain on purpose: the migrator refuses version 1
 over any stored meta-data above it, so it holds only for a store
-emptied first.
+emptied first. Until a release carries version 1, no installation
+holds a store at version 1 that it has not emptied, so a version-1 tree
+is measured against the last release and stays free to change; the
+first release at version 1 ends that, and from it each change evolves.
 
 A field stays in the descriptor once written because the validator
 compares descriptors, not data, and cannot know no stored record

@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "PaymentCommandReply",
+  "namespace": "com.repldriven.queenswood.schema.payment",
+  "doc": "The payment a payment command committed, as its proto bytes",
+  "fields": [
+    {
+      "name": "record",
+      "type": "bytes"
+    }
+  ]
+}

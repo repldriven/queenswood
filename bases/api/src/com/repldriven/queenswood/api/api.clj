@@ -4,6 +4,7 @@
     [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.api.access.routes :as access]
+    [com.repldriven.queenswood.api.audit.routes :as audit]
     [com.repldriven.queenswood.api.balance.routes :as balance]
     [com.repldriven.queenswood.api.bank.routes :as bank]
     [com.repldriven.queenswood.api.cash-account.routes :as cash-account]
@@ -29,6 +30,7 @@
     [com.repldriven.queenswood.api.webhook.routes :as webhook]
 
     [com.repldriven.queenswood.access-api.interface :as access-api]
+    [com.repldriven.queenswood.audit-api.interface :as audit-api]
     [com.repldriven.queenswood.api-schema.interface :as api-schema]
     [com.repldriven.queenswood.balance-api.interface :as balance-api]
     [com.repldriven.queenswood.bank-api.interface :as bank-api]
@@ -93,6 +95,7 @@
           :unique-vector-lax api-schema/unique-vector-lax-schema
           "ErrorResponse" api-schema/ErrorResponseSchema}
          access-api/registry
+         audit-api/registry
          balance-api/registry
          bank-api/registry
          cash-account-api/registry
@@ -189,9 +192,9 @@
          {:name "Invitations"
           :description
           "Invitations to join the bank, and resending or withdrawing them."}
-         {:name "Audit"
+         {:name "Audit log"
           :description
-          "A bank's audit log: every change to who may act for it, with who made it and why."}
+          "A bank's audit log: every act a member, an operator or the bank's credential performed on its records, with who performed it and the request that asked for it."}
          {:name "Companies"
           :description
           "Looking a company up in the company registry before creating a bank for it."}
@@ -277,6 +280,7 @@
           oauth/routes)
     (into ["/v1"
            {:interceptors (concat telemetry/trace-span
+                                  [shared.interceptors/request-id]
                                   (:interceptors ctx)
                                   [server/credential
                                    server/authenticate-with-provider
@@ -301,6 +305,7 @@
                               #'api-schema/Overloaded])}}]
           (concat
            access/routes
+           audit/routes
            balance/routes
            bank/routes
            cash-account/routes

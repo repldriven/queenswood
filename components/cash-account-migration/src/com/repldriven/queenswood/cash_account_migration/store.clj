@@ -32,9 +32,9 @@
             unknowns)))
 
 (def ^:private unset-when-zero
-  "The optional dates and timestamps a migration reads back as zero when
-  they were never set."
-  [:notified-on :due-on :approved-at :completed-at :cancelled-at])
+  "The optional dates a migration reads back as zero when they were never
+  set."
+  [:notified-on :due-on])
 
 (defn- clean-migration
   "One migration as a plain map, without the optional fields it was
@@ -57,11 +57,8 @@
 (defn- clean-run
   [run]
   (cond-> (drop-defaults run [:failure-reason] {})
-          (zero? (:completed-at run 0))
-          (dissoc :completed-at)
-
-          (zero? (:failed-at run 0))
-          (dissoc :failed-at)))
+          (zero? (:updated-at run 0))
+          (dissoc :updated-at)))
 
 (defn- clean-account-run
   "`failure-reason` is set only where an account errored, and

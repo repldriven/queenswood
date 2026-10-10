@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.api.access.handlers
   "Who may act for a bank: the signed-in person's members and
-  invitations, the bank's members and invitations, and its audit
-  log. A write is a command to the
+  invitations, and the bank's members and invitations. A write is a
+  command to the
   `member` processor, whose reply names the records it wrote, read
   back through `member-query`.
 
@@ -12,7 +12,7 @@
     [com.repldriven.queenswood.api.commands :as commands]
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
-    [com.repldriven.queenswood.api.shared.actor :as shared.actor]
+    [com.repldriven.queenswood.api.shared.actor :as actor]
 
     [com.repldriven.queenswood.bank-query.interface :as banks]
     [com.repldriven.queenswood.member-query.interface :as members]
@@ -28,8 +28,6 @@
 (def ^:private my-invitations-path "/v1/me/invitations")
 
 (def ^:private my-members-path "/v1/me/members")
-
-(def ^:private audit-events-path "/v1/bank/audit-events")
 
 (defn- invitation-uri
   [{:keys [invitation-id]}]
@@ -62,11 +60,11 @@
                               data)]
     (if (= 200 (:status result)) (success (:body result)) result)))
 
-(defn- actor
-  "The principal as an audit event records it: the caller as an actor,
+(defn- caller
+  "The principal as an audit entry records it: the caller as an actor,
   a member with the role of the member the call resolved to."
   [auth]
-  (let [actor (shared.actor/actor auth)]
+  (let [actor (actor/actor auth)]
     (cond-> actor
 
             (= :actor-kind-member (:kind actor))
@@ -120,21 +118,18 @@
     (-> (select-keys member
                      [:member-id :bank-id :user-id :role :created-at
                       :updated-at])
-        (assoc :created-organisation (nil? invitation-id))
-        (utility/assoc-some :bank-name bank-name
+        (assoc :created-organisation (nil? invitation-id)
+               :created-by (names/->actor (:created-by member) names))
+        (utility/assoc-some :updated-by
+                            (some-> (:updated-by member)
+                                    (names/->actor names))
+                            :bank-name bank-name
                             :name (:name user)
                             :email (:email user)
                             :invitation-id invitation-id
                             :invited-by (some-> (:created-by invitation)
                                                 (names/->actor names))
                             :invited-email (:email invitation)))))
-
-(defn founding-member
-  "The owner member a bank's creation writes, as `Member` shows
-  it, from the `user` and the `bank` already in hand: it joined by no
-  invitation, so there is nothing more to read."
-  [member user bank]
-  (->member member user (:name bank) nil {}))
 
 (defn- member-records
   [txn member]
@@ -156,10 +151,13 @@
   (let-nom> [records (all-or-anomaly (fn [member]
                                        (member-records txn member))
                                      found)
-             names (names/user-names (lookup txn)
-                                     (names/actor-ids
-                                      (map (comp :created-by :invitation)
-                                           records)))]
+             names (names/user-names
+                    (lookup txn)
+                    (names/actor-ids
+                     (concat (map (comp :created-by :invitation) records)
+                             (mapcat (comp (juxt :created-by :updated-by)
+                                           :member)
+                              records))))]
     (let [bank-names (into {}
                            (map (fn [bank-id] [bank-id
                                                (bank-name txn bank-id)]))
@@ -177,40 +175,40 @@
   (let-nom> [found (named-members txn [member])]
     (first found)))
 
+(defn member-by-id
+  "The member `member-id` of `bank-id` as `Member` shows it. An anomaly
+  when it, or a record naming it, cannot be read."
+  [txn bank-id member-id]
+  (let-nom> [member (members/find-by-id txn bank-id member-id)]
+    (named-member txn member)))
+
 (defn- ->invitation
-  [invitation names accepted-email]
+  [invitation names]
   (-> (select-keys invitation
                    [:invitation-id :bank-id :email :role :status :expires-at
                     :reason :created-at :updated-at])
-      (assoc :invited-by (names/->actor (:created-by invitation) names))
-      (utility/assoc-some :accepted-by-user-id
-                          (get-in invitation [:accepted-by :principal-id])
-                          :accepted-email accepted-email)))
+      (assoc :created-by (names/->actor (:created-by invitation) names))
+      (utility/assoc-some :updated-by
+                          (some-> (:updated-by invitation)
+                                  (names/->actor names)))))
 
 (defn- inviter-names
   [txn invitations]
   (names/user-names (lookup txn)
-                    (names/actor-ids (map :created-by invitations))))
+                    (names/actor-ids (mapcat (juxt :created-by :updated-by)
+                                      invitations))))
 
 (defn- invitations
   [txn found]
-  (let-nom> [accepted (all-or-anomaly (fn [invitation]
-                                        (find-user txn
-                                                   (get-in invitation
-                                                           [:accepted-by
-                                                            :principal-id])))
-                                      found)
-             names (inviter-names txn found)]
-    (mapv (fn [invitation user] (->invitation invitation names (:email user)))
-          found
-          accepted)))
+  (let-nom> [names (inviter-names txn found)]
+    (mapv (fn [invitation] (->invitation invitation names)) found)))
 
 (defn- ->recipient-invitation
   [invitation bank-name names]
   (-> (select-keys invitation
                    [:invitation-id :bank-id :email :role :status :expires-at
                     :created-at])
-      (assoc :invited-by
+      (assoc :created-by
              (names/->actor (:created-by invitation)
                             names
                             (or bank-name names/platform-name)))
@@ -286,6 +284,7 @@
      "accept-invitation"
      {:invitation-id invitation-id
       :user-id (:principal-id auth)
+      :actor (caller auth)
       :proof (proof-data (proof request))}
      (fn [{:keys [bank-id member-id]}]
        (respond (let-nom> [member (members/find-by-id txn
@@ -304,6 +303,7 @@
      "decline-invitation"
      {:invitation-id invitation-id
       :user-id (:principal-id auth)
+      :actor (caller auth)
       :proof (proof-data (proof request))}
      (fn [{:keys [bank-id]}]
        (respond (let-nom> [declined (members/find-invitation txn
@@ -365,7 +365,8 @@
     (send-command request
                   "leave-bank"
                   {:member-id member-id
-                   :user-id (:principal-id auth)}
+                   :user-id (:principal-id auth)
+                   :actor (caller auth)}
                   no-content)))
 
 (defn list-members
@@ -404,14 +405,10 @@
      {:bank-id bank-id
       :member-id (:member-id path)
       :role role
-      :actor (actor auth)
+      :actor (caller auth)
       :reason reason}
      (fn [{:keys [member-id]}]
-       (respond (let-nom> [changed (members/find-by-id txn
-                                                       bank-id
-                                                       member-id)]
-                  (named-member txn changed))
-                ok)))))
+       (respond (member-by-id txn bank-id member-id) ok)))))
 
 (defn remove-member
   [request]
@@ -422,7 +419,7 @@
                   "remove-member"
                   {:bank-id bank-id
                    :member-id (:member-id path)
-                   :actor (actor auth)
+                   :actor (caller auth)
                    :reason (:reason body)}
                   no-content)))
 
@@ -459,7 +456,7 @@
   [txn bank-id invitation-id]
   (let-nom> [invitation (members/find-invitation txn bank-id invitation-id)
              names (inviter-names txn [invitation])]
-    (->invitation invitation names nil)))
+    (->invitation invitation names)))
 
 (defn- invitation-change
   [request success]
@@ -477,7 +474,7 @@
                   {:bank-id bank-id
                    :email email
                    :role role
-                   :actor (actor auth)
+                   :actor (caller auth)
                    :reason reason}
                   (invitation-change request (created invitation-uri)))))
 
@@ -490,7 +487,7 @@
                   "withdraw-invitation"
                   {:bank-id bank-id
                    :invitation-id (:invitation-id path)
-                   :actor (actor auth)
+                   :actor (caller auth)
                    :reason (:reason body)}
                   (invitation-change request ok))))
 
@@ -503,38 +500,5 @@
                   "resend-invitation"
                   {:bank-id bank-id
                    :invitation-id (:invitation-id path)
-                   :actor (actor auth)}
+                   :actor (caller auth)}
                   (invitation-change request ok))))
-
-(defn- ->audit-event
-  "An audit event as the bank's audit log shows it, its actor and
-  subject named."
-  [audit-event names]
-  (-> audit-event
-      (update :actor names/->actor names)
-      (utility/assoc-some :subject-name
-                          (get names (:subject-user-id audit-event)))))
-
-(defn- named-audit-events
-  [txn events]
-  (let-nom> [names (names/user-names
-                    (lookup txn)
-                    (concat (names/actor-ids (map :actor events))
-                            (keep :subject-user-id events)))]
-    (mapv (fn [event] (->audit-event event names)) events)))
-
-(defn list-audit-events
-  [request]
-  (let [{:keys [auth parameters]} request
-        {:keys [bank-id]} auth
-        {:keys [page]} (:query parameters)
-        txn (config request)]
-    (respond (let-nom> [bank (banks/get-bank txn bank-id)
-                        events (members/list-audit-events txn bank)
-                        windowed (cursor/window events
-                                                :audit-event-id
-                                                :desc
-                                                page)
-                        named (named-audit-events txn (:page windowed))]
-               (cursor/page-body audit-events-path page named windowed))
-             ok)))

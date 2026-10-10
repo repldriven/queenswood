@@ -23,6 +23,19 @@
   components/registry)
 
 ;; ---
+;; bodies
+;; ---
+
+(defn ->body
+  "Project a bank onto the keys `Bank` declares, so a field the record
+  holds and the API does not publish never reaches a body.
+
+  Args:
+  - bank: a bank view with its party, accounts and provider keys."
+  [bank]
+  (components/->body bank))
+
+;; ---
 ;; examples
 ;; ---
 

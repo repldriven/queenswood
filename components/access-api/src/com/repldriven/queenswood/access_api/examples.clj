@@ -5,8 +5,6 @@
 
 (def InvitationId "inv.01kprbmgcj35ptc8npmybhh4sm")
 
-(def AuditEventId "aev.01kprbmgcj35ptc8npmybhh4sn")
-
 (def invitee-user-id "usr.01kprbmgcj35ptc8npmybhh4sp")
 
 (def invitee-member-id "mem.01kprbpdwa9q5n2t7vwsx84a3n")
@@ -26,6 +24,8 @@
    :invited-by Actor
    :invited-email "c.babbage@example.com"
    :created-at "2026-05-19T10:00:00Z"
+   :created-by
+   {:kind :member :principal-id invitee-user-id :name "Charles Babbage"}
    :updated-at "2026-05-19T10:00:00Z"})
 
 (def MemberList {:items [me-api/Member invited-member]})
@@ -37,17 +37,13 @@
    :role :developer
    :status :pending
    :expires-at "2026-05-25T10:00:00Z"
-   :invited-by Actor
    :reason "Joining the payments team"
    :created-at "2026-05-18T10:00:00Z"
+   :created-by Actor
    :updated-at "2026-05-18T10:00:00Z"})
 
 (def accepted-invitation
-  (assoc Invitation
-         :status :accepted
-         :accepted-by-user-id invitee-user-id
-         :accepted-email "charles@example.com"
-         :updated-at "2026-05-19T10:00:00Z"))
+  (assoc Invitation :status :accepted :updated-at "2026-05-19T10:00:00Z"))
 
 (def InvitationList {:items [Invitation accepted-invitation]})
 
@@ -59,8 +55,8 @@
    :role :developer
    :status :pending
    :expires-at "2026-05-25T10:00:00Z"
-   :invited-by Actor
-   :created-at "2026-05-18T10:00:00Z"})
+   :created-at "2026-05-18T10:00:00Z"
+   :created-by Actor})
 
 (def RecipientInvitationList {:items [RecipientInvitation]})
 
@@ -72,25 +68,6 @@
 (def ChangeRoleRequest {:role :admin :reason "Leads the payments team"})
 
 (def ReasonRequest {:reason "Left the company"})
-
-(def AuditEvent
-  {:audit-event-id AuditEventId
-   :bank-id me-api/BankId
-   :kind :role-changed
-   :actor Actor
-   :subject-user-id invitee-user-id
-   :subject-name "Charles Babbage"
-   :member-id invitee-member-id
-   :role-before :developer
-   :role-after :admin
-   :reason "Leads the payments team"
-   :occurred-at "2026-06-01T09:00:00Z"})
-
-(def AuditEventList
-  {:items [AuditEvent]
-   :links {:next (str "/v1/bank/audit-events?page[after]="
-                      "djE6YWV2LjAxa3ByYm1nY2ozNXB0YzhucG15YmhoNHNu"
-                      "&page[size]=20")}})
 
 (def InvitationNotFound
   {:value {:title "REJECTED"

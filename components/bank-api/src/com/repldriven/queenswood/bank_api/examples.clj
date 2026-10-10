@@ -127,7 +127,7 @@
          :email "zaphod@example.com"
          :role :owner
          :reason "Owner of a new bank"
-         :invited-by
+         :created-by
          {:kind :operator :principal-id "queenswood-admin" :name "Queenswood"}))
 
 (def ChangeBankStatusResponse

@@ -27,11 +27,9 @@ message WebhookDelivery {
   required string endpoint_id = 5;
   required string kind = 6;
 
-  optional int64 delivered_at = 51;
-  optional int64 failed_at = 53;
-
   required int64 created_at = 101;
   optional com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+  optional int64 updated_at = 103;
 
   required int32 attempt_count = 201;
   optional int64 next_attempt_at = 202;

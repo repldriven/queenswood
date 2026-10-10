@@ -34,6 +34,7 @@
    [:currency [:ref "Currency"]]
    [:reference {:optional true} [:maybe string?]]
    [:created-at {:optional true} [:maybe [:ref "Timestamp"]]]
+   [:created-by {:optional true} [:ref "Actor"]]
    [:legs [:vector [:ref "TransactionLeg"]]]])
 
 (def registry

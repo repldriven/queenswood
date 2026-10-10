@@ -140,8 +140,8 @@
                                  :headers written-headers
                                  :body written-body}
                       :expires-at (+ now completed-ttl-ms)
-                      :completed-at now
-                      :created-at (or (:created-at existing) now)}))))
+                      :created-at (or (:created-at existing) now)
+                      :updated-at now}))))
    :idempotency/complete
    "Failed to complete idempotency entry"))
 

@@ -140,12 +140,12 @@
                                        "Insufficient funds")]
       (is (= :payment-provider-transfer-status-failed (:status failed)))
       (is (= "Insufficient funds" (:failed-reason failed)))
-      (is (= (:failed-at failed) (:updated-at failed))))
+      (is (number? (:updated-at failed))))
     (let [completed (SUT/transfer-outcome
                      pending
                      :payment-provider-transfer-status-completed
                      nil)]
-      (is (= (:completed-at completed) (:updated-at completed)))
+      (is (number? (:updated-at completed)))
       (is (not (contains? completed :failed-reason))))
     (is (nil?
          (SUT/transfer-outcome

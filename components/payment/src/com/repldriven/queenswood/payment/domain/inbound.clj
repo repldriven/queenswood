@@ -45,8 +45,8 @@
        reference))))
 
 (defn- arrived
-  "An inbound as it arrives in `status`, recording when it reached it."
-  [data bank-id business-day status at-key]
+  "An inbound as it arrives in `status`."
+  [data bank-id business-day status]
   (let [{:keys [scheme-transaction-id end-to-end-id scheme
                 currency amount debtor-name reference]}
         data
@@ -60,7 +60,6 @@
                          :end-to-end-id end-to-end-id
                          :scheme-transaction-id scheme-transaction-id
                          :business-day business-day
-                         at-key now
                          :created-at now}
                         :debtor-name
                         debtor-name
@@ -68,23 +67,15 @@
                         reference)))
 
 (defn- moved
-  [payment status at-key]
-  (let [now (utility/now)]
-    (assoc payment
-           :status
-           status
-           at-key
-           now
-           :updated-at
-           now)))
+  [payment status]
+  (assoc payment :status status :updated-at (utility/now)))
 
 (defn new-inbound-payment
   [data creditor-account-id bank-id business-day transaction-id]
   (assoc (arrived data
                   bank-id
                   business-day
-                  :inbound-payment-status-settled
-                  :settled-at)
+                  :inbound-payment-status-settled)
          :creditor-account-id creditor-account-id
          :transaction-id transaction-id))
 
@@ -124,8 +115,7 @@
   (utility/assoc-some (assoc (arrived data
                                       bank-id
                                       business-day
-                                      :inbound-payment-status-suspended
-                                      :suspended-at)
+                                      :inbound-payment-status-suspended)
                              :transaction-id transaction-id
                              :suspended-reason-code (:reason-code refusal))
                       :suspended-reason
@@ -140,8 +130,7 @@
   (assoc (arrived data
                   bank-id
                   business-day
-                  :inbound-payment-status-held
-                  :held-at)
+                  :inbound-payment-status-held)
          :creditor-account-id creditor-account-id
          :scheme-transaction-id (str "held-" (utility/uuidv7))))
 
@@ -180,15 +169,14 @@
   "Transition a held inbound to `settled` on release: stamp the real scheme
   transaction id and the posted transaction id."
   [held scheme-transaction-id transaction-id]
-  (assoc (moved held :inbound-payment-status-settled :settled-at)
+  (assoc (moved held :inbound-payment-status-settled)
          :scheme-transaction-id scheme-transaction-id
          :transaction-id transaction-id))
 
 (defn suspended-from-held
   [held scheme-transaction-id transaction-id refusal]
   (utility/assoc-some (assoc (moved held
-                                    :inbound-payment-status-suspended
-                                    :suspended-at)
+                                    :inbound-payment-status-suspended)
                              :scheme-transaction-id scheme-transaction-id
                              :transaction-id transaction-id
                              :suspended-reason-code (:reason-code refusal))
@@ -235,8 +223,7 @@
   (assoc (arrived data
                   bank-id
                   business-day
-                  :inbound-payment-status-admitted
-                  :admitted-at)
+                  :inbound-payment-status-admitted)
          :creditor-account-id creditor-account-id
          :scheme-transaction-id (str "admitted-" (utility/uuidv7))))
 
@@ -280,15 +267,14 @@
   "Transition a held inbound to `returned` on decline — the funds went back
   to the remitter, so nothing posts on our books."
   [held]
-  (moved held :inbound-payment-status-returned :returned-at))
+  (moved held :inbound-payment-status-returned))
 
 (defn return-failed-inbound-payment
   "A suspended inbound the provider did not send back: its return failed,
   the money still in suspense, carrying why."
   [payment reason]
   (utility/assoc-some (moved payment
-                             :inbound-payment-status-return-failed
-                             :return-failed-at)
+                             :inbound-payment-status-return-failed)
                       :return-failed-reason
                       reason))
 

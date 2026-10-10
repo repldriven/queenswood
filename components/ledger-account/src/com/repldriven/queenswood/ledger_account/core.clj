@@ -18,18 +18,20 @@
       (policy/get-effective-policies txn {:bank-id bank-id})))
 
 (defn new-account
-  ([txn bank-id currency row]
-   (new-account txn bank-id currency row {}))
-  ([txn bank-id currency row opts]
-   (let-nom>
-     [policies (get-policies txn bank-id opts)
-      account (domain/new-ledger-account bank-id currency row policies)
-      _ (store/save-account txn account)
-      _ (when-not (domain/derived (:code account))
-          (balances/new-balances txn
-                                 bank-id
-                                 [(domain/opening-balance account)]))]
-     account)))
+  [txn bank-id currency row opts]
+  (let-nom>
+    [policies (get-policies txn bank-id opts)
+     account (domain/new-ledger-account bank-id
+                                        currency
+                                        row
+                                        policies
+                                        (:actor opts))
+     _ (store/save-account txn account)
+     _ (when-not (domain/derived (:code account))
+         (balances/new-balances txn
+                                bank-id
+                                [(domain/opening-balance account)]))]
+    account))
 
 (defn get-account
   [txn bank-id ledger-account-id]

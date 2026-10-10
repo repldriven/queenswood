@@ -1,9 +1,0 @@
-{
-  "type": "record",
-  "name": "InitiateIdv",
-  "namespace": "com.repldriven.queenswood.schema.idv",
-  "fields": [
-    {"name": "bank_id", "type": "string"},
-    {"name": "party_id", "type": "string"}
-  ]
-}

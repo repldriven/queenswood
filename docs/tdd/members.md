@@ -19,8 +19,8 @@ the organisation it is for, how a role reaches the gate every route
 already has, where each write lives, and the order the design is proved
 in.
 
-In scope: the `Member`, `Invitation` and `MemberRoleChange`
-records and the access history read from them; the `member`
+In scope: the `Member` and `Invitation` records and the audit
+events their acts write; the `member`
 processor's commands, the `member-query` reads and the domain rules
 — who may do what to whom, and never ownerless; the invitation
 changelog; the request header that names the organisation; the role
@@ -42,8 +42,8 @@ and the organisation's starting state, which [banks.md](banks.md) covers.
 What exists is slice 1, the API, as the sections below describe it,
 and the console as first built:
 
-- **The records.** `Member`, `Invitation`, `MemberRoleChange`
-  and the `Actor` they share, under `schemas/member/`, declared in
+- **The records.** `Member`, `Invitation` and the `Actor` they
+  share, under `schemas/member/`, declared in
   [fdb-record-types.yml](/components/resources/resources/system/fdb-record-types.yml).
 - **The `member` brick.** The rules in `domain.clj` and one FDB
   transaction per write in `core.clj`. `user` still upserts a `User` on
@@ -192,19 +192,19 @@ anomaly kind has, as [service-apis.md](service-apis.md) records.
 
 ### Records
 
-Three record types under `schemas/member/`, registered where every
+Two record types under `schemas/member/`, registered where every
 record type is: the record-type union, the FDB record-type declaration,
 and the `pb->`, `->pb` and `->java` trio in the `schema` brick's
-`interface.clj`. Each act a person or an operator performs is recorded
-on the record it changes, as an `_at` and `_by` pair, as
-[ADR-0046](../adr/0046-who-did-what-is-recorded-on-the-record.md) has
-it.
+`interface.clj`. Each act a member or an operator performs is an audit
+entry, as
+[ADR-0047](../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md)
+has it, and the record keeps the latest change's `updated_at` and
+`updated_by`.
 
 - **`Member`** — bank id, member id (prefix `mem`), status
   (active, removed or left), role, user id, the invitation accepted to
-  create it, a removal as `removed_at`, `removed_by` and
-  `removed_reason`, a leave as `left_at` and `left_by`, and
-  `created_by` beside the timestamps.
+  create it, a removal's `removed_reason`, and `created_by` and
+  `updated_by` beside the timestamps.
   The primary key is `[bank_id, member_id]`, so a bank's members
   scan contiguously and a bank-scoped read finds no other bank's
   member. `Member_by_user`, unique on `[user_id, member_id]`, lists a
@@ -217,37 +217,33 @@ it.
   (pending, accepted, declined, withdrawn, expired), role, email as the
   inviter typed it and lower-cased for matching, the SHA-256 of the
   link's token, `expires_at`, the inviter's reason and a withdrawal's
-  as `withdrawn_reason`; the pairs `accepted_at` and `accepted_by`,
-  `declined_at` and `declined_by`, `withdrawn_at` and `withdrawn_by`,
-  and `resent_at` and `resent_by` for the latest resend; and
-  `created_by` beside the timestamps. The primary key is
+  as `withdrawn_reason`, and `created_by` and `updated_by` beside the
+  timestamps. The primary key is
   `[bank_id, invitation_id]`; indexed by the lower-cased email, and by
   token hash under a unique index. One pending invitation per address
   per bank is a domain rule inside the transaction, off a scan of the
   bank's invitations. Until an email is sent the token hash holds the
   invitation id: the unique index needs a distinct value per
   invitation, and no SHA-256 hex digest equals an id.
-- **`MemberRoleChange`** — bank id, member id, role change id
-  (prefix `rch`), the role before and after, a reason, `created_at` and
-  `created_by`, keyed `[bank_id, member_id, role_change_id]`. A
-  member's role changes any number of times and the member
-  keeps only the latest, so each change is a record of its own.
-- **`Actor`** — a message the three share: kind (member, bank or
+- **`Actor`** — a message the two share: kind (member, bank or
   operator) and the principal id, a user id for a member or an
   operator-realm user, the bank's id for a call with its credential,
   the client id for the admin client. Kind is the capacity the caller
   acted in; the id is who.
 
-The access history the PRD's "What is recorded" reads is built on read
-from these records and the `Bank`'s own `created_at` and `created_by`,
-by `member-query`'s `list-audit-events`: the bank's creation, each
-invitation's creation, latest resend, acceptance, refusal and
-withdrawal, each role change, and each member's removal or
-departure, newest first. Each event's id is `aev.` and an encoding of
-when it happened, its kind's place among acts at the same instant, and
-the record it was read from, so the ids sort as the events happened and
-a cursor pages them. A record of its own per event would be a union of
-every kind's fields, growing with each new kind.
+The access history the PRD's "What is recorded" reads is the bank's
+audit log, as
+[ADR-0047](../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md)
+has it: each act writes an `AuditEntry` through `audit/record` in the
+transaction that makes it — the bank's creation, from the `bank`
+processor, each invitation's creation, resend, acceptance, refusal and
+withdrawal, each role change, and each member's removal or departure —
+naming the invitation or member it acts on, the API request in
+`request_id`, and in `changeset` the fields the act changed, before
+and after, a member's `role_reason` among them and an invitation's
+email left out by its data category, `user.contact.email`. Each
+entry's id is `aud.` and its commit's versionstamp in Crockford base32,
+so the ids sort as the entries committed and a cursor pages them.
 
 ### A processor and a query brick
 
@@ -264,8 +260,8 @@ for member. On the system diagram the API writes only
 - **`member-query`** — `list-by-user`, `list-by-bank`,
   `list-active-by-user`, `list-active-by-bank`, `find-by-id`,
   `find-user-member`, `find-invitation`, `find-invitation-for-recipient`,
-  `list-invitations-by-bank`, `list-pending-invitations-by-email` and
-  `list-audit-events`, over the three stores, and
+  `list-invitations-by-bank` and `list-pending-invitations-by-email`,
+  over the two stores, and
   the pure `new-invitation-token` and `token-hash`, so the email adapter
   and the processor hash alike. The `api` base, `auth.clj` included,
   requires only this brick, which `enforce-idioms.sh`'s query-only check
@@ -285,9 +281,9 @@ The commands are `invite`, `resend-invitation`, `withdraw-invitation`,
 `remove-member`, `leave` and `record-invitation-token`, each an Avro
 payload under `schemas/member/` registered in
 [avro-schemas.yml](/components/resources/resources/system/avro-schemas.yml),
-each replying with the record it wrote as the Avro `member` or
-`invitation`. The actor, the bank and the proof are what the base
-establishes and the command carries:
+each replying with the ids of the records it wrote as the Avro
+`MemberCommandReply`, which the base reads back. The actor, the bank
+and the proof are what the base establishes and the command carries:
 
 - **The actor** is the principal, as the `Actor` the base builds today.
 - **A recipient's proof** is the hash of the `Invitation-Token` header,
@@ -321,7 +317,7 @@ graph LR
     SPA["console SPA<br/>Bank-Id on every call"]
     API["api<br/>authenticate resolves bank and level<br/>authorize intersects"]
     BQ["member-query<br/>reads"]
-    BM["member processor<br/>Member, Invitation, MemberRoleChange"]
+    BM["member processor<br/>Member, Invitation, audit entries"]
     BU["user"]
     BB["bank processor<br/>new-bank writes the owner invitation"]
     RL["changelog relay"]
@@ -541,20 +537,19 @@ Under the bank the header names:
 
 Under `/v1/bank`, the bank the header names:
 
-- `GET /v1/bank/audit-events` — `org:viewer` or `admin`, cursor-paged,
-  newest first. The bank's audit log: each event of its access history
-  as an `AuditEvent`, its id as `audit-event-id`. It describes the bank
-  rather than a record it holds, so it sits beside the bank's
-  policies.
+- `GET /v1/bank/audit-log` — `org:viewer` or `admin`, cursor-paged,
+  newest first, and narrowed to the comma-separated kinds a `kind`
+  query names. The bank's audit log: each entry as an `AuditEntry`, its
+  id as `audit-entry-id`, read through `audit/list-by-bank`. It
+  describes the bank rather than a record it holds, so it sits beside
+  the bank's policies.
 
-Every `Actor` a route answers carries `name`, and every `AuditEvent`
-with a subject carries `subject-name`, resolved on read in
-`access/names.clj`, each distinct id once per response: the user
-record's name, or its email when the name is blank, or `Queenswood` for
-a principal id with no user record. To a recipient, an inviter with no
-name is named by the organisation, so no actor's email reaches a
-`RecipientInvitation`. A subject with no user record has no
-`subject-name`.
+Every `Actor` a route answers carries `name`, an `AuditEntry`'s
+`performed-by` among them, resolved on read in `access/names.clj`, each
+distinct id once per response: the user record's name, or its email
+when the name is blank, or `Queenswood` for a principal id with no user
+record. To a recipient, an inviter with no name is named by the
+organisation, so no actor's email reaches a `RecipientInvitation`.
 
 Every write route declares the idempotency interceptor pair or names
 its guard in the base's `exempt-writes`, so the router coverage test
@@ -771,10 +766,6 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 
 ## Known Limitations
 
-- **The audit log holds access changes only.** No other record names
-  the principal that wrote it, so a payment, an account, a product or a
-  policy change appears in no bank's audit log.
-
 - **No invitation without mail.** An installation with no mail server
   configured records invitations that nobody receives, except an
   invitee who signs in with the invited address verified and finds it
@@ -835,6 +826,9 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   carries the invitation entries to the email adapter.
 - [ADR-0046](../adr/0046-who-did-what-is-recorded-on-the-record.md) —
   who did what is recorded on the record, which the access history reads.
+- [ADR-0047](../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md) —
+  acts audited at commit and calls logged at the edge, which supersedes
+  it.
 - [schema-evolution](../recipes/code/schema-evolution.md) — the
   declaration steps for the stores.
 - [lifecycle-transitions](../recipes/code/lifecycle-transitions.md) —
