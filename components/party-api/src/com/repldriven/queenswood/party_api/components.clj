@@ -24,6 +24,7 @@
    [:merged-into-party-id {:optional true} [:maybe [:ref "PartyId"]]]
    [:external-reference {:optional true} [:maybe [:ref "ExternalReference"]]]
    [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def ExternalReference
@@ -61,6 +62,7 @@
    [:merged-into-party-id {:optional true} [:maybe [:ref "PartyId"]]]
    [:external-reference {:optional true} [:maybe [:ref "ExternalReference"]]]
    [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]
    [:legal-name {:optional true} [:maybe :string]]])
 
@@ -146,6 +148,7 @@
    [:hand-off {:optional true} [:ref "HandOff"]]
    [:failure-reason {:optional true} [:maybe string?]]
    [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def VerificationCriterion
@@ -199,7 +202,7 @@
 
 (def ^:private session-keys
   [:session-id :party-id :channel :return-url :status :hand-off
-   :failure-reason :created-at :updated-at])
+   :failure-reason :created-at :created-by :updated-at])
 
 (defn ->session-body
   [session]

@@ -23,6 +23,29 @@
   components/registry)
 
 ;; ---
+;; bodies
+;; ---
+
+(defn ->job-body
+  "Project a job, its schedule already presented as a cadence, onto the
+  keys `Job` declares, so a field the record holds and the API does not
+  publish never reaches a body.
+
+  Args:
+  - job: a scheduler job with its cadence and allowed periodicities."
+  [job]
+  (components/->job-body job))
+
+(defn ->run-body
+  "Project a run onto the keys `Run` declares, and each of its tasks onto
+  the keys `TaskRun` declares.
+
+  Args:
+  - run: a scheduler run with its task counts."
+  [run]
+  (components/->run-body run))
+
+;; ---
 ;; examples
 ;; ---
 

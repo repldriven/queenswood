@@ -12,14 +12,6 @@
 
 (def invitation-status-enum-schema (:enum-schema invitation-status-enum))
 
-(def ^:private actor-kind-enum
-  (coercion/enum-coercion {"member" :actor-kind-member
-                           "operator" :actor-kind-operator
-                           "bank" :actor-kind-bank}
-                          :actor-kind-unknown))
-
-(def actor-kind-enum-schema (:enum-schema actor-kind-enum))
-
 (def ^:private audit-event-kind-enum
   (coercion/enum-coercion
    {"bank-created" :audit-event-kind-bank-created

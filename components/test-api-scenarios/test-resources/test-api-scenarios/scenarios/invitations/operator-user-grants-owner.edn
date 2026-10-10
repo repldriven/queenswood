@@ -42,7 +42,7 @@
    :as :invitation
    :assert {:status 201
             :body {:role "owner"
-                   :invited-by {:kind "operator"
+                   :created-by {:kind "operator"
                                 :principal-id [:ref :ops-me :user-id]
                                 :name [:ref :ops-me :name]}
                    :token [:m/absent]}}}

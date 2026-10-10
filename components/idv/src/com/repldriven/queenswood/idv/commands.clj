@@ -24,7 +24,7 @@
 
 (def ^:private session-keys
   [:bank-id :session-id :verification-id :party-id :channel :return-url
-   :status :created-at :updated-at])
+   :status :created-at :created-by :updated-at])
 
 (defn- open-idv-session
   [config data]

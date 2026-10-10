@@ -49,6 +49,32 @@
         "type": "long",
         "logicalType": "timestamp-millis"
       }
+    },
+    {
+      "name": "created_by",
+      "type": {
+        "type": "record",
+        "name": "ActorSpec",
+        "doc": "Who created it",
+        "fields": [
+          {
+            "name": "kind",
+            "type": {
+              "type": "enum",
+              "name": "ActorKind",
+              "symbols": [
+                "ACTOR_KIND_MEMBER",
+                "ACTOR_KIND_OPERATOR",
+                "ACTOR_KIND_BANK"
+              ]
+            }
+          },
+          {
+            "name": "principal_id",
+            "type": "string"
+          }
+        ]
+      }
     }
   ]
 }

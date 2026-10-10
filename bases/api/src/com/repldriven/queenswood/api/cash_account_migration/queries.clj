@@ -3,6 +3,8 @@
     [com.repldriven.queenswood.api.cursor :as cursor]
     [com.repldriven.queenswood.api.errors :as errors]
 
+    [com.repldriven.queenswood.cash-account-migration-api.interface :as
+     migration-api]
     [com.repldriven.queenswood.cash-account-migration.interface :as migrations]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
@@ -22,7 +24,8 @@
                                               (cursor/page-opts page))]
                  (cursor/page-body "/v1/cash-account-migrations"
                                    page
-                                   migrations
+                                   (mapv migration-api/->migration-body
+                                         migrations)
                                    found))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
@@ -35,7 +38,7 @@
         result (migrations/get-migration (config request) bank-id migration-id)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body result})))
+      {:status 200 :body (migration-api/->migration-body result)})))
 
 (defn list-runs
   [request]
@@ -58,7 +61,8 @@
                                         migration-id
                                         "/previews")
                                    page
-                                   (:page windowed)
+                                   (mapv migration-api/->run-body
+                                         (:page windowed))
                                    windowed))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
@@ -78,7 +82,7 @@
                  run)]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body result})))
+      {:status 200 :body (migration-api/->run-body result)})))
 
 (defn list-run-accounts
   [request]
@@ -104,7 +108,8 @@
                                         run-id
                                         "/accounts")
                                    page
-                                   account-runs
+                                   (mapv migration-api/->account-run-body
+                                         account-runs)
                                    found))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)

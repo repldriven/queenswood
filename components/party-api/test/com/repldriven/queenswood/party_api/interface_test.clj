@@ -25,6 +25,8 @@
    :merged-into-party-id "pty.01kprbmgcj35ptc8npmybhh4sa"
    :external-reference "cust-4471"
    :created-at 1700000000000
+   :created-by {:kind :actor-kind-bank
+                :principal-id "bnk.01kprbmgcj35ptc8npmybhh4s7"}
    :updated-at 1700000000001
    :idempotency-key "5b2f0f6e-create"})
 

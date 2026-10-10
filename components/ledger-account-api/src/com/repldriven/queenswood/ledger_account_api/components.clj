@@ -31,6 +31,7 @@
    ;; Present on the list (derived server-side); absent on the single-get.
    [:posted-balance {:optional true} [:ref "SignedAmount"]]
    [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def TrialBalanceEntry

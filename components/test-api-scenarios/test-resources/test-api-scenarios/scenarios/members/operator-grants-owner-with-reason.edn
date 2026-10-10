@@ -67,7 +67,7 @@
    :assert {:status 201
             :body {:role "owner"
                    :reason "The founder has left and asked for a handover"
-                   :invited-by {:kind "operator"
+                   :created-by {:kind "operator"
                                 :principal-id "queenswood-admin"
                                 :name "Queenswood"}
                    :token [:m/absent]}}}

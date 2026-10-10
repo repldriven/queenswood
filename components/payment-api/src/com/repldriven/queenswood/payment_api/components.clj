@@ -35,6 +35,7 @@
    [:reference {:optional true} [:maybe string?]]
    [:business-day [:ref "BusinessDay"]]
    [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:maybe [:ref "Timestamp"]]]])
 
 (def OutboundPaymentStatus
@@ -76,6 +77,7 @@
    [:returned-reason-code {:optional true} string?]
    [:returned-reason {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def InboundPaymentStatus

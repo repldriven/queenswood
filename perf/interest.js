@@ -108,7 +108,7 @@ export function interest(bank) {
     5,
   );
   startedAt.add(sinceStart(run["created-at"]));
-  finishedAt.add(sinceStart(run["completed-at"] ?? run["failed-at"]));
+  finishedAt.add(sinceStart(run["updated-at"]));
   succeeded.add(run.status === "completed" ? 1 : 0);
   run.tasks.forEach((t) => {
     const tags = { task: t.label };

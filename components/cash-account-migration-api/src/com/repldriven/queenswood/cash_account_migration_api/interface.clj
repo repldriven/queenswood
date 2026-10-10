@@ -28,6 +28,35 @@
   components/registry)
 
 ;; ---
+;; bodies
+;; ---
+
+(defn ->migration-body
+  "Project a stored migration onto the keys `Migration` declares.
+
+  Args:
+  - migration: a migration as the migration brick returns it."
+  [migration]
+  (components/->migration-body migration))
+
+(defn ->run-body
+  "Project a stored run onto the keys `MigrationRun` declares.
+
+  Args:
+  - run: a migration run as the migration brick returns it."
+  [run]
+  (components/->run-body run))
+
+(defn ->account-run-body
+  "Project what a run decided about one account onto the keys
+  `MigrationAccountRun` declares.
+
+  Args:
+  - account-run: an account run as the migration brick returns it."
+  [account-run]
+  (components/->account-run-body account-run))
+
+;; ---
 ;; examples
 ;; ---
 

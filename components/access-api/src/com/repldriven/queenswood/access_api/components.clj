@@ -14,9 +14,6 @@
 (def InvitationStatus
   (coercion/invitation-status-enum-schema {:json-schema/example "pending"}))
 
-(def ActorKind
-  (coercion/actor-kind-enum-schema {:json-schema/example "member"}))
-
 (def AuditEventKind
   (coercion/audit-event-kind-enum-schema {:json-schema/example "role-changed"}))
 
@@ -24,20 +21,6 @@
   [:re
    {:title "EmailAddress" :json-schema/example "c.babbage@example.com"}
    #"^[^\s@]{1,64}@[^\s@]{1,255}$"])
-
-(def Actor
-  [:map
-   {:json-schema/example examples/Actor
-    :description
-    "Who made a change: a member by user id, or an operator by user id or
-    client id. A member, or an operator signed in as a user, is named from
-    their user record whether or not still a member, by their email when
-    the record has no name; the platform's own client is named
-    `Queenswood`. To the person an invitation was sent to, an inviter with
-    no name on record is named by the organisation."}
-   [:kind [:ref "ActorKind"]]
-   [:principal-id string?]
-   [:name string?]])
 
 (def Member
   [:map
@@ -59,6 +42,7 @@
    [:invited-by {:optional true} [:ref "Actor"]]
    [:invited-email {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def MemberList (list-schema "Member" examples/MemberList))
@@ -66,21 +50,16 @@
 (def Invitation
   [:map
    {:json-schema/example examples/Invitation
-    :description
-    "An invitation to the bank, as the bank's members see it. Once
-    accepted it names the accepting user and the address they signed in
-    with."}
+    :description "An invitation to the bank, as the bank's members see it."}
    [:invitation-id [:ref "InvitationId"]]
    [:bank-id [:ref "BankId"]]
    [:email string?]
    [:role [:ref "Role"]]
    [:status [:ref "InvitationStatus"]]
    [:expires-at [:ref "Timestamp"]]
-   [:invited-by [:ref "Actor"]]
    [:reason {:optional true} string?]
-   [:accepted-by-user-id {:optional true} [:ref "UserId"]]
-   [:accepted-email {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def InvitationList (list-schema "Invitation" examples/InvitationList))
@@ -96,8 +75,8 @@
    [:role [:ref "Role"]]
    [:status [:ref "InvitationStatus"]]
    [:expires-at [:ref "Timestamp"]]
-   [:invited-by [:ref "Actor"]]
-   [:created-at [:ref "Timestamp"]]])
+   [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]])
 
 (def RecipientInvitationList
   (list-schema "RecipientInvitation" examples/RecipientInvitationList))
@@ -144,9 +123,8 @@
 (def AuditEventList (list-schema "AuditEvent" examples/AuditEventList))
 
 (def registry
-  (components-registry [#'Actor #'AuditEvent #'AuditEventId #'AuditEventKind
-                        #'AuditEventList #'ActorKind #'ChangeRoleRequest
-                        #'CreateInvitationRequest #'EmailAddress #'Invitation
-                        #'InvitationId #'InvitationStatus #'InvitationList
-                        #'Member #'MemberList #'ReasonRequest
-                        #'RecipientInvitation #'RecipientInvitationList]))
+  (components-registry
+   [#'AuditEvent #'AuditEventId #'AuditEventKind #'AuditEventList
+    #'ChangeRoleRequest #'CreateInvitationRequest #'EmailAddress #'Invitation
+    #'InvitationId #'InvitationStatus #'InvitationList #'Member #'MemberList
+    #'ReasonRequest #'RecipientInvitation #'RecipientInvitationList]))

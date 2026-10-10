@@ -15,8 +15,8 @@
   ^{:doc
     "Malli registry of the member, invitation and audit schemas,
   keyed by the name each appears under in the document's
-  `components/schemas`: `Actor`, `AuditEvent`, `AuditEventId`,
-  `AuditEventKind`, `AuditEventList`, `ActorKind`,
+  `components/schemas`: `AuditEvent`, `AuditEventId`,
+  `AuditEventKind`, `AuditEventList`,
   `ChangeRoleRequest`, `CreateInvitationRequest`, `EmailAddress`,
   `Invitation`, `InvitationId`, `InvitationStatus`,
   `InvitationList`, `Member`, `MemberList`, `ReasonRequest`,

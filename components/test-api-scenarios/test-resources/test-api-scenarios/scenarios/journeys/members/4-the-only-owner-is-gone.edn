@@ -43,7 +43,7 @@
    :as :invitation
    :assert {:status 201
             :body {:role "owner"
-                   :invited-by {:kind "operator"
+                   :created-by {:kind "operator"
                                 :principal-id "queenswood-admin"
                                 :name "Queenswood"}}}}
   {:command :mail/await-invitation

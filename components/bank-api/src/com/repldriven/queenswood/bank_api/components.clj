@@ -65,7 +65,9 @@
       and empty when the bank has no active owner."}
      [:ref "Owner"]]]
    [:client-id [:ref "BankId"]]
+   [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def BankList (list-schema "Bank" examples/BankList))
@@ -103,6 +105,7 @@
    [:member {:optional true} [:ref "Member"]]
    [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def ChangeBankTierRequest
@@ -132,6 +135,7 @@
    [:client-secret string?]
    [:company-binding {:optional true} [:ref "CompanyBinding"]]
    [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def Provider
@@ -147,6 +151,12 @@
    [:default string?]])
 
 (def ProviderList (list-schema "Provider" examples/ProviderList))
+
+(def ^:private bank-keys (into [] (comp (filter vector?) (map first)) Bank))
+
+(defn ->body
+  [bank]
+  (select-keys bank bank-keys))
 
 (def registry
   (components-registry [#'BankStatus #'BankProviders #'CreateBankRequest #'Owner

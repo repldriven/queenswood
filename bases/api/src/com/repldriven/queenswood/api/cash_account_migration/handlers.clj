@@ -3,6 +3,8 @@
     [com.repldriven.queenswood.api.errors :as errors]
     [com.repldriven.queenswood.api.shared.actor :as shared.actor]
 
+    [com.repldriven.queenswood.cash-account-migration-api.interface :as
+     migration-api]
     [com.repldriven.queenswood.cash-account-migration.interface :as migrations]
 
     [com.repldriven.mono.error.interface :as error]
@@ -33,7 +35,7 @@
       (errors/anomaly->response result)
       {:status 201
        :headers {"Location" (migration-uri result)}
-       :body result})))
+       :body (migration-api/->migration-body result)})))
 
 (defn- transition
   [request f]
@@ -46,7 +48,7 @@
                   (shared.actor/actor auth))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body result})))
+      {:status 200 :body (migration-api/->migration-body result)})))
 
 (defn approve-migration
   "Approve a migration. Moves nothing — it makes the migration work the
@@ -79,4 +81,4 @@
        :headers {"Location" (str (migration-uri {:migration-id migration-id})
                                  "/previews/"
                                  (:run-id result))}
-       :body result})))
+       :body (migration-api/->run-body result)})))

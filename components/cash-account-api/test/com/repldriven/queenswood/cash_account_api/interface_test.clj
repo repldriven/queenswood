@@ -42,6 +42,8 @@
    :available-balance {:value 7700 :currency "GBP"}
    :transactions []
    :created-at 1700000000000
+   :created-by {:kind :actor-kind-bank
+                :principal-id "bnk.01kprbmgcj35ptc8npmybhh4s7"}
    :updated-at 1700000000001
    :idempotency-key "5b2f0f6e-open"
    :provider-account-id "va-01943b6e-7a2c-7f3d-9c1e-5b2a4d6e8f10"

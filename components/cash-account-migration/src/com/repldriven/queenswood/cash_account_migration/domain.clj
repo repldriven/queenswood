@@ -326,21 +326,25 @@
   reader wants them before any individual verdict, and totalling every
   row to find them is the expensive way."
   [run tally]
-  (utility/assoc-some (assoc run
-                             :status
-                             :cash-account-migration-run-status-completed
-                             :completed-at (utility/now))
-                      :accounts-seen (:seen tally)
-                      :accounts-moved (:moved tally)
-                      :accounts-ineligible (:ineligible tally)
-                      :accounts-failed (:failed tally)))
+  (let [now (utility/now)]
+    (utility/assoc-some (assoc run
+                               :status
+                               :cash-account-migration-run-status-completed
+                               :completed-at now
+                               :updated-at now)
+                        :accounts-seen (:seen tally)
+                        :accounts-moved (:moved tally)
+                        :accounts-ineligible (:ineligible tally)
+                        :accounts-failed (:failed tally))))
 
 (defn fail-run
   "Closes a run that could not finish. Distinct from a run that finished
   having found every account ineligible — that one decided about them
   all and succeeded."
   [run anomaly]
-  (assoc run
-         :status :cash-account-migration-run-status-failed
-         :failed-at (utility/now)
-         :failure-reason (str (error/kind anomaly))))
+  (let [now (utility/now)]
+    (assoc run
+           :status :cash-account-migration-run-status-failed
+           :failed-at now
+           :updated-at now
+           :failure-reason (str (error/kind anomaly)))))

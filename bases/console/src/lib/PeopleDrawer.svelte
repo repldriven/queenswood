@@ -431,7 +431,7 @@
         <div class="hint">{fmtFromNow(inv["expires-at"])}</div>
       </dd>
       <dt>Invited by</dt>
-      <dd>{inv["invited-by"]?.name ?? "—"}</dd>
+      <dd>{inv["created-by"]?.name ?? "—"}</dd>
       {#if inv.reason}
         <dt>Reason</dt>
         <dd>{inv.reason}</dd>

@@ -158,7 +158,7 @@
       (is (= invitation-id (get-in response [:body :invitation-id])))
       (is (=
            {:kind :actor-kind-member :principal-id user-id :name "Ada Lovelace"}
-           (get-in response [:body :invited-by]))))))
+           (get-in response [:body :created-by]))))))
 
 (deftest a-recipient-proves-by-token-hash-or-verified-email-test
   (let [seen (atom nil)

@@ -33,7 +33,6 @@
    [:capabilities [:vector [:ref "Capability"]]]
    [:limits [:vector [:ref "Limit"]]]
    [:labels [:map-of string? string?]]
-   [:archived-at {:optional true} [:ref "Timestamp"]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 

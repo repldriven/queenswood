@@ -61,7 +61,10 @@
           (dissoc :completed-at)
 
           (zero? (:failed-at run 0))
-          (dissoc :failed-at)))
+          (dissoc :failed-at)
+
+          (zero? (:updated-at run 0))
+          (dissoc :updated-at)))
 
 (defn- clean-account-run
   "`failure-reason` is set only where an account errored, and

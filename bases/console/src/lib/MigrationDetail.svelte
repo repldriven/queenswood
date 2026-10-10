@@ -280,10 +280,10 @@
       };
     }
     if (migration.status === "cancelled") {
-      const gap = daysBetween(migration.cancelledAt?.slice(0, 10), migration.dueOn);
+      const gap = daysBetween(migration.updatedAt?.slice(0, 10), migration.dueOn);
       return {
         parts: [
-          `Cancelled ${fmtDay(migration.cancelledAt?.slice(0, 10)) ?? "—"}`,
+          `Cancelled ${fmtDay(migration.updatedAt?.slice(0, 10)) ?? "—"}`,
           gap != null ? `, ${Math.abs(gap)} days ${gap >= 0 ? "before" : "after"} the due date` : "",
           ". No accounts moved.",
         ],
@@ -294,7 +294,7 @@
       return {
         parts: [
           notice != null ? `Notice ran ${notice} days. ` : "",
-          `Completed ${fmtDay(migration.completedAt?.slice(0, 10)) ?? "—"}`,
+          `Completed ${fmtDay(migration.updatedAt?.slice(0, 10)) ?? "—"}`,
           ` across ${runs.filter((r) => !r["dry-run"]).length || 1} business day(s).`,
         ],
       };
@@ -336,15 +336,15 @@
     if (migration.status === "cancelled") {
       nodes.push({
         key: "cancelled",
-        value: fmtDay(migration.cancelledAt?.slice(0, 10)),
-        day: migration.cancelledAt?.slice(0, 10),
+        value: fmtDay(migration.updatedAt?.slice(0, 10)),
+        day: migration.updatedAt?.slice(0, 10),
         cancelled: true,
       });
     } else {
       nodes.push({
         key: "completed",
-        value: fmtDay(migration.completedAt?.slice(0, 10)),
-        day: migration.completedAt?.slice(0, 10),
+        value: fmtDay(migration.updatedAt?.slice(0, 10)),
+        day: migration.updatedAt?.slice(0, 10),
       });
     }
     return nodes.map((n) => ({
@@ -611,7 +611,7 @@
             <Td mono tabular align="right" muted={!r["accounts-failed"]}>
               <span class:bad={r["accounts-failed"] > 0}>{num(r["accounts-failed"])}</span>
             </Td>
-            <Td mono tabular align="right">{fmtDuration(r["created-at"], r["completed-at"] ?? r["failed-at"])}</Td>
+            <Td mono tabular align="right">{fmtDuration(r["created-at"], r["updated-at"])}</Td>
           </Tr>
         {/each}
       </Tbody>

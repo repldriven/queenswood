@@ -65,7 +65,7 @@
              :auth :invitee-token}
    :assert {:status 200
             :body {:invitation-id [:ref :invitation :invitation-id]
-                   :invited-by {:kind "member"
+                   :created-by {:kind "member"
                                 :principal-id [:ref :owner-member :user-id]
                                 :name [:ref :owner-me :name]}}}}
   {:command :api/request

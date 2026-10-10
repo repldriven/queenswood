@@ -31,8 +31,6 @@
    [:currency [:ref "Currency"]]
    [:transaction-id {:optional true} [:ref "TransactionId"]]
    [:deferred-reason {:optional true} string?]
-   [:deferred-at {:optional true} [:ref "Timestamp"]]
-   [:paid-at {:optional true} [:ref "Timestamp"]]
    [:created-at [:ref "Timestamp"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]])
 

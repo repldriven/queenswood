@@ -120,7 +120,8 @@
     (-> (select-keys member
                      [:member-id :bank-id :user-id :role :created-at
                       :updated-at])
-        (assoc :created-organisation (nil? invitation-id))
+        (assoc :created-organisation (nil? invitation-id)
+               :created-by (names/->actor (:created-by member) names))
         (utility/assoc-some :bank-name bank-name
                             :name (:name user)
                             :email (:email user)
@@ -132,9 +133,14 @@
 (defn founding-member
   "The owner member a bank's creation writes, as `Member` shows
   it, from the `user` and the `bank` already in hand: it joined by no
-  invitation, so there is nothing more to read."
+  invitation, so there is nothing more to read: its creator is the
+  bank's, the person, named from `user`."
   [member user bank]
-  (->member member user (:name bank) nil {}))
+  (->member (assoc member :created-by (:created-by bank))
+            user
+            (:name bank)
+            nil
+            {(:user-id member) (or (not-empty (:name user)) (:email user))}))
 
 (defn- member-records
   [txn member]
@@ -156,10 +162,11 @@
   (let-nom> [records (all-or-anomaly (fn [member]
                                        (member-records txn member))
                                      found)
-             names (names/user-names (lookup txn)
-                                     (names/actor-ids
-                                      (map (comp :created-by :invitation)
-                                           records)))]
+             names (names/user-names
+                    (lookup txn)
+                    (names/actor-ids
+                     (concat (map (comp :created-by :invitation) records)
+                             (map (comp :created-by :member) records))))]
     (let [bank-names (into {}
                            (map (fn [bank-id] [bank-id
                                                (bank-name txn bank-id)]))
@@ -178,14 +185,11 @@
     (first found)))
 
 (defn- ->invitation
-  [invitation names accepted-email]
+  [invitation names]
   (-> (select-keys invitation
                    [:invitation-id :bank-id :email :role :status :expires-at
                     :reason :created-at :updated-at])
-      (assoc :invited-by (names/->actor (:created-by invitation) names))
-      (utility/assoc-some :accepted-by-user-id
-                          (get-in invitation [:accepted-by :principal-id])
-                          :accepted-email accepted-email)))
+      (assoc :created-by (names/->actor (:created-by invitation) names))))
 
 (defn- inviter-names
   [txn invitations]
@@ -194,23 +198,15 @@
 
 (defn- invitations
   [txn found]
-  (let-nom> [accepted (all-or-anomaly (fn [invitation]
-                                        (find-user txn
-                                                   (get-in invitation
-                                                           [:accepted-by
-                                                            :principal-id])))
-                                      found)
-             names (inviter-names txn found)]
-    (mapv (fn [invitation user] (->invitation invitation names (:email user)))
-          found
-          accepted)))
+  (let-nom> [names (inviter-names txn found)]
+    (mapv (fn [invitation] (->invitation invitation names)) found)))
 
 (defn- ->recipient-invitation
   [invitation bank-name names]
   (-> (select-keys invitation
                    [:invitation-id :bank-id :email :role :status :expires-at
                     :created-at])
-      (assoc :invited-by
+      (assoc :created-by
              (names/->actor (:created-by invitation)
                             names
                             (or bank-name names/platform-name)))
@@ -462,7 +458,7 @@
   [txn bank-id invitation-id]
   (let-nom> [invitation (members/find-invitation txn bank-id invitation-id)
              names (inviter-names txn [invitation])]
-    (->invitation invitation names nil)))
+    (->invitation invitation names)))
 
 (defn- invitation-change
   [request success]

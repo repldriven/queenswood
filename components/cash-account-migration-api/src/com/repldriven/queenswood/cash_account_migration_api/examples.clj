@@ -115,8 +115,8 @@
    :accounts-moved 9176
    :accounts-ineligible 412
    :accounts-failed 0
-   :completed-at "2025-01-02T02:00:30Z"
-   :created-at "2025-01-02T02:00:00Z"})
+   :created-at "2025-01-02T02:00:00Z"
+   :updated-at "2025-01-02T02:00:30Z"})
 
 (def MigrationRunList {:items [MigrationRun]})
 

@@ -396,9 +396,6 @@
                 <Td>
                   <div class="person">
                     <span class="name">{i.email}</span>
-                    {#if i["accepted-email"] && i["accepted-email"] !== i.email}
-                      <span class="mail">accepted as {i["accepted-email"]}</span>
-                    {/if}
                   </div>
                 </Td>
                 <Td><RolePill {role} /></Td>
@@ -413,8 +410,8 @@
                 </Td>
                 <Td>
                   <span class="actor">
-                    {i["invited-by"]?.name ?? "—"}
-                    {#if accessEnum(i["invited-by"]?.kind) === "operator"}<Tag tone="operator">operator</Tag>{/if}
+                    {i["created-by"]?.name ?? "—"}
+                    {#if accessEnum(i["created-by"]?.kind) === "operator"}<Tag tone="operator">operator</Tag>{/if}
                   </span>
                   <span class="sub">{fmtUtcDate(i["created-at"])}</span>
                 </Td>

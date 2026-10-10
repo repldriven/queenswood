@@ -26,6 +26,8 @@
    :invited-by Actor
    :invited-email "c.babbage@example.com"
    :created-at "2026-05-19T10:00:00Z"
+   :created-by
+   {:kind :member :principal-id invitee-user-id :name "Charles Babbage"}
    :updated-at "2026-05-19T10:00:00Z"})
 
 (def MemberList {:items [me-api/Member invited-member]})
@@ -37,17 +39,13 @@
    :role :developer
    :status :pending
    :expires-at "2026-05-25T10:00:00Z"
-   :invited-by Actor
    :reason "Joining the payments team"
    :created-at "2026-05-18T10:00:00Z"
+   :created-by Actor
    :updated-at "2026-05-18T10:00:00Z"})
 
 (def accepted-invitation
-  (assoc Invitation
-         :status :accepted
-         :accepted-by-user-id invitee-user-id
-         :accepted-email "charles@example.com"
-         :updated-at "2026-05-19T10:00:00Z"))
+  (assoc Invitation :status :accepted :updated-at "2026-05-19T10:00:00Z"))
 
 (def InvitationList {:items [Invitation accepted-invitation]})
 
@@ -59,8 +57,8 @@
    :role :developer
    :status :pending
    :expires-at "2026-05-25T10:00:00Z"
-   :invited-by Actor
-   :created-at "2026-05-18T10:00:00Z"})
+   :created-at "2026-05-18T10:00:00Z"
+   :created-by Actor})
 
 (def RecipientInvitationList {:items [RecipientInvitation]})
 

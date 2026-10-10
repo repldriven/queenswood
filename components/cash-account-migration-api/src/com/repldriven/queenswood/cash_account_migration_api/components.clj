@@ -45,10 +45,8 @@
    [:notified-on {:optional true} [:ref "BusinessDay"]]
    [:due-on {:optional true} [:ref "BusinessDay"]]
    [:created-at [:ref "Timestamp"]]
-   [:updated-at {:optional true} [:ref "Timestamp"]]
-   [:approved-at {:optional true} [:ref "Timestamp"]]
-   [:completed-at {:optional true} [:ref "Timestamp"]]
-   [:cancelled-at {:optional true} [:ref "Timestamp"]]])
+   [:created-by [:ref "Actor"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def MigrationList (list-schema "Migration" examples/MigrationList))
 
@@ -82,9 +80,9 @@
    [:accounts-moved {:optional true} nat-int?]
    [:accounts-ineligible {:optional true} nat-int?]
    [:accounts-failed {:optional true} nat-int?]
-   [:completed-at {:optional true} [:ref "Timestamp"]]
-   [:failed-at {:optional true} [:ref "Timestamp"]]
-   [:created-at [:ref "Timestamp"]]])
+   [:created-at [:ref "Timestamp"]]
+   [:created-by {:optional true} [:ref "Actor"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]])
 
 (def MigrationRunList (list-schema "MigrationRun" examples/MigrationRunList))
 
@@ -104,6 +102,28 @@
 
 (def MigrationAccountRunList
   (list-schema "MigrationAccountRun" examples/MigrationAccountRunList))
+
+(defn- declared-keys
+  [schema]
+  (into [] (comp (filter vector?) (map first)) schema))
+
+(def ^:private migration-keys (declared-keys Migration))
+
+(def ^:private run-keys (declared-keys MigrationRun))
+
+(def ^:private account-run-keys (declared-keys MigrationAccountRun))
+
+(defn ->migration-body
+  [migration]
+  (select-keys migration migration-keys))
+
+(defn ->run-body
+  [run]
+  (select-keys run run-keys))
+
+(defn ->account-run-body
+  [account-run]
+  (select-keys account-run account-run-keys))
 
 (def registry
   (components-registry [#'MigrationId #'MigrationRunId #'MigrationStatus

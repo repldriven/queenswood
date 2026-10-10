@@ -54,7 +54,7 @@
   const role = $derived(accessEnum(invitation?.role));
   const orgName = $derived(invitation?.["bank-name"] ?? "the organisation");
   const inviter = $derived(
-    invitation?.["invited-by"]?.name ?? invitation?.["bank-name"] ?? "Someone",
+    invitation?.["created-by"]?.name ?? invitation?.["bank-name"] ?? "Someone",
   );
 
   $effect(() => {
