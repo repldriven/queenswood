@@ -78,14 +78,14 @@ The same bank from your customer's side, in the
 - **Books that balance.** Every movement is recorded as matching debits and
   credits, so the books always balance, down to fractions of a penny of
   interest.
-- **Handles a challenger bank's load.** A bank of 3 million customers
-  makes about 12 payments a second, and 40 to 60 at a payday peak. On
-  three 8-vCPU cloud machines it ran 50 a second steadily and 313 at
-  peak, refusing none, with each account's payments kept in order.
-  Queries take a path of their own, so your applications read while
-  payments run: one API replica, of as many as you run, answered 300 a
-  second with 99 in 100 inside 10 ms, and 2,500 a second at its limit.
-  The figures are under
+- **Handles a challenger bank's load, and stays responsive.** A bank of 3
+  million customers makes about 12 payments a second, and 40 to 60 at a
+  payday peak. On three 8-vCPU cloud machines it ran 50 a second steadily
+  and 313 at peak, refusing none and answering 99 in 100 within 208 ms,
+  with each account's payments kept in order. Queries take a path of
+  their own beside payments: one API replica, of as many as you run,
+  answered 300 a second with 99 in 100 inside 10 ms, and 2,500 a second
+  inside 0.7 s. The figures are under
   [For site reliability engineers](#for-site-reliability-engineers).
 - **Audit and access logs.** Everyone on your team signs in as themselves
   with a role. An audit log records every change made to your bank's
