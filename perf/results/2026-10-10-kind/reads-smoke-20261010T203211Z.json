@@ -1,0 +1,62 @@
+{
+  "run": {
+    "scenario": "reads",
+    "profile": "smoke",
+    "unit": "reads",
+    "books": false,
+    "accounts": 10,
+    "history": 20,
+    "reads": [
+      "cash-accounts/{account-id}?embed[balances]",
+      "cash-accounts/{account-id}/transactions",
+      "cash-accounts/{account-id}/balances"
+    ],
+    "steps": [
+      {
+        "rate": 1,
+        "seconds": 60
+      }
+    ]
+  },
+  "headline": {
+    "reads": {
+      "cash-accounts/{account-id}?embed[balances]": {
+        "avg": 4.48,
+        "p50": 4.32,
+        "p95": 5.52,
+        "p99": 5.55,
+        "max": 5.55
+      },
+      "cash-accounts/{account-id}/transactions": {
+        "avg": 5.48,
+        "p50": 5.31,
+        "p95": 6.86,
+        "p99": 8.59,
+        "max": 9.07
+      },
+      "cash-accounts/{account-id}/balances": {
+        "avg": 4.58,
+        "p50": 4.28,
+        "p95": 6.78,
+        "p99": 7.3,
+        "max": 7.43
+      }
+    },
+    "rejected": {},
+    "dropped": 0,
+    "vus": 10,
+    "steps": [
+      {
+        "asked": 1,
+        "achieved": 1,
+        "reads": 60,
+        "failed": 0,
+        "avg": 4.89,
+        "p50": 4.61,
+        "p95": 6.85,
+        "p99": 8.1,
+        "max": 9.07
+      }
+    ]
+  }
+}
