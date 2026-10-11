@@ -1,0 +1,17 @@
+run	samples	in_flight_p50	in_flight_p99	in_flight_max	limit_p50	limit_min	limit_max
+internal challenger	60	1	1	1	200	200	200
+outbound challenger	60	1	4	6	200	200	200
+inbound challenger	60	0	0	0	200	200	200
+mixed challenger	60	1	2	2	200	200	200
+parties challenger	60	0	0	1	200	200	200
+accounts challenger	60	1	5	9	200	200	200
+reads challenger	60	0	1	1	200	200	200
+interest challenger	24	2	6	6	200	200	200
+internal knee	30	2	35	38	200	200	200
+internal hot	36	0	1	1	200	200	200
+outbound knee	36	2	179	188	200	150	200
+inbound knee	30	0	0	0	200	200	200
+mixed knee	30	3	155	161	200	150	250
+parties knee	18	2	177	182	200	150	250
+accounts knee	30	98	150	150	200	150	200
+reads knee	42	3	231	231	200	150	231

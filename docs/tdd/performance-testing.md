@@ -3,9 +3,11 @@
 > **Status: proposal.** k6 in the dev shell, the Modulr simulator, SigNoz in
 > every cluster and a chart that installs on kind and on GKE exist, and
 > Background names them. The Proposed Solution is the build list, of which
-> the first three slices in [First slice](#first-slice) are built: the
+> the first three slices in [First slice](#first-slice) are built, the
 > internal, outbound and inbound scenarios, the bank they run against and
-> the Job that runs them on kind.
+> the Job that runs them on kind, and of the fourth the run on an
+> instance, its load pool and the first published run,
+> [2026-10-11-gke](../../perf/results/2026-10-11-gke.md).
 
 ## Objective
 
@@ -828,6 +830,13 @@ holds it, and the run repeated.
   volume, and FDB at `single` with one storage process and one log and
   no stateless processes of their own, until its values state three
   brokers and `double`, which need three nodes.
+- **One API replica with one CPU is the ceiling for reads and for
+  onboarding on an instance,** and one bank's account openings are taken
+  in turn, at about 77 a second.
+  [2026-10-11-gke](../../perf/results/2026-10-11-gke.md) measured both.
+- **Every FDB process's volume is one size.** The chart states one
+  volume claim for storage and log processes alike, and a log needs a
+  fraction of what a storage process does.
 - **The platform cap ends a long run.** 100,000 payments of a kind in a
   business day is refused with 429, which 50 a second reaches in 33
   minutes; the cap is raised when a run nears it.

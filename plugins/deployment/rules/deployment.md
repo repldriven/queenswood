@@ -1247,8 +1247,9 @@ instance's backups bucket: the restore returns exactly the recorded
 version, and anything written after it goes with the volumes. Read the
 record back. Withdraw the unit's Applications and delete them while the
 instance has nodes, since an operator's finalizer needs its pod to run,
-and check no `pvc-` disk and no forwarding rule remains in the project
-before shelving: a disk and a load balancer outlive a cluster deleted
+delete the namespace's volume claims once they are gone, and check no
+`pvc-` disk and no forwarding rule remains in the project before
+shelving: a disk and a load balancer outlive a cluster deleted
 from under them. Shelve in the merge that sets `down` and carries the
 recorded point into `fdb.restore`; the XRD refuses a shelved instance that
 is not `down`, and a cluster with `retain`. Never shelve an instance

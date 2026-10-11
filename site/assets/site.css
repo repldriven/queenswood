@@ -123,7 +123,7 @@ section.dark { background: var(--ink); color: var(--bone); }
 .dark a:hover { color: var(--bone); }
 .dark .btn.line { border-color: rgba(244, 241, 234, .28); color: var(--bone); }
 .dark .btn.line:hover { background: rgba(244, 241, 234, .08); color: var(--bone); }
-.dark .more-links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 48px; }
+.more-links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 48px; }
 pre.code { font-family: var(--mono); font-size: 13.5px; line-height: 1.65; background: #0e0c0a; color: var(--bone); border-radius: 12px; padding: 26px 28px; margin: 0; overflow-x: auto; border: 1px solid rgba(244, 241, 234, .1); }
 pre.code .c { color: #8a8377; }
 

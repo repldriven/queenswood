@@ -4,12 +4,11 @@
 
 ## Status
 
-**Untested.** Written before any run on an instance. The run is
-`perf-run` as it runs on kind, described in
-[performance-testing](../../tdd/performance-testing.md); the operator
-client is created and deleted through Keycloak's admin API as the
-bootstrap Job reaches it, and those calls were exercised against a local
-Keycloak 26.7 on 2026-10-11, its token carrying the `admin` realm role.
+**Verified** on 2026-10-11, running every scenario at every profile
+against one installation's test instance with a load pool: each run
+created its operator client, ran its Job on the load node and deleted
+the client after. The results are `perf/results/2026-10-11-gke.md`,
+linked from [performance-testing](../../tdd/performance-testing.md).
 
 ## Problem
 

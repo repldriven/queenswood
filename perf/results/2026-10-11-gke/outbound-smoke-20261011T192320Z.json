@@ -1,0 +1,58 @@
+{
+  "run": {
+    "scenario": "outbound",
+    "profile": "smoke",
+    "accounts": 10,
+    "steps": [
+      {
+        "rate": 1,
+        "seconds": 60
+      }
+    ],
+    "follow": 20
+  },
+  "headline": {
+    "payments": 60,
+    "rejected": {},
+    "dropped": 0,
+    "vus": 10,
+    "settlement": {
+      "followed": 3,
+      "unsettled": {
+        "returned": 0,
+        "timeout": 0,
+        "failed": 0
+      },
+      "avg": 317.67,
+      "p50": 304,
+      "p95": 341.8,
+      "p99": 345.16,
+      "max": 346
+    },
+    "books": {
+      "injected": 15400,
+      "in": 0,
+      "out": 2947,
+      "expected": 12453,
+      "cash": 12453,
+      "controls": 12453,
+      "provider": 12453,
+      "trialBalanceTied": true,
+      "settleS": 10.09,
+      "held": true
+    },
+    "steps": [
+      {
+        "asked": 1,
+        "achieved": 1,
+        "payments": 60,
+        "failed": 0,
+        "avg": 49.59,
+        "p50": 46.39,
+        "p95": 78.77,
+        "p99": 113,
+        "max": 138.76
+      }
+    ]
+  }
+}

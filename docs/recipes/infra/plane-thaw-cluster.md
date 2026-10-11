@@ -4,10 +4,9 @@
 
 ## Status
 
-**Untested.** Derived from
-[plane-freeze-cluster](plane-freeze-cluster.md), which it reverses, and
-from [plane-rebuild-cluster](plane-rebuild-cluster.md)
-step 7, which checks a plane holds what it held.
+**Verified** on 2026-10-11, thawing one installation's plane frozen
+since 2026-09-26: the plane settled within fifteen minutes of the
+resize, and both diffs against the freeze's record were empty.
 
 ## Problem
 

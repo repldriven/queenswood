@@ -1,0 +1,46 @@
+{
+  "run": {
+    "scenario": "mixed",
+    "profile": "smoke",
+    "accounts": 10,
+    "steps": [
+      {
+        "rate": 1,
+        "seconds": 60
+      }
+    ],
+    "follow": 20,
+    "outboundShare": 0.5
+  },
+  "headline": {
+    "payments": 59,
+    "rejected": {},
+    "dropped": 0,
+    "vus": 10,
+    "books": {
+      "injected": 15400,
+      "in": 0,
+      "out": 1170,
+      "expected": 14230,
+      "cash": 14230,
+      "controls": 14230,
+      "provider": 14230,
+      "trialBalanceTied": true,
+      "settleS": 5.07,
+      "held": true
+    },
+    "steps": [
+      {
+        "asked": 1,
+        "achieved": 0.98,
+        "payments": 59,
+        "failed": 0,
+        "avg": 41.82,
+        "p50": 39.99,
+        "p95": 50.92,
+        "p99": 66.47,
+        "max": 83.25
+      }
+    ]
+  }
+}

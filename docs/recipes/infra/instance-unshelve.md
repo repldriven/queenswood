@@ -7,7 +7,8 @@
 **Verified** on 2026-09-26, unshelving one installation's test
 instance: the cluster was `RUNNING` about ten minutes after the plane
 read the merge, the restore completed at the recorded version, and
-every record, both banks included, came back.
+every record, both banks included, came back. Unshelved empty twice on
+2026-10-11, the second time onto another machine type.
 
 ## Problem
 
