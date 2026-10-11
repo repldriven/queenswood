@@ -79,12 +79,13 @@ The same bank from your customer's side, in the
   credits, so the books always balance, down to fractions of a penny of
   interest.
 - **Handles a challenger bank's load, and stays responsive.** A bank of 3
-  million customers makes about 12 payments a second, and 40 to 60 at a
-  typical peak. On three modest cloud machines it ran 50 a second
-  steadily and 313 at peak. It refused none, answered nearly all within a
-  fifth of a second, and kept each account's payments in order. It also
-  answered 300 queries a second from your applications within a hundredth
-  of a second, and 2,500 a second within a second. The figures are under
+  million customers makes 10 to 20 payments a second, and three to five
+  times that at a typical peak. On three modest cloud machines it ran 50
+  a second steadily and 313 at peak. It refused none, answered nearly all
+  within a fifth of a second, and kept each account's payments in order.
+  It also answered 300 queries a second from your applications within a
+  hundredth of a second, and 2,500 a second within a second. The figures
+  are under
   [For site reliability engineers](#for-site-reliability-engineers).
 - **Audit and access logs.** Everyone on your team signs in as themselves
   with a role. An audit log records every change made to your bank's

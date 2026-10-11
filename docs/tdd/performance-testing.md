@@ -142,11 +142,15 @@ against a provider's own sandbox.
 ### Reference rates
 
 A run's figures are read against what a bank of a given size makes at its
-peak. At about 0.3 transfers a customer a day, a bank of 3 million
-customers makes around a million payments a day, 12 a second on average,
-and 40 to 60 a second at a payday peak of three to five times that; a bank
-of 100 million makes around 2,000 a second at its peak. Three readings
-follow from them:
+peak. Faster Payments carried 5.5 billion payments in 2025, by
+[Pay.UK's annual report](https://www.wearepay.uk/pay-uk-publishes-2025-annual-report/),
+about 175 a second across the United Kingdom and 100 a year, or 0.3 a
+day, for each of its roughly 55 million adults. A bank of 3 million
+customers so sends around a million payments a day, 10 a second on
+average, and receives about as many: 10 to 20 a second, and 30 to 100 at
+a peak of three to five times that, a multiple this design assumes. A
+bank of 100 million makes around 2,000 a second at its peak. Three
+readings follow from them:
 
 - **Challenger.** 50 payments a second sustained for an hour, then 150 a
   second for five minutes, with internal and outbound mixed.
