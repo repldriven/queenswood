@@ -3,7 +3,8 @@
 Deploys the full Queenswood core-banking platform on
 Kubernetes:
 
-- **Apache Kafka** (single-broker KRaft, dev-grade; set
+- **Apache Kafka** (KRaft; one broker by default, a
+  replicating cluster with `kafka.replicas: 3`, or set
   `kafka.enabled=false` for an external broker)
 - **FoundationDB** cluster managed by the FDB Kubernetes
   operator (subchart provides the operator + CRDs; this
@@ -132,10 +133,16 @@ failing.
   `initContainer` polls for the FDB-operator-written
   ConfigMap. The first install may take several minutes
   for the operator to provision FDB.
-- **Kafka dev broker**: single-broker KRaft, ephemeral (no
-  persistence). Set `kafka.enabled=false` and
-  `kafka.bootstrapServers` for an external broker in
-  production.
+- **Kafka**: one KRaft broker with no volume by default, so
+  a restart loses its topics. `kafka.replicas: 3` keeps
+  every topic on three brokers and waits on two, and
+  `kafka.storage.size` gives each a volume. Neither may be
+  changed on a running cluster. Set `kafka.enabled=false`
+  and `kafka.bootstrapServers` for an external broker.
+- **FoundationDB redundancy**: `fdb.redundancyMode` is
+  `single` by default, one copy of the data. `double`
+  needs three nodes and `triple` five, since each copy
+  and each coordinator sits on a node of its own.
 - **Bootstrap RBAC**: the chart binds a
   `get/watch/list jobs` Role to the namespace's `default`
   ServiceAccount so service init containers can poll the

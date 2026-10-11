@@ -123,6 +123,19 @@ perf-run scenario="internal" profile="smoke" rate="" duration="" accounts="" fro
     export PERF_NODE_SELECTOR='{{ PERF_NODE_SELECTOR }}'
     envsubst '$K6_IMAGE $PERF_OPERATOR_SECRET $PERF_NODE_SELECTOR' < infra/perf/k6-job.yaml | kubectl apply -f -
     echo "running $NAME on $K6_IMAGE"
+    SCHEDULED=""
+    for i in $(seq 1 60); do
+      SCHEDULED=$(kubectl -n {{ PERF_NAMESPACE }} get pods -l job-name=queenswood-perf \
+        -o jsonpath='{.items[0].status.conditions[?(@.type=="PodScheduled")].status}' 2>/dev/null || true)
+      if [[ "$SCHEDULED" == "True" ]]; then break; fi
+      sleep 1
+    done
+    if [[ "$SCHEDULED" != "True" ]]; then
+      WHY=$(kubectl -n {{ PERF_NAMESPACE }} get pods -l job-name=queenswood-perf \
+        -o jsonpath='{.items[0].status.conditions[?(@.type=="PodScheduled")].message}' 2>/dev/null || true)
+      echo "the Job's pod was not scheduled within a minute: $WHY" >&2
+      exit 1
+    fi
     while true; do
       kubectl -n {{ PERF_NAMESPACE }} logs -f job/queenswood-perf \
         --pod-running-timeout=5m > target/perf/$NAME.log || true

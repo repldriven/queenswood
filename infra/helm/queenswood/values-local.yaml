@@ -71,6 +71,14 @@ fdb:
     grv_proxies: 1
     resolvers: 1
 
+# The operator reconciles the cluster and then idles. Its chart reserves
+# half a core, which kind's one node needs for the load test's Job once
+# three brokers and thirteen FDB processes have their share.
+fdbOperator:
+  resources:
+    requests:
+      cpu: 100m
+
 # Three brokers, every topic kept on all three and a send waiting on two,
 # each with a volume, as a deployment on three nodes runs. On kind's one
 # node they share it.
