@@ -422,14 +422,13 @@ sets it up.
 - **Scheduled jobs.** End-of-day processing and every other job run on a
   schedule you read and change through the API and the console, and each run
   is recorded.
-- **Measured under load.** Release 0.0.9 on Google Cloud, on three nodes
-  of eight vCPUs with FoundationDB keeping two copies of the data and Kafka
-  three, held 50 payments a second for ten minutes with none failed, a
-  median of 25 ms and a 99th percentile near 50 ms, and took 313 payments
-  between accounts a second with none refused. The books balanced to the
-  penny after every run.
-  [The results](perf/results/2026-10-11-gke.md) give every scenario, its
-  ceiling and what set it.
+- **Measured under load.** Release 0.0.9 was load-tested on Google Cloud
+  as a single-zone install runs it: three eight-vCPU nodes, FoundationDB
+  keeping two copies of the data and three Kafka brokers keeping three. It
+  held 50 payments a second at a median of 25 ms and a 99th percentile
+  near 50 ms, and reached 313 a second with none refused, the books
+  balancing to the penny. See
+  [the results](perf/results/2026-10-11-gke.md).
 - **Scaling.** Services run as many replicas as you give them, except the
   dispatcher that owns every changelog cursor and scheduled trigger, which
   runs as exactly one.
