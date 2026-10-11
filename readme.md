@@ -84,7 +84,9 @@ The same bank from your customer's side, in the
   a second steadily and 313 at peak. It refused none, answered nearly all
   within a fifth of a second, and kept each account's payments in order.
   Your applications' queries came back in under 10 milliseconds at 300 a
-  second, and in under a second at 2,500. The figures are under
+  second, and in under a second at 2,500. Simulators stood in for the
+  payment and identity providers, so these are the platform's figures,
+  not a real provider's. The figures are under
   [For site reliability engineers](#for-site-reliability-engineers).
 - **Audit and access logs.** Everyone on your team signs in as themselves
   with a role. An audit log records every change made to your bank's
@@ -452,7 +454,9 @@ sets it up.
   25 ms, p99 50 ms. Peak load, 313 payments/s: none refused, p50 82 ms,
   p99 208 ms. Queries on one API replica: 313/s at p50 5 ms, p99 9 ms,
   and 2,500/s at its limit with under 1% refused. The ledger balanced to
-  the penny after every run. See
+  the penny after every run. The payment and identity providers were
+  their simulators, in the same cluster, so no figure includes a real
+  provider's latency or limits. See
   [full results](perf/results/2026-10-11-gke.md).
 - **Scaling.** Services run as many replicas as you give them, except the
   dispatcher that owns every changelog cursor and scheduled trigger, which
