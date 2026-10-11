@@ -20,6 +20,7 @@
   optional `ref`, a request id, idempotency key or correlation id, which
   narrows the log to the calls that carried it, and an optional `tag`,
   the OpenAPI tags whose operations to list, sent comma-separated and
-  decoded to a vector of strings."}
+  decoded to a vector of strings, and an optional `from` and `to`, RFC
+  3339 timestamps decoded to epoch milliseconds, `from` before `to`."}
   access-log-query
   components/AccessLogQuery)

@@ -1,11 +1,13 @@
-{:name "The audit log pages newest first, by every kind or a set of them and by the kinds of performer, and its pages add up to the list"
+{:name "The audit log pages newest first, by every kind or a set of them, by the kinds of performer and by a date range, and its pages add up to the list"
  ;; Seven events at two a page: the bank's creation and the owner's
  ;; invitation (one transaction), the owner's acceptance, then a
  ;; member's invitation, acceptance, role change and removal. The
  ;; unpaged read is the reference each page is compared against, and
  ;; the two invitation kinds, three a page, page through their own four,
  ;; and the operator's acts, or a member's and the bank's of two kinds,
- ;; read alone.
+ ;; read alone, as are the acts between two of the entries' own times; a
+ ;; date with no time, and a range that ends before it starts, are
+ ;; refused.
  :given
  [{:command :auth/mint-user-token
    :realm :queenswood
@@ -206,4 +208,31 @@
    {:status 200
     :body {:items [:m/equals
                    [[:ref :all :items 2] [:ref :all :items 4]]]
-           :links [:m/absent]}}}]}
+           :links [:m/absent]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-log"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"from" [:ref :all :items 4 :performed-at]
+                            "to" [:ref :all :items 1 :performed-at]}}
+   :assert
+   {:status 200
+    :body {:items [:m/equals
+                   [[:ref :all :items 2] [:ref :all :items 3]
+                    [:ref :all :items 4]]]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-log"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"from" "2026-10-10"}}
+   :assert {:status 400}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-log"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"from" "2026-10-10T15:00:00Z"
+                            "to" "2026-10-10T14:00:00Z"}}
+   :assert {:status 400}}]}

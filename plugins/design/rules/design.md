@@ -223,7 +223,8 @@ references and tags through `access-log/delete-before` by a system job, the
 only deletion either allows. Serve them at `GET /v1/bank/audit-log`,
 which takes a set of kinds and of performers' kinds, and
 `GET /v1/bank/access-log`, which takes a reference and a set of tags,
-an operator any bank's. Assert in the API scenario runner that every
+each also a range of instants whose ends a binary search of the bank's
+log by each entry's own time finds, an operator any bank's. Assert in the API scenario runner that every
 successful write call that was not a replay left an audit entry under
 its request id, except a retry after a lost reply and a step marked
 `:audited false` because its write changes nothing. Remove a transition's `_at` and `_by` pair once its act

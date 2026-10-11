@@ -23,6 +23,7 @@
   optional `kind`, the kinds of act to list, sent comma-separated and
   decoded to a vector of `:audit-kind-*` keywords, and an optional
   `performed-by-kind`, the kinds of performer to list, decoded the same
-  way to `:actor-kind-*` keywords."}
+  way to `:actor-kind-*` keywords, and an optional `from` and `to`, RFC
+  3339 timestamps decoded to epoch milliseconds, `from` before `to`."}
   audit-log-query
   components/AuditEntryQuery)

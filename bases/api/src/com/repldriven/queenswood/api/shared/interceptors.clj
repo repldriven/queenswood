@@ -109,7 +109,7 @@
         :correlation-id (or (get headers "correlation-id")
                             (get headers "idempotency-key"))
         :trace-id (trace-id)
-        :requested-at (utility/now)
+        :requested-at (::requested-at ctx)
         :requested-by (actor/actor auth)
         :method (str/upper-case (name request-method))
         :route (:template match)
@@ -133,7 +133,8 @@
   on, writes none. The entry is queued and written off the request's
   thread."
   {:name ::access-entry
-   :enter (fn [ctx] (assoc ctx ::started (utility/nanos)))
+   :enter (fn [ctx]
+            (assoc ctx ::requested-at (utility/now) ::started (utility/nanos)))
    :leave (fn [ctx] (record-access ctx (:response ctx)) ctx)
    :error (fn [ctx] (record-access ctx {:status 500}) ctx)})
 

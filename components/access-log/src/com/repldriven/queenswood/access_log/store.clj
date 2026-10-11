@@ -3,7 +3,8 @@
     [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.schema.interface :as schema]
 
-    [com.repldriven.mono.error.interface :as error]))
+    [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (def ^:private log "access")
 
@@ -26,8 +27,6 @@
   (distinct (keep entry [:request-id :idempotency-key :correlation-id])))
 
 (defn- index-keys
-  "The empty keys beside an entry: one for each distinct reference the
-  call carried and one for its tag."
   [{:keys [bank-id tag] :as entry}]
   (cond-> (mapv (fn [ref] [by-ref bank-id ref]) (refs entry))
           tag
@@ -55,33 +54,53 @@
                     :value (fdb/load-appended txn [log bank-id] versionstamp)}))
         entries))
 
+(defn- bounds
+  [txn bank-id from to]
+  (let [reached (fn [instant]
+                  (fdb/seek-appended txn
+                                     [log bank-id]
+                                     (fn [value]
+                                       (>= (:requested-at
+                                            (schema/pb->AccessEntry value))
+                                           instant))))
+        lower (when from (reached from))]
+    (if (and from (nil? lower))
+      :none
+      (utility/assoc-some {} :from lower :until (when to (reached to))))))
+
 (defn list-by-bank
-  [txn bank-id ref tags opts]
-  (let [opts (assoc opts :order :desc)
-        tagged? (fn [entry] (contains? (set tags) (:tag entry)))]
+  [txn bank-id ref tags from to opts]
+  (let [tagged? (fn [entry] (contains? (set tags) (:tag entry)))]
     (fdb/transact
      txn
      (fn [txn]
-       (cond ref
-             (update (fdb/scan-appended txn [by-ref bank-id ref] opts)
-                     :entries
-                     (fn [found]
-                       (cond->> (loaded txn bank-id found)
-                         (seq tags)
-                         (filterv tagged?))))
+       (let [range (bounds txn bank-id from to)
+             opts (cond-> (assoc opts :order :desc)
+                          (map? range)
+                          (merge range))]
+         (cond (= :none range)
+               {:entries []}
 
-             (seq tags)
-             (update (fdb/scan-appended-union
-                      txn
-                      (mapv (fn [tag] [by-tag bank-id tag]) (distinct tags))
-                      opts)
-                     :entries
-                     (partial loaded txn bank-id))
+               ref
+               (update (fdb/scan-appended txn [by-ref bank-id ref] opts)
+                       :entries
+                       (fn [found]
+                         (cond->> (loaded txn bank-id found)
+                           (seq tags)
+                           (filterv tagged?))))
 
-             :else
-             (update (fdb/scan-appended txn [log bank-id] opts)
-                     :entries
-                     (partial mapv decoded))))
+               (seq tags)
+               (update (fdb/scan-appended-union
+                        txn
+                        (mapv (fn [tag] [by-tag bank-id tag]) (distinct tags))
+                        opts)
+                       :entries
+                       (partial loaded txn bank-id))
+
+               :else
+               (update (fdb/scan-appended txn [log bank-id] opts)
+                       :entries
+                       (partial mapv decoded)))))
      :access-log/list
      "Failed to list access entries")))
 

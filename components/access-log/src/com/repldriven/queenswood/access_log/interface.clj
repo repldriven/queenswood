@@ -22,8 +22,8 @@
   - entry: `{:bank-id :request-id :idempotency-key :correlation-id
     :trace-id :requested-at :requested-by :method :route :operation-id
     :tag :path-ids :http-status :problem-type :replayed :client-address
-    :duration}`, `:requested-by` an actor, `:tag` the operation's OpenAPI
-    tag, `:path-ids` the route's path parameters and `:duration` in
+    :duration}`, `:requested-at` when the call arrived, `:requested-by`
+    an actor, `:tag` the operation's OpenAPI tag, `:path-ids` the route's path parameters and `:duration` in
     microseconds. The idempotency key and correlation id are cut to 255
     characters."
   [writer entry]
@@ -44,13 +44,18 @@
   Args:
   - txn: a Txn or `{:record-db :record-store}` config.
   - bank-id: the bank.
-  - opts: `{:limit :after :before :ref :tags}`, the cursors access
-    entry ids, `:ref` a request id, idempotency key or correlation id,
-    which narrows the page to the calls that carried it, and `:tags` the
-    OpenAPI tags whose operations to keep, every one when empty. A page
-    across several tags reads each tag's calls and merges them, a read
-    per tag; with `:ref`, the tags filter the calls that carried it, so
-    such a page may hold fewer than `:limit`."
+  - opts: `{:limit :after :before :ref :tags :from :to}`, the cursors
+    access entry ids, `:ref` a request id, idempotency key or
+    correlation id, which narrows the page to the calls that carried it,
+    `:tags` the OpenAPI tags whose operations to keep, every one when
+    empty, and `:from` and `:to` epoch milliseconds, the calls requested
+    from `:from` and before `:to`. A page across several tags reads each
+    tag's calls and merges them, a read per tag; with `:ref`, the tags
+    filter the calls that carried it, so such a page may hold fewer than
+    `:limit`. A date range is found by a binary search of the log by
+    each entry's `:requested-at`, in the order entries were written, so
+    a long call or one whose clock ran behind may fall just inside or
+    outside an edge."
   [txn bank-id opts]
   (core/list-by-bank txn bank-id opts))
 

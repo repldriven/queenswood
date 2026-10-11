@@ -410,8 +410,10 @@
   Args:
   - txn: an open Txn.
   - parts: the key parts entries were appended under.
-  - opts: `{:after :before :limit :order}`, `:order` `:asc` (default) or
-    `:desc`, newest first."
+  - opts: `{:after :before :limit :order :from :until}`, `:order` `:asc`
+    (default) or `:desc`, newest first, and `:from` and `:until` the
+    versionstamps bounding the scan, `:from` inclusive and `:until`
+    exclusive, as `seek-appended` finds them."
   [txn parts opts]
   (appended/scan (:context txn) (:prefix txn) parts opts))
 
@@ -426,9 +428,25 @@
   Args:
   - txn: an open Txn.
   - parts-list: the key parts of each range, such as one per kind.
-  - opts: `{:after :before :limit}`."
+  - opts: `{:after :before :limit :from :until}`, as `scan-appended`
+    takes them."
   [txn parts-list opts]
   (appended/scan-union (:context txn) (:prefix txn) parts-list opts))
+
+(defn seek-appended
+  "The versionstamp of the first entry under `parts` that `reached?`
+  holds for, its 12 bytes, or nil where it holds for none: a binary
+  search of the entries in commit order, a one-key read a step, so
+  `reached?` must hold for every entry after the first it holds for, as
+  `at or after an instant` does for a log whose entries carry the time
+  they were written. A snapshot read.
+
+  Args:
+  - txn: an open Txn.
+  - parts: the key parts entries were appended under.
+  - reached?: a function of an entry's value bytes."
+  [txn parts reached?]
+  (appended/seek (:context txn) (:prefix txn) parts reached?))
 
 (defn load-appended
   "The value `append` wrote under `parts` at `versionstamp`, its 12

@@ -200,6 +200,49 @@
                  _ (testing "kinds and performer kinds narrow together"
                      (is (= ["3" "1"] (ids both))))]))))
 
+(deftest date-range-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.dates"
+         ids (fn [page]
+               (mapv (comp :member-id :after :changeset) (:audit-entries page)))
+         list (fn [opts]
+                (SUT/list-by-bank config bank-id (merge {:limit 10} opts)))]
+     (nom-test> [_ (fdb/transact
+                    config
+                    (fn [txn]
+                      (doseq [n (range 6)]
+                        (SUT/record txn
+                                    (assoc (of-kind bank-id
+                                                    (if (even? n)
+                                                      :audit-kind-member-removed
+                                                      :audit-kind-member-left)
+                                                    n)
+                                           :performed-at
+                                           (+ 1000 (* 10 n)))))))
+                 bounded (list {:from 1010 :to 1040})
+                 _ (is (= ["3" "2" "1"] (ids bounded))
+                       "from is inclusive and to exclusive")
+                 since (list {:from 1035})
+                 _ (is (= ["5" "4"] (ids since)) "from alone is since")
+                 until (list {:to 1020})
+                 _ (is (= ["1" "0"] (ids until)) "to alone is until")
+                 kinds (list {:from 1010
+                              :to 1050
+                              :kinds [:audit-kind-member-removed]})
+                 _ (is (= ["4" "2"] (ids kinds)) "kinds apply inside the range")
+                 first-page (list {:from 1000 :to 1050 :limit 2})
+                 next-page
+                 (list
+                  {:from 1000 :to 1050 :limit 2 :after (:after first-page)})
+                 _ (testing "pages stay inside the range"
+                     (is (= ["4" "3"] (ids first-page)))
+                     (is (= ["2" "1"] (ids next-page))))
+                 later (list {:from 2000})
+                 _ (is (empty? (:audit-entries later))
+                       "nothing performed after the newest")]))))
+
 (deftest changeset-leaves-out-test
   (with-test-system
    [sys config-file]

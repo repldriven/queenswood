@@ -442,3 +442,94 @@
                                  (:entries indexed))))
                  _ (is (= ["c" "b"] loaded)
                        "an index entry's versionstamp loads its entry")]))))
+
+(deftest appended-range-test
+  (with-test-system
+   [sys "classpath:fdb/application-test.yml"]
+   (let [config {:record-db (system/instance sys [:fdb :record-db])
+                 :record-store (system/instance sys [:fdb :pet-store])}
+         log ["appended-range-test" "log"]
+         odd ["appended-range-test" "odd"]
+         even ["appended-range-test" "even"]
+         append (fn [ns]
+                  (SUT/transact config
+                                (fn [txn]
+                                  (doseq [n ns]
+                                    (SUT/append txn
+                                                [log (if (odd? n) odd even)]
+                                                (.getBytes (str n)))))))
+         in-txn (fn [f] (SUT/transact config f))
+         number (fn [value] (parse-long (String. ^bytes value)))
+         at-least (fn [n] (fn [value] (>= (number value) n)))
+         seek (fn [n]
+                (in-txn (fn [txn] (SUT/seek-appended txn log (at-least n)))))
+         numbers (fn [{:keys [entries]}] (mapv (comp number :value) entries))]
+     (nom-test> [_ (append [1 2])
+                 _ (append [3])
+                 _ (append [4 5 6])
+                 _ (append [7])
+                 _ (append [8 9])
+                 from (seek 3)
+                 until (seek 7)
+                 _ (testing "seek finds the first entry a predicate reaches"
+                     (is (= "3"
+                            (String. ^bytes
+                                     (in-txn
+                                      (fn [txn]
+                                        (SUT/load-appended txn log from))))))
+                     (is (= "7"
+                            (String. ^bytes
+                                     (in-txn
+                                      (fn [txn]
+                                        (SUT/load-appended txn log until)))))))
+                 bounded (in-txn
+                          (fn [txn]
+                            (SUT/scan-appended
+                             txn
+                             log
+                             {:limit 20 :order :desc :from from :until until})))
+                 _ (is (= [6 5 4 3] (numbers bounded))
+                       "from is inclusive and until exclusive")
+                 first-page
+                 (in-txn (fn [txn]
+                           (SUT/scan-appended
+                            txn
+                            log
+                            {:limit 2 :order :desc :from from :until until})))
+                 next-page (in-txn (fn [txn]
+                                     (SUT/scan-appended txn
+                                                        log
+                                                        {:limit 2
+                                                         :order :desc
+                                                         :from from
+                                                         :until until
+                                                         :after (:after
+                                                                 first-page)})))
+                 _ (testing "pages stay inside the bounds"
+                     (is (= [6 5] (numbers first-page)))
+                     (is (= [4 3] (numbers next-page)))
+                     (is (nil? (:after next-page))))
+                 union (in-txn (fn [txn]
+                                 (SUT/scan-appended-union
+                                  txn
+                                  [odd even]
+                                  {:limit 20 :from from :until until})))
+                 _ (is (= 4 (count (:entries union)))
+                       "a union is bounded the same way")
+                 _ (is (nil? (seek 10)) "nothing reaches past the newest")
+                 oldest (seek 0)
+                 _ (is (= "1"
+                          (String. ^bytes
+                                   (in-txn
+                                    (fn [txn]
+                                      (SUT/load-appended txn log oldest))))))
+                 id (SUT/appended-id "tst." from)
+                 _ (is (= (seq from)
+                          (seq (SUT/appended-versionstamp "tst." id)))
+                       "an id decodes to its versionstamp")
+                 _ (in-txn (fn [txn]
+                             (SUT/clear-appended-through txn log until)))
+                 rest (in-txn (fn [txn]
+                                (SUT/scan-appended txn log {:limit 20})))
+                 _ (is (= [8 9] (numbers rest))
+                       "clearing through a versionstamp keeps what follows")]))))

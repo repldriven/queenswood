@@ -190,6 +190,25 @@
    :schema {:type "array" :items {:type "string" :minLength 1 :maxLength 64}}
    :example "Payments,Cash Accounts"})
 
+(def FromQuery
+  "`from` query parameter on a log: the instant its entries are listed
+  from, inclusive, an RFC 3339 timestamp with a time and an offset."
+  {:name "from"
+   :in "query"
+   :required false
+   :schema {:type "string" :format "date-time"}
+   :example "2026-10-10T14:00:00Z"})
+
+(def ToQuery
+  "`to` query parameter on a log: the instant its entries are listed
+  before, exclusive, an RFC 3339 timestamp with a time and an offset,
+  after `from`."
+  {:name "to"
+   :in "query"
+   :required false
+   :schema {:type "string" :format "date-time"}
+   :example "2026-10-10T15:00:00Z"})
+
 (def PerformedByKindQuery
   "`performed-by-kind` query parameter on the audit log: the kinds of
   performer to list, comma-separated, every kind when absent."
@@ -237,6 +256,8 @@
 (def ref-audit-kind {:$ref "#/components/parameters/AuditKindQuery"})
 (def ref-access-ref {:$ref "#/components/parameters/AccessRefQuery"})
 (def ref-access-tag {:$ref "#/components/parameters/AccessTagQuery"})
+(def ref-from {:$ref "#/components/parameters/FromQuery"})
+(def ref-to {:$ref "#/components/parameters/ToQuery"})
 (def ref-performed-by-kind
   {:$ref "#/components/parameters/PerformedByKindQuery"})
 (def ref-inbound-payment-status
@@ -250,6 +271,8 @@
    "AuditKindQuery" AuditKindQuery
    "AccessRefQuery" AccessRefQuery
    "AccessTagQuery" AccessTagQuery
+   "FromQuery" FromQuery
+   "ToQuery" ToQuery
    "PerformedByKindQuery" PerformedByKindQuery
    "EmbedQuery" EmbedQuery
    "PartyEmbedQuery" PartyEmbedQuery

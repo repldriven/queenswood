@@ -30,13 +30,19 @@
                           "idempotency key or correlation id, and `tag` "
                           "only the calls to the operations of the tags it "
                           "names; with `ref`, a page may hold fewer calls "
-                          "than its size. A call that "
+                          "than its size. `from` and `to` list only the "
+                          "calls requested from `from` and before `to`, "
+                          "found in the order calls were logged, so a long "
+                          "call may fall just either side of an edge. A "
+                          "call that "
                           "named no bank, was not authenticated or failed "
                           "validation is not logged, and entries expire "
                           "after the period the installation sets.")
                      :parameters ^:replace
                                  [shared.parameters/ref-access-ref
                                   shared.parameters/ref-access-tag
+                                  shared.parameters/ref-from
+                                  shared.parameters/ref-to
                                   shared.parameters/ref-page
                                   shared.parameters/ref-bank-id-header]}
            :parameters {:query access-log-api/access-log-query}

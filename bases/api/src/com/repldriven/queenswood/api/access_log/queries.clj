@@ -33,7 +33,7 @@
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [page ref tag]} (:query parameters)
+        {:keys [page ref tag from to]} (:query parameters)
         txn (config request)
         result (let-nom>
                  [_ (banks/get-bank txn bank-id)
@@ -42,7 +42,9 @@
                          bank-id
                          (assoc (cursor/page-opts page)
                                 :ref ref
-                                :tags tag))
+                                :tags tag
+                                :from from
+                                :to to))
                   named (named-access-entries txn (:access-entries found))]
                  (cursor/page-body (cursor/request-path request)
                                    page

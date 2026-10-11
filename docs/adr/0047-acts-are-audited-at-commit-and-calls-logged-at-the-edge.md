@@ -135,8 +135,13 @@ The decision has these parts:
 - Serve a bank its own entries at `GET /v1/bank/audit-log`, which
   takes a set of kinds and a set of performers' kinds, and
   `GET /v1/bank/access-log`, which takes a reference and a set of
-  tags, and an operator any bank's, each actor named on read as the
-  access routes name one today.
+  tags, each also taking a range of instants, and an operator any
+  bank's, each actor named on read as the access routes name one
+  today.
+- Find a range's ends by a binary search of the bank's log by each
+  entry's own time, `performed_at` or `requested_at`, and read every
+  range between the versionstamps it finds, so a date range needs no
+  index of its own and applies to every other filter.
 - Assert in the API scenario runner, after each step, that every
   successful write call that was not a replay left at least one audit
   entry under its request id, exempting a retry after a lost reply,
@@ -174,9 +179,13 @@ Harder:
   conflicting with nothing: a payment a bank submits through the API
   is the busiest, measured with the perf suite before and after.
 - The log reads newest first by bank, by subject, by a set of kinds or
-  performers' kinds, or by both, and nothing else: a page reads one
-  range per kind, per performer's kind or per pair of the two, and a
-  filter on anything in a changeset, a date or one person would scan.
+  performers' kinds, or by both, within a range of instants, and
+  nothing else: a page reads one range per kind, per performer's kind
+  or per pair of the two, a range's ends cost a binary search each, and
+  a filter on anything in a changeset or on one person would scan.
+- A range's ends are found in commit order by times each process's
+  clock wrote, so an entry whose clock ran behind another's, or a long
+  call logged after a short one, may fall just either side of an edge.
 - A changeset holds a create's whole record, so a payment's entry
   carries the payment, and its values are the record's as stored, not
   as the record's own route shows them.

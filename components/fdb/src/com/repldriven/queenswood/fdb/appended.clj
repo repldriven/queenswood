@@ -42,31 +42,56 @@
                                               0))
    :value (.getValue kv)})
 
+(defn- vs-key
+  ^bytes [^Subspace subspace ^bytes versionstamp]
+  (.pack subspace (vs-tuple (Versionstamp/fromBytes versionstamp))))
+
+(defn- just-after
+  ^bytes [^bytes k]
+  (let [out (byte-array (inc (alength k)))]
+    (System/arraycopy k 0 out 0 (alength k))
+    out))
+
+(defn- byte-order
+  [^bytes a ^bytes b]
+  (Arrays/compareUnsigned a b))
+
 (defn scan
-  [^FDBRecordContext ctx prefix parts {:keys [after before limit order]}]
+  [^FDBRecordContext ctx prefix parts
+   {:keys [after before limit order from until]}]
   (let [subspace ^Subspace (changelog/rooted prefix parts)
         whole ^Range (.range subspace)
         descending? (= :desc order)
         low-cursor (if descending? before after)
         high-cursor (if descending? after before)
         reverse-scan? (if descending? (nil? low-cursor) (some? high-cursor))
-        begin (if low-cursor
-                (KeySelector/firstGreaterThan
-                 (.pack subspace
-                        (vs-tuple (Versionstamp/fromBytes low-cursor))))
-                (KeySelector/firstGreaterOrEqual (.begin whole)))
-        end (if high-cursor
-              (KeySelector/firstGreaterOrEqual
-               (.pack subspace (vs-tuple (Versionstamp/fromBytes high-cursor))))
-              (KeySelector/firstGreaterOrEqual (.end whole)))
-        raw (vec (.asyncToSync ctx
-                               FDBStoreTimer$Waits/WAIT_SCAN_RECORDS
-                               (-> (.getRange (.snapshot (.ensureActive ctx))
-                                              begin
-                                              end
-                                              (int (inc limit))
-                                              (boolean reverse-scan?))
-                                   .asList)))
+        begin-key (last (sort byte-order
+                              (cond-> [(.begin whole)]
+                                      from
+                                      (conj (vs-key subspace from))
+
+                                      low-cursor
+                                      (conj (just-after (vs-key subspace
+                                                                low-cursor))))))
+        end-key (first (sort byte-order
+                             (cond-> [(.end whole)]
+                                     until
+                                     (conj (vs-key subspace until))
+
+                                     high-cursor
+                                     (conj (vs-key subspace high-cursor)))))
+        begin (KeySelector/firstGreaterOrEqual begin-key)
+        end (KeySelector/firstGreaterOrEqual end-key)
+        raw (if (neg? (byte-order begin-key end-key))
+              (vec (.asyncToSync ctx
+                                 FDBStoreTimer$Waits/WAIT_SCAN_RECORDS
+                                 (-> (.getRange (.snapshot (.ensureActive ctx))
+                                                begin
+                                                end
+                                                (int (inc limit))
+                                                (boolean reverse-scan?))
+                                     .asList)))
+              [])
         more? (> (count raw) limit)
         trimmed (cond-> raw
                         more?
@@ -102,6 +127,75 @@
                (:versionstamp (first page)))
      :after (when (and rows-after? (seq page))
               (:versionstamp (peek page)))}))
+
+(defn- vs-number
+  ^BigInteger [^bytes versionstamp]
+  (BigInteger. 1 versionstamp))
+
+(defn- number-vs
+  ^bytes [^BigInteger n]
+  (let [raw (.toByteArray n)
+        out (byte-array 12)
+        length (min (alength raw) 12)]
+    (System/arraycopy raw (- (alength raw) length) out (- 12 length) length)
+    out))
+
+(defn- first-at-or-after
+  [^FDBRecordContext ctx ^Subspace subspace ^BigInteger low ^BigInteger high]
+  (let [kv (first (.asyncToSync
+                   ctx
+                   FDBStoreTimer$Waits/WAIT_SCAN_RECORDS
+                   (-> (.getRange (.snapshot (.ensureActive ctx))
+                                  (KeySelector/firstGreaterOrEqual
+                                   (vs-key subspace (number-vs low)))
+                                  (KeySelector/firstGreaterOrEqual
+                                   (just-after (vs-key subspace
+                                                       (number-vs high))))
+                                  (int 1)
+                                  false)
+                       .asList)))]
+    (when kv (entry subspace kv))))
+
+(defn- edge
+  [^FDBRecordContext ctx ^Subspace subspace last?]
+  (let [whole ^Range (.range subspace)
+        kv (first (.asyncToSync ctx
+                                FDBStoreTimer$Waits/WAIT_SCAN_RECORDS
+                                (-> (.getRange (.snapshot (.ensureActive ctx))
+                                               whole
+                                               (int 1)
+                                               (boolean last?))
+                                    .asList)))]
+    (when kv (entry subspace kv))))
+
+(defn seek
+  [^FDBRecordContext ctx prefix parts reached?]
+  (let [subspace ^Subspace (changelog/rooted prefix parts)
+        oldest (edge ctx subspace false)
+        newest (edge ctx subspace true)]
+    (when (and newest (reached? (:value newest)))
+      (if (reached? (:value oldest))
+        (:versionstamp oldest)
+        (loop [low (.add (vs-number (:versionstamp oldest)) BigInteger/ONE)
+               high (vs-number (:versionstamp newest))
+               found (:versionstamp newest)]
+          (if (pos? (.compareTo low high))
+            found
+            (let [mid (.shiftRight (.add low high) 1)
+                  e (first-at-or-after ctx subspace mid high)]
+              (cond (nil? e)
+                    (recur low (.subtract mid BigInteger/ONE) found)
+
+                    (reached? (:value e))
+                    (recur low
+                           (.subtract (vs-number (:versionstamp e))
+                                      BigInteger/ONE)
+                           (:versionstamp e))
+
+                    :else
+                    (recur (.add (vs-number (:versionstamp e)) BigInteger/ONE)
+                           high
+                           found)))))))))
 
 (defn clear-entry
   [^FDBRecordContext ctx prefix parts ^bytes versionstamp]

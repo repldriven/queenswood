@@ -1,4 +1,4 @@
-{:name "Each call to the bank is logged with what it answered, found by its idempotency key or correlation id, and listed by its operation's tag"
+{:name "Each call to the bank is logged with what it answered, found by its idempotency key or correlation id, and listed by its operation's tag and by a date range"
  ;; An operator reads the bank, invites someone twice under one key, the
  ;; second answered from the idempotency cache, and asks for an
  ;; invitation that does not exist. Entries are written off the request's
@@ -87,6 +87,7 @@
              :auth :admin
              :headers {:bank-id [:ref :bank :bank-id]}
              :query-params {"ref" "access-checkout-1"}}
+   :as :checkout
    :until
    {:status 200
     :body {:items [{:route "/v1/invitations" :replayed true}
@@ -128,4 +129,23 @@
                     :replayed false}
                    {:operation-id "RetrieveBank"
                     :tag "Banks"
-                    :route "/v1/bank"}]}}}]}
+                    :route "/v1/bank"}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/access-log"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"ref" "access-checkout-1"
+                            "from" [:ref :checkout :items 1 :requested-at]}}
+   :assert
+   {:status 200
+    :body {:items [:m/equals
+                   [[:ref :checkout :items 0] [:ref :checkout :items 1]]]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/access-log"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"from" "2026-10-10T15:00:00+01:00"
+                            "to" "2026-10-10T14:00:00Z"}}
+   :assert {:status 400}}]}

@@ -125,6 +125,8 @@
                                        bank-id
                                        (distinct (:kinds opts))
                                        (distinct (:performer-kinds opts))
+                                       (:from opts)
+                                       (:to opts)
                                        (cursors opts))]
     (page found)))
 

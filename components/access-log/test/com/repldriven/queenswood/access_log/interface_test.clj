@@ -146,6 +146,36 @@
                  _ (is (= ["req-3"] (request-ids after-delete))
                        "a deleted call leaves its tag")]))))
 
+(deftest date-range-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         writer (system/instance sys [:access-log :writer])
+         bank-id "bnk.dates"]
+     (doseq [n (range 5)]
+       (SUT/record writer
+                   (assoc (call bank-id n (+ 1000 (* 10 n)))
+                          :tag
+                          (if (even? n) "Payments" "Members"))))
+     (nom-test> [_ (written config bank-id 5)
+                 bounded (SUT/list-by-bank config
+                                           bank-id
+                                           {:limit 10 :from 1010 :to 1040})
+                 _ (is (= ["req-3" "req-2" "req-1"] (request-ids bounded))
+                       "from is inclusive and to exclusive")
+                 tagged (SUT/list-by-bank
+                         config
+                         bank-id
+                         {:limit 10 :from 1010 :tags ["Payments"]})
+                 _ (is (= ["req-4" "req-2"] (request-ids tagged))
+                       "tags apply inside the range")
+                 by-ref (SUT/list-by-bank
+                         config
+                         bank-id
+                         {:limit 10 :to 1020 :ref "checkout-1"})
+                 _ (is (= ["req-1" "req-0"] (request-ids by-ref))
+                       "a reference's calls inside the range")]))))
+
 (deftest delete-before-test
   (with-test-system
    [sys config-file]

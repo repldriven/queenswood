@@ -546,7 +546,9 @@ Under `/v1/bank`, the bank the header names:
 - `GET /v1/bank/audit-log` — `org:viewer` or `admin`, cursor-paged,
   newest first, and narrowed to the comma-separated kinds a `kind`
   query names and the kinds of performer a `performed-by-kind` query
-  names, `member`, `bank` or `operator`. The bank's audit log: each
+  names, `member`, `bank` or `operator`, and to the acts performed from
+  a `from` and before a `to`, RFC 3339 timestamps whose ends
+  `fdb/seek-appended` finds. The bank's audit log: each
   entry as an `AuditEntry`, its id as `audit-entry-id`, read through
   `audit/list-by-bank`. It describes the bank rather than a record it
   holds, so it sits beside the bank's policies.
@@ -554,8 +556,8 @@ Under `/v1/bank`, the bank the header names:
   newest first, and narrowed to the calls carrying the request id,
   idempotency key or correlation id a `ref` query names, and to the
   operations of the comma-separated OpenAPI tags a `tag` query names,
-  which with `ref` filter its calls, so such a page may run short. The
-  bank's
+  which with `ref` filter its calls, so such a page may run short, and
+  to the calls requested from a `from` and before a `to`. The bank's
   access log: each entry as an `AccessEntry`, its id as
   `access-entry-id`, read through `access-log/list-by-bank`. The
   `access-entry` interceptor, beside `request-id` on `/v1`, queues an
@@ -707,7 +709,8 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   tests write through its own store, and the token hash.
 - **The `access-log` brick** covers a bank's log newest first and paged,
   a call found by each reference it carried and only in its own bank,
-  a set of tags paged newest first and narrowing a reference's calls,
+  a set of tags paged newest first and narrowing a reference's calls, a
+  date range alone and with tags or a reference,
   a client's id cut to 255 characters, `delete-before` taking the
   oldest a limit at a time with their references and tags, and a full queue
   dropping and counting an entry.
@@ -745,7 +748,10 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   owner accepts, and a create with an owner email answering no token.
   Under `scenarios/access-log/`, an operator's read, write, replay and
   refused read found by idempotency key and correlation id, with the
-  replay marked and the refusal's problem type, and listed by tag.
+  replay marked and the refusal's problem type, listed by tag, and
+  narrowed by a date range. The audit log's scenario reads the acts
+  between two of its entries' times, and is refused a date with no time
+  and a range ending before it starts.
 
 ## Alternatives Considered
 
@@ -835,6 +841,10 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 - **One bank's flood can drop another's access entries.** The writer's
   queue is shared, so a bank calling past its capacity fills it for
   everyone; a share per bank is the fix.
+- **A date range's edges follow commit order.** Its ends are found by
+  each entry's own time, written by its process's clock, so an entry
+  whose clock ran behind another's, or a long call logged after a short
+  one, may fall just either side of an edge.
 - **A bank's credential is named Queenswood.** An actor is named from a
   user record, and the bank's credential has none, so the audit and
   access logs name it as they name the platform.

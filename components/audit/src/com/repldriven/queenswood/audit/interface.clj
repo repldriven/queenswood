@@ -41,13 +41,17 @@
   Args:
   - txn: a Txn or `{:record-db :record-store}` config.
   - bank-id: the bank.
-  - opts: `{:limit :after :before :kinds :performer-kinds}`, the
-    cursors audit entry ids, `:kinds` the `:audit-kind-*` keywords to
-    keep, every kind when empty, and `:performer-kinds` the
+  - opts: `{:limit :after :before :kinds :performer-kinds :from :to}`,
+    the cursors audit entry ids, `:kinds` the `:audit-kind-*` keywords
+    to keep, every kind when empty, `:performer-kinds` the
     `:actor-kind-*` keywords of the performers to keep, every performer
-    when empty. A narrowed page reads one range per kind, per performer
-    kind, or per pair of the two where both are given, and merges them,
-    so it costs a read per range."
+    when empty, and `:from` and `:to` epoch milliseconds, the entries
+    performed from `:from` and before `:to`. A narrowed page reads one
+    range per kind, per performer kind, or per pair of the two where both
+    are given, and merges them, so it costs a read per range. A date
+    range is found by a binary search of the log by each entry's
+    `:performed-at`, so an entry whose clock ran behind another's may
+    fall just inside or outside an edge."
   [txn bank-id opts]
   (core/list-by-bank txn bank-id opts))
 

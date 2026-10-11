@@ -55,13 +55,18 @@
 
 (def AuditEntryQuery
   "The audit log's query: a page, and optionally the kinds of act and
-  the kinds of performer to list, each comma-separated."
-  [:map {:closed true}
-   [:page {:optional true} [:ref "PageQuery"]]
-   [:kind {:optional true}
-    [:vector {:decode/api comma-separated} [:ref "AuditKind"]]]
-   [:performed-by-kind {:optional true}
-    [:vector {:decode/api comma-separated} [:ref "ActorKind"]]]])
+  the kinds of performer to list, each comma-separated, and the instants
+  the entries were performed from and before."
+  [:and
+   [:map {:closed true}
+    [:page {:optional true} [:ref "PageQuery"]]
+    [:kind {:optional true}
+     [:vector {:decode/api comma-separated} [:ref "AuditKind"]]]
+    [:performed-by-kind {:optional true}
+     [:vector {:decode/api comma-separated} [:ref "ActorKind"]]]
+    [:from {:optional true} schema/instant-query-schema]
+    [:to {:optional true} schema/instant-query-schema]]
+   schema/instant-range-schema])
 
 (def registry
   (components-registry [#'AuditChangeset #'AuditEntry #'AuditEntryId #'AuditKind
