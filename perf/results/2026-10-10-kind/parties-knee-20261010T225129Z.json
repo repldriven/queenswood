@@ -1,0 +1,92 @@
+{
+  "run": {
+    "scenario": "parties",
+    "profile": "knee",
+    "unit": "customers",
+    "books": false,
+    "openAccount": false,
+    "thinkS": 0,
+    "stageTimeoutS": 120,
+    "steps": [
+      {
+        "rate": 20,
+        "seconds": 60
+      },
+      {
+        "rate": 40,
+        "seconds": 60
+      },
+      {
+        "rate": 80,
+        "seconds": 60
+      }
+    ]
+  },
+  "headline": {
+    "customers": 8249,
+    "rejected": {},
+    "dropped": 0,
+    "vus": 160,
+    "onboarding": {
+      "onboarded": 8249,
+      "lost": {},
+      "sessionReady": {
+        "avg": 490.11,
+        "p50": 266,
+        "p95": 1116,
+        "p99": 1351,
+        "max": 1416
+      },
+      "partyActive": {
+        "avg": 268.62,
+        "p50": 264,
+        "p95": 298.6,
+        "p99": 319,
+        "max": 578
+      },
+      "accountOpened": {},
+      "onboardTime": {
+        "avg": 919.93,
+        "p50": 718,
+        "p95": 1757,
+        "p99": 1918.52,
+        "max": 2084
+      }
+    },
+    "steps": [
+      {
+        "asked": 20,
+        "achieved": 19.98,
+        "customers": 1199,
+        "failed": 0,
+        "avg": 13.56,
+        "p50": 12.96,
+        "p95": 20.5,
+        "p99": 27.56,
+        "max": 140.86
+      },
+      {
+        "asked": 40,
+        "achieved": 39.17,
+        "customers": 2350,
+        "failed": 0,
+        "avg": 15.53,
+        "p50": 14.21,
+        "p95": 25.95,
+        "p99": 34.79,
+        "max": 138.98
+      },
+      {
+        "asked": 80,
+        "achieved": 78.33,
+        "customers": 4700,
+        "failed": 0,
+        "avg": 67.67,
+        "p50": 64.9,
+        "p95": 118.03,
+        "p99": 146.55,
+        "max": 234.36
+      }
+    ]
+  }
+}
