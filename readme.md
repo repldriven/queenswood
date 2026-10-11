@@ -422,11 +422,15 @@ sets it up.
 - **Scheduled jobs.** End-of-day processing and every other job run on a
   schedule you read and change through the API and the console, and each run
   is recorded.
-- **Measured under load.** Release 0.0.9 on Google Cloud as a single-zone
-  install runs it: 3x 8-vCPU nodes, FoundationDB at 2x replication, 3x
-  Kafka brokers at 3x. Steady load, 50 payments/s: p50 25 ms, p99 50 ms.
-  Peak load, 313 payments/s: none refused, p50 82 ms, p99 208 ms. The
-  books balanced to the penny. See
+- **Measured under load, with order preserved.** Every operation on an
+  account is processed in the order it was accepted, end to end: its
+  commands, the events they raise and the calls to its provider, and a
+  payment's events from the provider in the order they arrive. Without
+  that, every figure here would be higher. Release 0.0.9 on Google Cloud
+  as a single-zone install: 3x 8-vCPU nodes, FoundationDB at 2x
+  replication, 3x Kafka brokers at 3x. Steady load, 50 payments/s: p50
+  25 ms, p99 50 ms. Peak load, 313 payments/s: none refused, p50 82 ms,
+  p99 208 ms. The ledger balanced to the penny after every run. See
   [full results](perf/results/2026-10-11-gke.md).
 - **Scaling.** Services run as many replicas as you give them, except the
   dispatcher that owns every changelog cursor and scheduled trigger, which

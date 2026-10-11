@@ -172,14 +172,16 @@ just demo-digital-bank-app-start</pre>
 <section class="s" id="performance">
   <div class="wrap">
     <div class="head">
-      <div><p class="eyebrow">For operations</p><h2 class="t">Measured under load</h2></div>
-      <p class="lede">Release 0.0.9 on Google Cloud as a single-zone install runs it: 3x 8-vCPU nodes, the database at 2x replication and the message bus at 3x.</p>
+      <div><p class="eyebrow">For operations</p><h2 class="t">Measured under load, in order</h2></div>
+      <p class="lede">Release 0.0.9 on Google Cloud. Every operation on an account is processed in the order it was accepted, end to end. Without that, every figure here would be higher.</p>
     </div>
-    <div class="grid g4">
+    <div class="grid g3">
+      <div class="item"><h3>Order preserved</h3><p>An account's payments are taken one at a time, in the order accepted, from the API through the ledger to the provider. A payment's events from the provider are applied in the order they arrive.</p></div>
       <div class="item"><h3>Steady load</h3><p>50 payments/s for 10 minutes, between accounts, out to a provider and in from one. None failed: p50 25 ms, p99 50 ms.</p></div>
       <div class="item"><h3>Peak load</h3><p>313 payments/s between accounts, none refused: p50 82 ms, p99 208 ms. Payments out ran cleanly to 160/s, and settled later beyond that.</p></div>
-      <div class="item"><h3>Books that held</h3><p>After every run, what was paid in and out agreed to the penny with the ledger's control accounts and the provider's balances, and the trial balance tied.</p></div>
-      <div class="item"><h3>Past the ceiling</h3><p>Pushed beyond what it could carry, the API turned requests away at once with a retryable answer and stayed up. No payment it accepted was lost.</p></div>
+      <div class="item"><h3>Balanced to the penny</h3><p>After every run the ledger's control accounts matched what was paid in and out, and matched the provider's balances. Debits equalled credits.</p></div>
+      <div class="item"><h3>Overload</h3><p>Above its limit the API refused new requests at once with a retryable 503, and stayed up. No accepted payment was lost.</p></div>
+      <div class="item"><h3>Typical install</h3><p>Single zone, 3x 8-vCPU nodes. The database at 2x replication, the message bus on 3x brokers at 3x replication.</p></div>
     </div>
     <div class="more-links">
       <a class="btn line" href="https://github.com/repldriven/queenswood/blob/main/perf/results/2026-10-11-gke.md">See full results</a>
