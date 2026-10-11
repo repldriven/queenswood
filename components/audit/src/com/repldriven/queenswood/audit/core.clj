@@ -121,14 +121,16 @@
 
 (defn list-by-bank
   [txn bank-id opts]
-  (let-nom> [found (store/list-by-bank txn
-                                       bank-id
-                                       (distinct (:kinds opts))
-                                       (distinct (:performer-kinds opts))
-                                       (:request-id opts)
-                                       (:from opts)
-                                       (:to opts)
-                                       (cursors opts))]
+  (let-nom> [found (store/list-by-bank
+                    txn
+                    bank-id
+                    (-> (select-keys opts
+                                     [:kinds :performer-kinds :request-id
+                                      :performed-by :from :to])
+                        (update :kinds distinct)
+                        (update :performer-kinds distinct)
+                        (update :performed-by distinct))
+                    (cursors opts))]
     (page found)))
 
 (defn list-by-subject

@@ -187,9 +187,10 @@ for what the platform does by itself, and leave a record the act writes
 as its consequence to its own `created_by`. Append it under the bank and
 its commit's versionstamp, outside the Record Layer, with empty keys
 beside it under the bank and subject, the bank and kind, the bank and
-performer's kind, the bank, performer's kind and kind, and the bank and
-request id, so a bank's log, a record's history and a set of kinds or
-performers' kinds each read newest first a page at a time, and a call's
+performer's kind, the bank, performer's kind and kind, the bank and
+performer, and the bank and request id, so a bank's log, a record's
+history and a set of kinds, performers' kinds or performers each read
+newest first a page at a time, and a call's
 acts are found by its request id. Hold the act's kind, the subject's
 kind and id, the actor as `performed_by`, the time as `performed_at`,
 the request id and a `changeset` of the subject's fields the act
@@ -218,13 +219,14 @@ off the request's thread, many to a transaction, in the `access-log`
 brick behind a bounded queue whose depth, dropped count and entries
 written per bank are published; append it under the bank and its
 commit's versionstamp, with an empty key under the bank and each
-distinct reference the call carried and under the bank and its tag. Keep audit entries for the bank's
+distinct reference the call carried, under the bank and its tag and
+under the bank and its caller. Keep audit entries for the bank's
 life and access entries for a configured period, deleted with their
 references and tags through `access-log/delete-before` by a system job, the
 only deletion either allows. Serve them at `GET /v1/bank/audit-log`,
-which takes a set of kinds and of performers' kinds and a request id,
-and
-`GET /v1/bank/access-log`, which takes a reference and a set of tags,
+which takes a set of kinds, of performers' kinds and of performers and
+a request id, and `GET /v1/bank/access-log`, which takes a reference
+and a set of tags and of callers,
 each also a range of instants whose ends a binary search of the bank's
 log by each entry's own time finds, an operator any bank's. Assert in the API scenario runner that every
 successful write call that was not a replay left an audit entry under

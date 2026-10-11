@@ -1,4 +1,4 @@
-{:name "The audit log pages newest first, by every kind or a set of them, by the kinds of performer, by request and by a date range, and its pages add up to the list"
+{:name "The audit log pages newest first, by every kind or a set of them, by the kinds of performer, by who performed them, by request and by a date range, and its pages add up to the list"
  ;; Seven events at two a page: the bank's creation and the owner's
  ;; invitation (one transaction), the owner's acceptance, then a
  ;; member's invitation, acceptance, role change and removal. The
@@ -246,4 +246,25 @@
    :assert
    {:status 200
     :body {:items [:m/equals
-                   [[:ref :all :items 5] [:ref :all :items 6]]]}}}]}
+                   [[:ref :all :items 5] [:ref :all :items 6]]]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-log"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"performed-by" [:ref :owner-member :user-id]}}
+   :assert
+   {:status 200
+    :body {:items [:m/equals
+                   [[:ref :all :items 0] [:ref :all :items 1]
+                    [:ref :all :items 3] [:ref :all :items 4]]]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-log"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"performed-by" [:ref :owner-member :user-id]
+                            "kind" "invitation-created"}}
+   :assert
+   {:status 200
+    :body {:items [:m/equals [[:ref :all :items 3]]]}}}]}

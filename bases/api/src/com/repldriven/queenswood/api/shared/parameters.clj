@@ -199,6 +199,30 @@
    :schema {:type "string" :minLength 1 :maxLength 64}
    :example "01a12a36-88ef-7f53-88f1-7973bba7fbde"})
 
+(def PerformedByQuery
+  "`performed-by` query parameter on the audit log: the principals whose
+  acts to list, comma-separated, a member by user id, the bank by its
+  client id or an operator by its id."
+  {:name "performed-by"
+   :in "query"
+   :required false
+   :style "form"
+   :explode false
+   :schema {:type "array" :items {:type "string" :minLength 1 :maxLength 64}}
+   :example "usr.01kprbmgcj35ptc8npmybhh4s7"})
+
+(def RequestedByQuery
+  "`requested-by` query parameter on the access log: the principals whose
+  calls to list, comma-separated, a member by user id, the bank by its
+  client id or an operator by its id."
+  {:name "requested-by"
+   :in "query"
+   :required false
+   :style "form"
+   :explode false
+   :schema {:type "array" :items {:type "string" :minLength 1 :maxLength 64}}
+   :example "usr.01kprbmgcj35ptc8npmybhh4s7"})
+
 (def FromQuery
   "`from` query parameter on a log: the instant its entries are listed
   from, inclusive, an RFC 3339 timestamp with a time and an offset."
@@ -266,6 +290,8 @@
 (def ref-access-ref {:$ref "#/components/parameters/AccessRefQuery"})
 (def ref-access-tag {:$ref "#/components/parameters/AccessTagQuery"})
 (def ref-audit-request-id {:$ref "#/components/parameters/AuditRequestIdQuery"})
+(def ref-performed-by {:$ref "#/components/parameters/PerformedByQuery"})
+(def ref-requested-by {:$ref "#/components/parameters/RequestedByQuery"})
 (def ref-from {:$ref "#/components/parameters/FromQuery"})
 (def ref-to {:$ref "#/components/parameters/ToQuery"})
 (def ref-performed-by-kind
@@ -282,6 +308,8 @@
    "AccessRefQuery" AccessRefQuery
    "AccessTagQuery" AccessTagQuery
    "AuditRequestIdQuery" AuditRequestIdQuery
+   "PerformedByQuery" PerformedByQuery
+   "RequestedByQuery" RequestedByQuery
    "FromQuery" FromQuery
    "ToQuery" ToQuery
    "PerformedByKindQuery" PerformedByKindQuery

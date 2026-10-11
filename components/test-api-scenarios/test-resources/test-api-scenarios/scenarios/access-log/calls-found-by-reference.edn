@@ -1,4 +1,4 @@
-{:name "Each call to the bank is logged with what it answered, found by its idempotency key or correlation id, and listed by its operation's tag and by a date range"
+{:name "Each call to the bank is logged with what it answered, found by its idempotency key or correlation id, and listed by its operation's tag, by its caller and by a date range"
  ;; An operator reads the bank, invites someone twice under one key, the
  ;; second answered from the idempotency cache, and asks for an
  ;; invitation that does not exist. Entries are written off the request's
@@ -148,4 +148,15 @@
              :headers {:bank-id [:ref :bank :bank-id]}
              :query-params {"from" "2026-10-10T15:00:00+01:00"
                             "to" "2026-10-10T14:00:00Z"}}
-   :assert {:status 400}}]}
+   :assert {:status 400}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/access-log"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"requested-by" "queenswood-admin"
+                            "tag" "Banks"}}
+   :assert
+   {:status 200
+    :body {:items [{:operation-id "RetrieveBank"
+                    :requested-by {:principal-id "queenswood-admin"}}]}}}]}

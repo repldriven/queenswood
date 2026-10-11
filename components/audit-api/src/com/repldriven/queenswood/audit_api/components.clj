@@ -56,8 +56,8 @@
 (def AuditEntryQuery
   "The audit log's query: a page, and optionally the kinds of act and
   the kinds of performer to list, each comma-separated, the request
-  whose acts to list, and the instants the entries were performed from
-  and before."
+  whose acts to list, the principals whose acts to list, comma-separated,
+  and the instants the entries were performed from and before."
   [:and
    [:map {:closed true}
     [:page {:optional true} [:ref "PageQuery"]]
@@ -66,6 +66,8 @@
     [:performed-by-kind {:optional true}
      [:vector {:decode/api comma-separated} [:ref "ActorKind"]]]
     [:request-id {:optional true} [:string {:min 1 :max 64}]]
+    [:performed-by {:optional true}
+     [:vector {:decode/api comma-separated} [:string {:min 1 :max 64}]]]
     [:from {:optional true} schema/instant-query-schema]
     [:to {:optional true} schema/instant-query-schema]]
    schema/instant-range-schema])

@@ -229,6 +229,36 @@
                  unknown (list {:request-id "req-z"})
                  _ (is (empty? (:audit-entries unknown)))]))))
 
+(deftest performed-by-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.people"
+         ada {:kind :actor-kind-member :principal-id "usr.ada"}
+         bob {:kind :actor-kind-member :principal-id "usr.bob"}
+         ids (fn [page]
+               (mapv (comp :member-id :after :changeset) (:audit-entries page)))
+         list (fn [opts]
+                (SUT/list-by-bank config bank-id (merge {:limit 10} opts)))]
+     (nom-test> [_ (fdb/transact
+                    config
+                    (fn [txn]
+                      (doseq [[n kind who] [[0 :audit-kind-member-removed ada]
+                                            [1 :audit-kind-member-left bob]
+                                            [2 :audit-kind-member-left ada]
+                                            [3 :audit-kind-member-removed
+                                             operator]]]
+                        (SUT/record
+                         txn
+                         (assoc (of-kind bank-id kind n) :performed-by who)))))
+                 one (list {:performed-by ["usr.ada"]})
+                 _ (is (= ["2" "0"] (ids one)) "one person's acts")
+                 two (list {:performed-by ["usr.ada" "queenswood-admin"]})
+                 _ (is (= ["3" "2" "0"] (ids two)) "several people's, merged")
+                 narrowed (list {:performed-by ["usr.ada"]
+                                 :kinds [:audit-kind-member-left]})
+                 _ (is (= ["2"] (ids narrowed)) "kinds filter a person's acts")]))))
+
 (deftest date-range-test
   (with-test-system
    [sys config-file]

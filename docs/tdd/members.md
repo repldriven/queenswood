@@ -72,15 +72,17 @@ and the console as first built:
 - **The Audit log page.** `AuditLog.svelte` and `AuditKindRail.svelte`
   under `bases/console/src/lib/`: the bank's audit log a page at a time,
   narrowed by a time range, a rail of kinds grouped by console section
-  and of kinds of performer, and a request id, all sent to the API and
+  and of kinds of performer, the bank's members in the `ui` brick's
+  `MemberFilter`, and a request id, all sent to the API and
   kept in the hash's query, and a drawer holding an entry's ids, a link
   to the call that asked for it and its changeset in the `ui` brick's
   `ChangesetTable`.
 - **The Access log page.** `AccessLog.svelte` under
   `bases/console/src/lib/`: the bank's calls a page at a time, narrowed
-  by the `ui` brick's `TimeRangeFilter`, by API group, the tags the
+  by the `ui` brick's `TimeRangeFilter`, by kind of call, the tags the
   API's `/openapi.json` lists, which the console's nginx and Vite
-  proxy, and by a reference typed into "Find a call", every filter in
+  proxy, by the bank's members in `MemberFilter`, and by a reference
+  typed into "Find a call", every filter in
   the hash's query so back and forward step through them, and a drawer
   holding the call, its ids and a link to its acts in the audit log.
 - **Every access write is synchronous.** The `api` base calls the
@@ -554,7 +556,10 @@ Under `/v1/bank`, the bank the header names:
 - `GET /v1/bank/audit-log` — `org:viewer` or `admin`, cursor-paged,
   newest first, and narrowed to the comma-separated kinds a `kind`
   query names and the kinds of performer a `performed-by-kind` query
-  names, `member`, `bank` or `operator`, to the acts a `request-id`
+  names, `member`, `bank` or `operator`, to the acts of the
+  comma-separated principal ids a `performed-by` query names, which with
+  kinds filter its acts, so such a page may run short, to the acts a
+  `request-id`
   query's API request asked for, and to the acts performed from
   a `from` and before a `to`, RFC 3339 timestamps whose ends
   `fdb/seek-appended` finds. The bank's audit log: each
@@ -565,7 +570,9 @@ Under `/v1/bank`, the bank the header names:
   newest first, and narrowed to the calls carrying the request id,
   idempotency key or correlation id a `ref` query names, and to the
   operations of the comma-separated OpenAPI tags a `tag` query names,
-  which with `ref` filter its calls, so such a page may run short, and
+  and to the calls of the comma-separated principal ids a
+  `requested-by` query names, which with `ref` filter its calls, as
+  tags filter a caller's, so such a page may run short, and
   to the calls requested from a `from` and before a `to`. The bank's
   access log: each entry as an `AccessEntry`, its id as
   `access-entry-id`, read through `access-log/list-by-bank`. The
@@ -719,6 +726,8 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 - **The `access-log` brick** covers a bank's log newest first and paged,
   a call found by each reference it carried and only in its own bank,
   a set of tags paged newest first and narrowing a reference's calls, a
+  set of callers merged newest first, narrowed by tags and narrowing a
+  reference's calls, a
   date range alone and with tags or a reference,
   a client's id cut to 255 characters, `delete-before` taking the
   oldest a limit at a time with their references and tags, and a full queue
@@ -859,6 +868,9 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   each entry's own time, written by its process's clock, so an entry
   whose clock ran behind another's, or a long call logged after a short
   one, may fall just either side of an edge.
+- **The console's member filter lists active members.** A removed
+  member, the bank's credential and an operator cannot be chosen there,
+  though `performed-by` and `requested-by` take any principal id.
 - **A bank's credential is named Queenswood.** An actor is named from a
   user record, and the bank's credential has none, so the audit and
   access logs name it as they name the platform.

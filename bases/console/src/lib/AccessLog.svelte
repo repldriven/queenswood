@@ -15,6 +15,7 @@
     Table,
     Tag,
     Checkbox,
+    MemberFilter,
     RemovableChip,
     HttpStatus,
     TimeRangeFilter,
@@ -39,7 +40,7 @@
     utcDayKey,
     utcDayLabel,
   } from "@queenswood/ui";
-  import { access_log_query, list_access_log, list_api_tags } from "./api.mjs";
+  import { list_access_log, list_api_tags, list_members } from "./api.mjs";
 
   let { myMembers } = $props();
   const kicker = $derived(myMembers?.[0]?.["bank-name"]);
@@ -49,7 +50,9 @@
   const DAY_MS = 86400e3;
 
   let groups = $state([]);
+  let members = $state([]);
   let tags = $state([]);
+  let callers = $state([]);
   let range = $state(null);
   let ref = $state("");
   let refInput = $state("");
@@ -79,6 +82,10 @@
         .filter(Boolean),
       range: rangeFromParams(params),
       ref: (params.get("ref") ?? "").trim(),
+      callers: (params.get("requested-by") ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
     };
   }
 
@@ -86,6 +93,7 @@
     const known = groupsReady ? groupNames.filter((n) => f.tags.includes(n)) : f.tags;
     const params = [
       ...(known.length ? [`tag=${known.map(encodeURIComponent).join(",")}`] : []),
+      ...(f.callers.length ? [`requested-by=${f.callers.join(",")}`] : []),
       ...rangeParams(f.range),
       ...(f.ref ? [`ref=${encodeURIComponent(f.ref)}`] : []),
     ];
@@ -95,7 +103,7 @@
   // Sets the filters by moving to their URL, which `hashchange` then
   // applies, so the change takes a step in the browser's history.
   function go(patch) {
-    const hash = hashFor({ tags, range, ref, ...patch });
+    const hash = hashFor({ tags, callers, range, ref, ...patch });
     if (location.hash !== hash) location.hash = hash;
     else load();
   }
@@ -105,6 +113,7 @@
     tags = f.tags;
     range = f.range;
     ref = f.ref;
+    callers = f.callers;
     refInput = f.ref;
     currentId = null;
     load();
@@ -142,6 +151,7 @@
   const requestParts = $derived(
     [
       orderedTags.length && ["tag", orderedTags.map(encodeURIComponent).join(",")],
+      callers.length && ["requested-by", callers.join(",")],
       query.from && ["from", query.from],
       query.to && ["to", query.to],
       ref && ["ref", encodeURIComponent(ref)],
@@ -159,6 +169,7 @@
       const { from, to } = rangeBounds(range, now);
       const res = await list_access_log({
         tags: orderedTags,
+        requestedBy: callers,
         from: from != null ? isoSeconds(from) : null,
         to: to != null ? isoSeconds(to) : null,
         ref,
@@ -204,6 +215,11 @@
       if (location.hash.startsWith("#/access-log")) apply();
     };
     window.addEventListener("hashchange", onHash);
+    list_members()
+      .then((res) => {
+        members = res.status === 200 ? (res.body?.items ?? []) : [];
+      })
+      .catch(() => {});
     list_api_tags()
       .then((t) => {
         groups = bankTags(t);
@@ -284,8 +300,17 @@
     return `${by?.name} (${PERFORMER_LABEL[by?.kind] ?? by?.kind})`;
   }
 
+  const memberName = (id) => {
+    const m = members.find((x) => x["user-id"] === id);
+    return m ? m.name || m.email : shortId(id);
+  };
+
   const scope = $derived(
-    [orderedTags.length ? `in ${orderedTags.join(", ")}` : "", rangePhrase(range)]
+    [
+      callers.length ? `by ${callers.map(memberName).join(", ")}` : "",
+      orderedTags.length ? `in ${orderedTags.join(", ")}` : "",
+      rangePhrase(range),
+    ]
       .filter(Boolean)
       .join(", "),
   );
@@ -309,7 +334,7 @@
 <PageHeader
   {kicker}
   title="Access log"
-  sub="Every authenticated call the bank’s people and systems made to the Queenswood API, newest first: who called, which operation, what came back and how long it took. Narrow it by time and API group, or find a call by an id you hold."
+  sub="Every authenticated call the bank’s people and systems made to the Queenswood API, newest first: who called, which operation, what came back and how long it took. Narrow it by time, member and kind of call, or find a call by an id you hold."
 >
   {#snippet actions()}
     <Button variant="line" onclick={load}>
@@ -327,12 +352,13 @@
       oldest={now - RETENTION_DAYS * DAY_MS}
       note="Either end may be left open. Calls older than {RETENTION_DAYS} days are deleted."
     />
+    <MemberFilter {members} selected={callers} onChange={(ids) => go({ callers: ids })} />
     <div class="head">
       <span class="label">
         {#if orderedTags.length}
-          <b>{orderedTags.length}</b> of {groups.length} groups
+          <b>{orderedTags.length}</b> of {groups.length} kinds
         {:else}
-          API group · all {groups.length}
+          Kind of call · all {groups.length}
         {/if}
       </span>
       <button type="button" class="clear" disabled={!orderedTags.length} onclick={() => go({ tags: [] })}>Clear</button>
@@ -344,7 +370,7 @@
         </Checkbox>
       {/each}
     </div>
-    <div class="foot-note">With nothing selected the log lists every group. The groups are the API reference’s.</div>
+    <div class="foot-note">With nothing selected the log lists every kind. The kinds are the API reference’s groups.</div>
   </aside>
 
   <section class="panel">
@@ -368,13 +394,18 @@
       </form>
 
       <div class="active">
-        {#if range || orderedTags.length || ref}
+        {#if range || orderedTags.length || callers.length || ref}
           <span class="lead">Showing</span>
           {#if range}
             <RemovableChip removeLabel="Clear the time range" onremove={() => go({ range: null })}>
               {rangeLabel(range)} <span class="utc">UTC</span>
             </RemovableChip>
           {/if}
+          {#each callers as c (c)}
+            <RemovableChip removeLabel="Remove {memberName(c)}" onremove={() => go({ callers: callers.filter((x) => x !== c) })}>
+              <span class="muted">By</span> {memberName(c)}
+            </RemovableChip>
+          {/each}
           {#each orderedTags as t (t)}
             <RemovableChip removeLabel="Remove {t}" onremove={() => toggleTag(t)}>{t}</RemovableChip>
           {/each}
@@ -446,16 +477,19 @@
                       <strong>No calls yet</strong>
                       Calls made to the Queenswood API for this bank appear here as they’re made.
                     {/if}
-                    {#if ref || orderedTags.length || range}
+                    {#if ref || orderedTags.length || callers.length || range}
                       <div class="empty-acts">
                         {#if ref}
                           <Button variant="line" size="sm" onclick={() => go({ ref: "" })}>Clear the lookup</Button>
                         {/if}
+                        {#if callers.length}
+                          <Button variant={ref ? "ghost" : "line"} size="sm" onclick={() => go({ callers: [] })}>Everyone</Button>
+                        {/if}
                         {#if orderedTags.length}
-                          <Button variant={ref ? "ghost" : "line"} size="sm" onclick={() => go({ tags: [] })}>Every group</Button>
+                          <Button variant={ref || callers.length ? "ghost" : "line"} size="sm" onclick={() => go({ tags: [] })}>Every kind</Button>
                         {/if}
                         {#if range}
-                          <Button variant={ref || orderedTags.length ? "ghost" : "line"} size="sm" onclick={() => go({ range: null })}>Any time</Button>
+                          <Button variant={ref || callers.length || orderedTags.length ? "ghost" : "line"} size="sm" onclick={() => go({ range: null })}>Any time</Button>
                         {/if}
                       </div>
                     {/if}
@@ -574,7 +608,7 @@
             </button>
           </dd>
         {/each}
-        <dt>Group</dt>
+        <dt>Kind of call</dt>
         <dd>{#if current.tag}{current.tag}{:else}<span class="none">none, no route matched</span>{/if}</dd>
         <dt>Status</dt>
         <dd><HttpStatus status={current["http-status"]} />{current["problem-type"] ?? ""}</dd>
@@ -660,7 +694,7 @@
     {#if current}
       <div class="drawer-actions">
         {#if !onlyGroup}
-          <Button variant="line" size="sm" onclick={() => go({ tags: [current.tag] })}>Only this group</Button>
+          <Button variant="line" size="sm" onclick={() => go({ tags: [current.tag] })}>Only this kind</Button>
         {/if}
         <span class="spacer"></span>
         <Button variant="line" size="sm" disabled={currentIndex <= 0} onclick={() => step(-1)}>Newer</Button>

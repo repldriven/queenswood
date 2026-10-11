@@ -29,8 +29,11 @@
                           "the calls that carried it as their request id, "
                           "idempotency key or correlation id, and `tag` "
                           "only the calls to the operations of the tags it "
-                          "names; with `ref`, a page may hold fewer calls "
-                          "than its size. `from` and `to` list only the "
+                          "names, and `requested-by` only the calls of the "
+                          "principals it names; with `ref` or "
+                          "`requested-by`, the others filter what they find, "
+                          "so a page may hold fewer calls than its size. "
+                          "`from` and `to` list only the "
                           "calls requested from `from` and before `to`, "
                           "found in the order calls were logged, so a long "
                           "call may fall just either side of an edge. A "
@@ -41,6 +44,7 @@
                      :parameters ^:replace
                                  [shared.parameters/ref-access-ref
                                   shared.parameters/ref-access-tag
+                                  shared.parameters/ref-requested-by
                                   shared.parameters/ref-from
                                   shared.parameters/ref-to
                                   shared.parameters/ref-page

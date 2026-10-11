@@ -44,24 +44,27 @@
   Args:
   - txn: a Txn or `{:record-db :record-store}` config.
   - bank-id: the bank.
-  - opts: `{:limit :after :before :ref :tags :from :to}`, the cursors
-    access entry ids, `:ref` a request id, idempotency key or
-    correlation id, which narrows the page to the calls that carried it,
-    `:tags` the OpenAPI tags whose operations to keep, every one when
-    empty, and `:from` and `:to` epoch milliseconds, the calls requested
-    from `:from` and before `:to`. A page across several tags reads each
-    tag's calls and merges them, a read per tag; with `:ref`, the tags
-    filter the calls that carried it, so such a page may hold fewer than
-    `:limit`. A date range is found by a binary search of the log by
-    each entry's `:requested-at`, in the order entries were written, so
-    a long call or one whose clock ran behind may fall just inside or
-    outside an edge."
+  - opts: `{:limit :after :before :ref :tags :requested-by :from :to}`,
+    the cursors access entry ids, `:ref` a request id, idempotency key
+    or correlation id, which narrows the page to the calls that carried
+    it, `:tags` the OpenAPI tags whose operations to keep, every one when
+    empty, `:requested-by` the principal ids whose calls to keep, every
+    caller when empty, and `:from` and `:to` epoch milliseconds, the
+    calls requested from `:from` and before `:to`. A page across several
+    tags or callers reads one range for each and merges them, a read per
+    range; with `:ref`, the tags and callers filter the calls that
+    carried it, and with `:requested-by`, the tags filter the callers'
+    calls, so such a page may hold fewer than `:limit`. A date range is
+    found by a binary search of the log by each entry's `:requested-at`,
+    in the order entries were written, so a long call or one whose clock
+    ran behind may fall just inside or outside an edge."
   [txn bank-id opts]
   (core/list-by-bank txn bank-id opts))
 
 (defn delete-before
   "Deletes up to `limit` of `bank-id`'s oldest access entries requested
-  before `before`, with their references and tags, in one transaction. Returns
+  before `before`, with their references, tags and callers, in one
+  transaction. Returns
   how many it deleted, fewer than `limit` once none older remain, or an
   anomaly.
 
