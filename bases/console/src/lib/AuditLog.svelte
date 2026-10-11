@@ -372,7 +372,7 @@
                     {#if !e.changeset}
                       <span class="none">—</span>
                     {:else}
-                      <span class="changed">{#if !e.changeset.before}created · {/if}<span class="fields">{fields.join(", ")}</span></span>
+                      <span class="changed">{#if !e.changeset.before}{"created · "}{/if}<span class="fields">{fields.join(", ")}</span></span>
                     {/if}
                   </td>
                 </tr>
