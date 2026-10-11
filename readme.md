@@ -78,12 +78,14 @@ The same bank from your customer's side, in the
 - **Books that balance.** Every movement is recorded as matching debits and
   credits, so the books always balance, down to fractions of a penny of
   interest.
-- **Handles a challenger bank's load.** A bank of 3 million customers
-  makes about 12 payments a second, and 40 to 60 at a payday peak. On
-  three 8-vCPU cloud machines it ran 50 a second steadily and 313 at
-  peak, refusing none, with each account's payments kept in order. Your
-  applications' queries ran at 200 a second, 99 in 100 answered within
-  9 ms, on one API replica of as many as you run. The figures are under
+- **Handles a challenger bank's load, and stays responsive.** A bank of 3
+  million customers makes about 12 payments a second, and 40 to 60 at a
+  payday peak. On three 8-vCPU cloud machines it ran 50 a second steadily
+  and 313 at peak, refusing none and answering 99 in 100 within 208 ms,
+  with each account's payments kept in order. Queries take a path of
+  their own beside payments: one API replica, of as many as you run,
+  answered 300 a second with 99 in 100 inside 10 ms, and 2,500 a second
+  inside 0.7 s. The figures are under
   [For site reliability engineers](#for-site-reliability-engineers).
 - **Audit and access logs.** Everyone on your team signs in as themselves
   with a role. An audit log records every change made to your bank's
@@ -449,8 +451,9 @@ sets it up.
   as a single-zone install: 3x 8-vCPU nodes, FoundationDB at 2x
   replication, 3x Kafka brokers at 3x. Steady load, 50 payments/s: p50
   25 ms, p99 50 ms. Peak load, 313 payments/s: none refused, p50 82 ms,
-  p99 208 ms. Queries, 200/s on one API replica: p50 4 ms, p99 9 ms. The
-  ledger balanced to the penny after every run. See
+  p99 208 ms. Queries on one API replica: 313/s at p50 5 ms, p99 9 ms,
+  and 2,500/s at its limit with under 1% refused. The ledger balanced to
+  the penny after every run. See
   [full results](perf/results/2026-10-11-gke.md).
 - **Scaling.** Services run as many replicas as you give them, except the
   dispatcher that owns every changelog cursor and scheduled trigger, which
