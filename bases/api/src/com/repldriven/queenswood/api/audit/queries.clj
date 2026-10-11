@@ -39,15 +39,16 @@
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [page kind]} (:query parameters)
+        {:keys [page kind performed-by-kind]} (:query parameters)
         txn (config request)
         result (let-nom>
                  [_ (banks/get-bank txn bank-id)
                   found (audit/list-by-bank txn
                                             bank-id
                                             (assoc (cursor/page-opts page)
-                                                   :kinds
-                                                   kind))
+                                                   :kinds kind
+                                                   :performer-kinds
+                                                   performed-by-kind))
                   named (named-audit-entries txn (:audit-entries found))]
                  (cursor/page-body (cursor/request-path request)
                                    page

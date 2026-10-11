@@ -186,12 +186,13 @@ brick's `record`, in the transaction that saves the change; write none
 for what the platform does by itself, and leave a record the act writes
 as its consequence to its own `created_by`. Append it under the bank and
 its commit's versionstamp, outside the Record Layer, with empty keys
-beside it under the bank and subject and under the bank and kind, so a
-bank's log, a record's history and a set of kinds each read newest first
-a page at a time. Hold the act's kind, the subject's kind and id, the
-actor as `performed_by`, the time as `performed_at`, the request id and
-a `changeset` of the subject's fields the act changed and no others,
-`before` as they were, absent on a create, and `after` as the act left
+beside it under the bank and subject, the bank and kind, the bank and
+performer's kind, and the bank, performer's kind and kind, so a bank's
+log, a record's history and a set of kinds or performers' kinds each
+read newest first a page at a time. Hold the act's kind, the subject's
+kind and id, the actor as `performed_by`, the time as `performed_at`,
+the request id and a `changeset` of the subject's fields the act
+changed and no others, `before` as they were, absent on a create, and `after` as the act left
 them, each a json object indexed by nothing, without the audit block, a
 retried call's bookkeeping, or any field whose Fideslang data category
 falls under `user` or `system`. An act that changes no
@@ -213,7 +214,8 @@ transaction, in the `access-log` brick behind a bounded queue whose
 dropped count is published. Keep audit entries for the bank's life and
 access entries for a configured period, deleted by a system job, the
 only deletion either allows. Serve them at `GET /v1/bank/audit-log`,
-which takes a set of kinds, and `GET /v1/bank/access-log`, an
+which takes a set of kinds and of performers' kinds, and
+`GET /v1/bank/access-log`, an
 operator any bank's. Assert in the API scenario runner that every
 successful write call that was not a replay left an audit entry under
 its request id, except a retry after a lost reply and a step marked

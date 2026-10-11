@@ -4,6 +4,7 @@
        you       pine   — the signed-in person's own row
        founder   gold   — the member who created the organisation
        operator  gold   — a change made by a Queenswood operator
+       bank      indigo — a change made by the bank's credential
 
          <Tag tone="you">you</Tag>
 
@@ -37,6 +38,11 @@
   .qw-tag.founder {
     color: var(--gold-deep);
     border-color: light-dark(oklch(0.88 0.07 78), oklch(0.40 0.07 72));
+  }
+  .qw-tag.bank {
+    color: light-dark(oklch(0.40 0.08 270), oklch(0.80 0.07 270));
+    background: light-dark(oklch(0.92 0.04 270), oklch(0.27 0.05 270));
+    border-color: transparent;
   }
   .qw-tag.operator {
     color: var(--gold-deep);

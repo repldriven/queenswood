@@ -10,11 +10,11 @@
     [com.repldriven.queenswood.audit.core :as core]))
 
 (defn record
-  "Appends `entry` to its bank's audit log in `txn`, and to its
-  subject's history beside it, with the changeset of the subject's
-  fields `:before` and `:after` hold differently. Records nothing when
-  the entry has no `:performed-by`, which is an act the platform
-  performed by itself. Returns nil, or an anomaly.
+  "Appends `entry` to its bank's audit log in `txn`, and to the indexes
+  of its subject, its kind and its performer's kind beside it, with the
+  changeset of the subject's fields `:before` and `:after` hold
+  differently. Records nothing when the entry has no `:performed-by`,
+  which is an act the platform performed by itself. Returns nil, or an anomaly.
 
   Args:
   - txn: the transaction that makes the change the entry records.
@@ -41,10 +41,13 @@
   Args:
   - txn: a Txn or `{:record-db :record-store}` config.
   - bank-id: the bank.
-  - opts: `{:limit :after :before :kinds}`, the cursors audit entry ids
-    and `:kinds` the `:audit-kind-*` keywords to keep, every kind
-    when empty. A page across several kinds reads each kind's entries
-    and merges them, so it costs a read per kind."
+  - opts: `{:limit :after :before :kinds :performer-kinds}`, the
+    cursors audit entry ids, `:kinds` the `:audit-kind-*` keywords to
+    keep, every kind when empty, and `:performer-kinds` the
+    `:actor-kind-*` keywords of the performers to keep, every performer
+    when empty. A narrowed page reads one range per kind, per performer
+    kind, or per pair of the two where both are given, and merges them,
+    so it costs a read per range."
   [txn bank-id opts]
   (core/list-by-bank txn bank-id opts))
 

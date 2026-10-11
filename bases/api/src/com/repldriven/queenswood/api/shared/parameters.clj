@@ -170,6 +170,17 @@
    :schema {:type "array" :items {:$ref "#/components/schemas/AuditKind"}}
    :example "member-role-changed,member-removed"})
 
+(def PerformedByKindQuery
+  "`performed-by-kind` query parameter on the audit log: the kinds of
+  performer to list, comma-separated, every kind when absent."
+  {:name "performed-by-kind"
+   :in "query"
+   :required false
+   :style "form"
+   :explode false
+   :schema {:type "array" :items {:$ref "#/components/schemas/ActorKind"}}
+   :example "member,bank"})
+
 (def PartyEmbedQuery
   "`embed` query parameter for optional sub-resource embedding on the
   party detail endpoint, deepObject-styled so clients send
@@ -204,6 +215,8 @@
 (def ref-delivery-id {:$ref "#/components/parameters/DeliveryId"})
 (def ref-delivery-filter {:$ref "#/components/parameters/DeliveryFilterQuery"})
 (def ref-audit-kind {:$ref "#/components/parameters/AuditKindQuery"})
+(def ref-performed-by-kind
+  {:$ref "#/components/parameters/PerformedByKindQuery"})
 (def ref-inbound-payment-status
   {:$ref "#/components/parameters/InboundPaymentStatusQuery"})
 
@@ -213,6 +226,7 @@
   {"IdempotencyKey" IdempotencyKey
    "PageQuery" PageQuery
    "AuditKindQuery" AuditKindQuery
+   "PerformedByKindQuery" PerformedByKindQuery
    "EmbedQuery" EmbedQuery
    "PartyEmbedQuery" PartyEmbedQuery
    "AccountId" AccountId

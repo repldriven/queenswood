@@ -169,6 +169,7 @@
   (let-nom> [found (store/list-by-bank txn
                                        bank-id
                                        (distinct (:kinds opts))
+                                       (distinct (:performer-kinds opts))
                                        (cursors opts))]
     (page found)))
 
