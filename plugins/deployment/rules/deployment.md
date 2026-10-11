@@ -1263,9 +1263,10 @@ status` and a sign-in, never with the restore Job's exit status. Never
 write a secret again to unshelve: the entries survive, and a new version
 of the backup key strands every backup written under the old one. Keep
 the address through a shelve, so the certificates and records stay
-valid. An instance may stay shelved for as long as nobody needs it, and
+valid. An instance may stay shelved for as long as nobody needs it,
 `fdb.restore` may stay set afterwards, being a target rather than a
-mode.
+mode, and an instance may be unshelved empty, with `false` as `just
+gh-pr-unshelve`'s second argument, where its data is not wanted.
 Commands: `just queenswood-instance-record`, `just
 queenswood-instance-records`, `just gh-pr-up`, `just
 gh-pr-workloads-withdraw`, `just gh-pr-shelve`, `just
@@ -1275,6 +1276,25 @@ queenswood-instance-ctx`.
 See [instance-shelve](../../../docs/recipes/infra/instance-shelve.md),
 [instance-unshelve](../../../docs/recipes/infra/instance-unshelve.md) and
 [ADR-0029](../../../docs/adr/0029-a-shelved-instance-keeps-everything-but-its-cluster.md).
+
+## A load test on an instance signs in as a client made for the run
+
+Run a load test on an instance with `just perf-run-instance`, which
+creates the `queenswood-perf` operator client in the instance's realm
+before the run, signed in to Keycloak's admin API as the bootstrap admin,
+and deletes it and its Secret after, however the run ends; run `just
+perf-clean-instance` after any run that did not end itself. Never give a
+deployed realm a standing operator client for load tests, in its values
+or by hand. Run a smoke before a longer profile on the same instance.
+Declare a load pool, `cluster.load` in the instance's manifest, before a
+run whose figures are published, and never publish a run's figures as
+the instance's capacity while the Job shares the services' nodes. A run
+may go against an instance with no load pool, its Job sharing the
+services' nodes, and the site's Register links may be disabled with
+`just site-publish down` for the run's length.
+Commands: `just queenswood-instance-ctx`, `just perf-run-instance`,
+`just perf-clean-instance`, `just site-publish`.
+See [instance-perf-run](../../../docs/recipes/infra/instance-perf-run.md).
 
 ## A muted finding is a decision, recorded
 

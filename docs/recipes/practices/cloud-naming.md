@@ -223,6 +223,9 @@ Compute and data:
   characters with the pool's last letter dropped. So a node name no
   longer spells the pool's, which is a real cost of repeating the scope
   and worth knowing before choosing a longer label
+- **load pool** — `np-qw01-<env>-<label>-load`, the second pool an
+  instance composes where its manifest declares `cluster.load`, for the
+  k6 Job of a load test
 - **CloudSQL instance** — `sql-qw01-<env>-<label>`
 - **database inside one** — `sql-qw01-<env>-<label>-<name>`, so
   `sql-qw01-n-test-keycloak`. A database name is scoped to its instance
@@ -302,6 +305,7 @@ before it:
 - subnets — `sb-qw01-n-test-euw2` and `sb-qw01-n-test-proxy-euw2`
 - cluster — `qw01-n-test`
 - node pool — `np-qw01-n-test-primary`
+- load pool — `np-qw01-n-test-load`
 - node identity —
   `sa-qw01-n-test-nodes@prj-qw01-n-test-xxxxxx.iam.gserviceaccount.com`
 

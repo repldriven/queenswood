@@ -49,17 +49,40 @@ fdb:
     limits:
       cpu: "200m"
       memory: "256Mi"
+  # Two copies of the data and of each commit's log, as a deployment on
+  # three nodes keeps. kind is one node, so each pod is its own fault
+  # domain here: the copies are written and waited on, and protect
+  # nothing.
+  redundancyMode: double
+  faultDomain:
+    key: foundationdb.org/none
   # A process per role, since each fdbserver uses one core: three storage
-  # servers sharing the keys, two logs, and the stateless roles -- two
+  # servers sharing the keys, three logs, and the stateless roles -- two
   # commit proxies, a GRV proxy, a resolver, the master and the
   # ratekeeper -- on processes of their own rather than beside storage.
   processCounts:
     cluster_controller: 1
     storage: 3
-    log: 2
+    log: 3
     stateless: 6
   databaseConfiguration:
-    logs: 2
+    logs: 3
     commit_proxies: 2
     grv_proxies: 1
     resolvers: 1
+
+# The operator reconciles the cluster and then idles. Its chart reserves
+# half a core, which kind's one node needs for the load test's Job once
+# three brokers and thirteen FDB processes have their share.
+fdbOperator:
+  resources:
+    requests:
+      cpu: 100m
+
+# Three brokers, every topic kept on all three and a send waiting on two,
+# each with a volume, as a deployment on three nodes runs. On kind's one
+# node they share it.
+kafka:
+  replicas: 3
+  storage:
+    size: 8Gi

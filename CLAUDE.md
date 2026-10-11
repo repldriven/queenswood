@@ -287,6 +287,10 @@ non-trivial work on their topic.
   [ADR-0029](docs/adr/0029-a-shelved-instance-keeps-everything-but-its-cluster.md),
   [instance-shelve](docs/recipes/infra/instance-shelve.md) and
   [instance-unshelve](docs/recipes/infra/instance-unshelve.md).
+- **Load testing an instance** — k6 as a Job in the instance's cluster,
+  as on kind, under an operator client created for the run and deleted
+  after it, so no deployed realm keeps one. See
+  [instance-perf-run](docs/recipes/infra/instance-perf-run.md).
 - **Upgrading or reconfiguring Argo CD** — the steps for a plane whose
   own Argo is `Observe`, the `extraObjects` a values file must carry,
   and why a merged change does not reach it. See

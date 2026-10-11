@@ -282,10 +282,17 @@ their Services:
   reads only the environment baked into it and what `-e` passes, so the
   Job passes its credentials as `-e` arguments.
 - **Credentials.** The operator client the realm adds for load tests,
-  read from the Secret `queenswood-keycloak-dev-operator`, described
-  below.
+  read from the Secret `queenswood-keycloak-dev-operator` on kind and
+  `queenswood-perf-operator` on an instance, described below.
 - **Job.** [k6-job.yaml](/infra/perf/k6-job.yaml), rendered by
   `envsubst` with the image, and deleted before a new run.
+- **Placement.** `cluster.load` in an instance's manifest composes a
+  second node pool, in
+  [xcluster-composition.yml](/infra/platform/crossplane-xrds/xcluster-composition.yml),
+  labelled `platform.repldriven.com/pool=load` and tainted `NoSchedule`
+  with the same key and value, so the services stay off it. The Job
+  tolerates the taint, and `perf-run-instance` gives it a selector for
+  the label where a node carries it; on kind the selector is empty.
 - **Summary.** `handleSummary` prints the run's parameters, its headline
   figures and k6's data as JSON between markers on stdout, and the
   recipe writes it from the pod's log to
@@ -296,8 +303,7 @@ which archives the scenario, replaces the ConfigMap, applies the Job,
 follows its log until the Job has ended, following it again if the
 stream drops first, and writes the summary, treating k6's exit 99 — a
 threshold not met — as a finished run, and `perf-clean`, which deletes
-the Job and the ConfigMap. On GKE the Job carries a node selector for a
-pool the services do not use.
+the Job and the ConfigMap.
 
 ### The operator client
 
@@ -317,6 +323,13 @@ load test signs in as a client of its own instead:
 - **Scope.** [values-local.yaml](/infra/helm/queenswood/values-local.yaml)
   names `queenswood-perf`. A client id under any Keycloak mode but `dev`
   fails the render, so no deployed realm carries it.
+- **On an instance.** `perf-run-instance` creates `queenswood-perf`,
+  holding `admin`, through Keycloak's admin API as the bootstrap admin,
+  writes its secret to `queenswood-perf-operator`, runs `perf-run`
+  against the instance's context with `PERF_OPERATOR_SECRET` naming it,
+  and deletes both when the run ends;
+  [instance-perf-run](../recipes/infra/instance-perf-run.md) is the
+  procedure.
 
 ### What a run reports
 
@@ -742,7 +755,9 @@ payment costs, ranked by its effect on the serial command path, which is
 2. The `challenger` and `knee` profiles and scenario B, run on kind to
    find the first ceiling.
 3. Scenarios C and D with settlement sampling.
-4. A node pool for the Job on GKE, the first published run, and
+4. `perf-run-instance` and
+   [instance-perf-run](../recipes/infra/instance-perf-run.md), then a
+   node pool for the Job on GKE, the first published run, and
    `docs/recipes/test/performance-testing.md` with its results.
 
 Each ceiling a run confirms is raised under the design of the brick that
@@ -794,28 +809,34 @@ holds it, and the run repeated.
 ## Known Limitations
 
 - **Kind figures are not published.** k6 shares Colima's 8 CPUs and
-  32 GiB, about a test instance's two `n2-standard-4` nodes, with what it
-  measures, against one Kafka broker. They are recorded with the machine
-  they ran on under `perf/results/`, each run's summary beside its write-up,
+  32 GiB with what it measures. They are recorded with the machine they
+  ran on under `perf/results/`, each run's summary beside its write-up,
   as [2026-10-09-kind](../../perf/results/2026-10-09-kind.md) is.
+- **Kind replicates on one node.**
   [values-local.yaml](/infra/helm/queenswood/values-local.yaml) runs
-  FDB as a process per role — three storage, two logs, and six
-  stateless for two commit proxies, a GRV proxy, a resolver, the master
-  and the ratekeeper — each with a 2Gi limit and `cache_memory` and
+  Kafka as three brokers, every topic on all three and a send waiting on
+  two, and FDB at `double` redundancy as a process per role — three
+  storage, three logs, and six stateless for two commit proxies, a GRV
+  proxy, a resolver, the master and the ratekeeper — each pod its own
+  fault domain. The copies are written and waited on, and one node
+  holds them all, so a run pays for replication and nothing is
+  protected. Each FDB process has a 2Gi limit with `cache_memory` and
   `memory` below it, since its defaults outgrow the chart's 1Gi under a
-  sustained run and the kernel kills the storage server. A deployed
-  instance runs the chart's default of one storage process and one log
-  with no stateless processes of their own, the layout kind ran until
-  its knee showed every FDB step slowing together.
+  sustained run and the kernel kills the storage server. The results of
+  9 October were measured on one broker and `single` redundancy.
+- **A deployed instance runs the chart's defaults.** One broker with no
+  volume, and FDB at `single` with one storage process and one log and
+  no stateless processes of their own, until its values state three
+  brokers and `double`, which need three nodes.
 - **The platform cap ends a long run.** 100,000 payments of a kind in a
   business day is refused with 429, which 50 a second reaches in 33
   minutes; the cap is raised when a run nears it.
 - **The provider transfer backlog is not measured.** An internal payment
   on a Modulr bank queues a transfer no API reports, and a failed one is
   only logged; traces show the queue.
-- **A deployed instance has no load-test operator.** Its realm carries
-  no `queenswood-perf` client, so a run on GKE needs an operator
-  credential of its own, which the first published run decides.
+- **A run on an instance shares its FDB and Kafka.** The instance's
+  sandbox users share both for the run's length, and on an instance that
+  declares no load pool k6 runs beside what it measures.
 - **A partition count is fixed when its topic is created.** mono's
   `kafka/topics` creates a missing topic and leaves an existing one
   alone, so a count raised in `kafka-topics.yml` reaches a cluster only
@@ -850,13 +871,14 @@ holds it, and the run repeated.
   transfers drain through the bank activity processor after its load
   stops, so the next run's settlements wait behind them; a pause of a
   few minutes between runs keeps them apart.
-- **Kind's Kafka loses its topics on a restart.** The broker has no
-  volume, so a restarted container starts empty and the services
-  recreate each topic with one partition. The `apache/kafka` image's
-  default 1 GiB heap filled the container's 1 GiB limit, and the broker
-  was killed under load; `kafka.heapOpts` gives it 512 MiB. After a
-  restart, a topic `kafka-topics.yml` declares with four partitions is
-  grown back with `kafka-topics.sh --alter` and its consumers restarted.
+- **A broker with no volume loses its topics on a restart.** The
+  chart's default broker has none, so a restarted container starts empty
+  and the services recreate each topic with one partition; a topic
+  `kafka-topics.yml` declares with four is grown back with
+  `kafka-topics.sh --alter` and its consumers restarted. Kind's brokers
+  each have a volume. The `apache/kafka` image's default 1 GiB heap
+  filled the container's 1 GiB limit, and the broker was killed under
+  load; `kafka.heapOpts` gives it 512 MiB.
 - **Webhooks are absent.** The test bank registers no webhook endpoint,
   so no run measures a notification's delivery.
 - **Reads and writes share one in-flight limit.** The API turns a request
@@ -889,6 +911,8 @@ holds it, and the run repeated.
   policies combine, and the caps a run must stay under.
 - [scenario-testing](scenario-testing.md) — the correctness tiers, which
   a load run does not replace.
+- [instance-perf-run](../recipes/infra/instance-perf-run.md) — running
+  the scenarios on a deployed instance.
 - [ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md) — the service groups and
   the one-replica dispatchers.
 - [ADR-0021](../adr/0021-changelog-relay.md) — the changelog relay.

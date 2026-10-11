@@ -9,10 +9,14 @@ spec:
   version: {{ .Values.fdb.version | quote }}
   databaseConfiguration:
     storage_engine: {{ .Values.fdb.storageEngine | quote }}
-    redundancy_mode: single
+    redundancy_mode: {{ .Values.fdb.redundancyMode | quote }}
     {{- with .Values.fdb.databaseConfiguration }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+  {{- with .Values.fdb.faultDomain }}
+  faultDomain:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   processCounts:
     {{- toYaml .Values.fdb.processCounts | nindent 4 }}
   processes:

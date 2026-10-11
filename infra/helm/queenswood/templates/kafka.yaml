@@ -1,13 +1,25 @@
 {{- if .Values.kafka.enabled }}
-# Single-broker Kafka in KRaft mode (no ZooKeeper) for the kind dev loop,
-# using the same apache/kafka image the scenario tests run against. Ephemeral:
-# on restart the migrator recreates topics idempotently. Production sets
-# kafka.enabled=false and points services at an external broker via
-# kafka.bootstrapServers.
+{{- $replicas := int .Values.kafka.replicas }}
+{{- $name := printf "%s-kafka" .Release.Name }}
+{{- $headless := printf "%s-kafka-headless" .Release.Name }}
+{{- /* Three copies once there are three brokers to hold them, and a send
+       acknowledged by two: one broker may then be lost with nothing
+       acknowledged lost and the topic still writable. Fewer brokers keep
+       one copy per broker and wait on all of them. */}}
+{{- $copies := min $replicas 3 }}
+{{- $inSync := ternary 2 1 (ge $replicas 3) }}
+# Kafka in KRaft mode (no ZooKeeper), every broker also a controller,
+# using the same apache/kafka image the scenario tests run against. One
+# broker by default, for the kind dev loop; `kafka.replicas: 3` is a
+# cluster that replicates. Production may instead set kafka.enabled=false
+# and point services at an external broker via kafka.bootstrapServers.
+#
+# Ephemeral unless `kafka.storage.size` is set: a restarted broker then
+# starts empty, and the services recreate each topic with one partition.
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-kafka
+  name: {{ $name }}
   labels:
     {{- include "queenswood.labels" . | nindent 4 }}
     app.kubernetes.io/component: kafka
@@ -20,19 +32,44 @@ spec:
       port: 9092
       targetPort: 9092
 ---
-apiVersion: apps/v1
-kind: Deployment
+# Each broker's own name. A client bootstraps on the Service above and is
+# then told to reach the partition's leader by the name it advertises,
+# and the controllers find each other by the same names -- before any of
+# them is ready, hence publishNotReadyAddresses.
+apiVersion: v1
+kind: Service
 metadata:
-  name: {{ .Release.Name }}-kafka
+  name: {{ $headless }}
   labels:
     {{- include "queenswood.labels" . | nindent 4 }}
     app.kubernetes.io/component: kafka
 spec:
-  replicas: 1
-  # Recreate, not RollingUpdate: two brokers must never share node id 1 or
-  # the advertised listener during a rollout.
-  strategy:
-    type: Recreate
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: kafka
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: 9092
+    - name: controller
+      port: 9093
+      targetPort: 9093
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "queenswood.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kafka
+spec:
+  serviceName: {{ $headless }}
+  replicas: {{ $replicas }}
+  # Parallel, not OrderedReady: no broker is ready until a majority of
+  # the controllers has started, so starting them in turn never ends.
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app.kubernetes.io/instance: {{ .Release.Name }}
@@ -43,6 +80,17 @@ spec:
         {{- include "queenswood.podLabels" . | nindent 8 }}
         app.kubernetes.io/component: kafka
     spec:
+      # The image runs as uid 1000, and a fresh volume is root's.
+      securityContext:
+        fsGroup: 1000
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: {{ .Values.kafka.spread }}
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: kafka
       containers:
         - name: kafka
           image: {{ .Values.kafka.image | quote }}
@@ -52,33 +100,56 @@ spec:
             - name: controller
               containerPort: 9093
           env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            # The pod's ordinal, so each broker keeps its id across
+            # restarts and the voters below can be listed ahead of time.
             - name: KAFKA_NODE_ID
-              value: "1"
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['apps.kubernetes.io/pod-index']
+            # One id for every broker of the cluster: a broker formats its
+            # own storage on first start, and one formatted under another
+            # id is refused by the rest.
+            - name: CLUSTER_ID
+              value: {{ .Values.kafka.clusterId | quote }}
             - name: KAFKA_PROCESS_ROLES
               value: "broker,controller"
             - name: KAFKA_CONTROLLER_QUORUM_VOTERS
-              value: "1@localhost:9093"
+              value: "{{- range $i := until $replicas }}{{ if $i }},{{ end }}{{ $i }}@{{ $name }}-{{ $i }}.{{ $headless }}:9093{{- end }}"
             - name: KAFKA_LISTENERS
               value: "PLAINTEXT://:9092,CONTROLLER://:9093"
-            # Clients bootstrap on the Service name, so the broker must
-            # advertise it back or they reconnect to an unreachable address.
+            # Clients bootstrap on the Service name and are sent on to a
+            # broker by name, so each advertises its own or they
+            # reconnect to an unreachable address.
             - name: KAFKA_ADVERTISED_LISTENERS
-              value: "PLAINTEXT://{{ .Release.Name }}-kafka:9092"
+              value: "PLAINTEXT://$(POD_NAME).{{ $headless }}:9092"
             - name: KAFKA_CONTROLLER_LISTENER_NAMES
               value: "CONTROLLER"
             - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
               value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
             - name: KAFKA_INTER_BROKER_LISTENER_NAME
               value: "PLAINTEXT"
-            # Single broker: every internal topic is replication-factor 1.
+            # What a topic gets where it names no replication factor,
+            # which is every topic the platform declares.
+            - name: KAFKA_DEFAULT_REPLICATION_FACTOR
+              value: {{ $copies | quote }}
+            - name: KAFKA_MIN_INSYNC_REPLICAS
+              value: {{ $inSync | quote }}
             - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
-              value: "1"
+              value: {{ $copies | quote }}
             - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
-              value: "1"
+              value: {{ $copies | quote }}
             - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
-              value: "1"
+              value: {{ $inSync | quote }}
             - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
               value: "0"
+            # A directory below the mount: a fresh ext4 volume holds
+            # lost+found, which a broker refuses to start beside.
+            - name: KAFKA_LOG_DIRS
+              value: "/var/lib/kafka/data/logs"
             - name: KAFKA_HEAP_OPTS
               value: {{ .Values.kafka.heapOpts | quote }}
           resources:
@@ -93,4 +164,25 @@ spec:
               port: 9092
             initialDelaySeconds: 20
             periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/kafka/data
+      {{- if not .Values.kafka.storage.size }}
+      volumes:
+        - name: data
+          emptyDir: {}
+      {{- end }}
+  {{- if .Values.kafka.storage.size }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.kafka.storage.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.kafka.storage.size | quote }}
+  {{- end }}
 {{- end }}

@@ -58,9 +58,9 @@ platform:
 - A `FoundationDBCluster` CR (handled by the vendored
   `fdb-operator` subchart at
   `infra/helm/queenswood/charts/fdb-operator`).
-- A single-broker Kafka Deployment (KRaft, dev-grade; not
-  production-ready as shipped — set `kafka.enabled=false`
-  and point at an external broker for production).
+- A Kafka StatefulSet (KRaft): one broker with no volume as
+  shipped, three replicating brokers with `kafka.replicas: 3`,
+  or none with `kafka.enabled=false` and an external broker.
 - Two one-shot Jobs that gate the rest of the system:
   `migrator` and `bootstrap`.
 
