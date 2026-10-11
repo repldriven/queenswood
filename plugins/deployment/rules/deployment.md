@@ -1263,9 +1263,10 @@ status` and a sign-in, never with the restore Job's exit status. Never
 write a secret again to unshelve: the entries survive, and a new version
 of the backup key strands every backup written under the old one. Keep
 the address through a shelve, so the certificates and records stay
-valid. An instance may stay shelved for as long as nobody needs it, and
+valid. An instance may stay shelved for as long as nobody needs it,
 `fdb.restore` may stay set afterwards, being a target rather than a
-mode.
+mode, and an instance may be unshelved empty, with `false` as `just
+gh-pr-unshelve`'s second argument, where its data is not wanted.
 Commands: `just queenswood-instance-record`, `just
 queenswood-instance-records`, `just gh-pr-up`, `just
 gh-pr-workloads-withdraw`, `just gh-pr-shelve`, `just

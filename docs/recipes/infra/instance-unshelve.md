@@ -62,7 +62,8 @@ just -f "$QW_INSTALLATIONS_REPO/Justfile" gh-merge
 The pull request sets `state: "up"` and `cluster.shelved: false` in
 `$QW_CODE/units/$QW_LABEL/instance.yml`, and `fdb.backup.backupName` to
 the new generation in `$QW_CODE/units/$QW_LABEL/values.yml`. It refuses
-a generation the restore reads from.
+a generation the restore reads from. A second argument of `false` sets
+`fdb.restore.enabled` to `false` as well, and FoundationDB starts empty.
 
 ### 3. Wait for the cluster
 
@@ -154,6 +155,9 @@ account before suspecting it.
 
 - Leave `fdb.restore` set afterwards: it is a target rather than a
   mode, and the next shelve replaces it.
+- Unshelve an instance empty, with `false` as `just gh-pr-unshelve`'s
+  second argument, where its data is not wanted: no restore runs, and
+  steps 1 and 5 have nothing to read or verify.
 
 Commands: `just queenswood-instance-records`, `just gh-pr-unshelve`,
 `just crossplane-unready`, `just gh-pr-workloads-return`, `just
@@ -182,6 +186,13 @@ instance was deployed answer the new cluster unchanged. Keycloak's
 bootstrap admin is the one its database was created with, and the
 database never went anywhere, so the realm comes back with the users it
 had and FoundationDB's records still name them.
+
+**Starting empty.** A shelved instance has no volumes, so with
+`fdb.restore.enabled: false` the chart renders no restore Job and the
+migrator builds the schema in an empty database. Keycloak's database
+stands, so its users remain and the records that named them do not. The
+new generation is still named: the backup starts again, and the old
+generation holds what the instance had.
 
 **Why two merges.** The workloads' Applications name the cluster by the
 registration the composite writes, and that has no address until the
