@@ -1,0 +1,11 @@
+# The API's access log: each call's entry queued off the request's
+# thread and written many to a transaction. A full queue drops entries
+# and counts them as access_log.entries.dropped.
+writer: !system/component
+  system/component-kind: access-log/writer
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  telemetry: !system/ref telemetry.otel-sdk
+  capacity: 10000
+  batch-size: 200
+  flush-ms: 100

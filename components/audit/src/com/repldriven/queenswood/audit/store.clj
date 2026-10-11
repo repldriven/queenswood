@@ -13,9 +13,19 @@
 
 (def ^:private by-kind "audit-kind")
 
+(def ^:private id-prefix "aud.")
+
 (def ^:private by-performer "audit-performer")
 
 (def ^:private by-performer-kind "audit-performer-kind")
+
+(defn entry-id
+  [versionstamp]
+  (fdb/appended-id id-prefix versionstamp))
+
+(defn entry-versionstamp
+  [id]
+  (fdb/appended-versionstamp id-prefix id))
 
 (defn append
   [txn entry]

@@ -170,6 +170,15 @@
    :schema {:type "array" :items {:$ref "#/components/schemas/AuditKind"}}
    :example "member-role-changed,member-removed"})
 
+(def AccessRefQuery
+  "`ref` query parameter on the access log: a request id, idempotency
+  key or correlation id, which lists only the calls that carried it."
+  {:name "ref"
+   :in "query"
+   :required false
+   :schema {:type "string" :minLength 1 :maxLength 255}
+   :example "01a12a36-88ef-7f53-88f1-7973bba7fbde"})
+
 (def PerformedByKindQuery
   "`performed-by-kind` query parameter on the audit log: the kinds of
   performer to list, comma-separated, every kind when absent."
@@ -215,6 +224,7 @@
 (def ref-delivery-id {:$ref "#/components/parameters/DeliveryId"})
 (def ref-delivery-filter {:$ref "#/components/parameters/DeliveryFilterQuery"})
 (def ref-audit-kind {:$ref "#/components/parameters/AuditKindQuery"})
+(def ref-access-ref {:$ref "#/components/parameters/AccessRefQuery"})
 (def ref-performed-by-kind
   {:$ref "#/components/parameters/PerformedByKindQuery"})
 (def ref-inbound-payment-status
@@ -226,6 +236,7 @@
   {"IdempotencyKey" IdempotencyKey
    "PageQuery" PageQuery
    "AuditKindQuery" AuditKindQuery
+   "AccessRefQuery" AccessRefQuery
    "PerformedByKindQuery" PerformedByKindQuery
    "EmbedQuery" EmbedQuery
    "PartyEmbedQuery" PartyEmbedQuery

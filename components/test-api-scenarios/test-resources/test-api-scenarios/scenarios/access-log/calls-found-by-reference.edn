@@ -1,0 +1,111 @@
+{:name "Each call to the bank is logged with what it answered, and found by its idempotency key or correlation id"
+ ;; An operator reads the bank, invites someone twice under one key, the
+ ;; second answered from the idempotency cache, and asks for an
+ ;; invitation that does not exist. Entries are written off the request's
+ ;; thread, so each lookup polls until its calls are there.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Access Bank"
+                    :status "live"
+                    :tier "micro"
+                    :currencies ["GBP"]}}
+   :as :bank
+   :assert {:status 201}}]
+ :when
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/bank"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :correlation-id "access-checkout-1"}}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-invite-1"
+                       :correlation-id "access-checkout-1"}
+             :body {:email "access-invitee@queenswood.local"
+                    :role "developer"
+                    :reason "Joining the payments team"}}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :idempotency-key "ik-access-invite-1"
+                       :correlation-id "access-checkout-1"}
+             :body {:email "access-invitee@queenswood.local"
+                    :role "developer"
+                    :reason "Joining the payments team"}}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/invitations/{invitation-id}"
+             :path-params {:invitation-id "inv.01kprbmgcj35ptc8npmybhh4zz"}
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]
+                       :correlation-id "access-missing-1"}}
+   :assert {:status 404 :problem {:type ":invitation/not-found"}}}]
+ :then
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/bank/access-log"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"ref" "ik-access-invite-1"}}
+   :until
+   {:status 200
+    :body
+    {:items
+     [{:method "POST"
+       :route "/v1/invitations"
+       :http-status 201
+       :replayed true}
+      {:bank-id [:ref :bank :bank-id]
+       :request-id [:m/regex "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$"]
+       :idempotency-key "ik-access-invite-1"
+       :correlation-id "access-checkout-1"
+       :requested-by {:kind "operator"
+                      :principal-id "queenswood-admin"
+                      :name "Queenswood"}
+       :method "POST"
+       :route "/v1/invitations"
+       :path-ids {}
+       :http-status 201
+       :problem-type [:m/absent]
+       :replayed false}]
+     :links [:m/absent]}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/bank/access-log"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"ref" "access-checkout-1"}}
+   :until
+   {:status 200
+    :body {:items [{:route "/v1/invitations" :replayed true}
+                   {:route "/v1/invitations" :replayed false}
+                   {:method "GET"
+                    :route "/v1/bank"
+                    :http-status 200
+                    :idempotency-key [:m/absent]
+                    :correlation-id "access-checkout-1"}]}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/bank/access-log"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"ref" "access-missing-1"}}
+   :until
+   {:status 200
+    :body {:items [{:method "GET"
+                    :route "/v1/invitations/{invitation-id}"
+                    :path-ids {:invitation-id "inv.01kprbmgcj35ptc8npmybhh4zz"}
+                    :http-status 404
+                    :problem-type ":invitation/not-found"}]}}}]}

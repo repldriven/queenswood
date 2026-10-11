@@ -81,6 +81,7 @@ system:
   payment-sweep: !include system/payment-outbound-sweep.yml
   transactions-dispatcher: !include system/transaction-dispatcher.yml
   scheduler: !include system/scheduler.yml
+  access-log: !include system/access-log.yml
   telemetry: !include system/telemetry.yml
   server:
     handler: !system/required-component
@@ -120,6 +121,7 @@ system:
       avro: !system/ref avro.serde
       record-db: !system/ref fdb.record-db
       record-store: !system/ref fdb.meta-store
+      access-log: !system/ref access-log.writer
       # The platform's own published hosts, which no tenant webhook
       # address may name. Comma-separated, because an environment
       # variable carries a string.

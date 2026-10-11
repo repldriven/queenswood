@@ -1,0 +1,23 @@
+(ns com.repldriven.queenswood.access-log-api.interface
+  "The bank's access log as the banking API publishes it: the malli
+  components an access entry and its list are built from, the example
+  they carry, and the query a page of the log takes."
+  (:require
+    [com.repldriven.queenswood.access-log-api.components :as components]))
+
+(def
+  ^{:doc
+    "Malli registry of the access log schemas, keyed by the name each
+  appears under in the document's `components/schemas`: `AccessEntry`,
+  `AccessEntryId` and `AccessEntryList`. Merged into the coercion
+  registry in `api.clj`, so `[:ref \"X\"]` resolves them on any route."}
+  registry
+  components/registry)
+
+(def
+  ^{:doc
+    "Malli `:query` schema of the access log: an optional `page`, and an
+  optional `ref`, a request id, idempotency key or correlation id, which
+  narrows the log to the calls that carried it."}
+  access-log-query
+  components/AccessLogQuery)

@@ -1,6 +1,8 @@
 (ns com.repldriven.queenswood.fdb.appended
   (:require
-    [com.repldriven.queenswood.fdb.changelog :as changelog])
+    [com.repldriven.queenswood.fdb.changelog :as changelog]
+
+    [clojure.string :as str])
   (:import
     (com.apple.foundationdb KeySelector KeyValue MutationType Range)
     (com.apple.foundationdb.record.provider.foundationdb
@@ -77,3 +79,59 @@
                (:versionstamp (first page)))
      :after (when (and rows-after? (seq page))
               (:versionstamp (peek page)))}))
+
+(defn clear-entry
+  [^FDBRecordContext ctx prefix parts ^bytes versionstamp]
+  (.clear (.ensureActive ctx)
+          (.pack ^Subspace (changelog/rooted prefix parts)
+                 (vs-tuple (Versionstamp/fromBytes versionstamp)))))
+
+(defn clear-through
+  [^FDBRecordContext ctx prefix parts ^bytes versionstamp]
+  (let [subspace ^Subspace (changelog/rooted prefix parts)
+        last-key (.pack subspace
+                        (vs-tuple (Versionstamp/fromBytes versionstamp)))
+        end (byte-array (inc (alength last-key)))]
+    (System/arraycopy last-key 0 end 0 (alength last-key))
+    (.clear (.ensureActive ctx) (.begin (.range subspace)) end)))
+
+(def ^:private crockford "0123456789abcdefghjkmnpqrstvwxyz")
+
+(def ^:private id-chars 26)
+
+(def ^:private versionstamp-bytes 12)
+
+(defn ->id
+  [prefix ^bytes versionstamp]
+  (let [n (BigInteger. 1 versionstamp)
+        mask (BigInteger/valueOf 31)]
+    (str prefix
+         (apply str
+                (map (fn [i]
+                       (nth crockford
+                            (.intValue (.and (.shiftRight n (int (* 5 i)))
+                                             mask))))
+                     (range (dec id-chars) -1 -1))))))
+
+(defn ->versionstamp
+  [prefix id]
+  (when (and (string? id)
+             (str/starts-with? id prefix)
+             (= (+ (count prefix) id-chars) (count id)))
+    (let [digits (map (fn [c] (str/index-of crockford c))
+                      (subs id (count prefix)))]
+      (when (every? some? digits)
+        (let [n (reduce (fn [acc d]
+                          (.add (.shiftLeft ^BigInteger acc 5)
+                                (BigInteger/valueOf d)))
+                        BigInteger/ZERO
+                        digits)
+              raw (.toByteArray n)
+              out (byte-array versionstamp-bytes)
+              length (min (alength raw) versionstamp-bytes)]
+          (System/arraycopy raw
+                            (- (alength raw) length)
+                            out
+                            (- versionstamp-bytes length)
+                            length)
+          out)))))

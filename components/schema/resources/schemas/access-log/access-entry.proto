@@ -1,0 +1,31 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.access_log;
+
+import "schemas/actor/actor.proto";
+import "schemas/fideslang/data-category.proto";
+
+option java_outer_classname = "AccessEntryProto";
+
+// One call to the API by a caller authenticated for a bank, appended
+// under that bank once its response was chosen and keyed by the
+// versionstamp of the commit that wrote it. Not a record type: nothing
+// updates it, and only retention deletes it.
+message AccessEntry {
+  required string bank_id = 1;
+
+  required string request_id = 2; // uuidv7, as answered in Request-Id
+  optional string idempotency_key = 3; // as the client sent it
+  optional string correlation_id = 4; // as the client sent it, else the idempotency key
+  optional string trace_id = 5 [(fideslang.data_category) = "system.operations"]; // W3C, 32 hex
+  required int64 requested_at = 6;
+  required com.repldriven.queenswood.schema.actor.Actor requested_by = 7;
+  required string method = 8;
+  required string route = 9; // the route's template
+  map<string, string> path_ids = 10;
+  required int32 http_status = 11;
+  optional string problem_type = 12;
+  required bool replayed = 13;
+  optional string client_address = 14 [(fideslang.data_category) = "user.device.ip_address"];
+  required int64 duration = 15; // microseconds
+}

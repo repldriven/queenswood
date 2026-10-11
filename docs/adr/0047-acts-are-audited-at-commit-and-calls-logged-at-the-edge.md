@@ -109,23 +109,32 @@ The decision has these parts:
   both to the domain wherever the actor goes: the request id as a
   command's causation id, which the processor passes on beside the
   actor, and in a synchronous call's arguments.
-- Write an access entry for every call, from that interceptor after
-  the response is chosen: the request id, the principal where one was
-  authenticated, the bank, the method, the route's template, the ids
-  in its path, the status, the rejection's type, whether the response
-  was replayed, the client's address and the duration, and no body or
-  query value.
+- Write an access entry for every call by a caller authenticated for
+  a bank, from an interceptor beside that one after the response is
+  chosen, under the bank authentication resolved and never the one a
+  header names: the request id, the idempotency key and correlation id
+  the client sent, the trace id, the principal, the method, the
+  route's template, the ids in its path, the status, the rejection's
+  type, whether the response was replayed, the client's address and
+  the duration, and no body or query value.
+- Append each access entry under the bank and its commit's
+  versionstamp, with an empty key beside it under the bank and each
+  distinct reference the call carried, its request id, idempotency
+  key and correlation id, so a bank's log reads newest first and a
+  call is found by whichever reference its client holds.
 - Write access entries off the request's thread, many to a
   transaction, in an `access-log` brick whose queue is bounded; count
   an entry the full queue refuses as dropped, and publish the count
-  beside the queue's depth.
+  beside the queue's depth and the entries written for each bank.
 - Keep audit entries for the life of the bank. Keep access entries for
-  a period the installation configures, and delete older ones from a
-  system job, the only deletion either store allows.
+  a period the installation configures, and delete older ones, with
+  their references, through `access-log/delete-before` from a system
+  job, the only deletion either store allows.
 - Serve a bank its own entries at `GET /v1/bank/audit-log`, which
   takes a set of kinds and a set of performers' kinds, and
-  `GET /v1/bank/access-log`, and an operator any bank's, each actor
-  named on read as the access routes name one today.
+  `GET /v1/bank/access-log`, which takes a reference, and an operator
+  any bank's, each actor named on read as the access routes name one
+  today.
 - Assert in the API scenario runner, after each step, that every
   successful write call that was not a replay left at least one audit
   entry under its request id, exempting a retry after a lost reply,
@@ -175,7 +184,12 @@ Harder:
   a field is added, and the subject's protos are where to look.
 - An access entry is lost when its process dies with it still queued,
   and dropped when the queue is full, so the access log is complete
-  only while the dropped count stays at zero.
+  only while the dropped count stays at zero. One bank's flood can
+  fill the shared queue and drop other banks' entries.
+- A call is not logged that named no bank, was not authenticated, was
+  refused the bank it named, or failed validation, which answers
+  before authentication: an unauthenticated flood writes nothing, and
+  those calls are seen only in the API's request metrics.
 - Every write path threads the request id beside the actor, and a test
   driving a domain directly supplies both.
 - Coverage drifts as write routes are added: the scenario check makes

@@ -550,6 +550,15 @@ Under `/v1/bank`, the bank the header names:
   entry as an `AuditEntry`, its id as `audit-entry-id`, read through
   `audit/list-by-bank`. It describes the bank rather than a record it
   holds, so it sits beside the bank's policies.
+- `GET /v1/bank/access-log` — `org:viewer` or `admin`, cursor-paged,
+  newest first, and narrowed to the calls carrying the request id,
+  idempotency key or correlation id a `ref` query names. The bank's
+  access log: each entry as an `AccessEntry`, its id as
+  `access-entry-id`, read through `access-log/list-by-bank`. The
+  `access-entry` interceptor, beside `request-id` on `/v1`, queues an
+  entry through `access-log/record` for each call whose principal
+  `auth` resolved a bank for, and the `access-log/writer` component
+  in `system/access-log.yml` writes them.
 
 Every `Actor` a route answers carries `name`, an `AuditEntry`'s
 `performed-by` among them, resolved on read in `access/names.clj`, each
@@ -693,6 +702,11 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   for a create and one for a resend and none for an accept.
 - **The `member-query` brick** covers the reads against records the
   tests write through its own store, and the token hash.
+- **The `access-log` brick** covers a bank's log newest first and paged,
+  a call found by each reference it carried and only in its own bank,
+  a client's id cut to 255 characters, `delete-before` taking the
+  oldest a limit at a time with their references, and a full queue
+  dropping and counting an entry.
 - **The `api` base** holds that the router refuses a bare `org` gate
   and a stacked level, beside its existing check for a scheme naming no
   roles; that names are looked up once per id, fall back to the email
@@ -725,6 +739,9 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   repeated recording one event; and the history route paging in order.
   Under `scenarios/banks/`, the bank list's owners before and after the
   owner accepts, and a create with an owner email answering no token.
+  Under `scenarios/access-log/`, an operator's read, write, replay and
+  refused read found by idempotency key and correlation id, with the
+  replay marked and the refusal's problem type.
 
 ## Alternatives Considered
 
@@ -801,7 +818,22 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 - **The owner level gates no route.** Owner-only rules live in
   `domain.clj`, so an owner's authority is visible in the rules rather
   than the OpenAPI document.
-- **History has no retention.** Events accumulate per bank.
+- **Audit entries have no retention.** They accumulate per bank, as
+  ADR-0047 intends.
+- **Access entries are not yet pruned.** `access-log/delete-before`
+  deletes a bank's expired entries with their references, but no
+  system job calls it until a data retention job exists, so the log
+  grows meanwhile.
+- **Some calls are not in the access log.** A call that named no bank,
+  was not authenticated, was refused the bank it named, or failed
+  validation, which answers before authentication, writes no entry, and
+  is seen only in the API's request metrics.
+- **One bank's flood can drop another's access entries.** The writer's
+  queue is shared, so a bank calling past its capacity fills it for
+  everyone; a share per bank is the fix.
+- **A bank's credential is named Queenswood.** An actor is named from a
+  user record, and the bank's credential has none, so the audit and
+  access logs name it as they name the platform.
 
 ## References
 

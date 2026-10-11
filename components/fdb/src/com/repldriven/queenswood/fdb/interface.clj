@@ -421,6 +421,50 @@
   [txn parts versionstamp]
   (appended/load-entry (:context txn) (:prefix txn) parts versionstamp))
 
+(defn clear-appended
+  "Clears what `append` wrote under `parts` at `versionstamp`, its 12
+  bytes. For a log whose entries expire.
+
+  Args:
+  - txn: the Txn the clear commits with.
+  - parts: the key parts the entry was appended under.
+  - versionstamp: the entry's 12 bytes."
+  [txn parts versionstamp]
+  (appended/clear-entry (:context txn) (:prefix txn) parts versionstamp))
+
+(defn clear-appended-through
+  "Clears everything `append` wrote under `parts` up to and including
+  `versionstamp`, its 12 bytes: one range clear, for the expired head of
+  a log.
+
+  Args:
+  - txn: the Txn the clear commits with.
+  - parts: the key parts entries were appended under.
+  - versionstamp: the newest entry to clear."
+  [txn parts versionstamp]
+  (appended/clear-through (:context txn) (:prefix txn) parts versionstamp))
+
+(defn appended-id
+  "An appended entry's id: `prefix` and its versionstamp's 12 bytes in
+  Crockford base32, 26 characters that sort as the versionstamps do, so
+  an id is also a page cursor.
+
+  Args:
+  - prefix: the id's prefix, such as `aud.`.
+  - versionstamp: the entry's 12 bytes."
+  [prefix versionstamp]
+  (appended/->id prefix versionstamp))
+
+(defn appended-versionstamp
+  "The 12 bytes of the versionstamp `appended-id` encoded in `id`, or
+  nil when `id` is not `prefix` and 26 Crockford base32 characters.
+
+  Args:
+  - prefix: the id's prefix, such as `aud.`.
+  - id: the id."
+  [prefix id]
+  (appended/->versionstamp prefix id))
+
 (defn bump-stamp
   "Sets the stamp named `stamp-name` to this transaction's commit
   versionstamp, unique and rising with every commit. A writer bumps the

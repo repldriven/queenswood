@@ -208,7 +208,7 @@
     (testing
       "a bank's own record, and what hangs off it, name org:viewer and admin"
       (let [own (filter (fn [op] (bank-own? (:path op))) org-ops)]
-        (is (= 4 (count own)))
+        (is (= 5 (count own)))
         (doseq [{:keys [path method security]} own]
           (is (= (into (gate "org:viewer") (gate "admin")) security)
               (str (name method) " " path)))))
