@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.payee-check-api.examples
   (:require
     [com.repldriven.queenswood.api-schema.interface :refer
-     [examples-registry]]))
+     [actor-example examples-registry]]))
 
 (def PayeeCheckRequest
   {:creditor-name "Arthur Dent"
@@ -20,6 +20,7 @@
             :reason-code "PANM"
             :reason "Partial name match"}
    :created-at "2026-04-20T14:23:05.123Z"
+   :created-by actor-example
    :expires-at "2026-04-20T14:38:05.123Z"})
 
 (def PayeeCheckList

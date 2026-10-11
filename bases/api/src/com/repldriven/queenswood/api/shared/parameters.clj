@@ -168,7 +168,7 @@
    :style "form"
    :explode false
    :schema {:type "array" :items {:$ref "#/components/schemas/AuditKind"}}
-   :example "member-role-changed,member-removed"})
+   :example ["member-role-changed" "member-removed"]})
 
 (def AccessRefQuery
   "`ref` query parameter on the access log: a request id, idempotency
@@ -188,7 +188,7 @@
    :style "form"
    :explode false
    :schema {:type "array" :items {:type "string" :minLength 1 :maxLength 64}}
-   :example "Payments,Cash Accounts"})
+   :example ["Payments" "Cash Accounts"]})
 
 (def AuditRequestIdQuery
   "`request-id` query parameter on the audit log: the API request whose
@@ -209,7 +209,7 @@
    :style "form"
    :explode false
    :schema {:type "array" :items {:type "string" :minLength 1 :maxLength 64}}
-   :example "usr.01kprbmgcj35ptc8npmybhh4s7"})
+   :example ["usr.01kprbmgcj35ptc8npmybhh4s7"]})
 
 (def RequestedByQuery
   "`requested-by` query parameter on the access log: the principals whose
@@ -221,7 +221,7 @@
    :style "form"
    :explode false
    :schema {:type "array" :items {:type "string" :minLength 1 :maxLength 64}}
-   :example "usr.01kprbmgcj35ptc8npmybhh4s7"})
+   :example ["usr.01kprbmgcj35ptc8npmybhh4s7"]})
 
 (def FromQuery
   "`from` query parameter on a log: the instant its entries are listed
@@ -251,7 +251,7 @@
    :style "form"
    :explode false
    :schema {:type "array" :items {:$ref "#/components/schemas/ActorKind"}}
-   :example "member,bank"})
+   :example ["member" "bank"]})
 
 (def PartyEmbedQuery
   "`embed` query parameter for optional sub-resource embedding on the

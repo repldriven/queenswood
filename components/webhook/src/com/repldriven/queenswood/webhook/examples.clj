@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.webhook.examples
   (:require
-    [com.repldriven.queenswood.api-schema.interface :refer [examples-registry]]
+    [com.repldriven.queenswood.api-schema.interface :refer
+     [actor-example examples-registry]]
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]))
 
@@ -25,6 +26,7 @@
    :kinds ["cash-account.opened"]
    :status :enabled
    :created-at "2026-05-01T00:00:00Z"
+   :created-by actor-example
    :updated-at "2026-05-18T09:15:04Z"})
 
 (def delivery

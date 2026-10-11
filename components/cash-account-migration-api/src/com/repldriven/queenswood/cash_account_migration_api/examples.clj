@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.cash-account-migration-api.examples
   (:require
     [com.repldriven.queenswood.api-schema.interface :refer
-     [examples-registry]]))
+     [actor-example examples-registry]]))
 
 (def MigrationNotFound
   {:value {:title "REJECTED"
@@ -92,6 +92,7 @@
    :notified-on "2026-06-01"
    :due-on "2026-08-01"
    :created-at "2025-01-02T02:00:00Z"
+   :created-by actor-example
    :updated-at "2025-01-02T02:00:00Z"})
 
 (def MigrationList {:items [Migration]})

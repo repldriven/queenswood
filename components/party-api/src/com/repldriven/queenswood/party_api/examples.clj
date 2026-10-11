@@ -78,6 +78,7 @@
    :status :pending
    :external-reference "cust-4471"
    :created-at "2025-01-01T00:00:00Z"
+   :created-by schema/actor-example
    :updated-at "2025-01-01T00:00:00Z"})
 
 (def PartyId (:party-id Party))
@@ -116,6 +117,7 @@
    :status :ready
    :hand-off HandOff
    :created-at "2025-01-01T00:00:00Z"
+   :created-by schema/actor-example
    :updated-at "2025-01-01T00:00:02Z"})
 
 (def VerificationCriterion

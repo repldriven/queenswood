@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.ledger-account-api.examples
   (:require
     [com.repldriven.queenswood.api-schema.interface :refer
-     [examples-registry]]))
+     [actor-example examples-registry]]))
 
 (def LedgerAccountNotFound
   {:value {:title "REJECTED"
@@ -22,6 +22,7 @@
    :status :open
    :posted-balance {:value 90000 :currency "GBP"}
    :created-at "2025-01-01T00:00:00Z"
+   :created-by actor-example
    :updated-at "2025-01-01T00:00:00Z"})
 
 (def LedgerAccountId (:ledger-account-id LedgerAccount))

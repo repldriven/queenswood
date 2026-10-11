@@ -1,7 +1,7 @@
 (ns com.repldriven.queenswood.payment-api.examples
   (:require
     [com.repldriven.queenswood.api-schema.interface :refer
-     [examples-registry]]))
+     [actor-example examples-registry]]))
 
 (def PaymentNotFound
   {:value {:title "REJECTED"
@@ -71,6 +71,7 @@
    :reference "Internal transfer"
    :business-day "2025-01-01"
    :created-at "2025-01-01T00:00:00Z"
+   :created-by actor-example
    :updated-at "2025-01-01T00:00:00Z"})
 
 (def SubmitOutboundPaymentRequest
@@ -96,6 +97,7 @@
    :reference "Invoice 123"
    :business-day "2025-01-01"
    :created-at "2025-01-01T00:00:00Z"
+   :created-by actor-example
    :updated-at "2025-01-01T00:00:00Z"})
 
 (def InboundPayment

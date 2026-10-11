@@ -72,6 +72,7 @@
    :opening-reward OpeningReward
    :effective-from "2025-01-01"
    :created-at "2025-01-01T00:00:00Z"
+   :created-by schema/actor-example
    :updated-at "2025-01-01T00:00:00Z"})
 
 (def CashAccountProduct

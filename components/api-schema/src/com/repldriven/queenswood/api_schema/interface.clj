@@ -196,6 +196,14 @@
 
 (def
   ^{:doc
+    "The actor a resource example names as who created it: a member, by
+  the user id the `/v1/me` examples carry. One value for every resource,
+  so the document shows one person throughout."}
+  actor-example
+  components/actor-example)
+
+(def
+  ^{:doc
     "Malli schema for the client-generated idempotency key:
   16-255 characters of URL-safe ASCII, which a UUID v4 or a ULID both
   satisfy."}
