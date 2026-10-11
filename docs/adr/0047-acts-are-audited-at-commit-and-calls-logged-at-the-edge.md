@@ -68,11 +68,12 @@ The decision has these parts:
   and an empty key beside it under the bank, the subject's id and that
   versionstamp, under the bank, the kind and that versionstamp, under
   the bank, the performer's kind and that versionstamp, and under the
-  bank, the performer's kind, the kind and that versionstamp, and under
+  bank, the performer's kind, the kind and that versionstamp, under the
+  bank, the performer's principal id and that versionstamp, and under
   the bank, the request id and that versionstamp, so a bank's log, one
-  record's history, any set of kinds and any set of performers' kinds
-  each read newest first, a page at a time, and a call's acts are found
-  by its request id.
+  record's history, any set of kinds, any set of performers' kinds and
+  any set of performers each read newest first, a page at a time, and a
+  call's acts are found by its request id.
 - Hold in each entry the act's kind, the subject's kind and id, the
   actor as `performed_by`, the time as `performed_at`, the request id,
   and a `changeset` of the subject's fields the act changed and no
@@ -123,9 +124,10 @@ The decision has these parts:
 - Append each access entry under the bank and its commit's
   versionstamp, with an empty key beside it under the bank and each
   distinct reference the call carried, its request id, idempotency
-  key and correlation id, and under the bank and its tag, so a bank's
-  log reads newest first, a call is found by whichever reference its
-  client holds, and any set of tags reads newest first.
+  key and correlation id, under the bank and its tag, and under the
+  bank and its caller's principal id, so a bank's log reads newest
+  first, a call is found by whichever reference its client holds, and
+  any set of tags or of callers reads newest first.
 - Write access entries off the request's thread, many to a
   transaction, in an `access-log` brick whose queue is bounded; count
   an entry the full queue refuses as dropped, and publish the count
@@ -135,9 +137,10 @@ The decision has these parts:
   their references and tags, through `access-log/delete-before` from a system
   job, the only deletion either store allows.
 - Serve a bank its own entries at `GET /v1/bank/audit-log`, which
-  takes a set of kinds, a set of performers' kinds and a request id, and
-  `GET /v1/bank/access-log`, which takes a reference and a set of
-  tags, each also taking a range of instants, and an operator any
+  takes a set of kinds, a set of performers' kinds, a set of performers
+  and a request id, and `GET /v1/bank/access-log`, which takes a
+  reference, a set of tags and a set of callers, each also taking a
+  range of instants, and an operator any
   bank's, each actor named on read as the access routes name one
   today.
 - Find a range's ends by a binary search of the bank's log by each
@@ -177,14 +180,16 @@ Easier:
 
 Harder:
 
-- A person's act on a busy path writes six more keys, blind and
+- A person's act on a busy path writes seven more keys, blind and
   conflicting with nothing: a payment a bank submits through the API
   is the busiest, measured with the perf suite before and after.
 - The log reads newest first by bank, by subject, by a set of kinds or
-  performers' kinds, or by both, within a range of instants, and
-  nothing else: a page reads one range per kind, per performer's kind
-  or per pair of the two, a range's ends cost a binary search each, and
-  a filter on anything in a changeset or on one person would scan.
+  performers' kinds, or by both, or by a set of performers, within a
+  range of instants, and nothing else: a page reads one range per kind,
+  per performer's kind or per pair of the two, or one range per person
+  with kinds filtered after reading, so such a page may run short, a
+  range's ends cost a binary search each, and a filter on anything in a
+  changeset would scan.
 - A range's ends are found in commit order by times each process's
   clock wrote, so an entry whose clock ran behind another's, or a long
   call logged after a short one, may fall just either side of an edge.

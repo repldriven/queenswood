@@ -19,6 +19,8 @@
 
 (def ^:private by-request "audit-request")
 
+(def ^:private by-performer-id "audit-performer-id")
+
 (defn entry-id
   [versionstamp]
   (fdb/appended-id id-prefix versionstamp))
@@ -40,7 +42,9 @@
                                          [by-kind bank-id kind]
                                          [by-performer bank-id performer]
                                          [by-performer-kind bank-id performer
-                                          kind]]
+                                          kind]
+                                         [by-performer-id bank-id
+                                          (:principal-id performed-by)]]
                                         request-id
                                         (conj [by-request bank-id request-id]))
                                 (schema/AuditEntry->pb entry)))
@@ -90,40 +94,51 @@
       (utility/assoc-some {} :from lower :until (when to (reached to))))))
 
 (defn list-by-bank
-  [txn bank-id kinds performer-kinds request-id from to opts]
-  (fdb/transact
-   txn
-   (fn [txn]
-     (let [range (bounds txn bank-id from to)
-           narrowed (ranges bank-id kinds performer-kinds)
-           opts (cond-> (assoc opts :order :desc)
-                        (map? range)
-                        (merge range))
-           kept? (fn [{:keys [kind performed-by]}]
-                   (and (or (empty? kinds) (contains? (set kinds) kind))
-                        (or (empty? performer-kinds)
-                            (contains? (set performer-kinds)
-                                       (:kind performed-by)))))]
-       (cond (= :none range)
-             {:entries []}
+  [txn bank-id filters opts]
+  (let [{:keys [kinds performer-kinds request-id performed-by from to]} filters
+        kept? (fn [{:keys [kind] :as entry}]
+                (and (or (empty? kinds) (contains? (set kinds) kind))
+                     (or (empty? performer-kinds)
+                         (contains? (set performer-kinds)
+                                    (get-in entry [:performed-by :kind])))))]
+    (fdb/transact
+     txn
+     (fn [txn]
+       (let [range (bounds txn bank-id from to)
+             narrowed (ranges bank-id kinds performer-kinds)
+             opts (cond-> (assoc opts :order :desc)
+                          (map? range)
+                          (merge range))]
+         (cond (= :none range)
+               {:entries []}
 
-             request-id
-             (update
-              (fdb/scan-appended txn [by-request bank-id request-id] opts)
-              :entries
-              (fn [found] (filterv kept? (loaded txn bank-id found))))
+               request-id
+               (update
+                (fdb/scan-appended txn [by-request bank-id request-id] opts)
+                :entries
+                (fn [found] (filterv kept? (loaded txn bank-id found))))
 
-             narrowed
-             (update (fdb/scan-appended-union txn narrowed opts)
-                     :entries
-                     (partial loaded txn bank-id))
+               (seq performed-by)
+               (update (fdb/scan-appended-union
+                        txn
+                        (mapv (fn [principal-id]
+                                [by-performer-id bank-id principal-id])
+                              performed-by)
+                        opts)
+                       :entries
+                       (fn [found] (filterv kept? (loaded txn bank-id found))))
 
-             :else
-             (update (fdb/scan-appended txn [log bank-id] opts)
-                     :entries
-                     (partial mapv decoded)))))
-   :audit/list
-   "Failed to list audit entries"))
+               narrowed
+               (update (fdb/scan-appended-union txn narrowed opts)
+                       :entries
+                       (partial loaded txn bank-id))
+
+               :else
+               (update (fdb/scan-appended txn [log bank-id] opts)
+                       :entries
+                       (partial mapv decoded)))))
+     :audit/list
+     "Failed to list audit entries")))
 
 (defn list-by-subject
   [txn bank-id subject-id opts]

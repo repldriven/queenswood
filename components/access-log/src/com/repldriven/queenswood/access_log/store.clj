@@ -12,6 +12,8 @@
 
 (def ^:private by-tag "access-tag")
 
+(def ^:private by-caller "access-caller")
+
 (def ^:private id-prefix "axs.")
 
 (defn entry-id
@@ -27,8 +29,9 @@
   (distinct (keep entry [:request-id :idempotency-key :correlation-id])))
 
 (defn- index-keys
-  [{:keys [bank-id tag] :as entry}]
-  (cond-> (mapv (fn [ref] [by-ref bank-id ref]) (refs entry))
+  [{:keys [bank-id tag requested-by] :as entry}]
+  (cond-> (conj (mapv (fn [ref] [by-ref bank-id ref]) (refs entry))
+                [by-caller bank-id (:principal-id requested-by)])
           tag
           (conj [by-tag bank-id tag])))
 
@@ -69,15 +72,23 @@
       (utility/assoc-some {} :from lower :until (when to (reached to))))))
 
 (defn list-by-bank
-  [txn bank-id ref tags from to opts]
-  (let [tagged? (fn [entry] (contains? (set tags) (:tag entry)))]
+  [txn bank-id filters opts]
+  (let [{:keys [ref tags requested-by from to]} filters
+        tagged? (fn [entry]
+                  (or (empty? tags) (contains? (set tags) (:tag entry))))]
     (fdb/transact
      txn
      (fn [txn]
        (let [range (bounds txn bank-id from to)
              opts (cond-> (assoc opts :order :desc)
                           (map? range)
-                          (merge range))]
+                          (merge range))
+             by (set requested-by)
+             called? (fn [entry]
+                       (or (empty? by)
+                           (contains? by
+                                      (get-in entry
+                                              [:requested-by :principal-id]))))]
          (cond (= :none range)
                {:entries []}
 
@@ -85,14 +96,24 @@
                (update (fdb/scan-appended txn [by-ref bank-id ref] opts)
                        :entries
                        (fn [found]
-                         (cond->> (loaded txn bank-id found)
-                           (seq tags)
-                           (filterv tagged?))))
+                         (filterv (every-pred tagged? called?)
+                                  (loaded txn bank-id found))))
+
+               (seq requested-by)
+               (update (fdb/scan-appended-union
+                        txn
+                        (mapv (fn [principal-id]
+                                [by-caller bank-id principal-id])
+                              requested-by)
+                        opts)
+                       :entries
+                       (fn [found]
+                         (filterv tagged? (loaded txn bank-id found))))
 
                (seq tags)
                (update (fdb/scan-appended-union
                         txn
-                        (mapv (fn [tag] [by-tag bank-id tag]) (distinct tags))
+                        (mapv (fn [tag] [by-tag bank-id tag]) tags)
                         opts)
                        :entries
                        (partial loaded txn bank-id))

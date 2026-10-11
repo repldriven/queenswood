@@ -24,7 +24,9 @@
   decoded to a vector of `:audit-kind-*` keywords, and an optional
   `performed-by-kind`, the kinds of performer to list, decoded the same
   way to `:actor-kind-*` keywords, an optional `request-id`, the API
-  request whose acts to list, and an optional `from` and `to`, RFC
+  request whose acts to list, an optional `performed-by`, the principal
+  ids whose acts to list, comma-separated, and an optional `from` and
+  `to`, RFC
   3339 timestamps decoded to epoch milliseconds, `from` before `to`."}
   audit-log-query
   components/AuditEntryQuery)

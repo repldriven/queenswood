@@ -39,9 +39,8 @@
       <SidenavItem href="#/products" title="Products" current={isCurrent("/products")}>
         {#snippet icon()}
           <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M2 4 L14 4" />
-            <path d="M2 8 L14 8" />
-            <path d="M2 12 L14 12" />
+            <path d="M2.5 3.5 V8 L8.5 14 L14 8.5 L8 2.5 H3.5 A1 1 0 0 0 2.5 3.5 Z" />
+            <circle cx="5.5" cy="5.5" r="1" />
           </svg>
         {/snippet}
         Products
@@ -78,8 +77,9 @@
       <SidenavItem href="#/migrations" title="Migrations" current={isCurrent("/migrations")}>
         {#snippet icon()}
           <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M2.5 5.5 H12 M9.5 3 L12 5.5 L9.5 8" />
-            <path d="M13.5 10.5 H4 M6.5 8 L4 10.5 L6.5 13" />
+            <rect x="1.5" y="5" width="4" height="6" rx="0.8" />
+            <rect x="10.5" y="5" width="4" height="6" rx="0.8" />
+            <path d="M6.5 8 H9.2 M7.8 6.6 L9.2 8 L7.8 9.4" />
           </svg>
         {/snippet}
         Migrations
@@ -141,10 +141,7 @@
       <SidenavItem href="#/access-log" title="Access log" current={isCurrent("/access-log")}>
         {#snippet icon()}
           <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M3 5.5 H12.5" />
-            <path d="M10 3 L12.5 5.5 L10 8" />
-            <path d="M13 10.5 H3.5" />
-            <path d="M6 8 L3.5 10.5 L6 13" />
+            <path d="M1.5 8 H4.5 L6 4.5 L8.5 11.5 L10 8 H14.5" />
           </svg>
         {/snippet}
         Access log

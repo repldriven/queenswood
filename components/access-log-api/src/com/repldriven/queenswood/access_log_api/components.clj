@@ -50,13 +50,16 @@
 (def AccessLogQuery
   "The access log's query: a page, and optionally a reference, the
   request id, idempotency key or correlation id a call carried, and the
-  OpenAPI tags whose operations to list, comma-separated, and the
-  instants the calls were requested from and before."
+  OpenAPI tags whose operations to list and the principals whose calls
+  to list, each comma-separated, and the instants the calls were
+  requested from and before."
   [:and
    [:map {:closed true}
     [:page {:optional true} [:ref "PageQuery"]]
     [:ref {:optional true} [:string {:min 1 :max 255}]]
     [:tag {:optional true}
+     [:vector {:decode/api comma-separated} [:string {:min 1 :max 64}]]]
+    [:requested-by {:optional true}
      [:vector {:decode/api comma-separated} [:string {:min 1 :max 64}]]]
     [:from {:optional true} schema/instant-query-schema]
     [:to {:optional true} schema/instant-query-schema]]

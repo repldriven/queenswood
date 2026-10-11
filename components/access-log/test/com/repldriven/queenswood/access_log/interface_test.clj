@@ -176,6 +176,40 @@
                  _ (is (= ["req-1" "req-0"] (request-ids by-ref))
                        "a reference's calls inside the range")]))))
 
+(deftest requested-by-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         writer (system/instance sys [:access-log :writer])
+         bank-id "bnk.callers"
+         ada {:kind :actor-kind-member :principal-id "usr.ada"}
+         bank {:kind :actor-kind-bank :principal-id "bnk.callers"}]
+     (doseq [[n who tag] [[0 ada "Payments"] [1 bank "Payments"]
+                          [2 ada "Members"] [3 bank "Members"]]]
+       (SUT/record
+        writer
+        (assoc (call bank-id n (+ 1000 n)) :requested-by who :tag tag)))
+     (nom-test> [_ (written config bank-id 4)
+                 one (SUT/list-by-bank config
+                                       bank-id
+                                       {:limit 10 :requested-by ["usr.ada"]})
+                 _ (is (= ["req-2" "req-0"] (request-ids one))
+                       "one caller's calls")
+                 narrowed (SUT/list-by-bank config
+                                            bank-id
+                                            {:limit 10
+                                             :requested-by ["bnk.callers"]
+                                             :tags ["Members"]})
+                 _ (is (= ["req-3"] (request-ids narrowed))
+                       "tags filter a caller's calls")
+                 by-ref (SUT/list-by-bank config
+                                          bank-id
+                                          {:limit 10
+                                           :ref "checkout-1"
+                                           :requested-by ["usr.ada"]})
+                 _ (is (= ["req-2" "req-0"] (request-ids by-ref))
+                       "callers filter a reference's calls")]))))
+
 (deftest delete-before-test
   (with-test-system
    [sys config-file]

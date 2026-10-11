@@ -39,7 +39,7 @@
     rangeLabel,
   } from "@queenswood/ui";
   import AuditKindRail from "./AuditKindRail.svelte";
-  import { list_audit_log } from "./api.mjs";
+  import { list_audit_log, list_members } from "./api.mjs";
 
   let { myMembers } = $props();
   const kicker = $derived(myMembers?.[0]?.["bank-name"]);
@@ -60,6 +60,10 @@
       performers: listed("performed-by-kind", PERFORMERS),
       range: rangeFromParams(params),
       requestId: (params.get("request-id") ?? "").trim(),
+      people: (params.get("performed-by") ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
     };
   }
 
@@ -68,6 +72,21 @@
   let performers = $state(initial.performers);
   let range = $state(initial.range);
   let requestId = $state(initial.requestId);
+  let people = $state(initial.people);
+  let members = $state([]);
+
+  $effect(() => {
+    list_members()
+      .then((res) => {
+        members = res.status === 200 ? (res.body?.items ?? []) : [];
+      })
+      .catch(() => {});
+  });
+
+  const memberName = (id) => {
+    const m = members.find((x) => x["user-id"] === id);
+    return m ? m.name || m.email : shortId(id);
+  };
 
   let entries = $state([]);
   let next = $state(null);
@@ -113,6 +132,7 @@
   const chips = $derived([
     ...(range ? [{ range }] : []),
     ...performers.map((p) => ({ performer: p })),
+    ...people.map((p) => ({ person: p })),
     ...AUDIT_GROUPS.flatMap((g) => {
       const on = g.kinds.filter((k) => kinds.includes(k));
       if (on.length === g.kinds.length) return [{ group: g }];
@@ -137,6 +157,7 @@
       const res = await list_audit_log({
         kinds: sentKinds,
         performerKinds: sentPerformers,
+        performedBy: people,
         requestId,
         from: from != null ? isoSeconds(from) : null,
         to: to != null ? isoSeconds(to) : null,
@@ -184,6 +205,7 @@
     const params = [];
     if (kinds.length) params.push(`kind=${kinds.join(",")}`);
     if (performers.length) params.push(`performed-by-kind=${performers.join(",")}`);
+    if (people.length) params.push(`performed-by=${people.join(",")}`);
     params.push(...rangeParams(range));
     if (requestId) params.push(`request-id=${encodeURIComponent(requestId)}`);
     const hash = `#/audit-log${params.length ? `?${params.join("&")}` : ""}`;
@@ -196,6 +218,7 @@
     performers;
     range;
     requestId;
+    people;
     writeHash();
     load();
   });
@@ -212,16 +235,22 @@
     range = next;
   }
 
+  function setPeople(next) {
+    people = next;
+  }
+
   function clearFilters() {
     kinds = [];
     performers = [];
     range = null;
     requestId = "";
+    people = [];
   }
 
   function removeChip(chip) {
     if (chip.range) range = null;
     else if (chip.requestId) requestId = "";
+    else if (chip.person) people = people.filter((p) => p !== chip.person);
     else if (chip.performer) performers = performers.filter((p) => p !== chip.performer);
     else if (chip.group) kinds = kinds.filter((k) => !chip.group.kinds.includes(k));
     else kinds = kinds.filter((k) => k !== chip.kind);
@@ -308,9 +337,12 @@
     {kinds}
     {performers}
     {range}
+    {members}
+    {people}
     onKinds={setKinds}
     onPerformers={setPerformers}
     onRange={setRange}
+    onPeople={setPeople}
     onClear={clearFilters}
   />
 
@@ -319,10 +351,12 @@
       <div class="active">
         {#if chips.length}
           <span class="lead">Showing</span>
-          {#each chips as chip (chip.range ? "range" : chip.requestId ? "request" : (chip.performer ?? chip.group?.id ?? chip.kind))}
+          {#each chips as chip (chip.range ? "range" : chip.requestId ? "request" : chip.person ? `person-${chip.person}` : (chip.performer ?? chip.group?.id ?? chip.kind))}
             <RemovableChip onremove={() => removeChip(chip)}>
               {#if chip.range}
                 {rangeLabel(chip.range)} <span class="all">UTC</span>
+              {:else if chip.person}
+                <span class="muted">By</span> {memberName(chip.person)}
               {:else if chip.requestId}
                 <span class="muted">Request</span> <span class="mono-id">{shortId(chip.requestId)}</span>
               {:else if chip.performer}
@@ -341,7 +375,7 @@
       <div class="req">
         <span class="method">GET</span>
         <span>
-          <span class="path">/v1/bank/audit-log</span>?{#if sentPerformers.length}performed-by-kind=<span class="performers">{sentPerformers.join(",")}</span>&amp;{/if}{#if sentKinds.length}kind=<span class="kinds">{sentKinds.join(",")}</span>&amp;{/if}{#if requestId}request-id=<span class="kinds">{requestId}</span>&amp;{/if}{#if sentRange.from}from=<span class="kinds">{sentRange.from}</span>&amp;{/if}{#if sentRange.to}to=<span class="kinds">{sentRange.to}</span>&amp;{/if}page[size]={PAGE_SIZE}
+          <span class="path">/v1/bank/audit-log</span>?{#if sentPerformers.length}performed-by-kind=<span class="performers">{sentPerformers.join(",")}</span>&amp;{/if}{#if people.length}performed-by=<span class="kinds">{people.join(",")}</span>&amp;{/if}{#if sentKinds.length}kind=<span class="kinds">{sentKinds.join(",")}</span>&amp;{/if}{#if requestId}request-id=<span class="kinds">{requestId}</span>&amp;{/if}{#if sentRange.from}from=<span class="kinds">{sentRange.from}</span>&amp;{/if}{#if sentRange.to}to=<span class="kinds">{sentRange.to}</span>&amp;{/if}page[size]={PAGE_SIZE}
         </span>
       </div>
     </div>
@@ -359,7 +393,7 @@
       <div class="empty">
         <strong>No acts match this selection</strong>
         Nothing matching these filters has been performed on this bank’s records yet.
-        {#if kinds.length || performers.length || range || requestId}
+        {#if kinds.length || performers.length || people.length || range || requestId}
           <div><Button variant="line" size="sm" onclick={clearFilters}>Clear selection</Button></div>
         {/if}
       </div>

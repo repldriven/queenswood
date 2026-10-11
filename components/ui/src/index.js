@@ -198,6 +198,7 @@ export {
   bankTags,
 } from "./access-log.js";
 export { default as TimeRangeFilter } from "./TimeRangeFilter.svelte";
+export { default as MemberFilter } from "./MemberFilter.svelte";
 export {
   TIME_PRESETS,
   isoSeconds,
