@@ -37,7 +37,7 @@
         <a class="btn line" href="https://github.com/repldriven/queenswood"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"></path></svg>Source on GitHub</a>
       </div>
     </div>
-    <a class="shot rise d2" href="https://github.com/user-attachments/assets/47959017-65e2-4c8a-9b08-ed8687e67aa0" aria-label="Watch a tour of the operator console"><img src="assets/demo-console.png" alt="A tour of what your bank can do, in the operator console" width="1200" height="750"><span class="cap">Watch the console tour</span></a>
+    <a class="shot rise d2" href="https://github.com/user-attachments/assets/7ea58d5f-ac99-4c37-9d76-8504c67a6a12" aria-label="Watch a tour of the operator console"><img src="assets/demo-console.png" alt="A tour of what your bank can do, in the operator console" width="1200" height="750"><span class="cap">Watch the console tour</span></a>
   </div>
 </header>
 
@@ -62,7 +62,7 @@
     </div>
     <div class="grid g4">
       <div class="item"><h3>Open source</h3><p>The code is yours to read, run and change under the MIT licence, on infrastructure you choose. No licence fee, and you decide when to take each release.</p></div>
-      <div class="item"><h3>Audit trail</h3><p>Everyone on your team signs in as themselves with a role, and an audit log records every change to who may act for your bank, with who made it and why.</p></div>
+      <div class="item"><h3>Audit trail</h3><p>Everyone on your team signs in as themselves with a role. An audit log records every change made to your bank's records, with who made it and what it changed, and an access log every call to the API.</p></div>
       <div class="item"><h3>Pluggable providers</h3><p>Payments and identity verification each connect through an adapter, and a simulator stands in for each provider, so you can build and test before a contract is signed.</p></div>
       <div class="item"><h3>Fine-grained policies</h3><p>Policies are records checked on every request, from simple limits to rules over rolling windows of activity, and your bank's tier sets the capabilities it works within. Changing either ships no code.</p></div>
       <div class="item"><h3>Configurable products</h3><p>Rates, fees, limits and rewards are configuration, published as versions and migrated on your schedule. A new product line needs no code change.</p></div>
@@ -115,10 +115,24 @@
       <div>
         <p class="eyebrow">For compliance</p>
         <h2 class="t">Audit trail</h2>
-        <p class="lede">The access log, the policies in force and the ledger say who did what, and under which rules.</p>
-        <p class="more muted">Everyone on your team signs in as themselves, as owner, admin, developer or viewer. An audit log records every change to who may act for your bank (invitations, role changes, removals and the operator's own acts) with who made it and why.</p>
+        <p class="lede">Every change to your bank's records is in the audit log: who made it, when, and the fields it changed, before and after. It is kept for the life of the bank, and nothing in it can be edited or deleted.</p>
+        <p class="more muted">Everyone on your team signs in as themselves, as owner, admin, developer or viewer, so each act names a person, your bank's own systems or the platform's operator. Narrow the log by time, by kind of act and by who performed it, and follow any act back to the API call that asked for it.</p>
       </div>
-      <div class="shot"><img src="assets/people.png" alt="People and access in the console" width="1097" height="648" loading="lazy"></div>
+      <div class="shot"><img src="assets/audit-log.png" alt="The bank's audit log in the console" width="1097" height="648" loading="lazy"></div>
+    </div>
+  </div>
+</section>
+
+<section class="s" id="security">
+  <div class="wrap">
+    <div class="split">
+      <div>
+        <p class="eyebrow">For security</p>
+        <h2 class="t">Access log</h2>
+        <p class="lede">Every authenticated call your team and your systems make to the API is in the access log: who called, which operation, what came back and how long it took, refusals included.</p>
+        <p class="more muted">Find a call by the request id, idempotency key or correlation id you hold, see whether it was answered afresh or replayed, and narrow the log by time, by member and by kind of call.</p>
+      </div>
+      <div class="shot"><img src="assets/access-log.png" alt="The bank's access log in the console, narrowed to payments" width="1097" height="648" loading="lazy"></div>
     </div>
   </div>
 </section>

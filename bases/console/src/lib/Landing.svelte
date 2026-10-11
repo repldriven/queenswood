@@ -34,6 +34,7 @@
     TaskPipeline,
     AccountStatusBadge,
     Button,
+    ChangesetTable,
     formatMoney,
     formatSigned,
   } from "@queenswood/ui";
@@ -267,6 +268,18 @@
     { name: "Trial balance ties", status: "ok" },
   ];
 
+  // The audit log after a reprice: the acts newest first, and the
+  // changeset of the version's publication.
+  const DEMO_ACTS = [
+    { at: "13:52", act: "Migration approved", by: "Xepha Owner" },
+    { at: "13:52", act: "Migration created", by: "Xepha Owner" },
+    { at: "13:52", act: "Product version published", by: "Xepha Owner" },
+  ];
+  const DEMO_CHANGESET = {
+    before: { status: "draft" },
+    after: { status: "published" },
+  };
+
   // The Scenarios spine that frames the page, part-way through.
   const DEMO_SCENES = [
     { num: "01", label: "Publish", status: "done" },
@@ -281,7 +294,7 @@
     { num: "10", label: "Accrue", status: "locked" },
   ];
   const DEMO_BANK_CELLS = [
-    { figure: 5, unit: "/ 10", label: "Scenes run" },
+    { figure: 5, unit: "/ 12", label: "Scenes run" },
     { figure: 3, label: "Products live" },
     { figure: 2, unit: "/ 3", label: "Active customers" },
     { figure: "£400.00", label: "Customer money held" },
@@ -424,7 +437,7 @@
     <h2>A tour of what your bank <em>can do.</em></h2>
     <p class="lead">
       The console ships a sandbox that fires these capabilities against the live
-      API, in order — ten scenes, each building on the one before. The screens
+      API, in order — twelve scenes, each building on the one before. The screens
       below are those scenes, rendered with the real components, not mockups.
     </p>
     <div class="spine-wrap">
@@ -685,7 +698,7 @@
   </div>
 </section>
 
-<section class="feat reverse last">
+<section class="feat reverse">
   <div class="wrap">
     <div class="grid">
       <div>
@@ -712,6 +725,54 @@
           <div class="pipe-snap">
             <span class="pipe-label">accrue → capitalise</span>
             <TaskPipeline steps={DEMO_PIPELINE} />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="feat last">
+  <div class="wrap">
+    <div class="grid">
+      <div>
+        <span class="num">07 — Audit &amp; Access</span>
+        <h3>Know who <em>did what.</em></h3>
+        <p>
+          Every change to the bank's records is in its audit log: who made it,
+          when, and the fields it changed, before and after. Every call to the
+          API is in its access log, and each act leads back to the call that
+          asked for it.
+        </p>
+        <ul>
+          <li>Append-only, kept for the life of the bank</li>
+          <li>Narrow by time, kind of act or call, and member</li>
+          <li>Find a call by request id, idempotency key or correlation id</li>
+        </ul>
+      </div>
+      <div class="visual">
+        <div class="topbar">
+          <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+          console / audit-log
+        </div>
+        <div class="inner">
+          <Table>
+            <Thead>
+              <Tr><Th>Time</Th><Th>Act</Th><Th>Performed by</Th></Tr>
+            </Thead>
+            <Tbody>
+              {#each DEMO_ACTS as a (a.act)}
+                <Tr>
+                  <Td mono muted>{a.at}</Td>
+                  <Td emphasized>{a.act}</Td>
+                  <Td>{a.by}</Td>
+                </Tr>
+              {/each}
+            </Tbody>
+          </Table>
+          <div class="changeset-snap">
+            <span class="pipe-label">product version published · changeset</span>
+            <ChangesetTable changeset={DEMO_CHANGESET} />
           </div>
         </div>
       </div>
@@ -1438,6 +1499,13 @@
   }
   .amt.debit {
     color: var(--fg);
+  }
+
+  .changeset-snap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 18px;
   }
 
   /* Jobs snippet — the task pipeline with a mono kicker. */

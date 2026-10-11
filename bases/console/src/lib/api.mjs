@@ -431,10 +431,11 @@ export function submit_internal_payment(data) {
   });
 }
 
-export function submit_outbound_payment(data) {
+export function submit_outbound_payment(data, { key } = {}) {
   return mutate("/v1/payments/outbound", {
     method: "POST",
     body: JSON.stringify(data),
+    ...(key ? { key } : {}),
   });
 }
 
