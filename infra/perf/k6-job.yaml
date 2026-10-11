@@ -31,12 +31,12 @@ spec:
             - name: ADMIN_CLIENT_ID
               valueFrom:
                 secretKeyRef:
-                  name: queenswood-keycloak-dev-operator
+                  name: ${PERF_OPERATOR_SECRET}
                   key: client-id
             - name: ADMIN_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: queenswood-keycloak-dev-operator
+                  name: ${PERF_OPERATOR_SECRET}
                   key: client-secret
           resources:
             requests:

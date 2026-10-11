@@ -1276,6 +1276,22 @@ See [instance-shelve](../../../docs/recipes/infra/instance-shelve.md),
 [instance-unshelve](../../../docs/recipes/infra/instance-unshelve.md) and
 [ADR-0029](../../../docs/adr/0029-a-shelved-instance-keeps-everything-but-its-cluster.md).
 
+## A load test on an instance signs in as a client made for the run
+
+Run a load test on an instance with `just perf-run-instance`, which
+creates the `queenswood-perf` operator client in the instance's realm
+before the run, signed in to Keycloak's admin API as the bootstrap admin,
+and deletes it and its Secret after, however the run ends; run `just
+perf-clean-instance` after any run that did not end itself. Never give a
+deployed realm a standing operator client for load tests, in its values
+or by hand. Run a smoke before a longer profile on the same instance,
+and never publish a run's figures as the instance's capacity while the
+Job shares the services' nodes. The site's Register links may be
+disabled with `just site-publish down` for the run's length.
+Commands: `just queenswood-instance-ctx`, `just perf-run-instance`,
+`just perf-clean-instance`, `just site-publish`.
+See [instance-perf-run](../../../docs/recipes/infra/instance-perf-run.md).
+
 ## A muted finding is a decision, recorded
 
 Mute by resource, so the check still fails for anything the reasoning

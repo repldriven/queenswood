@@ -282,8 +282,8 @@ their Services:
   reads only the environment baked into it and what `-e` passes, so the
   Job passes its credentials as `-e` arguments.
 - **Credentials.** The operator client the realm adds for load tests,
-  read from the Secret `queenswood-keycloak-dev-operator`, described
-  below.
+  read from the Secret `queenswood-keycloak-dev-operator` on kind and
+  `queenswood-perf-operator` on an instance, described below.
 - **Job.** [k6-job.yaml](/infra/perf/k6-job.yaml), rendered by
   `envsubst` with the image, and deleted before a new run.
 - **Summary.** `handleSummary` prints the run's parameters, its headline
@@ -317,6 +317,13 @@ load test signs in as a client of its own instead:
 - **Scope.** [values-local.yaml](/infra/helm/queenswood/values-local.yaml)
   names `queenswood-perf`. A client id under any Keycloak mode but `dev`
   fails the render, so no deployed realm carries it.
+- **On an instance.** `perf-run-instance` creates `queenswood-perf`,
+  holding `admin`, through Keycloak's admin API as the bootstrap admin,
+  writes its secret to `queenswood-perf-operator`, runs `perf-run`
+  against the instance's context with `PERF_OPERATOR_SECRET` naming it,
+  and deletes both when the run ends;
+  [instance-perf-run](../recipes/infra/instance-perf-run.md) is the
+  procedure.
 
 ### What a run reports
 
@@ -742,7 +749,9 @@ payment costs, ranked by its effect on the serial command path, which is
 2. The `challenger` and `knee` profiles and scenario B, run on kind to
    find the first ceiling.
 3. Scenarios C and D with settlement sampling.
-4. A node pool for the Job on GKE, the first published run, and
+4. `perf-run-instance` and
+   [instance-perf-run](../recipes/infra/instance-perf-run.md), then a
+   node pool for the Job on GKE, the first published run, and
    `docs/recipes/test/performance-testing.md` with its results.
 
 Each ceiling a run confirms is raised under the design of the brick that
@@ -813,9 +822,9 @@ holds it, and the run repeated.
 - **The provider transfer backlog is not measured.** An internal payment
   on a Modulr bank queues a transfer no API reports, and a failed one is
   only logged; traces show the queue.
-- **A deployed instance has no load-test operator.** Its realm carries
-  no `queenswood-perf` client, so a run on GKE needs an operator
-  credential of its own, which the first published run decides.
+- **A run on an instance shares the services' nodes.** Until the Job
+  has a node pool of its own, k6 runs beside what it measures, and the
+  instance's sandbox users share its FDB and Kafka for the run's length.
 - **A partition count is fixed when its topic is created.** mono's
   `kafka/topics` creates a missing topic and leaves an existing one
   alone, so a count raised in `kafka-topics.yml` reaches a cluster only
@@ -889,6 +898,8 @@ holds it, and the run repeated.
   policies combine, and the caps a run must stay under.
 - [scenario-testing](scenario-testing.md) — the correctness tiers, which
   a load run does not replace.
+- [instance-perf-run](../recipes/infra/instance-perf-run.md) — running
+  the scenarios on a deployed instance.
 - [ADR-0036](../adr/0036-simulators-run-in-a-service-of-their-own.md) — the service groups and
   the one-replica dispatchers.
 - [ADR-0021](../adr/0021-changelog-relay.md) — the changelog relay.
