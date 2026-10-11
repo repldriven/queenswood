@@ -16,12 +16,14 @@ provider. See [queenswood.io](https://queenswood.io).
 
 ## Demo
 
-[![Video: a tour of what your bank can do, in the operator console](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/47959017-65e2-4c8a-9b08-ed8687e67aa0)
+[![Video: a tour of what your bank can do, in the operator console](docs/assets/demo-console.png)](https://github.com/user-attachments/assets/7ea58d5f-ac99-4c37-9d76-8504c67a6a12)
 
 A tour of what your bank can do, in the operator console: **Publish** products,
 **Invite** operators, **Verify** customers, **Fund** the bank, **Open**
 accounts that pay a welcome reward, **Move** money, **Refuse** an overdraft,
-**Pay** someone, **Migrate** accounts and **Accrue** interest.
+**Pay** someone, **Migrate** accounts, **Accrue** interest, **Replay** a
+payment sent twice rather than pay it twice, and **Audit** who repriced a
+product.
 
 [![Video: the same bank from your customer's side, in the demo app](docs/assets/demo-app.png)](https://github.com/user-attachments/assets/1fdc1fe1-91aa-4d04-8dfb-10752439b7e7)
 
@@ -44,8 +46,11 @@ The same bank from your customer's side, in the
 - **Your customers use your app.** They see you, never Queenswood.
 - **Your finance team keeps the books in the console.** They read the general
   ledger, check the trial balance ties, and see what waits in suspense.
-- **Compliance reads the records.** The access log, the policies in force and
-  the ledger say who did what, and under which rules.
+- **Compliance reads the audit log.** Every change to your bank's records,
+  with who made it, when and the fields it changed, and the policies in force
+  say under which rules.
+- **Security reads the access log.** Every authenticated call to the API, with
+  who called, which operation, what came back and how long it took.
 
 ## What you bring
 
@@ -74,9 +79,8 @@ The same bank from your customer's side, in the
   credits, so the books always balance, down to fractions of a penny of
   interest.
 - **Audit trail.** Everyone on your team signs in as themselves with a
-  role, and an audit log records every change to who may act for your
-  bank — invitations, role changes, removals and the operator's own acts
-  — with who made it and why.
+  role. An audit log records every change made to your bank's records, with
+  who made it and what it changed, and an access log every call to the API.
 - **Documentation.** Every decision, design and procedure is written down, and
   all of it says what's done and what's not.
 - **Test suite.** Generated tests check its answers against a model of how

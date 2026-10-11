@@ -1,6 +1,6 @@
 <script>
   /* Scenarios — a customer-facing SANDBOX that proves the platform
-     works by running real, HTTP-driven scenarios live. Ten scenes
+     works by running real, HTTP-driven scenarios live. Twelve scenes
      tour what a bank can do, fired manually in order. State is CUMULATIVE: each scene builds on the
      last, and the bank-state band accumulates the evidence as scenes
      complete.
@@ -14,7 +14,9 @@
      non-negative-balance policy refuses, a payee check and an outbound
      Faster Payment over the scheme (Ford pays Arthur for beer and
      nuts), a repriced Rainy Day that the migration job moves Arthur
-     onto, and interest via the daily-interest job. Real ids discovered
+     onto, interest via the daily-interest job, a payment sent twice
+     under one idempotency key that the access log shows replayed, and
+     the audit log naming who repriced Rainy Day. Real ids discovered
      during a run are threaded through `ctx` and persisted, so later
      scenes reference the entities earlier scenes actually created.
      Re-running writes real server state; creation steps reuse an
@@ -66,6 +68,7 @@
   const ARTHUR_SAVE = 17000; // £170 Arthur Everyday → Rainy Day, 2p a night at 4.35%
   const OVERDRAW = 4000; // £40 Arthur tries to move with only £30 left
   const FORD_PAYS = 2000; // £20.00 Ford → Arthur, outbound FPS (beer and nuts)
+  const FORD_RETRIES = 500; // £5.00 Ford → Arthur, sent twice under one key
   const RAINY_DAY_BPS = 410;
   const RAINY_DAY_V2_BPS = 435;
 
@@ -121,7 +124,16 @@
     policies: { label: "Policies", href: "#/policies" },
     jobs: { label: "Jobs", href: "#/jobs" },
     migrations: { label: "Migrations", href: "#/migrations" },
+    "access-log": { label: "Access log", href: "#/access-log" },
+    "audit-log": { label: "Audit log", href: "#/audit-log" },
   };
+  // The acts scene 12 reads: the Rainy Day revision and its migration.
+  const REPRICE_KINDS = [
+    "product-version-drafted",
+    "product-version-published",
+    "migration-created",
+    "migration-approved",
+  ];
   // Where a scene pays off, more precisely than its view's landing page:
   // the row, account or filter that shows what it did. A scene with more
   // than one is shown each in turn. A scene not listed here lands on its
@@ -135,6 +147,19 @@
     s7: () => ["#/policies?q=balance"],
     s8: () => [accountHref("fordEveryday"), accountHref("arthurEveryday")],
     s10: () => ["#/jobs?open=daily-interest", VIEWS.ledger.href],
+    s11: () =>
+      ctx.retry
+        ? [
+            `#/access-log?ref=${encodeURIComponent(ctx.retry.key)}`,
+            `#/audit-log?request-id=${encodeURIComponent(ctx.retry.requestId)}`,
+          ]
+        : [VIEWS["access-log"].href],
+    s12: () => [
+      `#/audit-log?kind=${REPRICE_KINDS.join(",")}`,
+      ...(ctx.audit?.approvalRequestId
+        ? [`#/access-log?ref=${encodeURIComponent(ctx.audit.approvalRequestId)}`]
+        : []),
+    ],
   };
   const payoffHrefs = (s) => PAYOFF[s.id]?.() ?? [VIEWS[s.view].href];
 
@@ -263,6 +288,30 @@
         { name: "Accrue interest", raw: [{ method: "GET", path: "/v1/jobs/{id}/runs/{run}", tag: "poll" }] },
         { name: "Capitalise interest", raw: [{ method: "GET", path: "/v1/jobs/{id}/runs/{run}", tag: "poll" }] },
         { name: "Post the run's ledger entry", raw: [{ method: "GET", path: "/v1/ledger-accounts", tag: "request" }] },
+      ],
+    },
+    {
+      id: "s11", num: "11", title: "Replay", view: "access-log",
+      story:
+        "Ford sends Arthur £5 on the bank's app, and suppose the connection drops before the reply arrives. The app sends the same request again under the same idempotency key. The bank's developer finds both calls in the access log by that key: the first accepted, the second replayed with the first one's answer. The audit log holds one payment, under the first call's request id. Nothing was paid twice.",
+      backing: ["journeys/payments/7-idempotent-retry", "access-log/calls-found-by-reference"],
+      steps: [
+        { name: "Send £5.00 · no reply", tone: "exception", raw: [{ method: "POST", path: "/v1/payments/outbound", tag: "request" }] },
+        { name: "Send again, same key · replayed", raw: [{ method: "POST", path: "/v1/payments/outbound", tag: "request" }] },
+        { name: "Access log · two calls, one key", raw: [{ method: "GET", path: "/v1/bank/access-log?ref={key}", tag: "poll" }] },
+        { name: "Audit log · one payment", raw: [{ method: "GET", path: "/v1/bank/audit-log?request-id={id}", tag: "poll" }] },
+      ],
+    },
+    {
+      id: "s12", num: "12", title: "Audit", view: "audit-log",
+      story:
+        "The bank's auditor asks who repriced Rainy Day and moved its holders. The audit log, narrowed to products and migrations, names the member who drafted v2 at 4.35%, published it, planned the migration and approved it, each act with the fields it changed. The approval leads back to the call that asked for it in the access log.",
+      backing: ["audit-log/audit-log-pages-in-order", "access-log/calls-found-by-reference"],
+      steps: [
+        { name: "Narrow the audit log to products and migrations", raw: [{ method: "GET", path: "/v1/bank/audit-log?kind=product-version-drafted,product-version-published,migration-created,migration-approved", tag: "request" }] },
+        { name: "Rainy Day v2 · drafted at 4.35%, then published", raw: [] },
+        { name: "The migration · planned, then approved", raw: [] },
+        { name: "The approval, back to the call that asked for it", raw: [{ method: "GET", path: "/v1/bank/access-log?ref={request-id}", tag: "request" }] },
       ],
     },
   ];
@@ -730,6 +779,101 @@
       await step(2, () => tick());
       await step(3, () => api.list_ledger_accounts());
     },
+    async s11({ step }) {
+      const ford = ctx.accounts.fordEveryday;
+      const arthur = ctx.accounts.arthurEveryday;
+      const bban = arthur.bban ?? (await api.get_cash_account(arthur.accountId)).body?.bban;
+      if (!bban) throw new Error("Arthur's Everyday has no SCAN bban yet");
+      const key = crypto.randomUUID();
+      const payment = {
+        "debtor-account-id": ford.accountId,
+        "creditor-bban": bban,
+        "creditor-name": "Arthur Dent",
+        currency: "GBP",
+        amount: FORD_RETRIES,
+        "scheme-type": "fps",
+        reference: "Towel",
+      };
+      // The first reply is read only to stop the scene where the call
+      // failed: the app in the story never sees it, so it sends again.
+      let firstPaymentId;
+      await step(0, async () => {
+        const r = await api.submit_outbound_payment(payment, { key });
+        if (!ok2xx(r)) throw new Error(`outbound submit: ${r.status}`);
+        firstPaymentId = r.body?.["payment-id"];
+      });
+      await step(1, async () => {
+        const r = await api.submit_outbound_payment(payment, { key });
+        if (!ok2xx(r)) throw new Error(`outbound resubmit: ${r.status}`);
+        if (r.body?.["payment-id"] !== firstPaymentId)
+          throw new Error("the second send made a second payment");
+      });
+      const first = await step(2, async () => {
+        const r = await poll(
+          () => api.list_access_log({ ref: key }),
+          (r) => r.status === 200 && (r.body?.items ?? []).length >= 2,
+        );
+        const calls = r.body.items;
+        const original = calls.find((c) => !c.replayed);
+        if (!original || !calls.some((c) => c.replayed))
+          throw new Error("expected one call accepted and one replayed");
+        return original;
+      });
+      await step(3, async () => {
+        const r = await poll(
+          () => api.list_audit_log({ requestId: first["request-id"] }),
+          (r) => r.status === 200 && (r.body?.items ?? []).length > 0,
+        );
+        const acts = r.body.items;
+        if (acts.length !== 1 || acts[0].kind !== "outbound-payment-submitted")
+          throw new Error(`expected one payment submitted, got ${acts.map((a) => a.kind).join(", ")}`);
+      });
+      ctx.retry = { key, requestId: first["request-id"] };
+      persistCtx();
+    },
+    async s12({ step }) {
+      const rainy = ctx.products.rainyDay;
+      const acts = await step(0, async () => {
+        const r = await poll(
+          () => api.list_audit_log({ kinds: REPRICE_KINDS, size: 50 }),
+          (r) =>
+            r.status === 200 &&
+            (r.body?.items ?? []).some(
+              (e) => e.kind === "migration-approved" && e["subject-id"] === ctx.migration,
+            ),
+        );
+        return r.body.items;
+      });
+      const act = (kind, subject) => {
+        const e = acts.find((x) => x.kind === kind && x["subject-id"] === subject);
+        if (!e) throw new Error(`no ${kind} for ${subject} in the audit log`);
+        return e;
+      };
+      await step(1, async () => {
+        act("product-version-drafted", rainy.versionId);
+        act("product-version-published", rainy.versionId);
+        await tick();
+      });
+      const approved = await step(2, async () => {
+        act("migration-created", ctx.migration);
+        await tick();
+        return act("migration-approved", ctx.migration);
+      });
+      await step(3, async () => {
+        const r = await poll(
+          () => api.list_access_log({ ref: approved["request-id"] }),
+          (r) => r.status === 200 && (r.body?.items ?? []).length > 0,
+        );
+        const call = r.body.items[0];
+        if (call.method !== "POST" || call["http-status"] >= 300)
+          throw new Error(`expected the approval's call, got ${call.method} ${call["http-status"]}`);
+      });
+      ctx.audit = {
+        by: approved["performed-by"]?.name,
+        approvalRequestId: approved["request-id"],
+      };
+      persistCtx();
+    },
   };
 
   // ── run engine ────────────────────────────────────────────────────
@@ -889,7 +1033,7 @@
 <PageHeader
   {kicker}
   title="Scenarios"
-  sub="A tour of what your bank can do: ten scenes, fired in order against the live API. State carries across the session, so the books you see are the books the scenes moved."
+  sub="A tour of what your bank can do: twelve scenes, fired in order against the live API. State carries across the session, so the books you see are the books the scenes moved."
 >
   {#snippet titleAside()}
     <span class="cum-chip" title="State carries across scenes — each builds on the last.">
@@ -925,7 +1069,7 @@
     {#if done.length === 0}
       Run Scene 01 to publish your bank's products.
     {:else if nextIdx === -1}
-      All ten scenes run · the books tie to the penny
+      All twelve scenes run · the books tie to the penny
     {:else}
       {bank.activeCustomers} customer{bank.activeCustomers === 1 ? "" : "s"} · <span class="mono">{fmtMoney(bank.cash)}</span> held
     {/if}
@@ -1064,6 +1208,20 @@
       <div class="jl-note">The daily-interest job accrues silently, then capitalises — one statement line for Rainy Day and the bank's own entry posted once for the run. At 4.35% on £170 a night is just over 2p: Rainy Day is credited 2p, and the fraction left over is carried rather than rounded away. See the run in <span class="mono">Jobs</span> and the postings in the <span class="mono">Ledger</span>.</div>
     </div>
     <div class="tb-tie">{@render icoCheck()}<span>Interest posting ties to the penny.</span></div>
+  {:else if s.id === "s11"}
+    <div class="pay-lines">
+      <div class="pay-line"><span class="py-amt">£5.00</span><Badge tone="published">accepted</Badge><span class="py-desc">Ford → Arthur · the first call · no reply reaches the app</span></div>
+      <div class="pay-line"><span class="py-amt">£5.00</span><Badge tone="archived">replayed</Badge><span class="py-desc">The same request, the same key · answered with the first call's reply</span></div>
+    </div>
+    <div class="tb-tie">{@render icoCheck()}<span>Two calls in the access log, one payment in the audit log, under the first call's request id. Nothing was paid twice.</span></div>
+  {:else if s.id === "s12"}
+    <div class="pay-lines">
+      <div class="pay-line"><span class="py-amt">drafted</span><Badge tone="published">Rainy Day v2</Badge><span class="py-desc">at 4.35%{ctx.audit?.by ? ` · by ${ctx.audit.by}` : ""}</span></div>
+      <div class="pay-line"><span class="py-amt">published</span><Badge tone="published">Rainy Day v2</Badge><span class="py-desc">its terms fixed from here on</span></div>
+      <div class="pay-line"><span class="py-amt">planned</span><Badge tone="published">migration</Badge><span class="py-desc">Rainy Day holders onto v2</span></div>
+      <div class="pay-line"><span class="py-amt">approved</span><Badge tone="published">migration</Badge><span class="py-desc">and its call found in the access log by the act's request id</span></div>
+    </div>
+    <div class="tb-tie">{@render icoCheck()}<span>Who did what, when, and the fields each act changed, kept for the life of the bank.</span></div>
   {/if}
 {/snippet}
 
