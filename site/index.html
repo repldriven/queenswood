@@ -176,8 +176,8 @@ just demo-digital-bank-app-start</pre>
       <p class="lede">Release 0.0.9 on Google Cloud as a single-zone install runs it: three nodes of eight vCPUs, the database keeping two copies of the data and the message bus three.</p>
     </div>
     <div class="grid g4">
-      <div class="item"><h3>50 payments a second, held</h3><p>Payments between accounts, out to a provider and in from one each ran at 50 a second for ten minutes. None failed, with a median of 25 ms and a 99th percentile near 50 ms.</p></div>
-      <div class="item"><h3>313 a second at the top</h3><p>Stepping the rate up, payments between accounts reached 313 a second with none refused. Payments out ran cleanly to 160 a second, and settled later beyond that.</p></div>
+      <div class="item"><h3>Steady load</h3><p>At 50 payments a second for ten minutes, between accounts, out to a provider and in from one, none failed. The median was 25 ms and the 99th percentile near 50 ms.</p></div>
+      <div class="item"><h3>Peak load</h3><p>At 313 payments a second between accounts none were refused, at a median of 82 ms and a 99th percentile of 208 ms. Payments out ran cleanly to 160 a second, and settled later beyond that.</p></div>
       <div class="item"><h3>Books that held</h3><p>After every run, what was paid in and out agreed to the penny with the ledger's control accounts and the provider's balances, and the trial balance tied.</p></div>
       <div class="item"><h3>Past the ceiling</h3><p>Pushed beyond what it could carry, the API turned requests away at once with a retryable answer and stayed up. No payment it accepted was lost.</p></div>
     </div>
