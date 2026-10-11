@@ -20,11 +20,12 @@
   Args:
   - writer: the started `access-log/writer` component.
   - entry: `{:bank-id :request-id :idempotency-key :correlation-id
-    :trace-id :requested-at :requested-by :method :route :path-ids
-    :http-status :problem-type :replayed :client-address :duration}`,
-    `:requested-by` an actor, `:path-ids` the route's path parameters and
-    `:duration` in microseconds. The idempotency key and correlation id
-    are cut to 255 characters."
+    :trace-id :requested-at :requested-by :method :route :operation-id
+    :tag :path-ids :http-status :problem-type :replayed :client-address
+    :duration}`, `:requested-by` an actor, `:tag` the operation's OpenAPI
+    tag, `:path-ids` the route's path parameters and `:duration` in
+    microseconds. The idempotency key and correlation id are cut to 255
+    characters."
   [writer entry]
   (core/record writer entry))
 
@@ -43,15 +44,19 @@
   Args:
   - txn: a Txn or `{:record-db :record-store}` config.
   - bank-id: the bank.
-  - opts: `{:limit :after :before :ref}`, the cursors access entry ids
-    and `:ref` a request id, idempotency key or correlation id, which
-    narrows the page to the calls that carried it."
+  - opts: `{:limit :after :before :ref :tags}`, the cursors access
+    entry ids, `:ref` a request id, idempotency key or correlation id,
+    which narrows the page to the calls that carried it, and `:tags` the
+    OpenAPI tags whose operations to keep, every one when empty. A page
+    across several tags reads each tag's calls and merges them, a read
+    per tag; with `:ref`, the tags filter the calls that carried it, so
+    such a page may hold fewer than `:limit`."
   [txn bank-id opts]
   (core/list-by-bank txn bank-id opts))
 
 (defn delete-before
   "Deletes up to `limit` of `bank-id`'s oldest access entries requested
-  before `before`, with their references, in one transaction. Returns
+  before `before`, with their references and tags, in one transaction. Returns
   how many it deleted, fewer than `limit` once none older remain, or an
   anomaly.
 

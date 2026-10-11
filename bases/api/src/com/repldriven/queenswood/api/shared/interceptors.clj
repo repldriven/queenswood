@@ -96,6 +96,8 @@
         {:keys [auth access-log headers request-id request-method]} request
         {:keys [bank-id]} auth
         match (:reitit.core/match request)
+        route-data (:data match)
+        operation (get route-data request-method)
         status (:status response)
         body (:body response)]
     (when (and access-log bank-id match status)
@@ -111,6 +113,9 @@
         :requested-by (actor/actor auth)
         :method (str/upper-case (name request-method))
         :route (:template match)
+        :operation-id (get-in operation [:openapi :operationId])
+        :tag (first (or (get-in operation [:openapi :tags])
+                        (get-in route-data [:openapi :tags])))
         :path-ids (or (:path-params match) {})
         :http-status status
         :problem-type (when (and (>= status 400) (map? body))

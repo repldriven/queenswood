@@ -1464,7 +1464,9 @@
                       :correlation-id ""
                       :trace-id ""
                       :problem-type ""
-                      :client-address ""})
+                      :client-address ""
+                      :operation-id ""
+                      :tag ""})
       (plain-embedded :requested-by)
       (update :path-ids (fn [ids] (update-keys (into {} ids) keyword)))))
 

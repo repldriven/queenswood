@@ -16,6 +16,8 @@
    {:kind :member :principal-id me-api/UserId :name "Ada Lovelace"}
    :method "POST"
    :route "/v1/cash-accounts/{account-id}/suspend"
+   :operation-id "SuspendCashAccount"
+   :tag "Cash Accounts"
    :path-ids {:account-id "acc.01kprbmgcj35ptc8npmybhh4sm"}
    :http-status 409
    :problem-type ":cash-account/invalid-status"

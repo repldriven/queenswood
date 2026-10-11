@@ -27,12 +27,16 @@
                           "who called, the route and its ids, what it "
                           "answered and how long it took. `ref` lists only "
                           "the calls that carried it as their request id, "
-                          "idempotency key or correlation id. A call that "
+                          "idempotency key or correlation id, and `tag` "
+                          "only the calls to the operations of the tags it "
+                          "names; with `ref`, a page may hold fewer calls "
+                          "than its size. A call that "
                           "named no bank, was not authenticated or failed "
                           "validation is not logged, and entries expire "
                           "after the period the installation sets.")
                      :parameters ^:replace
                                  [shared.parameters/ref-access-ref
+                                  shared.parameters/ref-access-tag
                                   shared.parameters/ref-page
                                   shared.parameters/ref-bank-id-header]}
            :parameters {:query access-log-api/access-log-query}

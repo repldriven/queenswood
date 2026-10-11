@@ -16,8 +16,10 @@
 
 (def
   ^{:doc
-    "Malli `:query` schema of the access log: an optional `page`, and an
+    "Malli `:query` schema of the access log: an optional `page`, an
   optional `ref`, a request id, idempotency key or correlation id, which
-  narrows the log to the calls that carried it."}
+  narrows the log to the calls that carried it, and an optional `tag`,
+  the OpenAPI tags whose operations to list, sent comma-separated and
+  decoded to a vector of strings."}
   access-log-query
   components/AccessLogQuery)

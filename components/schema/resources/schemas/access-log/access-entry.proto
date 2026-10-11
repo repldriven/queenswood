@@ -22,10 +22,12 @@ message AccessEntry {
   required com.repldriven.queenswood.schema.actor.Actor requested_by = 7;
   required string method = 8;
   required string route = 9; // the route's template
-  map<string, string> path_ids = 10;
-  required int32 http_status = 11;
-  optional string problem_type = 12;
-  required bool replayed = 13;
-  optional string client_address = 14 [(fideslang.data_category) = "user.device.ip_address"];
-  required int64 duration = 15; // microseconds
+  optional string operation_id = 10; // as the OpenAPI document names it
+  optional string tag = 11; // the operation's group in the OpenAPI document
+  map<string, string> path_ids = 12;
+  required int32 http_status = 13;
+  optional string problem_type = 14;
+  required bool replayed = 15;
+  optional string client_address = 16 [(fideslang.data_category) = "user.device.ip_address"];
+  required int64 duration = 17; // microseconds
 }

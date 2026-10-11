@@ -30,6 +30,8 @@
    :requested-by member
    :method "POST"
    :route "/v1/cash-accounts/{account-id}/suspend"
+   :operation-id "SuspendCashAccount"
+   :tag "Cash Accounts"
    :path-ids {:account-id (str "acc." n)}
    :http-status 409
    :problem-type ":cash-account/invalid-status"
@@ -104,6 +106,45 @@
                  (SUT/list-by-bank config "bnk.other" {:limit 10 :ref "req-1"})
                  _ (is (empty? (:access-entries elsewhere))
                        "a reference finds only its own bank's calls")]))))
+
+(deftest tags-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         writer (system/instance sys [:access-log :writer])
+         bank-id "bnk.tags"
+         tagged (fn [n tag] (assoc (call bank-id n (+ 1000 n)) :tag tag))]
+     (doseq [[n tag] (map-indexed vector
+                                  ["Payments" "Cash Accounts" "Members"
+                                   "Payments" "Cash Accounts" "Members"])]
+       (SUT/record writer (tagged n tag)))
+     (nom-test> [_ (written config bank-id 6)
+                 first-page (SUT/list-by-bank config
+                                              bank-id
+                                              {:limit 3
+                                               :tags ["Payments"
+                                                      "Cash Accounts"]})
+                 next-page (SUT/list-by-bank config
+                                             bank-id
+                                             {:limit 3
+                                              :tags ["Payments" "Cash Accounts"]
+                                              :after (:after first-page)})
+                 _ (testing "a set of tags pages newest first across them"
+                     (is (= ["req-4" "req-3" "req-1"] (request-ids first-page)))
+                     (is (= ["req-0"] (request-ids next-page)))
+                     (is (nil? (:after next-page))))
+                 by-ref (SUT/list-by-bank
+                         config
+                         bank-id
+                         {:limit 10 :ref "checkout-1" :tags ["Members"]})
+                 _ (is (= ["req-5" "req-2"] (request-ids by-ref))
+                       "tags narrow a reference's calls")
+                 _ (SUT/delete-before config bank-id 1002 10)
+                 after-delete (SUT/list-by-bank config
+                                                bank-id
+                                                {:limit 10 :tags ["Payments"]})
+                 _ (is (= ["req-3"] (request-ids after-delete))
+                       "a deleted call leaves its tag")]))))
 
 (deftest delete-before-test
   (with-test-system

@@ -552,7 +552,10 @@ Under `/v1/bank`, the bank the header names:
   holds, so it sits beside the bank's policies.
 - `GET /v1/bank/access-log` — `org:viewer` or `admin`, cursor-paged,
   newest first, and narrowed to the calls carrying the request id,
-  idempotency key or correlation id a `ref` query names. The bank's
+  idempotency key or correlation id a `ref` query names, and to the
+  operations of the comma-separated OpenAPI tags a `tag` query names,
+  which with `ref` filter its calls, so such a page may run short. The
+  bank's
   access log: each entry as an `AccessEntry`, its id as
   `access-entry-id`, read through `access-log/list-by-bank`. The
   `access-entry` interceptor, beside `request-id` on `/v1`, queues an
@@ -704,8 +707,9 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   tests write through its own store, and the token hash.
 - **The `access-log` brick** covers a bank's log newest first and paged,
   a call found by each reference it carried and only in its own bank,
+  a set of tags paged newest first and narrowing a reference's calls,
   a client's id cut to 255 characters, `delete-before` taking the
-  oldest a limit at a time with their references, and a full queue
+  oldest a limit at a time with their references and tags, and a full queue
   dropping and counting an entry.
 - **The `api` base** holds that the router refuses a bare `org` gate
   and a stacked level, beside its existing check for a scheme naming no
@@ -741,7 +745,7 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   owner accepts, and a create with an owner email answering no token.
   Under `scenarios/access-log/`, an operator's read, write, replay and
   refused read found by idempotency key and correlation id, with the
-  replay marked and the refusal's problem type.
+  replay marked and the refusal's problem type, and listed by tag.
 
 ## Alternatives Considered
 

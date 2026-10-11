@@ -415,6 +415,21 @@
   [txn parts opts]
   (appended/scan (:context txn) (:prefix txn) parts opts))
 
+(defn scan-appended-union
+  "A page of what `append` wrote under any of `parts-list`, newest first,
+  in the shape `scan-appended` returns: each range is read with the
+  page's limit and the newest `limit` of their union past the cursor
+  are the page. Every range shares one log's versionstamps, so the
+  union keeps commit order, and the page costs a read per range. A
+  snapshot read.
+
+  Args:
+  - txn: an open Txn.
+  - parts-list: the key parts of each range, such as one per kind.
+  - opts: `{:after :before :limit}`."
+  [txn parts-list opts]
+  (appended/scan-union (:context txn) (:prefix txn) parts-list opts))
+
 (defn load-appended
   "The value `append` wrote under `parts` at `versionstamp`, its 12
   bytes, or nil. A snapshot read."

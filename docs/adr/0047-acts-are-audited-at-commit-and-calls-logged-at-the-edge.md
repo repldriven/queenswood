@@ -114,27 +114,29 @@ The decision has these parts:
   chosen, under the bank authentication resolved and never the one a
   header names: the request id, the idempotency key and correlation id
   the client sent, the trace id, the principal, the method, the
-  route's template, the ids in its path, the status, the rejection's
-  type, whether the response was replayed, the client's address and
-  the duration, and no body or query value.
+  route's template, its operation id and OpenAPI tag, the ids in its
+  path, the status, the rejection's type, whether the response was
+  replayed, the client's address and the duration, and no body or
+  query value.
 - Append each access entry under the bank and its commit's
   versionstamp, with an empty key beside it under the bank and each
   distinct reference the call carried, its request id, idempotency
-  key and correlation id, so a bank's log reads newest first and a
-  call is found by whichever reference its client holds.
+  key and correlation id, and under the bank and its tag, so a bank's
+  log reads newest first, a call is found by whichever reference its
+  client holds, and any set of tags reads newest first.
 - Write access entries off the request's thread, many to a
   transaction, in an `access-log` brick whose queue is bounded; count
   an entry the full queue refuses as dropped, and publish the count
   beside the queue's depth and the entries written for each bank.
 - Keep audit entries for the life of the bank. Keep access entries for
   a period the installation configures, and delete older ones, with
-  their references, through `access-log/delete-before` from a system
+  their references and tags, through `access-log/delete-before` from a system
   job, the only deletion either store allows.
 - Serve a bank its own entries at `GET /v1/bank/audit-log`, which
   takes a set of kinds and a set of performers' kinds, and
-  `GET /v1/bank/access-log`, which takes a reference, and an operator
-  any bank's, each actor named on read as the access routes name one
-  today.
+  `GET /v1/bank/access-log`, which takes a reference and a set of
+  tags, and an operator any bank's, each actor named on read as the
+  access routes name one today.
 - Assert in the API scenario runner, after each step, that every
   successful write call that was not a replay left at least one audit
   entry under its request id, exempting a retry after a lost reply,

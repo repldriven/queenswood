@@ -1,11 +1,7 @@
 (ns com.repldriven.queenswood.audit.store
   (:require
     [com.repldriven.queenswood.fdb.interface :as fdb]
-    [com.repldriven.queenswood.schema.interface :as schema]
-
-    [com.repldriven.mono.error.interface :as error])
-  (:import
-    (java.util Arrays)))
+    [com.repldriven.queenswood.schema.interface :as schema]))
 
 (def ^:private log "audit")
 
@@ -55,30 +51,6 @@
                     :value (fdb/load-appended txn [log bank-id] versionstamp)}))
         entries))
 
-(defn- newer
-  [a b]
-  (Arrays/compareUnsigned ^bytes (:versionstamp b) ^bytes (:versionstamp a)))
-
-(defn- merged
-  "One page across several index ranges, each read with the page's
-  limit: every range shares the bank's versionstamps, so the newest
-  `limit` of their union past the cursor is the page, and a range with
-  rows beyond its own page has rows beyond the merged one."
-  [pages {:keys [after before limit]}]
-  (let [union (sort newer (mapcat :entries pages))
-        more? (or (> (count union) limit)
-                  (some (if before :before :after) pages))
-        page (vec (if before
-                    (take-last limit union)
-                    (take limit union)))
-        rows-before? (if before more? (some? after))
-        rows-after? (if before true more?)]
-    {:entries page
-     :before (when (and rows-before? (seq page))
-               (:versionstamp (first page)))
-     :after (when (and rows-after? (seq page))
-              (:versionstamp (peek page)))}))
-
 (defn- ranges
   "The index ranges a page of `bank-id`'s log narrowed to `kinds` and
   `performer-kinds` is merged from, or nil where neither narrows it."
@@ -105,13 +77,9 @@
      txn
      (fn [txn]
        (if-let [ranges (ranges bank-id kinds performer-kinds)]
-         (let [pages (mapv (fn [parts] (fdb/scan-appended txn parts opts))
-                           ranges)]
-           (if-let [failed (first (filter error/anomaly? pages))]
-             failed
-             (update (merged pages opts)
-                     :entries
-                     (partial loaded txn bank-id))))
+         (update (fdb/scan-appended-union txn ranges opts)
+                 :entries
+                 (partial loaded txn bank-id))
          (update (fdb/scan-appended txn [log bank-id] opts)
                  :entries
                  (partial mapv decoded))))

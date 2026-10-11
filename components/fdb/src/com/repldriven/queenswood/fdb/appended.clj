@@ -4,6 +4,7 @@
 
     [clojure.string :as str])
   (:import
+    (java.util Arrays)
     (com.apple.foundationdb KeySelector KeyValue MutationType Range)
     (com.apple.foundationdb.record.provider.foundationdb
      FDBRecordContext
@@ -72,6 +73,28 @@
                         (subvec 0 limit))
         page (mapv (partial entry subspace)
                    (if (= reverse-scan? descending?) trimmed (rseq trimmed)))
+        rows-before? (if before more? (some? after))
+        rows-after? (if before true more?)]
+    {:entries page
+     :before (when (and rows-before? (seq page))
+               (:versionstamp (first page)))
+     :after (when (and rows-after? (seq page))
+              (:versionstamp (peek page)))}))
+
+(defn- newer
+  [a b]
+  (Arrays/compareUnsigned ^bytes (:versionstamp b) ^bytes (:versionstamp a)))
+
+(defn scan-union
+  [ctx prefix parts-list {:keys [after before limit] :as opts}]
+  (let [opts (assoc opts :order :desc)
+        pages (mapv (fn [parts] (scan ctx prefix parts opts)) parts-list)
+        union (sort newer (mapcat :entries pages))
+        more? (or (> (count union) limit)
+                  (some (if before :before :after) pages))
+        page (vec (if before
+                    (take-last limit union)
+                    (take limit union)))
         rows-before? (if before more? (some? after))
         rows-after? (if before true more?)]
     {:entries page

@@ -189,7 +189,7 @@ rules:
       log's expiry, `delete-before`, as its one deletion (ADR-0047).
       Record an act with `audit/record` and a call with
       `access-log/record`, and read them through those bricks.
-    pattern-regex: '\bfdb/(?:append|scan-appended|load-appended|clear-appended|clear-appended-through)\b'
+    pattern-regex: '\bfdb/(?:append|scan-appended|scan-appended-union|load-appended|clear-appended|clear-appended-through)\b'
     paths:
       include:
         - "/components/*/src/**"

@@ -1,4 +1,4 @@
-{:name "Each call to the bank is logged with what it answered, and found by its idempotency key or correlation id"
+{:name "Each call to the bank is logged with what it answered, found by its idempotency key or correlation id, and listed by its operation's tag"
  ;; An operator reads the bank, invites someone twice under one key, the
  ;; second answered from the idempotency cache, and asks for an
  ;; invitation that does not exist. Entries are written off the request's
@@ -108,4 +108,24 @@
                     :route "/v1/invitations/{invitation-id}"
                     :path-ids {:invitation-id "inv.01kprbmgcj35ptc8npmybhh4zz"}
                     :http-status 404
-                    :problem-type ":invitation/not-found"}]}}}]}
+                    :problem-type ":invitation/not-found"}]}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/bank/access-log"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"tag" "Invitations,Banks"}}
+   :until
+   {:status 200
+    :body {:items [{:operation-id "RetrieveInvitation"
+                    :tag "Invitations"
+                    :http-status 404}
+                   {:operation-id "CreateInvitation"
+                    :tag "Invitations"
+                    :replayed true}
+                   {:operation-id "CreateInvitation"
+                    :tag "Invitations"
+                    :replayed false}
+                   {:operation-id "RetrieveBank"
+                    :tag "Banks"
+                    :route "/v1/bank"}]}}}]}

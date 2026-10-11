@@ -179,6 +179,17 @@
    :schema {:type "string" :minLength 1 :maxLength 255}
    :example "01a12a36-88ef-7f53-88f1-7973bba7fbde"})
 
+(def AccessTagQuery
+  "`tag` query parameter on the access log: the OpenAPI tags whose
+  operations to list, comma-separated, every one when absent."
+  {:name "tag"
+   :in "query"
+   :required false
+   :style "form"
+   :explode false
+   :schema {:type "array" :items {:type "string" :minLength 1 :maxLength 64}}
+   :example "Payments,Cash Accounts"})
+
 (def PerformedByKindQuery
   "`performed-by-kind` query parameter on the audit log: the kinds of
   performer to list, comma-separated, every kind when absent."
@@ -225,6 +236,7 @@
 (def ref-delivery-filter {:$ref "#/components/parameters/DeliveryFilterQuery"})
 (def ref-audit-kind {:$ref "#/components/parameters/AuditKindQuery"})
 (def ref-access-ref {:$ref "#/components/parameters/AccessRefQuery"})
+(def ref-access-tag {:$ref "#/components/parameters/AccessTagQuery"})
 (def ref-performed-by-kind
   {:$ref "#/components/parameters/PerformedByKindQuery"})
 (def ref-inbound-payment-status
@@ -237,6 +249,7 @@
    "PageQuery" PageQuery
    "AuditKindQuery" AuditKindQuery
    "AccessRefQuery" AccessRefQuery
+   "AccessTagQuery" AccessTagQuery
    "PerformedByKindQuery" PerformedByKindQuery
    "EmbedQuery" EmbedQuery
    "PartyEmbedQuery" PartyEmbedQuery

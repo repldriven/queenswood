@@ -32,10 +32,11 @@
 
 (defn list-by-bank
   [txn bank-id opts]
-  (let [{:keys [ref limit after before]} opts]
+  (let [{:keys [ref tags limit after before]} opts]
     (let-nom> [found (store/list-by-bank txn
                                          bank-id
                                          ref
+                                         tags
                                          (utility/assoc-some
                                           {:limit limit}
                                           :after (store/entry-versionstamp
