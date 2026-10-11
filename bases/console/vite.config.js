@@ -1,8 +1,20 @@
+import { readFileSync } from "node:fs";
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 
+// The release the console is built from: the queenswood chart's
+// version, which `just release` bumps.
+const chart = readFileSync(
+  new URL("../../infra/helm/queenswood/Chart.yaml", import.meta.url),
+  "utf8",
+);
+const version = chart.match(/^version:\s*(\S+)/m)?.[1] ?? "0.0.0";
+
 export default defineConfig({
   plugins: [svelte()],
+  define: {
+    __QUEENSWOOD_VERSION__: JSON.stringify(version),
+  },
   server: {
     // Pinned to 5173 — matches the queenswood realm's whitelisted
     // redirect URI for the queenswood-console client. strictPort

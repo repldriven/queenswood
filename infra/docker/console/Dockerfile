@@ -37,6 +37,7 @@ RUN corepack enable && corepack yarn install --immutable
 COPY bases/console/ bases/console/
 COPY components/ui/ components/ui/
 COPY docs/ docs/
+COPY infra/helm/queenswood/Chart.yaml infra/helm/queenswood/
 RUN corepack yarn workspace console build
 
 FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
