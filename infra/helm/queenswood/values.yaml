@@ -724,6 +724,16 @@ services:
 fdb:
   enabled: true
   version: "7.3.79"
+  # How many copies of the data, and of each commit's log, the database
+  # keeps: `single` one, `double` two, `triple` three. Each copy sits in
+  # a fault domain of its own, and so do the coordinators -- one for
+  # single, three for double, five for triple -- so double needs three
+  # nodes and triple five.
+  redundancyMode: single
+  # What counts as a fault domain. Empty is the operator's default, a
+  # node. `key: foundationdb.org/none` makes each pod its own, which is
+  # how a one-node cluster runs anything but single, protecting nothing.
+  faultDomain: {}
   # Passed to every general process. Two are worth setting anywhere the
   # container limit is below FoundationDB's own defaults, which is
   # everywhere: --cache_memory sizes the page cache, which defaults to
@@ -958,11 +968,32 @@ fdbOperator:
     "7.4": null
 
 # ---------------------------------------------------------------------
-# Single-broker Kafka (KRaft, no ZooKeeper) for the kind dev loop. Production
-# sets enabled=false and points services at an external broker.
+# Kafka (KRaft, no ZooKeeper), one broker by default for the kind dev
+# loop. Production may set enabled=false and point services at an
+# external broker.
 kafka:
   enabled: true
   image: apache/kafka:4.3.1
+  # How many brokers, each also a controller. Three is the fewest that
+  # replicate: every topic is then kept on three brokers and a send waits
+  # on two of them, so one broker may be lost. One or two keep a copy per
+  # broker and tolerate no loss. Not to be changed on a running cluster:
+  # the controllers' voters and each topic's replicas are fixed when it
+  # first starts.
+  replicas: 1
+  # What a broker formats its storage under. Every broker of a cluster
+  # shares it, and it is no secret.
+  clusterId: "1a_36u_fTTmIEfvkWwMd-g"
+  # Whether brokers must sit on different nodes. ScheduleAnyway spreads
+  # them where it can, which a one-node cluster needs; DoNotSchedule
+  # refuses to put two on one node, which is what makes three copies
+  # survive a node.
+  spread: ScheduleAnyway
+  # Each broker's volume. An empty size leaves the log on the pod's own
+  # filesystem, lost on a restart.
+  storage:
+    storageClass: ""
+    size: ""
   # Read only when enabled=false: external broker address (host:port).
   bootstrapServers: ""
   # The image defaults the heap to 1G, the whole of the memory limit, so
