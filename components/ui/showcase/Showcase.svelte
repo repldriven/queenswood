@@ -1295,7 +1295,7 @@
     <section id="audit" class="section">
       <div class="section-head">
         <h2>Audit log</h2>
-        <p class="lead"><code>&lt;Checkbox&gt;</code> is ticked, empty or mixed — a group's box is mixed while some of its items are ticked. <code>&lt;RemovableChip&gt;</code> is a filter already applied, with a × that removes it. <code>&lt;ChangesetTable&gt;</code> shows the fields an act changed, as they were and as it left them; a create has no before. A Tag in the <code>bank</code> tone marks the bank's credential.</p>
+        <p class="lead"><code>&lt;Checkbox&gt;</code> is ticked, empty or mixed — a group's box is mixed while some of its items are ticked. <code>&lt;RemovableChip&gt;</code> is a filter already applied, with a × that removes it. <code>&lt;ChangesetTable&gt;</code> shows the fields an act changed, as it left them and then as they were, an object pretty-printed; a create has no before. A Tag in the <code>bank</code> tone marks the bank's credential.</p>
       </div>
       <div class="stack">
         <div style="max-width: 240px">
@@ -1322,7 +1322,15 @@
             after: { role: "role-admin", "role-reason": "Leads the payments team" },
           }}
         />
-        <ChangesetTable changeset={{ after: { role: "role-viewer", status: "invitation-status-pending" } }} />
+        <ChangesetTable
+          changeset={{
+            after: {
+              status: "outbound-payment-status-submitted",
+              amount: { value: 125000, currency: "GBP" },
+              creditor: { name: "Ada Lovelace", "account-number": "41926819", "sort-code": "040004" },
+            },
+          }}
+        />
         <ChangesetTable />
       </div>
     </section>
