@@ -27,9 +27,12 @@
                           "its records, "
                           "each naming the record, who performed it, the "
                           "request that asked for it and any reason given. "
-                          "`kind` lists only the kinds of act it names.")
+                          "`kind` lists only the kinds of act it names, and "
+                          "`performed-by-kind` only the acts the kinds of "
+                          "performer it names performed.")
                      :parameters ^:replace
                                  [shared.parameters/ref-audit-kind
+                                  shared.parameters/ref-performed-by-kind
                                   shared.parameters/ref-page
                                   shared.parameters/ref-bank-id-header]}
            :parameters {:query audit-api/audit-log-query}

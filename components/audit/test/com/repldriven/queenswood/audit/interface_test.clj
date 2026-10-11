@@ -155,6 +155,51 @@
                  one (list {:kinds [:audit-kind-member-role-changed] :limit 10})
                  _ (is (= ["4" "1"] (reasons one)) "a single kind")]))))
 
+(def ^:private operator
+  {:kind :actor-kind-operator :principal-id "queenswood-admin"})
+
+(def ^:private credential {:kind :actor-kind-bank :principal-id "cli.bank"})
+
+(deftest performer-kinds-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.performers"
+         sequence [[:audit-kind-member-removed owner]
+                   [:audit-kind-member-removed operator]
+                   [:audit-kind-member-left credential]
+                   [:audit-kind-member-removed credential]
+                   [:audit-kind-member-left operator]
+                   [:audit-kind-member-removed owner]]
+         ids (fn [page]
+               (mapv (comp :member-id :after :changeset) (:audit-entries page)))
+         list (fn [opts] (SUT/list-by-bank config bank-id opts))]
+     (nom-test> [_ (fdb/transact config
+                                 (fn [txn]
+                                   (doseq [[n [kind performer]]
+                                           (map-indexed vector sequence)]
+                                     (SUT/record txn
+                                                 (assoc (of-kind bank-id kind n)
+                                                        :performed-by
+                                                        performer)))))
+                 by-performers (list {:performer-kinds [:actor-kind-operator
+                                                        :actor-kind-bank]
+                                      :limit 3})
+                 _ (testing "a set of performer kinds pages newest first"
+                     (is (= ["4" "3" "2"] (ids by-performers))))
+                 older (list {:performer-kinds [:actor-kind-operator
+                                                :actor-kind-bank]
+                              :limit 3
+                              :after (:after by-performers)})
+                 _ (is (= ["1"] (ids older)))
+                 _ (is (nil? (:after older)))
+                 both (list {:performer-kinds [:actor-kind-operator
+                                               :actor-kind-bank]
+                             :kinds [:audit-kind-member-removed]
+                             :limit 10})
+                 _ (testing "kinds and performer kinds narrow together"
+                     (is (= ["3" "1"] (ids both))))]))))
+
 (deftest changeset-leaves-out-test
   (with-test-system
    [sys config-file]

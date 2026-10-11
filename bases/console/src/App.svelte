@@ -15,6 +15,7 @@
   import LedgerAccounts from "./lib/LedgerAccounts.svelte";
   import Jobs from "./lib/Jobs.svelte";
   import Policies from "./lib/Policies.svelte";
+  import AuditLog from "./lib/AuditLog.svelte";
   import Scenarios from "./lib/Scenarios.svelte";
   import Bank from "./lib/Bank.svelte";
   import AcceptInvitation from "./lib/AcceptInvitation.svelte";
@@ -106,6 +107,10 @@
       }),
       "/policies": wrap({
         component: Policies,
+        props: { user, myMembers },
+      }),
+      "/audit-log": wrap({
+        component: AuditLog,
         props: { user, myMembers },
       }),
       "/bank": wrap({

@@ -13,16 +13,23 @@
 
 (def ^:private by-kind "audit-kind")
 
+(def ^:private by-performer "audit-performer")
+
+(def ^:private by-performer-kind "audit-performer-kind")
+
 (defn append
   [txn entry]
-  (let [{:keys [bank-id subject-id kind]} entry]
+  (let [{:keys [bank-id subject-id kind performed-by]} entry
+        kind (schema/audit-kind->int kind)
+        performer (schema/actor-kind->int (:kind performed-by))]
     (fdb/transact txn
                   (fn [txn]
                     (fdb/append txn
                                 [[log bank-id]
                                  [by-subject bank-id subject-id]
-                                 [by-kind bank-id
-                                  (schema/audit-kind->int kind)]]
+                                 [by-kind bank-id kind]
+                                 [by-performer bank-id performer]
+                                 [by-performer-kind bank-id performer kind]]
                                 (schema/AuditEntry->pb entry)))
                   :audit/record
                   "Failed to record an audit entry")))
@@ -62,20 +69,34 @@
      :after (when (and rows-after? (seq page))
               (:versionstamp (peek page)))}))
 
+(defn- ranges
+  "The index ranges a page of `bank-id`'s log narrowed to `kinds` and
+  `performer-kinds` is merged from, or nil where neither narrows it."
+  [bank-id kinds performer-kinds]
+  (let [kinds (map schema/audit-kind->int kinds)
+        performers (map schema/actor-kind->int performer-kinds)]
+    (cond (and (seq kinds) (seq performers))
+          (for [performer performers
+                kind kinds]
+            [by-performer-kind bank-id performer kind])
+
+          (seq kinds)
+          (for [kind kinds]
+            [by-kind bank-id kind])
+
+          (seq performers)
+          (for [performer performers]
+            [by-performer bank-id performer]))))
+
 (defn list-by-bank
-  [txn bank-id kinds opts]
+  [txn bank-id kinds performer-kinds opts]
   (let [opts (assoc opts :order :desc)]
     (fdb/transact
      txn
      (fn [txn]
-       (if (seq kinds)
-         (let [pages (mapv (fn [kind]
-                             (fdb/scan-appended
-                              txn
-                              [by-kind bank-id
-                               (schema/audit-kind->int kind)]
-                              opts))
-                           kinds)]
+       (if-let [ranges (ranges bank-id kinds performer-kinds)]
+         (let [pages (mapv (fn [parts] (fdb/scan-appended txn parts opts))
+                           ranges)]
            (if-let [failed (first (filter error/anomaly? pages))]
              failed
              (update (merged pages opts)

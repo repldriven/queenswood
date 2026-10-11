@@ -19,8 +19,10 @@
 
 (def
   ^{:doc
-    "Malli `:query` schema of the audit log: an optional `page`, and an
+    "Malli `:query` schema of the audit log: an optional `page`, an
   optional `kind`, the kinds of act to list, sent comma-separated and
-  decoded to a vector of `:audit-kind-*` keywords."}
+  decoded to a vector of `:audit-kind-*` keywords, and an optional
+  `performed-by-kind`, the kinds of performer to list, decoded the same
+  way to `:actor-kind-*` keywords."}
   audit-log-query
   components/AuditEntryQuery)

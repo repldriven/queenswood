@@ -49,15 +49,19 @@
 
 (def AuditEntryList (list-schema "AuditEntry" examples/AuditEntryList))
 
+(defn- comma-separated
+  [v]
+  (if (string? v) (str/split v #",") v))
+
 (def AuditEntryQuery
-  "The audit log's query: a page, and optionally the kinds of act to
-  list, comma-separated."
+  "The audit log's query: a page, and optionally the kinds of act and
+  the kinds of performer to list, each comma-separated."
   [:map {:closed true}
    [:page {:optional true} [:ref "PageQuery"]]
    [:kind {:optional true}
-    [:vector
-     {:decode/api (fn [v] (if (string? v) (str/split v #",") v))}
-     [:ref "AuditKind"]]]])
+    [:vector {:decode/api comma-separated} [:ref "AuditKind"]]]
+   [:performed-by-kind {:optional true}
+    [:vector {:decode/api comma-separated} [:ref "ActorKind"]]]])
 
 (def registry
   (components-registry [#'AuditChangeset #'AuditEntry #'AuditEntryId #'AuditKind

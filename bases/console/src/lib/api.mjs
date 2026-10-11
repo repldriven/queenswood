@@ -557,6 +557,24 @@ export function decline_invitation(invitation_id, token) {
 }
 
 // The kinds of act the People page shows: who may act for the bank.
+// The query a page of the bank's audit log is read with: the kinds of
+// act and of performer it narrows to, each comma-separated and left out
+// when empty, and the page size.
+export function audit_log_query({ kinds = [], performerKinds = [], size = 20 } = {}) {
+  const params = [];
+  if (performerKinds.length) params.push(`performed-by-kind=${performerKinds.join(",")}`);
+  if (kinds.length) params.push(`kind=${kinds.join(",")}`);
+  params.push(`page[size]=${size}`);
+  return `/v1/bank/audit-log?${params.join("&")}`;
+}
+
+// A page of the bank's audit log, newest first: `next`, the previous
+// page's `links.next`, which carries its filters, or else the newest
+// page `audit_log_query` names.
+export function list_audit_log({ next, ...query } = {}) {
+  return request(next ?? audit_log_query(query));
+}
+
 const ACCESS_EVENT_KINDS = [
   "bank-created",
   "invitation-created",

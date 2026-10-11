@@ -1,9 +1,11 @@
-{:name "The audit log pages newest first, by every kind or a set of them, and its pages add up to the list"
+{:name "The audit log pages newest first, by every kind or a set of them and by the kinds of performer, and its pages add up to the list"
  ;; Seven events at two a page: the bank's creation and the owner's
  ;; invitation (one transaction), the owner's acceptance, then a
  ;; member's invitation, acceptance, role change and removal. The
  ;; unpaged read is the reference each page is compared against, and
- ;; the two invitation kinds, three a page, page through their own four.
+ ;; the two invitation kinds, three a page, page through their own four,
+ ;; and the operator's acts, or a member's and the bank's of two kinds,
+ ;; read alone.
  :given
  [{:command :auth/mint-user-token
    :realm :queenswood
@@ -181,4 +183,27 @@
    :assert
    {:status 200
     :body {:items [:m/equals [[:ref :all :items 5]]]
-           :links {:next [:m/absent]}}}}]}
+           :links {:next [:m/absent]}}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-log"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"performed-by-kind" "operator"}}
+   :assert
+   {:status 200
+    :body {:items [:m/equals
+                   [[:ref :all :items 5] [:ref :all :items 6]]]
+           :links [:m/absent]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-log"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :query-params {"performed-by-kind" "member,bank"
+                            "kind" "invitation-accepted,bank-created"}}
+   :assert
+   {:status 200
+    :body {:items [:m/equals
+                   [[:ref :all :items 2] [:ref :all :items 4]]]
+           :links [:m/absent]}}}]}

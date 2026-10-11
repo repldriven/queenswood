@@ -66,9 +66,11 @@ The decision has these parts:
 - Append each entry, an `AuditEntry` message, under the bank and the
   versionstamp of the commit that makes it, outside the Record Layer,
   and an empty key beside it under the bank, the subject's id and that
-  versionstamp, and under the bank, the kind and that versionstamp, so
-  a bank's log, one record's history and any set of kinds each read
-  newest first, a page at a time.
+  versionstamp, under the bank, the kind and that versionstamp, under
+  the bank, the performer's kind and that versionstamp, and under the
+  bank, the performer's kind, the kind and that versionstamp, so a
+  bank's log, one record's history, any set of kinds and any set of
+  performers' kinds each read newest first, a page at a time.
 - Hold in each entry the act's kind, the subject's kind and id, the
   actor as `performed_by`, the time as `performed_at`, the request id,
   and a `changeset` of the subject's fields the act changed and no
@@ -121,9 +123,9 @@ The decision has these parts:
   a period the installation configures, and delete older ones from a
   system job, the only deletion either store allows.
 - Serve a bank its own entries at `GET /v1/bank/audit-log`, which
-  takes a set of kinds, and `GET /v1/bank/access-log`, and an
-  operator any bank's, each actor named on read as the access routes
-  name one today.
+  takes a set of kinds and a set of performers' kinds, and
+  `GET /v1/bank/access-log`, and an operator any bank's, each actor
+  named on read as the access routes name one today.
 - Assert in the API scenario runner, after each step, that every
   successful write call that was not a replay left at least one audit
   entry under its request id, exempting a retry after a lost reply,
@@ -157,12 +159,13 @@ Easier:
 
 Harder:
 
-- A person's act on a busy path writes three more keys, blind and
+- A person's act on a busy path writes five more keys, blind and
   conflicting with nothing: a payment a bank submits through the API
   is the busiest, measured with the perf suite before and after.
-- The log reads newest first by bank, by subject or by a set of kinds
-  and nothing else: a page across several kinds reads each kind's
-  keys, and a filter on anything in a changeset would scan.
+- The log reads newest first by bank, by subject, by a set of kinds or
+  performers' kinds, or by both, and nothing else: a page reads one
+  range per kind, per performer's kind or per pair of the two, and a
+  filter on anything in a changeset, a date or one person would scan.
 - A changeset holds a create's whole record, so a payment's entry
   carries the payment, and its values are the record's as stored, not
   as the record's own route shows them.

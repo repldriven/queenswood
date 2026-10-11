@@ -24,6 +24,7 @@
     Panel, PanelHead, Chip, ToastHost, toast,
     RolePill, Tabs, Tag, Callout, Textarea, TokenBox,
     ProductPicker, VersionList, MigrationStatusBadge,
+    Checkbox, RemovableChip, ChangesetTable,
     Card, CardHeader, CardBody, CardFooter, CodeCard,
     ProgressSpine, BankStateBand, SceneCard, RawCalls, TaskPipeline,
     themeState, resolvedTheme,
@@ -58,10 +59,17 @@
     { id: "toast",          label: "Toast" },
     { id: "access",         label: "People and access" },
     { id: "migrations",     label: "Migration pickers" },
+    { id: "audit",          label: "Audit log" },
   ];
 
   // Migration primitive demos
   let chipFilter = $state("all");
+  let auditKinds = $state(["invitation-accepted"]);
+  const AUDIT_DEMO_GROUP = ["invitation-created", "invitation-accepted", "member-removed"];
+  const toggleAuditKind = (k) =>
+    (auditKinds = auditKinds.includes(k) ? auditKinds.filter((x) => x !== k) : [...auditKinds, k]);
+  const auditGroupState = () =>
+    auditKinds.length === 0 ? false : auditKinds.length === AUDIT_DEMO_GROUP.length ? true : "mixed";
   let accessTab = $state("members");
   let accessReason = $state("Joining the payments team");
   let pickerOpen = $state(false);
@@ -1281,6 +1289,49 @@
             onchange={(id) => targetVersion = id}
           />
         </div>
+      </div>
+    </section>
+
+    <section id="audit" class="section">
+      <div class="section-head">
+        <h2>Audit log</h2>
+        <p class="lead"><code>&lt;Checkbox&gt;</code> is ticked, empty or mixed — a group's box is mixed while some of its items are ticked. <code>&lt;RemovableChip&gt;</code> is a filter already applied, with a × that removes it. <code>&lt;ChangesetTable&gt;</code> shows the fields an act changed, as it left them and then as they were, an object pretty-printed; a create has no before. A Tag in the <code>bank</code> tone marks the bank's credential.</p>
+      </div>
+      <div class="stack">
+        <div style="max-width: 240px">
+          <Checkbox
+            checked={auditGroupState()}
+            onclick={() => (auditKinds = auditGroupState() === true ? [] : [...AUDIT_DEMO_GROUP])}
+          >
+            People
+            {#snippet aside()}{auditKinds.length}/{AUDIT_DEMO_GROUP.length}{/snippet}
+          </Checkbox>
+          {#each AUDIT_DEMO_GROUP as k (k)}
+            <Checkbox checked={auditKinds.includes(k)} title={k} onclick={() => toggleAuditKind(k)}>{k}</Checkbox>
+          {/each}
+        </div>
+        <div class="row">
+          <RemovableChip onremove={() => toast("Removed", "By Bank")}>By Bank</RemovableChip>
+          <RemovableChip onremove={() => toast("Removed", "Invitation accepted")}>Invitation accepted</RemovableChip>
+          <Tag tone="bank">Bank</Tag>
+          <Tag tone="operator">Operator</Tag>
+        </div>
+        <ChangesetTable
+          changeset={{
+            before: { role: "role-developer" },
+            after: { role: "role-admin", "role-reason": "Leads the payments team" },
+          }}
+        />
+        <ChangesetTable
+          changeset={{
+            after: {
+              status: "outbound-payment-status-submitted",
+              amount: { value: 125000, currency: "GBP" },
+              creditor: { name: "Ada Lovelace", "account-number": "41926819", "sort-code": "040004" },
+            },
+          }}
+        />
+        <ChangesetTable />
       </div>
     </section>
 

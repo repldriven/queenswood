@@ -69,6 +69,12 @@ and the console as first built:
   three tabs, and a drawer that changes roles, removes, leaves, invites,
   withdraws and resends, showing an invitation's link once in the `ui`
   brick's `TokenBox`. `api.mjs` sends `Bank-Id` on every call.
+- **The Audit log page.** `AuditLog.svelte` and `AuditKindRail.svelte`
+  under `bases/console/src/lib/`: the bank's audit log a page at a time,
+  narrowed by a rail of kinds grouped by console section and of kinds of
+  performer, both sent to the API and kept in the hash's query, and a
+  drawer holding an entry's ids and its changeset in the `ui` brick's
+  `ChangesetTable`.
 - **Every access write is synchronous.** The `api` base calls the
   `member` interface directly for reads and writes alike, one FDB
   transaction each, and the `bank` processor calls it inside `new-bank`.
@@ -539,10 +545,11 @@ Under `/v1/bank`, the bank the header names:
 
 - `GET /v1/bank/audit-log` — `org:viewer` or `admin`, cursor-paged,
   newest first, and narrowed to the comma-separated kinds a `kind`
-  query names. The bank's audit log: each entry as an `AuditEntry`, its
-  id as `audit-entry-id`, read through `audit/list-by-bank`. It
-  describes the bank rather than a record it holds, so it sits beside
-  the bank's policies.
+  query names and the kinds of performer a `performed-by-kind` query
+  names, `member`, `bank` or `operator`. The bank's audit log: each
+  entry as an `AuditEntry`, its id as `audit-entry-id`, read through
+  `audit/list-by-bank`. It describes the bank rather than a record it
+  holds, so it sits beside the bank's policies.
 
 Every `Actor` a route answers carries `name`, an `AuditEntry`'s
 `performed-by` among them, resolved on read in `access/names.clj`, each

@@ -162,6 +162,27 @@ export {
   expiryUrgency,
 } from "./access.js";
 
+// Audit log — the tri-state checkbox and removable chip its filter rail
+// is built from, the changeset table its drawer shows, and the kinds,
+// groups and labels the screen reads. The page itself lives in console.
+export { default as Checkbox } from "./Checkbox.svelte";
+export { default as RemovableChip } from "./RemovableChip.svelte";
+export { default as ChangesetTable } from "./ChangesetTable.svelte";
+export {
+  AUDIT_GROUPS,
+  AUDIT_KINDS,
+  AUDIT_GROUP_OF,
+  PERFORMER_KINDS,
+  PERFORMER_LABEL,
+  auditKindLabel,
+  auditKindTone,
+  changedFields,
+  shortId,
+  utcDayKey,
+  utcDayLabel,
+  utcHhmm,
+} from "./audit.js";
+
 export { default as Field } from "./Field.svelte";
 export { default as Input } from "./Input.svelte";
 export { default as Select } from "./Select.svelte";
