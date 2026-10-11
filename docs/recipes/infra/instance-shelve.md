@@ -173,14 +173,18 @@ resource it installed carries a finalizer, and the operator that clears
 it was deleted first — both ship in the `queenswood` Application. Find
 the resource on the instance's cluster and remove its finalizer: the
 cluster is going, and nothing the finalizer guarded outlives it. SigNoz's
-`ClickHouseInstallation` is one, every time: its operator goes in the
-same deletion.
+`ClickHouseInstallation` is one, every time, and a `Dashboard` may be
+another: their operators go in the same deletion.
 
 ```bash
 kubectl --context "$QW_CODE-$QW_ENV-$QW_LABEL" -n queenswood patch \
   clickhouseinstallation queenswood-clickhouse --type=merge \
   -p '{"metadata":{"finalizers":[]}}'
+kubectl --context "$QW_CODE-$QW_ENV-$QW_LABEL" -n queenswood get \
+  dashboards.resources.signoz.io,savedviews.resources.signoz.io -o name
 ```
+
+Patch each one the second command lists the same way.
 
 **A disk is still listed after step 4.** A PersistentVolumeClaim
 outlived its owner, or its volume's reclaim policy is `Retain`. Delete
