@@ -809,19 +809,25 @@ holds it, and the run repeated.
 ## Known Limitations
 
 - **Kind figures are not published.** k6 shares Colima's 8 CPUs and
-  32 GiB, about a test instance's two `n2-standard-4` nodes, with what it
-  measures, against one Kafka broker. They are recorded with the machine
-  they ran on under `perf/results/`, each run's summary beside its write-up,
+  32 GiB with what it measures. They are recorded with the machine they
+  ran on under `perf/results/`, each run's summary beside its write-up,
   as [2026-10-09-kind](../../perf/results/2026-10-09-kind.md) is.
+- **Kind replicates on one node.**
   [values-local.yaml](/infra/helm/queenswood/values-local.yaml) runs
-  FDB as a process per role — three storage, two logs, and six
-  stateless for two commit proxies, a GRV proxy, a resolver, the master
-  and the ratekeeper — each with a 2Gi limit and `cache_memory` and
+  Kafka as three brokers, every topic on all three and a send waiting on
+  two, and FDB at `double` redundancy as a process per role — three
+  storage, three logs, and six stateless for two commit proxies, a GRV
+  proxy, a resolver, the master and the ratekeeper — each pod its own
+  fault domain. The copies are written and waited on, and one node
+  holds them all, so a run pays for replication and nothing is
+  protected. Each FDB process has a 2Gi limit with `cache_memory` and
   `memory` below it, since its defaults outgrow the chart's 1Gi under a
-  sustained run and the kernel kills the storage server. A deployed
-  instance runs the chart's default of one storage process and one log
-  with no stateless processes of their own, the layout kind ran until
-  its knee showed every FDB step slowing together.
+  sustained run and the kernel kills the storage server. The results of
+  9 October were measured on one broker and `single` redundancy.
+- **A deployed instance runs the chart's defaults.** One broker with no
+  volume, and FDB at `single` with one storage process and one log and
+  no stateless processes of their own, until its values state three
+  brokers and `double`, which need three nodes.
 - **The platform cap ends a long run.** 100,000 payments of a kind in a
   business day is refused with 429, which 50 a second reaches in 33
   minutes; the cap is raised when a run nears it.
@@ -865,13 +871,14 @@ holds it, and the run repeated.
   transfers drain through the bank activity processor after its load
   stops, so the next run's settlements wait behind them; a pause of a
   few minutes between runs keeps them apart.
-- **Kind's Kafka loses its topics on a restart.** The broker has no
-  volume, so a restarted container starts empty and the services
-  recreate each topic with one partition. The `apache/kafka` image's
-  default 1 GiB heap filled the container's 1 GiB limit, and the broker
-  was killed under load; `kafka.heapOpts` gives it 512 MiB. After a
-  restart, a topic `kafka-topics.yml` declares with four partitions is
-  grown back with `kafka-topics.sh --alter` and its consumers restarted.
+- **A broker with no volume loses its topics on a restart.** The
+  chart's default broker has none, so a restarted container starts empty
+  and the services recreate each topic with one partition; a topic
+  `kafka-topics.yml` declares with four is grown back with
+  `kafka-topics.sh --alter` and its consumers restarted. Kind's brokers
+  each have a volume. The `apache/kafka` image's default 1 GiB heap
+  filled the container's 1 GiB limit, and the broker was killed under
+  load; `kafka.heapOpts` gives it 512 MiB.
 - **Webhooks are absent.** The test bank registers no webhook endpoint,
   so no run measures a notification's delivery.
 - **Reads and writes share one in-flight limit.** The API turns a request
