@@ -62,7 +62,7 @@
     </div>
     <div class="grid g4">
       <div class="item"><h3>Open source</h3><p>The code is yours to read, run and change under the MIT licence, on infrastructure you choose. No licence fee, and you decide when to take each release.</p></div>
-      <div class="item"><h3>Audit trail</h3><p>Everyone on your team signs in as themselves with a role. An audit log records every change made to your bank's records, with who made it and what it changed, and an access log every call to the API.</p></div>
+      <div class="item"><h3>Audit and access logs</h3><p>Everyone on your team signs in as themselves with a role. An audit log records every change made to your bank's records, with who made it and what it changed, and an access log every call to the API.</p></div>
       <div class="item"><h3>Pluggable providers</h3><p>Payments and identity verification each connect through an adapter, and a simulator stands in for each provider, so you can build and test before a contract is signed.</p></div>
       <div class="item"><h3>Fine-grained policies</h3><p>Policies are records checked on every request, from simple limits to rules over rolling windows of activity, and your bank's tier sets the capabilities it works within. Changing either ships no code.</p></div>
       <div class="item"><h3>Configurable products</h3><p>Rates, fees, limits and rewards are configuration, published as versions and migrated on your schedule. A new product line needs no code change.</p></div>
@@ -114,7 +114,7 @@
     <div class="split rev">
       <div>
         <p class="eyebrow">For compliance</p>
-        <h2 class="t">Audit trail</h2>
+        <h2 class="t">Audit log</h2>
         <p class="lede">Every change to your bank's records is in the audit log: who made it, when, and the fields it changed, before and after. It is kept for the life of the bank, and nothing in it can be edited or deleted.</p>
         <p class="more muted">Everyone on your team signs in as themselves, as owner, admin, developer or viewer, so each act names a person, your bank's own systems or the platform's operator. Narrow the log by time, by kind of act and by who performed it, and follow any act back to the API call that asked for it.</p>
       </div>
@@ -177,7 +177,7 @@ just demo-digital-bank-app-start</pre>
     </div>
     <div class="grid g3">
       <div class="item"><h3>Order preserved</h3><p>An account's payments are taken one at a time, in the order accepted, from the API through the ledger to the provider. A payment's events from the provider are applied in the order they arrive.</p></div>
-      <div class="item"><h3>Steady load</h3><p>50 payments/s for 10 minutes, between accounts, out to a provider and in from one. None failed: p50 25 ms, p99 50 ms.</p></div>
+      <div class="item"><h3>Steady load</h3><p>50 payments/s for 10 minutes, between accounts, out to a provider and in from one. None failed: p50 25 ms, p99 50 ms. Queries at 200/s on one API replica: p50 4 ms, p99 9 ms.</p></div>
       <div class="item"><h3>Peak load</h3><p>313 payments/s between accounts, none refused: p50 82 ms, p99 208 ms. Payments out ran cleanly to 160/s, and settled later beyond that.</p></div>
       <div class="item"><h3>Balanced to the penny</h3><p>After every run the ledger's control accounts matched what was paid in and out, and matched the provider's balances. Debits equalled credits.</p></div>
       <div class="item"><h3>Overload</h3><p>Above its limit the API refused new requests at once with a retryable 503, and stayed up. No accepted payment was lost.</p></div>
