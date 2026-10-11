@@ -262,6 +262,10 @@
   };
 
   // 06 · Jobs — the seeded daily-interest pipeline, run to completion.
+  // The release this console was built from, the queenswood chart's
+  // version, defined by vite.config.js.
+  const RELEASE = __QUEENSWOOD_VERSION__;
+
   const DEMO_PIPELINE = [
     { name: "Accrue daily interest", status: "ok" },
     { name: "Capitalise — statement line per account", status: "ok" },
@@ -307,7 +311,7 @@
 />
 
 <div class="announce">
-  <span class="pill">v0.1.0</span>
+  <span class="pill">v{RELEASE}</span>
   <span>
     Bring your own <strong>ClearBank</strong> and <strong>Zyphe</strong> — bundled
     simulators for development, plug in your own accounts per bank.
@@ -348,7 +352,7 @@
     </span>
     <div class="grid">
       <div>
-        <span class="eyebrow">Banking platform · v0.1.0</span>
+        <span class="eyebrow">Banking platform · v{RELEASE}</span>
         <h1 class="title">
           Open-source<br /><em>core banking.</em>
         </h1>
@@ -856,8 +860,9 @@
           <span class="wm"><Wordmark variant="grotesk" size={14} /></span>
         </a>
         <p class="desc">
-          Open-source core banking, under MIT. Adapters for ClearBank and
-          Zyphe, with simulators that stand in for both during development.
+          Open-source core banking, under MIT. Adapters for Modulr, Form3 and
+          ClearBank payments and for Zyphe and Onfido identity checks, with a
+          simulator standing in for each during development.
         </p>
       </div>
       <div>
@@ -943,7 +948,7 @@
     </div>
     <div class="meta-row">
       <span>© Queenswood · MIT licensed</span>
-      <span>v0.1.0 · open source</span>
+      <span>v{RELEASE} · open source</span>
     </div>
   </div>
 </footer>

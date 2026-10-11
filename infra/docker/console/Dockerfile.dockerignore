@@ -17,6 +17,9 @@
 !components/ui
 !infra/docker/console
 
+# The console shows the release it was built from, read from the chart.
+!infra/helm/queenswood/Chart.yaml
+
 # Landing.svelte ?raw-imports a handful of ADRs, TDDs, and recipes
 # via `../../../../docs/...`. Whitelist just those three subtrees so
 # the build context stays small (docs/slides is ~500MB locally with
