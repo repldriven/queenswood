@@ -78,6 +78,12 @@ The same bank from your customer's side, in the
 - **Books that balance.** Every movement is recorded as matching debits and
   credits, so the books always balance, down to fractions of a penny of
   interest.
+- **Handles a challenger bank's load.** A bank of 3 million customers
+  makes about 12 payments a second, and 40 to 60 at a payday peak. On
+  three 8-vCPU cloud machines it ran 50 a second steadily and 313 at
+  peak, refusing none, with each account's payments kept in order. The
+  figures are under
+  [For site reliability engineers](#for-site-reliability-engineers).
 - **Audit trail.** Everyone on your team signs in as themselves with a
   role. An audit log records every change made to your bank's records, with
   who made it and what it changed, and an access log every call to the API.
