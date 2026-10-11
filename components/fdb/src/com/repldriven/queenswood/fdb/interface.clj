@@ -410,16 +410,93 @@
   Args:
   - txn: an open Txn.
   - parts: the key parts entries were appended under.
-  - opts: `{:after :before :limit :order}`, `:order` `:asc` (default) or
-    `:desc`, newest first."
+  - opts: `{:after :before :limit :order :from :until}`, `:order` `:asc`
+    (default) or `:desc`, newest first, and `:from` and `:until` the
+    versionstamps bounding the scan, `:from` inclusive and `:until`
+    exclusive, as `seek-appended` finds them."
   [txn parts opts]
   (appended/scan (:context txn) (:prefix txn) parts opts))
+
+(defn scan-appended-union
+  "A page of what `append` wrote under any of `parts-list`, newest first,
+  in the shape `scan-appended` returns: each range is read with the
+  page's limit and the newest `limit` of their union past the cursor
+  are the page. Every range shares one log's versionstamps, so the
+  union keeps commit order, and the page costs a read per range. A
+  snapshot read.
+
+  Args:
+  - txn: an open Txn.
+  - parts-list: the key parts of each range, such as one per kind.
+  - opts: `{:after :before :limit :from :until}`, as `scan-appended`
+    takes them."
+  [txn parts-list opts]
+  (appended/scan-union (:context txn) (:prefix txn) parts-list opts))
+
+(defn seek-appended
+  "The versionstamp of the first entry under `parts` that `reached?`
+  holds for, its 12 bytes, or nil where it holds for none: a binary
+  search of the entries in commit order, a one-key read a step, so
+  `reached?` must hold for every entry after the first it holds for, as
+  `at or after an instant` does for a log whose entries carry the time
+  they were written. A snapshot read.
+
+  Args:
+  - txn: an open Txn.
+  - parts: the key parts entries were appended under.
+  - reached?: a function of an entry's value bytes."
+  [txn parts reached?]
+  (appended/seek (:context txn) (:prefix txn) parts reached?))
 
 (defn load-appended
   "The value `append` wrote under `parts` at `versionstamp`, its 12
   bytes, or nil. A snapshot read."
   [txn parts versionstamp]
   (appended/load-entry (:context txn) (:prefix txn) parts versionstamp))
+
+(defn clear-appended
+  "Clears what `append` wrote under `parts` at `versionstamp`, its 12
+  bytes. For a log whose entries expire.
+
+  Args:
+  - txn: the Txn the clear commits with.
+  - parts: the key parts the entry was appended under.
+  - versionstamp: the entry's 12 bytes."
+  [txn parts versionstamp]
+  (appended/clear-entry (:context txn) (:prefix txn) parts versionstamp))
+
+(defn clear-appended-through
+  "Clears everything `append` wrote under `parts` up to and including
+  `versionstamp`, its 12 bytes: one range clear, for the expired head of
+  a log.
+
+  Args:
+  - txn: the Txn the clear commits with.
+  - parts: the key parts entries were appended under.
+  - versionstamp: the newest entry to clear."
+  [txn parts versionstamp]
+  (appended/clear-through (:context txn) (:prefix txn) parts versionstamp))
+
+(defn appended-id
+  "An appended entry's id: `prefix` and its versionstamp's 12 bytes in
+  Crockford base32, 26 characters that sort as the versionstamps do, so
+  an id is also a page cursor.
+
+  Args:
+  - prefix: the id's prefix, such as `aud.`.
+  - versionstamp: the entry's 12 bytes."
+  [prefix versionstamp]
+  (appended/->id prefix versionstamp))
+
+(defn appended-versionstamp
+  "The 12 bytes of the versionstamp `appended-id` encoded in `id`, or
+  nil when `id` is not `prefix` and 26 Crockford base32 characters.
+
+  Args:
+  - prefix: the id's prefix, such as `aud.`.
+  - id: the id."
+  [prefix id]
+  (appended/->versionstamp prefix id))
 
 (defn bump-stamp
   "Sets the stamp named `stamp-name` to this transaction's commit

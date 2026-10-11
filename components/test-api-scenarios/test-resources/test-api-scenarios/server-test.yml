@@ -48,6 +48,7 @@ interceptors: !system/component
     blocked-ranges: !include test-api-scenarios/webhook-blocked-ranges.yml
   record-db: !system/ref fdb.record-db
   record-store: !system/ref fdb.meta-store
+  access-log: !system/ref access-log.writer
 jetty-adapter: !system/component
   system/component-kind: server/jetty-adapter
   handler: !system/ref server.handler

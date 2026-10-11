@@ -2,10 +2,13 @@
   "Cross-cutting reitit interceptors for the bank-api router."
   (:require
     [com.repldriven.queenswood.api.errors :as errors]
+    [com.repldriven.queenswood.api.shared.actor :as actor]
 
+    [com.repldriven.queenswood.access-log.interface :as access-log]
     [com.repldriven.queenswood.bank-query.interface :as banks]
 
     [com.repldriven.mono.error.interface :as error]
+    [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.string :as str]
@@ -72,6 +75,68 @@
                     (:response ctx)
                     (assoc-in [:response :headers "Request-Id"]
                      (get-in ctx [:request :request-id]))))})
+
+(defn- client-address
+  "The address the nearest proxy saw the call come from, the last in
+  `X-Forwarded-For`, or the connection's own where no proxy sent one."
+  [request]
+  (if-let [forwarded (get-in request [:headers "x-forwarded-for"])]
+    (str/trim (last (str/split forwarded #",")))
+    (:remote-addr request)))
+
+(defn- trace-id
+  "The id of the trace the call runs in, or nil outside one."
+  []
+  (let [id (second (str/split (or (telemetry/inject-traceparent) "") #"-"))]
+    (when (and id (not (re-matches #"0+" id))) id)))
+
+(defn- record-access
+  [ctx response]
+  (let [{:keys [request]} ctx
+        {:keys [auth access-log headers request-id request-method]} request
+        {:keys [bank-id]} auth
+        match (:reitit.core/match request)
+        route-data (:data match)
+        operation (get route-data request-method)
+        status (:status response)
+        body (:body response)]
+    (when (and access-log bank-id match status)
+      (access-log/record
+       access-log
+       {:bank-id bank-id
+        :request-id request-id
+        :idempotency-key (get headers "idempotency-key")
+        :correlation-id (or (get headers "correlation-id")
+                            (get headers "idempotency-key"))
+        :trace-id (trace-id)
+        :requested-at (::requested-at ctx)
+        :requested-by (actor/actor auth)
+        :method (str/upper-case (name request-method))
+        :route (:template match)
+        :operation-id (get-in operation [:openapi :operationId])
+        :tag (first (or (get-in operation [:openapi :tags])
+                        (get-in route-data [:openapi :tags])))
+        :path-ids (or (:path-params match) {})
+        :http-status status
+        :problem-type (when (and (>= status 400) (map? body))
+                        (some-> (:type body)
+                                str))
+        :replayed (= "true" (get-in response [:headers "Idempotent-Replayed"]))
+        :client-address (client-address request)
+        :duration (quot (- (utility/nanos) (::started ctx)) 1000)}))))
+
+(def access-entry
+  "Writes an access entry for the call once its response is chosen, or
+  as a 500 when it throws: only for a caller authenticated for a bank,
+  which `auth` resolves after this interceptor enters and before it
+  leaves, so a call that names no bank, or one its caller may not act
+  on, writes none. The entry is queued and written off the request's
+  thread."
+  {:name ::access-entry
+   :enter (fn [ctx]
+            (assoc ctx ::requested-at (utility/now) ::started (utility/nanos)))
+   :leave (fn [ctx] (record-access ctx (:response ctx)) ctx)
+   :error (fn [ctx] (record-access ctx {:status 500}) ctx)})
 
 (def named-bank
   "Refuses with 403 a request that resolves no bank: an operator naming

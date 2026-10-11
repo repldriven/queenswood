@@ -138,6 +138,17 @@
         {/snippet}
         Audit log
       </SidenavItem>
+      <SidenavItem href="#/access-log" title="Access log" current={isCurrent("/access-log")}>
+        {#snippet icon()}
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3 5.5 H12.5" />
+            <path d="M10 3 L12.5 5.5 L10 8" />
+            <path d="M13 10.5 H3.5" />
+            <path d="M6 8 L3.5 10.5 L6 13" />
+          </svg>
+        {/snippet}
+        Access log
+      </SidenavItem>
       <SidenavItem href="#/bank" title="Bank" current={isCurrent("/bank")}>
         {#snippet icon()}
           <svg viewBox="0 0 16 16" aria-hidden="true">

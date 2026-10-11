@@ -305,6 +305,21 @@
     :encode/api (fn [ms] (when (pos? ms) (str (Instant/ofEpochMilli ms))))
     :json-schema {:type "string" :format "date-time"}}])
 
+(defn- parse-instant
+  [s]
+  (try (.toEpochMilli (Instant/parse s))
+       (catch DateTimeParseException _ s)))
+
+(def InstantQuery
+  [:int
+   {:decode/api (fn [v] (if (string? v) (parse-instant v) v))
+    :json-schema {:type "string" :format "date-time"}}])
+
+(def instant-range
+  [:fn
+   {:error/message "from must be before to"}
+   (fn [{:keys [from to]}] (or (nil? from) (nil? to) (< from to)))])
+
 (def id-examples
   {"BankId" "bnk.01kprbmgcj35ptc8npmybhh4s7"
    "PartyId" "pty.01kprbmgcj35ptc8npmybhh4s9"

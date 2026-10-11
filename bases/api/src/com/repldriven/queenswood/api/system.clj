@@ -1,6 +1,6 @@
 (ns com.repldriven.queenswood.api.system
   "Bare-require bundle for the unified banking HTTP surface: storage
-  (fdb), serialization (avro, schema), identity (Keycloak,
+  (fdb), the access log's writer, serialization (avro, schema), identity (Keycloak,
   identity-provider), command dispatch and messaging, and the HTTP
   server and telemetry.
 
@@ -9,6 +9,7 @@
   are not required here — only the read-side components the handlers
   call."
   (:require
+    [com.repldriven.queenswood.access-log.interface]
     [com.repldriven.queenswood.balance-query.interface]
     [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.idv-provider.interface]

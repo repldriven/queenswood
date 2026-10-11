@@ -4,6 +4,7 @@
     [com.repldriven.queenswood.api.errors :as errors]
 
     [com.repldriven.queenswood.api.access.routes :as access]
+    [com.repldriven.queenswood.api.access-log.routes :as access-log]
     [com.repldriven.queenswood.api.audit.routes :as audit]
     [com.repldriven.queenswood.api.balance.routes :as balance]
     [com.repldriven.queenswood.api.bank.routes :as bank]
@@ -30,6 +31,7 @@
     [com.repldriven.queenswood.api.webhook.routes :as webhook]
 
     [com.repldriven.queenswood.access-api.interface :as access-api]
+    [com.repldriven.queenswood.access-log-api.interface :as access-log-api]
     [com.repldriven.queenswood.audit-api.interface :as audit-api]
     [com.repldriven.queenswood.api-schema.interface :as api-schema]
     [com.repldriven.queenswood.balance-api.interface :as balance-api]
@@ -95,6 +97,7 @@
           :unique-vector-lax api-schema/unique-vector-lax-schema
           "ErrorResponse" api-schema/ErrorResponseSchema}
          access-api/registry
+         access-log-api/registry
          audit-api/registry
          balance-api/registry
          bank-api/registry
@@ -195,6 +198,9 @@
          {:name "Audit log"
           :description
           "A bank's audit log: every act a member, an operator or the bank's credential performed on its records, with who performed it and the request that asked for it."}
+         {:name "Access log"
+          :description
+          "A bank's access log: every call to the API for the bank by a caller authenticated for it, with what it answered, found by its request id, idempotency key or correlation id."}
          {:name "Companies"
           :description
           "Looking a company up in the company registry before creating a bank for it."}
@@ -278,51 +284,54 @@
            {:interceptors (concat telemetry/trace-span
                                   (:interceptors ctx))}]
           oauth/routes)
-    (into ["/v1"
-           {:interceptors (concat telemetry/trace-span
-                                  [shared.interceptors/request-id]
-                                  (:interceptors ctx)
-                                  [server/credential
-                                   server/authenticate-with-provider
-                                   server/claims->scopes
-                                   auth/claims->principal
-                                   auth/require-bank
-                                   server/require-scopes])
-            :scopes auth/scopes
-            :exclusive-scopes auth/exclusive-scopes
-            :unauthorized (errors/unauthenticated-response)
-            :forbidden (errors/forbidden-response)
-            :responses {400 (api-schema/ErrorResponse [#'api-schema/BadRequest])
-                        401 (api-schema/ErrorResponse
-                             [#'api-schema/Unauthorized])
-                        403 (api-schema/ErrorResponse [#'api-schema/Forbidden])
-                        500 (api-schema/ErrorResponse
-                             [#'api-schema/InternalServerError
-                              #'api-schema/BadResponse])
-                        503 (api-schema/ErrorResponse
-                             [#'api-schema/Contention
-                              #'api-schema/Timeout
-                              #'api-schema/Overloaded])}}]
-          (concat
-           access/routes
-           audit/routes
-           balance/routes
-           bank/routes
-           cash-account/routes
-           cash-account-migration/routes
-           cash-account-product/routes
-           jobs/routes
-           ledger-account/routes
-           me/routes
-           companies/routes
-           party/routes
-           payee-check/routes
-           payment/routes
-           policy/routes
-           reward/routes
-           simulate/routes
-           tier/routes
-           webhook/routes))]))
+    (into
+     ["/v1"
+      {:interceptors (concat telemetry/trace-span
+                             [shared.interceptors/request-id
+                              shared.interceptors/access-entry]
+                             (:interceptors ctx)
+                             [server/credential
+                              server/authenticate-with-provider
+                              server/claims->scopes
+                              auth/claims->principal
+                              auth/require-bank
+                              server/require-scopes])
+       :scopes auth/scopes
+       :exclusive-scopes auth/exclusive-scopes
+       :unauthorized (errors/unauthenticated-response)
+       :forbidden (errors/forbidden-response)
+       :responses {400 (api-schema/ErrorResponse [#'api-schema/BadRequest])
+                   401 (api-schema/ErrorResponse
+                        [#'api-schema/Unauthorized])
+                   403 (api-schema/ErrorResponse [#'api-schema/Forbidden])
+                   500 (api-schema/ErrorResponse
+                        [#'api-schema/InternalServerError
+                         #'api-schema/BadResponse])
+                   503 (api-schema/ErrorResponse
+                        [#'api-schema/Contention
+                         #'api-schema/Timeout
+                         #'api-schema/Overloaded])}}]
+     (concat
+      access/routes
+      access-log/routes
+      audit/routes
+      balance/routes
+      bank/routes
+      cash-account/routes
+      cash-account-migration/routes
+      cash-account-product/routes
+      jobs/routes
+      ledger-account/routes
+      me/routes
+      companies/routes
+      party/routes
+      payee-check/routes
+      payment/routes
+      policy/routes
+      reward/routes
+      simulate/routes
+      tier/routes
+      webhook/routes))]))
 
 (defn- add-interceptor-before-coerce
   "Splices `icept` into the router's global interceptor chain just

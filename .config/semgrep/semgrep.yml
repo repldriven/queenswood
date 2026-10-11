@@ -179,19 +179,21 @@ rules:
       exclude:
         - "/components/test-*/**"
 
-  - id: audit-log-outside-audit
+  - id: appended-log-outside-its-brick
     languages: [generic]
     severity: ERROR
     message: >-
-      The appended-entry fns of `fdb` used outside the `audit` brick: the
-      bank's audit log is append-only because only `audit` names its
-      keys and it exposes `record` and reads alone (ADR-0047). Record an
-      act with `audit/record` and read it with `audit/list-by-bank` or
-      `audit/list-by-subject`.
-    pattern-regex: '\bfdb/(?:append|scan-appended|load-appended)\b'
+      The appended-entry fns of `fdb` used outside the `audit` and
+      `access-log` bricks: each log is append-only because only its brick
+      names its keys and exposes `record` and reads alone, and the access
+      log's expiry, `delete-before`, as its one deletion (ADR-0047).
+      Record an act with `audit/record` and a call with
+      `access-log/record`, and read them through those bricks.
+    pattern-regex: '\bfdb/(?:append|scan-appended|scan-appended-union|load-appended|clear-appended|clear-appended-through)\b'
     paths:
       include:
         - "/components/*/src/**"
         - "/bases/*/src/**"
       exclude:
         - "/components/audit/**"
+        - "/components/access-log/**"

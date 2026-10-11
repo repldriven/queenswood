@@ -29,10 +29,20 @@
                           "request that asked for it and any reason given. "
                           "`kind` lists only the kinds of act it names, and "
                           "`performed-by-kind` only the acts the kinds of "
-                          "performer it names performed.")
+                          "performer it names performed. `request-id` lists "
+                          "only the acts the API request it names asked "
+                          "for, the kinds filtering those, so such a page "
+                          "may hold fewer than its size. `from` and `to` "
+                          "list only the acts performed from `from` and "
+                          "before `to`, found in commit order, so an act "
+                          "whose clock ran behind another's may fall just "
+                          "either side of an edge.")
                      :parameters ^:replace
                                  [shared.parameters/ref-audit-kind
                                   shared.parameters/ref-performed-by-kind
+                                  shared.parameters/ref-audit-request-id
+                                  shared.parameters/ref-from
+                                  shared.parameters/ref-to
                                   shared.parameters/ref-page
                                   shared.parameters/ref-bank-id-header]}
            :parameters {:query audit-api/audit-log-query}

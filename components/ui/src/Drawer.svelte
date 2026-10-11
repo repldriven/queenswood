@@ -3,7 +3,8 @@
 
      Use for create/edit forms, detail panes, secondary content that
      doesn't deserve its own route. Esc / scrim click / close button
-     all call `onClose`.
+     all call `onClose`. `mono` sets the title in the mono face, for a
+     title that is an identifier.
 
          <Drawer open={drawerOpen} onClose={() => drawerOpen = false}
            kicker="Define" title="New product"
@@ -26,6 +27,7 @@
     footer,
     width = 420,
     label,
+    mono = false,
   } = $props();
 
   function handleKey(e) {
@@ -56,7 +58,7 @@
   <header class="drawer-head">
     <div class="drawer-titlewrap">
       {#if kicker}<span class="drawer-kicker">{kicker}</span>{/if}
-      {#if title}<h2 class="drawer-title">{title}</h2>{/if}
+      {#if title}<h2 class="drawer-title" class:mono>{title}</h2>{/if}
       {#if sub}<p class="drawer-sub">{sub}</p>{/if}
     </div>
     <button
@@ -138,6 +140,12 @@
     line-height: 1.15;
     margin: 0;
     color: var(--fg);
+  }
+  .drawer-title.mono {
+    font-family: var(--mono);
+    font-size: 16px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
   }
   .drawer-sub {
     font-size: 13px;

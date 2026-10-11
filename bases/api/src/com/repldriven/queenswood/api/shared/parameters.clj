@@ -170,6 +170,54 @@
    :schema {:type "array" :items {:$ref "#/components/schemas/AuditKind"}}
    :example "member-role-changed,member-removed"})
 
+(def AccessRefQuery
+  "`ref` query parameter on the access log: a request id, idempotency
+  key or correlation id, which lists only the calls that carried it."
+  {:name "ref"
+   :in "query"
+   :required false
+   :schema {:type "string" :minLength 1 :maxLength 255}
+   :example "01a12a36-88ef-7f53-88f1-7973bba7fbde"})
+
+(def AccessTagQuery
+  "`tag` query parameter on the access log: the OpenAPI tags whose
+  operations to list, comma-separated, every one when absent."
+  {:name "tag"
+   :in "query"
+   :required false
+   :style "form"
+   :explode false
+   :schema {:type "array" :items {:type "string" :minLength 1 :maxLength 64}}
+   :example "Payments,Cash Accounts"})
+
+(def AuditRequestIdQuery
+  "`request-id` query parameter on the audit log: the API request whose
+  acts to list, as its `Request-Id` answered."
+  {:name "request-id"
+   :in "query"
+   :required false
+   :schema {:type "string" :minLength 1 :maxLength 64}
+   :example "01a12a36-88ef-7f53-88f1-7973bba7fbde"})
+
+(def FromQuery
+  "`from` query parameter on a log: the instant its entries are listed
+  from, inclusive, an RFC 3339 timestamp with a time and an offset."
+  {:name "from"
+   :in "query"
+   :required false
+   :schema {:type "string" :format "date-time"}
+   :example "2026-10-10T14:00:00Z"})
+
+(def ToQuery
+  "`to` query parameter on a log: the instant its entries are listed
+  before, exclusive, an RFC 3339 timestamp with a time and an offset,
+  after `from`."
+  {:name "to"
+   :in "query"
+   :required false
+   :schema {:type "string" :format "date-time"}
+   :example "2026-10-10T15:00:00Z"})
+
 (def PerformedByKindQuery
   "`performed-by-kind` query parameter on the audit log: the kinds of
   performer to list, comma-separated, every kind when absent."
@@ -215,6 +263,11 @@
 (def ref-delivery-id {:$ref "#/components/parameters/DeliveryId"})
 (def ref-delivery-filter {:$ref "#/components/parameters/DeliveryFilterQuery"})
 (def ref-audit-kind {:$ref "#/components/parameters/AuditKindQuery"})
+(def ref-access-ref {:$ref "#/components/parameters/AccessRefQuery"})
+(def ref-access-tag {:$ref "#/components/parameters/AccessTagQuery"})
+(def ref-audit-request-id {:$ref "#/components/parameters/AuditRequestIdQuery"})
+(def ref-from {:$ref "#/components/parameters/FromQuery"})
+(def ref-to {:$ref "#/components/parameters/ToQuery"})
 (def ref-performed-by-kind
   {:$ref "#/components/parameters/PerformedByKindQuery"})
 (def ref-inbound-payment-status
@@ -226,6 +279,11 @@
   {"IdempotencyKey" IdempotencyKey
    "PageQuery" PageQuery
    "AuditKindQuery" AuditKindQuery
+   "AccessRefQuery" AccessRefQuery
+   "AccessTagQuery" AccessTagQuery
+   "AuditRequestIdQuery" AuditRequestIdQuery
+   "FromQuery" FromQuery
+   "ToQuery" ToQuery
    "PerformedByKindQuery" PerformedByKindQuery
    "EmbedQuery" EmbedQuery
    "PartyEmbedQuery" PartyEmbedQuery

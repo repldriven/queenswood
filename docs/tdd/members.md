@@ -71,10 +71,18 @@ and the console as first built:
   brick's `TokenBox`. `api.mjs` sends `Bank-Id` on every call.
 - **The Audit log page.** `AuditLog.svelte` and `AuditKindRail.svelte`
   under `bases/console/src/lib/`: the bank's audit log a page at a time,
-  narrowed by a rail of kinds grouped by console section and of kinds of
-  performer, both sent to the API and kept in the hash's query, and a
-  drawer holding an entry's ids and its changeset in the `ui` brick's
+  narrowed by a time range, a rail of kinds grouped by console section
+  and of kinds of performer, and a request id, all sent to the API and
+  kept in the hash's query, and a drawer holding an entry's ids, a link
+  to the call that asked for it and its changeset in the `ui` brick's
   `ChangesetTable`.
+- **The Access log page.** `AccessLog.svelte` under
+  `bases/console/src/lib/`: the bank's calls a page at a time, narrowed
+  by the `ui` brick's `TimeRangeFilter`, by API group, the tags the
+  API's `/openapi.json` lists, which the console's nginx and Vite
+  proxy, and by a reference typed into "Find a call", every filter in
+  the hash's query so back and forward step through them, and a drawer
+  holding the call, its ids and a link to its acts in the audit log.
 - **Every access write is synchronous.** The `api` base calls the
   `member` interface directly for reads and writes alike, one FDB
   transaction each, and the `bank` processor calls it inside `new-bank`.
@@ -546,10 +554,25 @@ Under `/v1/bank`, the bank the header names:
 - `GET /v1/bank/audit-log` — `org:viewer` or `admin`, cursor-paged,
   newest first, and narrowed to the comma-separated kinds a `kind`
   query names and the kinds of performer a `performed-by-kind` query
-  names, `member`, `bank` or `operator`. The bank's audit log: each
+  names, `member`, `bank` or `operator`, to the acts a `request-id`
+  query's API request asked for, and to the acts performed from
+  a `from` and before a `to`, RFC 3339 timestamps whose ends
+  `fdb/seek-appended` finds. The bank's audit log: each
   entry as an `AuditEntry`, its id as `audit-entry-id`, read through
   `audit/list-by-bank`. It describes the bank rather than a record it
   holds, so it sits beside the bank's policies.
+- `GET /v1/bank/access-log` — `org:viewer` or `admin`, cursor-paged,
+  newest first, and narrowed to the calls carrying the request id,
+  idempotency key or correlation id a `ref` query names, and to the
+  operations of the comma-separated OpenAPI tags a `tag` query names,
+  which with `ref` filter its calls, so such a page may run short, and
+  to the calls requested from a `from` and before a `to`. The bank's
+  access log: each entry as an `AccessEntry`, its id as
+  `access-entry-id`, read through `access-log/list-by-bank`. The
+  `access-entry` interceptor, beside `request-id` on `/v1`, queues an
+  entry through `access-log/record` for each call whose principal
+  `auth` resolved a bank for, and the `access-log/writer` component
+  in `system/access-log.yml` writes them.
 
 Every `Actor` a route answers carries `name`, an `AuditEntry`'s
 `performed-by` among them, resolved on read in `access/names.clj`, each
@@ -693,6 +716,13 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   for a create and one for a resend and none for an accept.
 - **The `member-query` brick** covers the reads against records the
   tests write through its own store, and the token hash.
+- **The `access-log` brick** covers a bank's log newest first and paged,
+  a call found by each reference it carried and only in its own bank,
+  a set of tags paged newest first and narrowing a reference's calls, a
+  date range alone and with tags or a reference,
+  a client's id cut to 255 characters, `delete-before` taking the
+  oldest a limit at a time with their references and tags, and a full queue
+  dropping and counting an entry.
 - **The `api` base** holds that the router refuses a bare `org` gate
   and a stacked level, beside its existing check for a scheme naming no
   roles; that names are looked up once per id, fall back to the email
@@ -725,6 +755,12 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   repeated recording one event; and the history route paging in order.
   Under `scenarios/banks/`, the bank list's owners before and after the
   owner accepts, and a create with an owner email answering no token.
+  Under `scenarios/access-log/`, an operator's read, write, replay and
+  refused read found by idempotency key and correlation id, with the
+  replay marked and the refusal's problem type, listed by tag, and
+  narrowed by a date range. The audit log's scenario reads the acts
+  between two of its entries' times, and is refused a date with no time
+  and a range ending before it starts.
 
 ## Alternatives Considered
 
@@ -801,7 +837,31 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 - **The owner level gates no route.** Owner-only rules live in
   `domain.clj`, so an owner's authority is visible in the rules rather
   than the OpenAPI document.
-- **History has no retention.** Events accumulate per bank.
+- **Audit entries have no retention.** They accumulate per bank, as
+  ADR-0047 intends.
+- **Access entries are not yet pruned.** `access-log/delete-before`
+  deletes a bank's expired entries with their references, but no
+  system job calls it until a data retention job exists, so the log
+  grows meanwhile.
+- **Some calls are not in the access log.** A call that named no bank,
+  was not authenticated, was refused the bank it named, or failed
+  validation, which answers before authentication, writes no entry, and
+  is seen only in the API's request metrics.
+- **One bank's flood can drop another's access entries.** The writer's
+  queue is shared, so a bank calling past its capacity fills it for
+  everyone; a share per bank is the fix.
+- **A call's client address is its nearest proxy's view.** The API
+  takes the last `X-Forwarded-For` entry, so a call through the
+  console's nginx behind an ingress shows the ingress's address.
+- **The console states the retention period.** It says calls are kept
+  for 90 days, a figure no API reports and no job enforces yet.
+- **A date range's edges follow commit order.** Its ends are found by
+  each entry's own time, written by its process's clock, so an entry
+  whose clock ran behind another's, or a long call logged after a short
+  one, may fall just either side of an edge.
+- **A bank's credential is named Queenswood.** An actor is named from a
+  user record, and the bank's credential has none, so the audit and
+  access logs name it as they name the platform.
 
 ## References
 

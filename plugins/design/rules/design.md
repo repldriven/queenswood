@@ -187,9 +187,10 @@ for what the platform does by itself, and leave a record the act writes
 as its consequence to its own `created_by`. Append it under the bank and
 its commit's versionstamp, outside the Record Layer, with empty keys
 beside it under the bank and subject, the bank and kind, the bank and
-performer's kind, and the bank, performer's kind and kind, so a bank's
-log, a record's history and a set of kinds or performers' kinds each
-read newest first a page at a time. Hold the act's kind, the subject's
+performer's kind, the bank, performer's kind and kind, and the bank and
+request id, so a bank's log, a record's history and a set of kinds or
+performers' kinds each read newest first a page at a time, and a call's
+acts are found by its request id. Hold the act's kind, the subject's
 kind and id, the actor as `performed_by`, the time as `performed_at`,
 the request id and a `changeset` of the subject's fields the act
 changed and no others, `before` as they were, absent on a create, and `after` as the act left
@@ -206,17 +207,26 @@ place in the `api` base, give every request a uuidv7 id in an
 interceptor there, answer it as `Request-Id`, and pass both to the
 domain: the request id as a command's causation id, which the processor
 passes on beside the actor, or in a synchronous call's arguments. Write
-an access entry for every call from that interceptor once the response
-is chosen — request id, principal, bank, method, route template, path
-ids, status, rejection type, replayed or not, client address and
-duration, no body or query value — off the request's thread, many to a
-transaction, in the `access-log` brick behind a bounded queue whose
-dropped count is published. Keep audit entries for the bank's life and
-access entries for a configured period, deleted by a system job, the
+an access entry for every call by a caller authenticated for a bank,
+from an interceptor beside that one once the response is chosen, under
+the bank authentication resolved, never one a header names — request
+id, the client's idempotency key and correlation id, trace id,
+principal, method, route template, operation id and OpenAPI tag, path
+ids, status, rejection type,
+replayed or not, client address and duration, no body or query value —
+off the request's thread, many to a transaction, in the `access-log`
+brick behind a bounded queue whose depth, dropped count and entries
+written per bank are published; append it under the bank and its
+commit's versionstamp, with an empty key under the bank and each
+distinct reference the call carried and under the bank and its tag. Keep audit entries for the bank's
+life and access entries for a configured period, deleted with their
+references and tags through `access-log/delete-before` by a system job, the
 only deletion either allows. Serve them at `GET /v1/bank/audit-log`,
-which takes a set of kinds and of performers' kinds, and
-`GET /v1/bank/access-log`, an
-operator any bank's. Assert in the API scenario runner that every
+which takes a set of kinds and of performers' kinds and a request id,
+and
+`GET /v1/bank/access-log`, which takes a reference and a set of tags,
+each also a range of instants whose ends a binary search of the bank's
+log by each entry's own time finds, an operator any bank's. Assert in the API scenario runner that every
 successful write call that was not a replay left an audit entry under
 its request id, except a retry after a lost reply and a step marked
 `:audited false` because its write changes nothing. Remove a transition's `_at` and `_by` pair once its act

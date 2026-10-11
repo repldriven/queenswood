@@ -8,6 +8,7 @@
   (:require
     [com.repldriven.queenswood.schema.account_product_type :as
      account-product-type]
+    [com.repldriven.queenswood.schema.access_log :as access-log]
     [com.repldriven.queenswood.schema.actor :as actor]
     [com.repldriven.queenswood.schema.audit :as audit]
     [com.repldriven.queenswood.schema.balance :as balance]
@@ -1449,6 +1450,35 @@
   [invitation-status]
   (InvitationProto$InvitationStatus/forNumber
    (invitation-status->int invitation-status)))
+
+(defn pb->AccessEntry
+  "Parse AccessEntry protobuf bytes into a Clojure map, each optional
+  field present only when set, `requested-by` a plain map and `path-ids`
+  a map of keyword keys.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (access-log/pb->AccessEntry input)
+      (without-unset {:idempotency-key ""
+                      :correlation-id ""
+                      :trace-id ""
+                      :problem-type ""
+                      :client-address ""
+                      :operation-id ""
+                      :tag ""})
+      (plain-embedded :requested-by)
+      (update :path-ids (fn [ids] (update-keys (into {} ids) keyword)))))
+
+(defn AccessEntry->pb
+  "Serialise an AccessEntry map to protobuf bytes, `path-ids` a map of
+  keyword keys.
+
+  Args:
+  - m: AccessEntry map matching the generated schema."
+  [m]
+  (proto/->pb (access-log/new-AccessEntry
+               (update m :path-ids (fn [ids] (update-keys ids name))))))
 
 (defn pb->AuditEntry
   "Parse AuditEntry protobuf bytes into a Clojure map, each optional

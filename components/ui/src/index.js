@@ -183,6 +183,33 @@ export {
   utcHhmm,
 } from "./audit.js";
 
+// Access log — the status cell, and what a call's duration, route and
+// ids say. The time range filter both logs share sits beside it. The page
+// itself lives in console.
+export { default as HttpStatus } from "./HttpStatus.svelte";
+export {
+  isWrite,
+  statusClass,
+  statusWord,
+  formatMicros,
+  isSlow,
+  routeParts,
+  matchedAs,
+  bankTags,
+} from "./access-log.js";
+export { default as TimeRangeFilter } from "./TimeRangeFilter.svelte";
+export {
+  TIME_PRESETS,
+  isoSeconds,
+  rangeBounds,
+  rangeFromParams,
+  rangeParams,
+  rangeDay,
+  dayRange,
+  rangeLabel,
+  rangePhrase,
+} from "./time-range.js";
+
 export { default as Field } from "./Field.svelte";
 export { default as Input } from "./Input.svelte";
 export { default as Select } from "./Select.svelte";

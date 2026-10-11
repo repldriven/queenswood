@@ -1,0 +1,18 @@
+system:
+  fdb: !include system/fdb-test.yml
+  access-log:
+    writer: !system/component
+      system/component-kind: access-log/writer
+      record-db: !system/ref fdb.record-db
+      record-store: !system/ref fdb.meta-store
+      capacity: 100
+      batch-size: 10
+      flush-ms: 20
+    # Never drains while a test runs, so a third entry finds it full.
+    held-writer: !system/component
+      system/component-kind: access-log/writer
+      record-db: !system/ref fdb.record-db
+      record-store: !system/ref fdb.meta-store
+      capacity: 2
+      batch-size: 10
+      flush-ms: 600000

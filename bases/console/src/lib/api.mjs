@@ -559,20 +559,62 @@ export function decline_invitation(invitation_id, token) {
 // The kinds of act the People page shows: who may act for the bank.
 // The query a page of the bank's audit log is read with: the kinds of
 // act and of performer it narrows to, each comma-separated and left out
-// when empty, and the page size.
-export function audit_log_query({ kinds = [], performerKinds = [], size = 20 } = {}) {
+// when empty, the request whose acts to list, the instants it runs from
+// and before, and the page size.
+export function audit_log_query({
+  kinds = [],
+  performerKinds = [],
+  requestId,
+  from,
+  to,
+  size = 20,
+} = {}) {
   const params = [];
   if (performerKinds.length) params.push(`performed-by-kind=${performerKinds.join(",")}`);
   if (kinds.length) params.push(`kind=${kinds.join(",")}`);
+  if (requestId) params.push(`request-id=${encodeURIComponent(requestId)}`);
+  if (from) params.push(`from=${from}`);
+  if (to) params.push(`to=${to}`);
   params.push(`page[size]=${size}`);
   return `/v1/bank/audit-log?${params.join("&")}`;
 }
 
-// A page of the bank's audit log, newest first: `next`, the previous
-// page's `links.next`, which carries its filters, or else the newest
-// page `audit_log_query` names.
 export function list_audit_log({ next, ...query } = {}) {
   return request(next ?? audit_log_query(query));
+}
+
+// The query a page of the bank's access log is read with: the API groups
+// it narrows to, the instants it runs from and before, and the id the
+// calls carried, each left out when empty, and the page size.
+export function access_log_query({ tags = [], from, to, ref, size = 20 } = {}) {
+  const params = [];
+  if (tags.length) params.push(`tag=${tags.map(encodeURIComponent).join(",")}`);
+  if (from) params.push(`from=${from}`);
+  if (to) params.push(`to=${to}`);
+  if (ref) params.push(`ref=${encodeURIComponent(ref)}`);
+  params.push(`page[size]=${size}`);
+  return `/v1/bank/access-log?${params.join("&")}`;
+}
+
+// A page of the bank's access log, newest first: `next`, the previous
+// page's `links.next`, or else the newest page `access_log_query` names.
+export function list_access_log({ next, ...query } = {}) {
+  return request(next ?? access_log_query(query));
+}
+
+// The API's groups, its OpenAPI document's tags, in order with their
+// descriptions. The document is public and fetched once a session.
+let api_tags = null;
+
+export function list_api_tags() {
+  api_tags ??= fetch("/openapi.json")
+    .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+    .then((doc) => doc.tags ?? [])
+    .catch((err) => {
+      api_tags = null;
+      throw err;
+    });
+  return api_tags;
 }
 
 const ACCESS_EVENT_KINDS = [

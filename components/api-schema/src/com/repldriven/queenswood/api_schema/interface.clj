@@ -150,6 +150,22 @@
 
 (def
   ^{:doc
+    "Malli schema of an instant a query names, `from` or `to` on a log: an
+  RFC 3339 timestamp with a time and an offset, decoded to epoch
+  milliseconds. A date alone, or anything else, stays a string and fails
+  validation with a 400."}
+  instant-query-schema
+  components/InstantQuery)
+
+(def
+  ^{:doc
+    "Malli `:fn` schema refusing a query whose `from` is not before its
+  `to`, either absent passing. Joined to a query's map with `:and`."}
+  instant-range-schema
+  components/instant-range)
+
+(def
+  ^{:doc
     "Malli collection schema `:unique-vector-lax` — shape only:
   it accepts duplicates at runtime while still advertising
   `uniqueItems: true`. Use it on response bodies, where stored records

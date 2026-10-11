@@ -6,52 +6,7 @@
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.json.interface :as json]
-    [com.repldriven.mono.utility.interface :as utility]
-
-    [clojure.string :as str]))
-
-(def ^:private crockford "0123456789abcdefghjkmnpqrstvwxyz")
-
-(def ^:private id-prefix "aud.")
-
-(def ^:private id-chars 26)
-
-(def ^:private versionstamp-bytes 12)
-
-(defn- encode
-  [^bytes versionstamp]
-  (let [n (BigInteger. 1 versionstamp)
-        mask (BigInteger/valueOf 31)]
-    (str id-prefix
-         (apply str
-                (map (fn [i]
-                       (nth crockford
-                            (.intValue (.and (.shiftRight n (int (* 5 i)))
-                                             mask))))
-                     (range (dec id-chars) -1 -1))))))
-
-(defn- decode
-  [id]
-  (when (and (string? id)
-             (str/starts-with? id id-prefix)
-             (= (+ (count id-prefix) id-chars) (count id)))
-    (let [digits (map (fn [c] (str/index-of crockford c))
-                      (subs id (count id-prefix)))]
-      (when (every? some? digits)
-        (let [n (reduce (fn [acc d]
-                          (.add (.shiftLeft ^BigInteger acc 5)
-                                (BigInteger/valueOf d)))
-                        BigInteger/ZERO
-                        digits)
-              raw (.toByteArray n)
-              out (byte-array versionstamp-bytes)
-              length (min (alength raw) versionstamp-bytes)]
-          (System/arraycopy raw
-                            (- (alength raw) length)
-                            out
-                            (- versionstamp-bytes length)
-                            length)
-          out)))))
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (def ^:private left-out
   #{:idempotency-key :created-at :created-by :updated-at :updated-by
@@ -135,7 +90,7 @@
              after (read-side (:after changeset))]
     (-> entry
         (dissoc :versionstamp :changeset)
-        (assoc :audit-entry-id (encode versionstamp))
+        (assoc :audit-entry-id (store/entry-id versionstamp))
         (utility/assoc-some :changeset
                             (not-empty (utility/assoc-some {}
                                                            :before before
@@ -145,8 +100,8 @@
   [opts]
   (let [{:keys [after before limit]} opts]
     (utility/assoc-some {:limit limit}
-                        :after (decode after)
-                        :before (decode before))))
+                        :after (store/entry-versionstamp after)
+                        :before (store/entry-versionstamp before))))
 
 (defn- page
   [found]
@@ -160,9 +115,9 @@
                                      entries)]
       {:audit-entries audit-entries
        :before (some-> before
-                       encode)
+                       store/entry-id)
        :after (some-> after
-                      encode)})))
+                      store/entry-id)})))
 
 (defn list-by-bank
   [txn bank-id opts]
@@ -170,6 +125,9 @@
                                        bank-id
                                        (distinct (:kinds opts))
                                        (distinct (:performer-kinds opts))
+                                       (:request-id opts)
+                                       (:from opts)
+                                       (:to opts)
                                        (cursors opts))]
     (page found)))
 

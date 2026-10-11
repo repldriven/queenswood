@@ -68,9 +68,11 @@ The decision has these parts:
   and an empty key beside it under the bank, the subject's id and that
   versionstamp, under the bank, the kind and that versionstamp, under
   the bank, the performer's kind and that versionstamp, and under the
-  bank, the performer's kind, the kind and that versionstamp, so a
-  bank's log, one record's history, any set of kinds and any set of
-  performers' kinds each read newest first, a page at a time.
+  bank, the performer's kind, the kind and that versionstamp, and under
+  the bank, the request id and that versionstamp, so a bank's log, one
+  record's history, any set of kinds and any set of performers' kinds
+  each read newest first, a page at a time, and a call's acts are found
+  by its request id.
 - Hold in each entry the act's kind, the subject's kind and id, the
   actor as `performed_by`, the time as `performed_at`, the request id,
   and a `changeset` of the subject's fields the act changed and no
@@ -109,23 +111,39 @@ The decision has these parts:
   both to the domain wherever the actor goes: the request id as a
   command's causation id, which the processor passes on beside the
   actor, and in a synchronous call's arguments.
-- Write an access entry for every call, from that interceptor after
-  the response is chosen: the request id, the principal where one was
-  authenticated, the bank, the method, the route's template, the ids
-  in its path, the status, the rejection's type, whether the response
-  was replayed, the client's address and the duration, and no body or
+- Write an access entry for every call by a caller authenticated for
+  a bank, from an interceptor beside that one after the response is
+  chosen, under the bank authentication resolved and never the one a
+  header names: the request id, the idempotency key and correlation id
+  the client sent, the trace id, the principal, the method, the
+  route's template, its operation id and OpenAPI tag, the ids in its
+  path, the status, the rejection's type, whether the response was
+  replayed, the client's address and the duration, and no body or
   query value.
+- Append each access entry under the bank and its commit's
+  versionstamp, with an empty key beside it under the bank and each
+  distinct reference the call carried, its request id, idempotency
+  key and correlation id, and under the bank and its tag, so a bank's
+  log reads newest first, a call is found by whichever reference its
+  client holds, and any set of tags reads newest first.
 - Write access entries off the request's thread, many to a
   transaction, in an `access-log` brick whose queue is bounded; count
   an entry the full queue refuses as dropped, and publish the count
-  beside the queue's depth.
+  beside the queue's depth and the entries written for each bank.
 - Keep audit entries for the life of the bank. Keep access entries for
-  a period the installation configures, and delete older ones from a
-  system job, the only deletion either store allows.
+  a period the installation configures, and delete older ones, with
+  their references and tags, through `access-log/delete-before` from a system
+  job, the only deletion either store allows.
 - Serve a bank its own entries at `GET /v1/bank/audit-log`, which
-  takes a set of kinds and a set of performers' kinds, and
-  `GET /v1/bank/access-log`, and an operator any bank's, each actor
-  named on read as the access routes name one today.
+  takes a set of kinds, a set of performers' kinds and a request id, and
+  `GET /v1/bank/access-log`, which takes a reference and a set of
+  tags, each also taking a range of instants, and an operator any
+  bank's, each actor named on read as the access routes name one
+  today.
+- Find a range's ends by a binary search of the bank's log by each
+  entry's own time, `performed_at` or `requested_at`, and read every
+  range between the versionstamps it finds, so a date range needs no
+  index of its own and applies to every other filter.
 - Assert in the API scenario runner, after each step, that every
   successful write call that was not a replay left at least one audit
   entry under its request id, exempting a retry after a lost reply,
@@ -159,13 +177,17 @@ Easier:
 
 Harder:
 
-- A person's act on a busy path writes five more keys, blind and
+- A person's act on a busy path writes six more keys, blind and
   conflicting with nothing: a payment a bank submits through the API
   is the busiest, measured with the perf suite before and after.
 - The log reads newest first by bank, by subject, by a set of kinds or
-  performers' kinds, or by both, and nothing else: a page reads one
-  range per kind, per performer's kind or per pair of the two, and a
-  filter on anything in a changeset, a date or one person would scan.
+  performers' kinds, or by both, within a range of instants, and
+  nothing else: a page reads one range per kind, per performer's kind
+  or per pair of the two, a range's ends cost a binary search each, and
+  a filter on anything in a changeset or on one person would scan.
+- A range's ends are found in commit order by times each process's
+  clock wrote, so an entry whose clock ran behind another's, or a long
+  call logged after a short one, may fall just either side of an edge.
 - A changeset holds a create's whole record, so a payment's entry
   carries the payment, and its values are the record's as stored, not
   as the record's own route shows them.
@@ -175,7 +197,12 @@ Harder:
   a field is added, and the subject's protos are where to look.
 - An access entry is lost when its process dies with it still queued,
   and dropped when the queue is full, so the access log is complete
-  only while the dropped count stays at zero.
+  only while the dropped count stays at zero. One bank's flood can
+  fill the shared queue and drop other banks' entries.
+- A call is not logged that named no bank, was not authenticated, was
+  refused the bank it named, or failed validation, which answers
+  before authentication: an unauthenticated flood writes nothing, and
+  those calls are seen only in the API's request metrics.
 - Every write path threads the request id beside the actor, and a test
   driving a domain directly supplies both.
 - Coverage drifts as write routes are added: the scenario check makes

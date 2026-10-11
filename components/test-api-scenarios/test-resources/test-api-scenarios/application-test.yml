@@ -53,6 +53,7 @@ system:
   scenario-policies: !include test-api-scenarios/policy-test.yml
   server: !include test-api-scenarios/server-test.yml
   smtp: !include system/smtp-test.yml
+  access-log: !include system/access-log.yml
   telemetry: !include system/telemetry.yml
   test-api-scenarios:
     span-dump: !system/component
