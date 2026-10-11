@@ -190,6 +190,15 @@
    :schema {:type "array" :items {:type "string" :minLength 1 :maxLength 64}}
    :example "Payments,Cash Accounts"})
 
+(def AuditRequestIdQuery
+  "`request-id` query parameter on the audit log: the API request whose
+  acts to list, as its `Request-Id` answered."
+  {:name "request-id"
+   :in "query"
+   :required false
+   :schema {:type "string" :minLength 1 :maxLength 64}
+   :example "01a12a36-88ef-7f53-88f1-7973bba7fbde"})
+
 (def FromQuery
   "`from` query parameter on a log: the instant its entries are listed
   from, inclusive, an RFC 3339 timestamp with a time and an offset."
@@ -256,6 +265,7 @@
 (def ref-audit-kind {:$ref "#/components/parameters/AuditKindQuery"})
 (def ref-access-ref {:$ref "#/components/parameters/AccessRefQuery"})
 (def ref-access-tag {:$ref "#/components/parameters/AccessTagQuery"})
+(def ref-audit-request-id {:$ref "#/components/parameters/AuditRequestIdQuery"})
 (def ref-from {:$ref "#/components/parameters/FromQuery"})
 (def ref-to {:$ref "#/components/parameters/ToQuery"})
 (def ref-performed-by-kind
@@ -271,6 +281,7 @@
    "AuditKindQuery" AuditKindQuery
    "AccessRefQuery" AccessRefQuery
    "AccessTagQuery" AccessTagQuery
+   "AuditRequestIdQuery" AuditRequestIdQuery
    "FromQuery" FromQuery
    "ToQuery" ToQuery
    "PerformedByKindQuery" PerformedByKindQuery

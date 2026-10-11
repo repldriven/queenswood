@@ -187,9 +187,10 @@ for what the platform does by itself, and leave a record the act writes
 as its consequence to its own `created_by`. Append it under the bank and
 its commit's versionstamp, outside the Record Layer, with empty keys
 beside it under the bank and subject, the bank and kind, the bank and
-performer's kind, and the bank, performer's kind and kind, so a bank's
-log, a record's history and a set of kinds or performers' kinds each
-read newest first a page at a time. Hold the act's kind, the subject's
+performer's kind, the bank, performer's kind and kind, and the bank and
+request id, so a bank's log, a record's history and a set of kinds or
+performers' kinds each read newest first a page at a time, and a call's
+acts are found by its request id. Hold the act's kind, the subject's
 kind and id, the actor as `performed_by`, the time as `performed_at`,
 the request id and a `changeset` of the subject's fields the act
 changed and no others, `before` as they were, absent on a create, and `after` as the act left
@@ -221,7 +222,8 @@ distinct reference the call carried and under the bank and its tag. Keep audit e
 life and access entries for a configured period, deleted with their
 references and tags through `access-log/delete-before` by a system job, the
 only deletion either allows. Serve them at `GET /v1/bank/audit-log`,
-which takes a set of kinds and of performers' kinds, and
+which takes a set of kinds and of performers' kinds and a request id,
+and
 `GET /v1/bank/access-log`, which takes a reference and a set of tags,
 each also a range of instants whose ends a binary search of the bank's
 log by each entry's own time finds, an operator any bank's. Assert in the API scenario runner that every

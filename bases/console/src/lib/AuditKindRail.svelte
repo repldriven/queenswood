@@ -4,14 +4,15 @@
      grouped by the console section it belongs to. A group's checkbox
      selects or clears all its kinds; nothing selected lists every kind.
 
-     The page owns the selection: `kinds` and `performers` come in, and
-     `onKinds` / `onPerformers` hand back the next selection, in rail
-     order. */
+     The page owns the selection: `kinds`, `performers` and the time
+     `range` come in, and `onKinds` / `onPerformers` / `onRange` hand back
+     the next one, kinds and performers in rail order. */
 
   import { untrack } from "svelte";
   import {
     Chip,
     Checkbox,
+    TimeRangeFilter,
     AUDIT_GROUPS,
     AUDIT_KINDS,
     AUDIT_GROUP_OF,
@@ -19,7 +20,8 @@
     auditKindLabel,
   } from "@queenswood/ui";
 
-  let { kinds, performers, onKinds, onPerformers, onClear } = $props();
+  let { kinds, performers, range, onKinds, onPerformers, onRange, onClear } =
+    $props();
 
   let query = $state("");
   // Groups holding a selected kind start open.
@@ -73,6 +75,7 @@
 </script>
 
 <aside class="rail" aria-label="Filter the audit log">
+  <TimeRangeFilter {range} onChange={onRange} note="Either end may be left open." />
   <div class="sec">
     <span class="label">Performed by</span>
     <div class="performers">

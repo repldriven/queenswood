@@ -44,6 +44,14 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # The API's OpenAPI document, whose tags the access log's group filter
+    # lists.
+    location = /openapi.json {
+        proxy_pass ${API_UPSTREAM};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # The simulated identity provider's hosted page, which a
     # verification hand-off opens. The trailing slash strips the
     # prefix; the page finds its decision route from its own path.

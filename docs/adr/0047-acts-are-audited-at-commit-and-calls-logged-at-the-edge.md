@@ -68,9 +68,11 @@ The decision has these parts:
   and an empty key beside it under the bank, the subject's id and that
   versionstamp, under the bank, the kind and that versionstamp, under
   the bank, the performer's kind and that versionstamp, and under the
-  bank, the performer's kind, the kind and that versionstamp, so a
-  bank's log, one record's history, any set of kinds and any set of
-  performers' kinds each read newest first, a page at a time.
+  bank, the performer's kind, the kind and that versionstamp, and under
+  the bank, the request id and that versionstamp, so a bank's log, one
+  record's history, any set of kinds and any set of performers' kinds
+  each read newest first, a page at a time, and a call's acts are found
+  by its request id.
 - Hold in each entry the act's kind, the subject's kind and id, the
   actor as `performed_by`, the time as `performed_at`, the request id,
   and a `changeset` of the subject's fields the act changed and no
@@ -133,7 +135,7 @@ The decision has these parts:
   their references and tags, through `access-log/delete-before` from a system
   job, the only deletion either store allows.
 - Serve a bank its own entries at `GET /v1/bank/audit-log`, which
-  takes a set of kinds and a set of performers' kinds, and
+  takes a set of kinds, a set of performers' kinds and a request id, and
   `GET /v1/bank/access-log`, which takes a reference and a set of
   tags, each also taking a range of instants, and an operator any
   bank's, each actor named on read as the access routes name one
@@ -175,7 +177,7 @@ Easier:
 
 Harder:
 
-- A person's act on a busy path writes five more keys, blind and
+- A person's act on a busy path writes six more keys, blind and
   conflicting with nothing: a payment a bank submits through the API
   is the busiest, measured with the perf suite before and after.
 - The log reads newest first by bank, by subject, by a set of kinds or

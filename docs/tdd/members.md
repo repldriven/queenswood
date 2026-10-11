@@ -71,10 +71,18 @@ and the console as first built:
   brick's `TokenBox`. `api.mjs` sends `Bank-Id` on every call.
 - **The Audit log page.** `AuditLog.svelte` and `AuditKindRail.svelte`
   under `bases/console/src/lib/`: the bank's audit log a page at a time,
-  narrowed by a rail of kinds grouped by console section and of kinds of
-  performer, both sent to the API and kept in the hash's query, and a
-  drawer holding an entry's ids and its changeset in the `ui` brick's
+  narrowed by a time range, a rail of kinds grouped by console section
+  and of kinds of performer, and a request id, all sent to the API and
+  kept in the hash's query, and a drawer holding an entry's ids, a link
+  to the call that asked for it and its changeset in the `ui` brick's
   `ChangesetTable`.
+- **The Access log page.** `AccessLog.svelte` under
+  `bases/console/src/lib/`: the bank's calls a page at a time, narrowed
+  by the `ui` brick's `TimeRangeFilter`, by API group, the tags the
+  API's `/openapi.json` lists, which the console's nginx and Vite
+  proxy, and by a reference typed into "Find a call", every filter in
+  the hash's query so back and forward step through them, and a drawer
+  holding the call, its ids and a link to its acts in the audit log.
 - **Every access write is synchronous.** The `api` base calls the
   `member` interface directly for reads and writes alike, one FDB
   transaction each, and the `bank` processor calls it inside `new-bank`.
@@ -546,7 +554,8 @@ Under `/v1/bank`, the bank the header names:
 - `GET /v1/bank/audit-log` — `org:viewer` or `admin`, cursor-paged,
   newest first, and narrowed to the comma-separated kinds a `kind`
   query names and the kinds of performer a `performed-by-kind` query
-  names, `member`, `bank` or `operator`, and to the acts performed from
+  names, `member`, `bank` or `operator`, to the acts a `request-id`
+  query's API request asked for, and to the acts performed from
   a `from` and before a `to`, RFC 3339 timestamps whose ends
   `fdb/seek-appended` finds. The bank's audit log: each
   entry as an `AuditEntry`, its id as `audit-entry-id`, read through
@@ -841,6 +850,11 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 - **One bank's flood can drop another's access entries.** The writer's
   queue is shared, so a bank calling past its capacity fills it for
   everyone; a share per bank is the fix.
+- **A call's client address is its nearest proxy's view.** The API
+  takes the last `X-Forwarded-For` entry, so a call through the
+  console's nginx behind an ingress shows the ingress's address.
+- **The console states the retention period.** It says calls are kept
+  for 90 days, a figure no API reports and no job enforces yet.
 - **A date range's edges follow commit order.** Its ends are found by
   each entry's own time, written by its process's clock, so an entry
   whose clock ran behind another's, or a long call logged after a short

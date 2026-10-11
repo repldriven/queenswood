@@ -200,6 +200,35 @@
                  _ (testing "kinds and performer kinds narrow together"
                      (is (= ["3" "1"] (ids both))))]))))
 
+(deftest request-id-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.requests"
+         ids (fn [page]
+               (mapv (comp :member-id :after :changeset) (:audit-entries page)))
+         list (fn [opts]
+                (SUT/list-by-bank config bank-id (merge {:limit 10} opts)))]
+     (nom-test> [_ (fdb/transact
+                    config
+                    (fn [txn]
+                      (doseq [[n kind request-id]
+                              [[0 :audit-kind-member-removed "req-a"]
+                               [1 :audit-kind-member-left "req-b"]
+                               [2 :audit-kind-member-left "req-a"]]]
+                        (SUT/record txn
+                                    (assoc (of-kind bank-id kind n)
+                                           :request-id
+                                           request-id)))))
+                 by-request (list {:request-id "req-a"})
+                 _ (is (= ["2" "0"] (ids by-request))
+                       "a request's acts, newest first")
+                 narrowed (list {:request-id "req-a"
+                                 :kinds [:audit-kind-member-left]})
+                 _ (is (= ["2"] (ids narrowed)) "kinds filter a request's acts")
+                 unknown (list {:request-id "req-z"})
+                 _ (is (empty? (:audit-entries unknown)))]))))
+
 (deftest date-range-test
   (with-test-system
    [sys config-file]

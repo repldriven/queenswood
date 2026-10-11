@@ -2,8 +2,9 @@
   /* Audit log — every act a member, an operator or the bank's
      credential performed on the bank's records, newest first, read a
      page at a time from `GET /v1/bank/audit-log`. The rail narrows it
-     by kind of act and by kind of performer, both sent to the API, and
-     kept in the hash's query (`#/audit-log?kind=…&performed-by-kind=…`)
+     by time, by kind of act and by kind of performer, and a link from
+     the access log by request, all sent to the API and kept in the
+     hash's query (`#/audit-log?kind=…&performed-by-kind=…&range=24h`)
      so a filtered log is a link. A selection holding every option is
      sent as none, which reads the log itself rather than one range per
      option. Clicking an entry opens it in a drawer: its identifiers,
@@ -31,9 +32,14 @@
     utcDayLabel,
     utcHhmm,
     fmtRel,
+    isoSeconds,
+    rangeBounds,
+    rangeFromParams,
+    rangeParams,
+    rangeLabel,
   } from "@queenswood/ui";
   import AuditKindRail from "./AuditKindRail.svelte";
-  import { audit_log_query, list_audit_log } from "./api.mjs";
+  import { list_audit_log } from "./api.mjs";
 
   let { myMembers } = $props();
   const kicker = $derived(myMembers?.[0]?.["bank-name"]);
@@ -52,12 +58,16 @@
     return {
       kinds: listed("kind", AUDIT_KINDS),
       performers: listed("performed-by-kind", PERFORMERS),
+      range: rangeFromParams(params),
+      requestId: (params.get("request-id") ?? "").trim(),
     };
   }
 
   const initial = fromHash();
   let kinds = $state(initial.kinds);
   let performers = $state(initial.performers);
+  let range = $state(initial.range);
+  let requestId = $state(initial.requestId);
 
   let entries = $state([]);
   let next = $state(null);
@@ -73,13 +83,13 @@
   const sentPerformers = $derived(
     performers.length === PERFORMERS.length ? [] : performers,
   );
-  const requestPath = $derived(
-    audit_log_query({
-      kinds: sentKinds,
-      performerKinds: sentPerformers,
-      size: PAGE_SIZE,
-    }),
-  );
+  const sentRange = $derived.by(() => {
+    const { from, to } = rangeBounds(range, now);
+    return {
+      from: from != null ? isoSeconds(from) : null,
+      to: to != null ? isoSeconds(to) : null,
+    };
+  });
 
   const current = $derived(entries.find((e) => e["audit-entry-id"] === currentId));
   const currentIndex = $derived(
@@ -97,15 +107,18 @@
     });
   });
 
-  // Applied filters as chips: performers first, then each group whose
-  // kinds are all selected as one chip, and each other kind alone.
+  // Applied filters as chips: the time range, performers, then each
+  // group whose kinds are all selected as one chip, each other kind alone,
+  // and the request.
   const chips = $derived([
+    ...(range ? [{ range }] : []),
     ...performers.map((p) => ({ performer: p })),
     ...AUDIT_GROUPS.flatMap((g) => {
       const on = g.kinds.filter((k) => kinds.includes(k));
       if (on.length === g.kinds.length) return [{ group: g }];
       return on.map((k) => ({ kind: k }));
     }),
+    ...(requestId ? [{ requestId }] : []),
   ]);
 
   function failure(res) {
@@ -118,10 +131,15 @@
     const mine = ++seq;
     loading = true;
     error = null;
+    now = Date.now();
     try {
+      const { from, to } = rangeBounds(range, now);
       const res = await list_audit_log({
         kinds: sentKinds,
         performerKinds: sentPerformers,
+        requestId,
+        from: from != null ? isoSeconds(from) : null,
+        to: to != null ? isoSeconds(to) : null,
         size: PAGE_SIZE,
       });
       if (mine !== seq) return;
@@ -131,7 +149,6 @@
         next = null;
         return;
       }
-      now = Date.now();
       entries = res.body?.items ?? [];
       next = res.body?.links?.next ?? null;
       if (currentId && !entries.some((e) => e["audit-entry-id"] === currentId)) {
@@ -167,6 +184,8 @@
     const params = [];
     if (kinds.length) params.push(`kind=${kinds.join(",")}`);
     if (performers.length) params.push(`performed-by-kind=${performers.join(",")}`);
+    params.push(...rangeParams(range));
+    if (requestId) params.push(`request-id=${encodeURIComponent(requestId)}`);
     const hash = `#/audit-log${params.length ? `?${params.join("&")}` : ""}`;
     if (location.hash !== hash) history.replaceState(history.state, "", hash);
   }
@@ -175,6 +194,8 @@
   $effect(() => {
     kinds;
     performers;
+    range;
+    requestId;
     writeHash();
     load();
   });
@@ -187,13 +208,21 @@
     performers = next;
   }
 
+  function setRange(next) {
+    range = next;
+  }
+
   function clearFilters() {
     kinds = [];
     performers = [];
+    range = null;
+    requestId = "";
   }
 
   function removeChip(chip) {
-    if (chip.performer) performers = performers.filter((p) => p !== chip.performer);
+    if (chip.range) range = null;
+    else if (chip.requestId) requestId = "";
+    else if (chip.performer) performers = performers.filter((p) => p !== chip.performer);
     else if (chip.group) kinds = kinds.filter((k) => !chip.group.kinds.includes(k));
     else kinds = kinds.filter((k) => k !== chip.kind);
   }
@@ -278,8 +307,10 @@
     bind:this={rail}
     {kinds}
     {performers}
+    {range}
     onKinds={setKinds}
     onPerformers={setPerformers}
+    onRange={setRange}
     onClear={clearFilters}
   />
 
@@ -288,9 +319,13 @@
       <div class="active">
         {#if chips.length}
           <span class="lead">Showing</span>
-          {#each chips as chip (chip.performer ?? chip.group?.id ?? chip.kind)}
+          {#each chips as chip (chip.range ? "range" : chip.requestId ? "request" : (chip.performer ?? chip.group?.id ?? chip.kind))}
             <RemovableChip onremove={() => removeChip(chip)}>
-              {#if chip.performer}
+              {#if chip.range}
+                {rangeLabel(chip.range)} <span class="all">UTC</span>
+              {:else if chip.requestId}
+                <span class="muted">Request</span> <span class="mono-id">{shortId(chip.requestId)}</span>
+              {:else if chip.performer}
                 <span class="muted">By</span> {PERFORMER_LABEL[chip.performer]}
               {:else if chip.group}
                 {chip.group.label} <span class="all">all {chip.group.kinds.length}</span>
@@ -306,7 +341,7 @@
       <div class="req">
         <span class="method">GET</span>
         <span>
-          <span class="path">/v1/bank/audit-log</span>?{#if sentPerformers.length}performed-by-kind=<span class="performers">{sentPerformers.join(",")}</span>&amp;{/if}{#if sentKinds.length}kind=<span class="kinds">{sentKinds.join(",")}</span>&amp;{/if}page[size]={PAGE_SIZE}
+          <span class="path">/v1/bank/audit-log</span>?{#if sentPerformers.length}performed-by-kind=<span class="performers">{sentPerformers.join(",")}</span>&amp;{/if}{#if sentKinds.length}kind=<span class="kinds">{sentKinds.join(",")}</span>&amp;{/if}{#if requestId}request-id=<span class="kinds">{requestId}</span>&amp;{/if}{#if sentRange.from}from=<span class="kinds">{sentRange.from}</span>&amp;{/if}{#if sentRange.to}to=<span class="kinds">{sentRange.to}</span>&amp;{/if}page[size]={PAGE_SIZE}
         </span>
       </div>
     </div>
@@ -324,7 +359,7 @@
       <div class="empty">
         <strong>No acts match this selection</strong>
         Nothing matching these filters has been performed on this bank’s records yet.
-        {#if kinds.length || performers.length}
+        {#if kinds.length || performers.length || range || requestId}
           <div><Button variant="line" size="sm" onclick={clearFilters}>Clear selection</Button></div>
         {/if}
       </div>
@@ -383,7 +418,7 @@
       </div>
       <div class="foot">
         <span class="count">
-          {entries.length} {entries.length === 1 ? "entry" : "entries"} · {next ? "older entries on the next page" : "beginning of the log"}
+          {entries.length} {entries.length === 1 ? "entry" : "entries"} · {next ? "older entries on the next page" : sentRange.from ? "start of the range" : "beginning of the log"}
         </span>
         {#if next}
           <Button variant="line" size="sm" disabled={loadingOlder} onclick={loadOlder}>
@@ -427,6 +462,7 @@
             <button type="button" class="copy" aria-label="Copy request id" onclick={() => copy(current["request-id"])}>
               <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="1.5" /><path d="M3 10.5 V3.5 A1 1 0 0 1 4 2.5 H10.5" /></svg>
             </button>
+            <a class="find-call" href="#/access-log?ref={encodeURIComponent(current['request-id'])}">Find the call</a>
           {:else}
             <span class="none">none recorded</span>
           {/if}
@@ -733,6 +769,23 @@
     background: none;
     color: var(--fg-muted);
     cursor: pointer;
+  }
+  .mono-id {
+    font-family: var(--mono);
+    font-size: 11.5px;
+  }
+  .find-call {
+    font-family: var(--grotesk);
+    font-size: 12px;
+    color: light-dark(var(--pine-3), var(--pine-5));
+    text-decoration: underline;
+    text-decoration-color: var(--rule);
+    text-underline-offset: 3px;
+    white-space: nowrap;
+  }
+  .find-call:hover {
+    color: var(--gold-deep);
+    text-decoration-color: currentColor;
   }
   .copy:hover {
     background: var(--hover-overlay);

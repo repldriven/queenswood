@@ -17,6 +17,8 @@
 
 (def ^:private by-performer-kind "audit-performer-kind")
 
+(def ^:private by-request "audit-request")
+
 (defn entry-id
   [versionstamp]
   (fdb/appended-id id-prefix versionstamp))
@@ -27,17 +29,20 @@
 
 (defn append
   [txn entry]
-  (let [{:keys [bank-id subject-id kind performed-by]} entry
+  (let [{:keys [bank-id subject-id kind performed-by request-id]} entry
         kind (schema/audit-kind->int kind)
         performer (schema/actor-kind->int (:kind performed-by))]
     (fdb/transact txn
                   (fn [txn]
                     (fdb/append txn
-                                [[log bank-id]
-                                 [by-subject bank-id subject-id]
-                                 [by-kind bank-id kind]
-                                 [by-performer bank-id performer]
-                                 [by-performer-kind bank-id performer kind]]
+                                (cond-> [[log bank-id]
+                                         [by-subject bank-id subject-id]
+                                         [by-kind bank-id kind]
+                                         [by-performer bank-id performer]
+                                         [by-performer-kind bank-id performer
+                                          kind]]
+                                        request-id
+                                        (conj [by-request bank-id request-id]))
                                 (schema/AuditEntry->pb entry)))
                   :audit/record
                   "Failed to record an audit entry")))
@@ -85,7 +90,7 @@
       (utility/assoc-some {} :from lower :until (when to (reached to))))))
 
 (defn list-by-bank
-  [txn bank-id kinds performer-kinds from to opts]
+  [txn bank-id kinds performer-kinds request-id from to opts]
   (fdb/transact
    txn
    (fn [txn]
@@ -93,9 +98,20 @@
            narrowed (ranges bank-id kinds performer-kinds)
            opts (cond-> (assoc opts :order :desc)
                         (map? range)
-                        (merge range))]
+                        (merge range))
+           kept? (fn [{:keys [kind performed-by]}]
+                   (and (or (empty? kinds) (contains? (set kinds) kind))
+                        (or (empty? performer-kinds)
+                            (contains? (set performer-kinds)
+                                       (:kind performed-by)))))]
        (cond (= :none range)
              {:entries []}
+
+             request-id
+             (update
+              (fdb/scan-appended txn [by-request bank-id request-id] opts)
+              :entries
+              (fn [found] (filterv kept? (loaded txn bank-id found))))
 
              narrowed
              (update (fdb/scan-appended-union txn narrowed opts)

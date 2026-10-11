@@ -125,6 +125,7 @@
                                        bank-id
                                        (distinct (:kinds opts))
                                        (distinct (:performer-kinds opts))
+                                       (:request-id opts)
                                        (:from opts)
                                        (:to opts)
                                        (cursors opts))]
