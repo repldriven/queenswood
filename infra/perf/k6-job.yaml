@@ -16,6 +16,15 @@ spec:
         app.kubernetes.io/name: queenswood-perf
     spec:
       restartPolicy: Never
+      # An instance's load pool, where it composes one: `perf-run-instance`
+      # passes the selector, and `perf-run` on kind an empty one. The
+      # toleration is inert on a cluster with no such taint.
+      nodeSelector: ${PERF_NODE_SELECTOR}
+      tolerations:
+        - key: platform.repldriven.com/pool
+          operator: Equal
+          value: load
+          effect: NoSchedule
       containers:
         - name: k6
           image: ${K6_IMAGE}

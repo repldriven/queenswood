@@ -1284,10 +1284,13 @@ before the run, signed in to Keycloak's admin API as the bootstrap admin,
 and deletes it and its Secret after, however the run ends; run `just
 perf-clean-instance` after any run that did not end itself. Never give a
 deployed realm a standing operator client for load tests, in its values
-or by hand. Run a smoke before a longer profile on the same instance,
-and never publish a run's figures as the instance's capacity while the
-Job shares the services' nodes. The site's Register links may be
-disabled with `just site-publish down` for the run's length.
+or by hand. Run a smoke before a longer profile on the same instance.
+Declare a load pool, `cluster.load` in the instance's manifest, before a
+run whose figures are published, and never publish a run's figures as
+the instance's capacity while the Job shares the services' nodes. A run
+may go against an instance with no load pool, its Job sharing the
+services' nodes, and the site's Register links may be disabled with
+`just site-publish down` for the run's length.
 Commands: `just queenswood-instance-ctx`, `just perf-run-instance`,
 `just perf-clean-instance`, `just site-publish`.
 See [instance-perf-run](../../../docs/recipes/infra/instance-perf-run.md).

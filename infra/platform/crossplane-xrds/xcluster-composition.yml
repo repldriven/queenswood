@@ -362,6 +362,77 @@ spec:
                     - https://www.googleapis.com/auth/cloud-platform
                   workloadMetadataConfig:
                     mode: GKE_METADATA
+            {{- /* Absent on every XR older than the field, and absent is
+                   what it means: no second pool. machineType is what
+                   says one was asked for, since the XRD requires it of
+                   a load block. */}}
+            {{- $load := $cluster.load | default dict }}
+            {{- if hasKey $load "machineType" }}
+            {{- $loadCount := 0 }}
+            {{- if eq $xr.spec.state "up" }}
+            {{- $loadCount = 1 }}
+            {{- if hasKey $load "nodeCount" }}
+            {{- $loadCount = $load.nodeCount }}
+            {{- end }}
+            {{- end }}
+            ---
+            # A pool nothing lands on by default, for the load generator
+            # a run's figures are measured against: beside the workloads
+            # it would take from what it measures. The taint keeps
+            # everything else off without any chart naming this pool,
+            # and the label is what a pod selects, so nothing has to
+            # spell the pool's name. GKE's own daemonsets tolerate every
+            # taint.
+            #
+            # A slot of its own rather than a second item under `nodes`:
+            # the primary pool's slot is the one live clusters carry.
+            apiVersion: container.gcp.m.upbound.io/v1beta1
+            kind: NodePool
+            metadata:
+              name: np-{{ $name }}-load
+              namespace: crossplane-system
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: nodes-load
+            spec:
+              managementPolicies:
+                - Observe
+                - Create
+                - Update
+                {{- if not $retain }}
+                - Delete
+                {{- end }}
+                - LateInitialize
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: default
+              forProvider:
+                cluster: {{ $name }}
+                location: {{ $xr.spec.zone }}
+                # Owned here for the reason the primary pool's is.
+                networkConfig:
+                  podRange: pods
+                project: {{ $xr.spec.projectId }}
+                nodeCount: {{ $loadCount | int }}
+                upgradeSettings:
+                  strategy: {{ $upgrade.strategy }}
+                  maxSurge: {{ $upgrade.maxSurge | int }}
+                  maxUnavailable: {{ $upgrade.maxUnavailable | int }}
+                nodeConfig:
+                  machineType: {{ $load.machineType }}
+                  diskSizeGb: {{ $cluster.diskSize | int }}
+                  diskType: {{ $cluster.diskType }}
+                  serviceAccount: sa-{{ $name }}-nodes@{{ $xr.spec.projectId }}.iam.gserviceaccount.com
+                  oauthScopes:
+                    - https://www.googleapis.com/auth/cloud-platform
+                  workloadMetadataConfig:
+                    mode: GKE_METADATA
+                  labels:
+                    platform.repldriven.com/pool: load
+                  taint:
+                    - key: platform.repldriven.com/pool
+                      value: load
+                      effect: NO_SCHEDULE
+            {{- end }}
             {{- if or $observed.endpoint (dig "masterAuth" "clusterCaCertificate" "" $observed) }}
             ---
             # Both read back from the cluster rather than derived, and

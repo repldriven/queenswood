@@ -200,6 +200,35 @@ spec:
                         all. True deletes both; the identity the pool
                         runs as stands. Refused with retain, whose cluster
                         is the one Crossplane runs on. See ADR-0029.
+                    load:
+                      type: object
+                      description: |
+                        A second pool, for a load generator, so that it
+                        takes nothing from what it measures. Absent
+                        composes none, which is why this carries no
+                        default.
+
+                        Its nodes carry the label
+                        platform.repldriven.com/pool=load and a
+                        NoSchedule taint of the same key and value, so
+                        a pod lands there only by selecting the one and
+                        tolerating the other. Boot disks, upgrade
+                        settings and the identity are the cluster's own.
+                        Zero nodes unless the state is up, and deleted
+                        with the cluster when it is shelved.
+                      required:
+                        - machineType
+                      properties:
+                        machineType:
+                          type: string
+                          description: |
+                            What its nodes are. Immutable, as the
+                            cluster's own is.
+                        nodeCount:
+                          type: integer
+                          default: 1
+                          description: |
+                            How many nodes when the state is up.
             status:
               type: object
               properties:

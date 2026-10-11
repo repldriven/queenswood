@@ -375,6 +375,37 @@ spec:
                         the cluster first, or their disks and load
                         balancers outlive it. See ADR-0029 and the
                         instance-shelve recipe.
+                    load:
+                      type: object
+                      description: |
+                        A second pool, for the k6 Job of a load test, so
+                        that it takes nothing from the services it
+                        measures. Absent composes none, which is why
+                        this carries no default.
+
+                        Its nodes carry the label
+                        platform.repldriven.com/pool=load and a
+                        NoSchedule taint of the same key and value, so
+                        the bank's workloads stay off it and the Job
+                        lands there by selecting the one and tolerating
+                        the other. Boot disks, upgrade settings and the
+                        identity are the cluster's own. Zero nodes while
+                        the instance is down, and deleted with the
+                        cluster when it is shelved. See the
+                        instance-perf-run recipe.
+                      required:
+                        - machineType
+                      properties:
+                        machineType:
+                          type: string
+                          description: |
+                            What its nodes are. Immutable, as the
+                            cluster's own is.
+                        nodeCount:
+                          type: integer
+                          default: 1
+                          description: |
+                            How many nodes when the instance is up.
                 keycloak:
                   type: object
                   default: {}

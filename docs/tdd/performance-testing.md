@@ -286,6 +286,13 @@ their Services:
   `queenswood-perf-operator` on an instance, described below.
 - **Job.** [k6-job.yaml](/infra/perf/k6-job.yaml), rendered by
   `envsubst` with the image, and deleted before a new run.
+- **Placement.** `cluster.load` in an instance's manifest composes a
+  second node pool, in
+  [xcluster-composition.yml](/infra/platform/crossplane-xrds/xcluster-composition.yml),
+  labelled `platform.repldriven.com/pool=load` and tainted `NoSchedule`
+  with the same key and value, so the services stay off it. The Job
+  tolerates the taint, and `perf-run-instance` gives it a selector for
+  the label where a node carries it; on kind the selector is empty.
 - **Summary.** `handleSummary` prints the run's parameters, its headline
   figures and k6's data as JSON between markers on stdout, and the
   recipe writes it from the pod's log to
@@ -296,8 +303,7 @@ which archives the scenario, replaces the ConfigMap, applies the Job,
 follows its log until the Job has ended, following it again if the
 stream drops first, and writes the summary, treating k6's exit 99 — a
 threshold not met — as a finished run, and `perf-clean`, which deletes
-the Job and the ConfigMap. On GKE the Job carries a node selector for a
-pool the services do not use.
+the Job and the ConfigMap.
 
 ### The operator client
 
@@ -822,9 +828,9 @@ holds it, and the run repeated.
 - **The provider transfer backlog is not measured.** An internal payment
   on a Modulr bank queues a transfer no API reports, and a failed one is
   only logged; traces show the queue.
-- **A run on an instance shares the services' nodes.** Until the Job
-  has a node pool of its own, k6 runs beside what it measures, and the
-  instance's sandbox users share its FDB and Kafka for the run's length.
+- **A run on an instance shares its FDB and Kafka.** The instance's
+  sandbox users share both for the run's length, and on an instance that
+  declares no load pool k6 runs beside what it measures.
 - **A partition count is fixed when its topic is created.** mono's
   `kafka/topics` creates a missing topic and leaves an existing one
   alone, so a count raised in `kafka-topics.yml` reaches a cluster only

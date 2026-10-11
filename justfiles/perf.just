@@ -7,6 +7,11 @@ PERF_NAMESPACE := "queenswood"
 # kind, the one `perf-run-instance` writes for its run on an instance.
 PERF_OPERATOR_SECRET := env_var_or_default("PERF_OPERATOR_SECRET", "queenswood-keycloak-dev-operator")
 
+# The node selector the Job carries, as a YAML flow mapping: empty on
+# kind, the instance's load pool where `perf-run-instance` finds one.
+PERF_NODE_SELECTOR := env_var_or_default("PERF_NODE_SELECTOR", "{}")
+PERF_LOAD_POOL := "platform.repldriven.com/pool=load"
+
 PERF_INSTANCE_SECRET := "queenswood-perf-operator"
 PERF_INSTANCE_CLIENT := "queenswood-perf"
 PERF_REALM := "queenswood"
@@ -115,7 +120,8 @@ perf-run scenario="internal" profile="smoke" rate="" duration="" accounts="" fro
       exit 1
     fi
     export PERF_OPERATOR_SECRET={{ PERF_OPERATOR_SECRET }}
-    envsubst '$K6_IMAGE $PERF_OPERATOR_SECRET' < infra/perf/k6-job.yaml | kubectl apply -f -
+    export PERF_NODE_SELECTOR='{{ PERF_NODE_SELECTOR }}'
+    envsubst '$K6_IMAGE $PERF_OPERATOR_SECRET $PERF_NODE_SELECTOR' < infra/perf/k6-job.yaml | kubectl apply -f -
     echo "running $NAME on $K6_IMAGE"
     while true; do
       kubectl -n {{ PERF_NAMESPACE }} logs -f job/queenswood-perf \
@@ -166,7 +172,7 @@ perf-run scenario="internal" profile="smoke" rate="" duration="" accounts="" fro
       exit 1
     fi
 
-# Run one scenario on an instance as perf-run does on kind, under an operator client that exists only for the run: created before it and deleted after it, however it ends. context: the instance's kubectl context, as queenswood-instance-ctx names it; the rest: as perf-run.
+# Run one scenario on an instance as perf-run does on kind, on the instance's load pool where it has one, under an operator client that exists only for the run: created before it and deleted after it, however it ends. context: the instance's kubectl context, as queenswood-instance-ctx names it; the rest: as perf-run.
 perf-run-instance context scenario="internal" profile="smoke" rate="" duration="" accounts="" from="" step="":
     #!/usr/bin/env zsh
     set -euo pipefail
@@ -177,8 +183,19 @@ perf-run-instance context scenario="internal" profile="smoke" rate="" duration="
       echo "no kubectl context {{ context }}" >&2
       exit 1
     fi
+    if ! NODES=$(kubectl --context "{{ context }}" get nodes -l {{ PERF_LOAD_POOL }} -o name); then
+      echo "cannot list the nodes of {{ context }}" >&2
+      exit 1
+    fi
+    SELECTOR='{}'
+    if [[ -n "$NODES" ]]; then
+      SELECTOR='{"{{ replace(PERF_LOAD_POOL, "=", "\": \"") }}"}'
+    else
+      echo "no node labelled {{ PERF_LOAD_POOL }}: k6 runs beside the services, and the run's figures are not publishable" >&2
+    fi
     just _perf-operator "{{ context }}" up
     KUBECONFIG="$CONFIG" PERF_OPERATOR_SECRET={{ PERF_INSTANCE_SECRET }} \
+      PERF_NODE_SELECTOR="$SELECTOR" \
       just perf-run "{{ scenario }}" "{{ profile }}" "{{ rate }}" "{{ duration }}" \
       "{{ accounts }}" "{{ from }}" "{{ step }}"
 

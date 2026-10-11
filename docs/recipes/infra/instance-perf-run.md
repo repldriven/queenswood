@@ -31,6 +31,9 @@ it finished.
 - Steps 2–5 — the installation's cluster admin capability, to read the
   Keycloak bootstrap admin's Secret and run the Job. Ours is
   `grp-gcp-<code>-cluster-admin@` — join for the run, then leave.
+- Steps 2–4 — for a run whose figures are published, a load pool on
+  the instance: `cluster.load` in its `instance.yml`, naming a machine
+  type.
 - Step 3 — local port 18090 free, for the port-forward to Keycloak.
 
 ```bash
@@ -62,6 +65,14 @@ kubectl --context "$QW_CODE-$QW_ENV-$QW_LABEL" -n queenswood get job queenswood-
 ```
 
 It reports `NotFound`, or a Job that has completed.
+
+```bash
+kubectl --context "$QW_CODE-$QW_ENV-$QW_LABEL" get nodes \
+  -l platform.repldriven.com/pool=load
+```
+
+One node, `Ready`, on an instance that declares a load pool, and `No
+resources found` on one that does not.
 
 ### 3. Run a smoke
 
@@ -119,6 +130,8 @@ and ConfigMap deleted or not found.
   creates its operator client before the run and deletes it after.
 - Run `just perf-clean-instance` after any run that did not end itself.
 - Run a smoke before a longer profile on the same instance.
+- Declare a load pool, `cluster.load` in the instance's manifest, before
+  a run whose figures are published.
 
 **MUST NOT:**
 
@@ -129,6 +142,8 @@ and ConfigMap deleted or not found.
 
 **MAY:**
 
+- Run on an instance with no load pool, where the Job shares the
+  services' nodes.
 - Disable the site's Register links with `just site-publish down` for
   the run's length, and enable them again with `just site-publish up`.
 
@@ -167,12 +182,20 @@ port-forward, since they are a handful of requests. The run is
 context, so its `kubectl` lands on the instance and the shell's current
 context is left alone.
 
-**What a run shares.** The instance's sandbox users share its FDB, Kafka
-and nodes for the run's length, and k6 shares the nodes the services
-run on, so a run's figures say how this instance behaved under load
-while doing its usual work, not what a dedicated deployment can carry.
-The [performance-testing](../../tdd/performance-testing.md) TDD plans a
-node pool for the Job.
+**Where the Job runs.** An instance whose manifest declares
+`cluster.load` composes a second node pool,
+`np-<code>-<env>-<label>-load`, whose nodes carry the label
+`platform.repldriven.com/pool=load` and a `NoSchedule` taint of the same
+key and value. The taint keeps the bank's workloads off the pool with no
+chart naming it, and the Job tolerates it. `perf-run-instance` looks for
+a node carrying the label and gives the Job a selector for it, so k6
+takes nothing from what it measures. Where it finds none it says so, and
+the Job is scheduled beside the services.
+
+**What a run shares.** The instance's sandbox users share its FDB and
+Kafka for the run's length. On an instance with no load pool k6 shares
+the services' nodes as well, and that run's figures say how the instance
+behaved under load while doing its usual work, not what it can carry.
 
 ## References
 
