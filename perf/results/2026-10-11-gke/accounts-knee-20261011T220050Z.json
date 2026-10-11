@@ -1,0 +1,106 @@
+{
+  "run": {
+    "scenario": "accounts",
+    "profile": "knee",
+    "unit": "accounts",
+    "books": false,
+    "parties": 50,
+    "openTimeoutS": 120,
+    "steps": [
+      {
+        "rate": 20,
+        "seconds": 60
+      },
+      {
+        "rate": 40,
+        "seconds": 60
+      },
+      {
+        "rate": 80,
+        "seconds": 60
+      },
+      {
+        "rate": 160,
+        "seconds": 60
+      },
+      {
+        "rate": 320,
+        "seconds": 60
+      }
+    ]
+  },
+  "headline": {
+    "accounts": 19345,
+    "rejected": {},
+    "dropped": 17094,
+    "vus": 2000,
+    "opening": {
+      "followed": 968,
+      "lost": {
+        "opened": 5
+      },
+      "avg": 13789.21,
+      "p50": 2710,
+      "p95": 68964.6,
+      "p99": 117344.7,
+      "max": 117891
+    },
+    "steps": [
+      {
+        "asked": 20,
+        "achieved": 19.98,
+        "accounts": 1199,
+        "failed": 0,
+        "avg": 24.33,
+        "p50": 21.94,
+        "p95": 27.78,
+        "p99": 50.44,
+        "max": 372.42
+      },
+      {
+        "asked": 40,
+        "achieved": 39.15,
+        "accounts": 2349,
+        "failed": 0,
+        "avg": 24.31,
+        "p50": 22.51,
+        "p95": 32.97,
+        "p99": 49.55,
+        "max": 215.26
+      },
+      {
+        "asked": 80,
+        "achieved": 78.32,
+        "accounts": 4699,
+        "failed": 0,
+        "avg": 1092.15,
+        "p50": 1215.57,
+        "p95": 1791.7,
+        "p99": 2025.08,
+        "max": 2042.67
+      },
+      {
+        "asked": 160,
+        "achieved": 108.08,
+        "accounts": 6485,
+        "failed": 0.75,
+        "avg": 516.35,
+        "p50": 0.52,
+        "p95": 2051.2,
+        "p99": 2903.6,
+        "max": 3212.35
+      },
+      {
+        "asked": 320,
+        "achieved": 76.88,
+        "accounts": 4613,
+        "failed": 0.63,
+        "avg": 717.19,
+        "p50": 0.66,
+        "p95": 1988.79,
+        "p99": 2070.98,
+        "max": 2099.23
+      }
+    ]
+  }
+}

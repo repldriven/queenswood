@@ -1,0 +1,44 @@
+{
+  "run": {
+    "scenario": "accounts",
+    "profile": "smoke",
+    "unit": "accounts",
+    "books": false,
+    "parties": 50,
+    "openTimeoutS": 120,
+    "steps": [
+      {
+        "rate": 1,
+        "seconds": 60
+      }
+    ]
+  },
+  "headline": {
+    "accounts": 59,
+    "rejected": {},
+    "dropped": 0,
+    "vus": 10,
+    "opening": {
+      "followed": 3,
+      "lost": {},
+      "avg": 261.33,
+      "p50": 298,
+      "p95": 307,
+      "p99": 307.8,
+      "max": 308
+    },
+    "steps": [
+      {
+        "asked": 1,
+        "achieved": 0.98,
+        "accounts": 59,
+        "failed": 0,
+        "avg": 43.1,
+        "p50": 42.11,
+        "p95": 49.63,
+        "p99": 56.25,
+        "max": 57.09
+      }
+    ]
+  }
+}

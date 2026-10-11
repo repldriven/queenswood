@@ -117,7 +117,14 @@ kubectl --context "$QW_CODE-mgmt" -n argocd delete application \
   "$QW_CODE-$QW_ENV-$QW_LABEL-external-secrets"
 ```
 
-It returns once every resource the three installed is gone. Then:
+It returns once every resource the three installed is gone. A
+StatefulSet's volume claims are not among them, so delete those:
+
+```bash
+kubectl --context "$QW_CODE-$QW_ENV-$QW_LABEL" -n queenswood delete pvc --all
+```
+
+Then:
 
 ```bash
 PROJECT=$(just _instance-project "$QW_ENV" "$QW_LABEL")
@@ -165,7 +172,15 @@ No output.
 resource it installed carries a finalizer, and the operator that clears
 it was deleted first — both ship in the `queenswood` Application. Find
 the resource on the instance's cluster and remove its finalizer: the
-cluster is going, and nothing the finalizer guarded outlives it.
+cluster is going, and nothing the finalizer guarded outlives it. SigNoz's
+`ClickHouseInstallation` is one, every time: its operator goes in the
+same deletion.
+
+```bash
+kubectl --context "$QW_CODE-$QW_ENV-$QW_LABEL" -n queenswood patch \
+  clickhouseinstallation queenswood-clickhouse --type=merge \
+  -p '{"metadata":{"finalizers":[]}}'
+```
 
 **A disk is still listed after step 4.** A PersistentVolumeClaim
 outlived its owner, or its volume's reclaim policy is `Retain`. Delete
@@ -197,8 +212,9 @@ holds a write role in the project.
 - Withdraw the workloads with `just gh-pr-workloads-withdraw` and delete
   their Applications while the instance is `up`, since an operator's
   finalizer needs its pod to run.
-- Check no `pvc-` disk and no forwarding rule remains in the instance's
-  project before shelving it.
+- Delete the namespace's volume claims once the Applications are gone,
+  and check no `pvc-` disk and no forwarding rule remains in the
+  instance's project before shelving it.
 - Shelve with `just gh-pr-shelve`, which carries the recorded point into
   `fdb.restore` in the same merge.
 

@@ -1,0 +1,119 @@
+{
+  "run": {
+    "scenario": "inbound",
+    "profile": "knee",
+    "accounts": 200,
+    "steps": [
+      {
+        "rate": 20,
+        "seconds": 60
+      },
+      {
+        "rate": 40,
+        "seconds": 60
+      },
+      {
+        "rate": 80,
+        "seconds": 60
+      },
+      {
+        "rate": 160,
+        "seconds": 60
+      },
+      {
+        "rate": 320,
+        "seconds": 60
+      }
+    ],
+    "follow": 20,
+    "followed": 20
+  },
+  "headline": {
+    "payments": 36438,
+    "rejected": {},
+    "dropped": 0,
+    "vus": 640,
+    "settlement": {
+      "followed": 1822,
+      "unsettled": {
+        "returned": 0,
+        "failed": 0,
+        "timeout": 0
+      },
+      "avg": 135.41,
+      "p50": 138,
+      "p95": 255,
+      "p99": 262,
+      "max": 292
+    },
+    "books": {
+      "injected": 0,
+      "in": 1842189,
+      "out": 0,
+      "expected": 1842189,
+      "cash": 1842189,
+      "controls": 1842189,
+      "provider": 1842189,
+      "trialBalanceTied": true,
+      "settleS": 6.25,
+      "held": true
+    },
+    "steps": [
+      {
+        "asked": 20,
+        "achieved": 19.98,
+        "payments": 1199,
+        "failed": 0,
+        "avg": 0.75,
+        "p50": 0.73,
+        "p95": 0.88,
+        "p99": 1.17,
+        "max": 2.44
+      },
+      {
+        "asked": 40,
+        "achieved": 39.15,
+        "payments": 2349,
+        "failed": 0,
+        "avg": 0.74,
+        "p50": 0.7,
+        "p95": 0.88,
+        "p99": 1.46,
+        "max": 23.34
+      },
+      {
+        "asked": 80,
+        "achieved": 78.32,
+        "payments": 4699,
+        "failed": 0,
+        "avg": 0.63,
+        "p50": 0.6,
+        "p95": 0.78,
+        "p99": 1.07,
+        "max": 19.24
+      },
+      {
+        "asked": 160,
+        "achieved": 156.62,
+        "payments": 9397,
+        "failed": 0,
+        "avg": 0.58,
+        "p50": 0.53,
+        "p95": 0.75,
+        "p99": 1.24,
+        "max": 16.39
+      },
+      {
+        "asked": 320,
+        "achieved": 313.23,
+        "payments": 18794,
+        "failed": 0,
+        "avg": 0.62,
+        "p50": 0.52,
+        "p95": 0.82,
+        "p99": 1.58,
+        "max": 37.95
+      }
+    ]
+  }
+}

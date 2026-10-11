@@ -1,0 +1,139 @@
+{
+  "run": {
+    "scenario": "reads",
+    "profile": "knee",
+    "unit": "reads",
+    "books": false,
+    "accounts": 200,
+    "history": 20,
+    "reads": [
+      "cash-accounts/{account-id}?embed[balances]",
+      "cash-accounts/{account-id}/transactions",
+      "cash-accounts/{account-id}/balances"
+    ],
+    "steps": [
+      {
+        "rate": 80,
+        "seconds": 60
+      },
+      {
+        "rate": 160,
+        "seconds": 60
+      },
+      {
+        "rate": 320,
+        "seconds": 60
+      },
+      {
+        "rate": 640,
+        "seconds": 60
+      },
+      {
+        "rate": 1280,
+        "seconds": 60
+      },
+      {
+        "rate": 2560,
+        "seconds": 60
+      }
+    ]
+  },
+  "headline": {
+    "reads": {
+      "cash-accounts/{account-id}?embed[balances]": {
+        "avg": 121.5,
+        "p50": 66.53,
+        "p95": 417.48,
+        "p99": 530.32,
+        "max": 773.25
+      },
+      "cash-accounts/{account-id}/transactions": {
+        "avg": 144.84,
+        "p50": 69.18,
+        "p95": 511.65,
+        "p99": 636.46,
+        "max": 883.59
+      },
+      "cash-accounts/{account-id}/balances": {
+        "avg": 121.66,
+        "p50": 66.57,
+        "p95": 415.91,
+        "p99": 527.97,
+        "max": 761.6
+      }
+    },
+    "rejected": {
+      "503": 157242
+    },
+    "dropped": 0,
+    "vus": 2000,
+    "steps": [
+      {
+        "asked": 80,
+        "achieved": 79.6,
+        "reads": 4776,
+        "failed": 0,
+        "avg": 5.71,
+        "p50": 4.17,
+        "p95": 6.4,
+        "p99": 10.09,
+        "max": 362.51
+      },
+      {
+        "asked": 160,
+        "achieved": 156.27,
+        "reads": 9376,
+        "failed": 0,
+        "avg": 4.45,
+        "p50": 4.01,
+        "p95": 6,
+        "p99": 7.71,
+        "max": 217.55
+      },
+      {
+        "asked": 320,
+        "achieved": 312.53,
+        "reads": 18752,
+        "failed": 0,
+        "avg": 4.75,
+        "p50": 4.58,
+        "p95": 6.72,
+        "p99": 9.18,
+        "max": 24.22
+      },
+      {
+        "asked": 640,
+        "achieved": 625.07,
+        "reads": 37504,
+        "failed": 0,
+        "avg": 135.5,
+        "p50": 138.13,
+        "p95": 210.86,
+        "p99": 263.45,
+        "max": 351.66
+      },
+      {
+        "asked": 1280,
+        "achieved": 1250.15,
+        "reads": 75009,
+        "failed": 0.51,
+        "avg": 162.56,
+        "p50": 78.2,
+        "p95": 395.91,
+        "p99": 477.5,
+        "max": 607.02
+      },
+      {
+        "asked": 2560,
+        "achieved": 2499.32,
+        "reads": 149959,
+        "failed": 0.79,
+        "avg": 141.55,
+        "p50": 67.12,
+        "p95": 517.35,
+        "p99": 634.07,
+        "max": 883.59
+      }
+    ]
+  }
+}

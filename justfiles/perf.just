@@ -153,7 +153,7 @@ perf-run scenario="internal" profile="smoke" rate="" duration="" accounts="" fro
       if [[ -n "$EXIT" ]]; then break; fi
       sleep 1
     done
-    awk '/==== perf summary end ====/{f=0} f; /==== perf summary begin ====/{f=1}' \
+    awk '/==== perf summary end ====/{f=0} f && /^[{]/; /==== perf summary begin ====/{f=1}' \
       target/perf/$NAME.log > target/perf/$NAME.json
     if [[ ! -s target/perf/$NAME.json ]]; then
       tail -40 target/perf/$NAME.log
