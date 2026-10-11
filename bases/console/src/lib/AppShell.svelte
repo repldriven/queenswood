@@ -77,9 +77,9 @@
       <SidenavItem href="#/migrations" title="Migrations" current={isCurrent("/migrations")}>
         {#snippet icon()}
           <svg viewBox="0 0 16 16" aria-hidden="true">
-            <rect x="1.5" y="5" width="4" height="6" rx="0.8" />
-            <rect x="10.5" y="5" width="4" height="6" rx="0.8" />
-            <path d="M6.5 8 H9.2 M7.8 6.6 L9.2 8 L7.8 9.4" />
+            <circle cx="3.5" cy="3.5" r="1.5" />
+            <circle cx="12.5" cy="12.5" r="1.5" />
+            <path d="M5 3.5 H10.5 A2.25 2.25 0 0 1 10.5 8 H5.5 A2.25 2.25 0 0 0 5.5 12.5 H11" />
           </svg>
         {/snippet}
         Migrations
