@@ -313,16 +313,12 @@
 <div class="announce">
   <span class="pill">v{RELEASE}</span>
   <span>
-    Bring your own <strong>ClearBank</strong> and <strong>Zyphe</strong> — bundled
-    simulators for development, plug in your own accounts per bank.
+    Bring your own <strong>payments</strong> and <strong>identity</strong>
+    providers, chosen per bank — a simulator bundled for each.
   </span>
   <a target="_blank" rel="noreferrer"
-    href="https://github.com/repldriven/queenswood/tree/main/bases/clearbank-adapter"
-    >ClearBank adapter ↗</a
-  >
-  <a target="_blank" rel="noreferrer"
-    href="https://github.com/repldriven/queenswood/tree/main/bases/zyphe-adapter"
-    >Zyphe adapter ↗</a
+    href="https://github.com/repldriven/queenswood/blob/main/docs/tdd/bank-providers.md"
+    >Providers ↗</a
   >
 </div>
 
@@ -417,11 +413,11 @@
       </div>
       <div class="cap">
         <span class="cap-label">KYC</span>
-        <p class="cap-desc">Zyphe IDV for your customers.</p>
+        <p class="cap-desc">Zyphe or Onfido IDV for your customers.</p>
       </div>
       <div class="cap">
         <span class="cap-label">UK payments</span>
-        <p class="cap-desc">Faster Payments via ClearBank.</p>
+        <p class="cap-desc">Faster Payments via Modulr, Form3 or ClearBank.</p>
       </div>
       <div class="cap">
         <span class="cap-label">Interest</span>
@@ -512,12 +508,13 @@
         <span class="num">02 — Parties &amp; IDV</span>
         <h3>Verify <em>customers.</em></h3>
         <p>
-          Onboard people and organisations. A Zyphe identity check runs
-          automatically and flips each party to active or rejected — no operator
-          click. A rejected check means no account.
+          Onboard people and organisations. An identity check with the bank's
+          provider, Zyphe or Onfido, runs automatically and flips each party to
+          active or rejected — no operator click. A rejected check means no
+          account.
         </p>
         <ul>
-          <li>Bring your own Zyphe — simulator bundled for dev &amp; tests</li>
+          <li>Bring your own Zyphe or Onfido — simulator bundled for dev &amp; tests</li>
           <li>Async accept / reject, webhook-driven</li>
           <li>People and organisations in one register</li>
         </ul>
