@@ -334,7 +334,7 @@
 <PageHeader
   {kicker}
   title="Access log"
-  sub="Every authenticated call the bank’s people and systems made to the Queenswood API, newest first: who called, which operation, what came back and how long it took. Narrow it by time and API group, or find a call by an id you hold."
+  sub="Every authenticated call the bank’s people and systems made to the Queenswood API, newest first: who called, which operation, what came back and how long it took. Narrow it by time, member and kind of call, or find a call by an id you hold."
 >
   {#snippet actions()}
     <Button variant="line" onclick={load}>
@@ -356,9 +356,9 @@
     <div class="head">
       <span class="label">
         {#if orderedTags.length}
-          <b>{orderedTags.length}</b> of {groups.length} groups
+          <b>{orderedTags.length}</b> of {groups.length} kinds
         {:else}
-          API group · all {groups.length}
+          Kind of call · all {groups.length}
         {/if}
       </span>
       <button type="button" class="clear" disabled={!orderedTags.length} onclick={() => go({ tags: [] })}>Clear</button>
@@ -370,7 +370,7 @@
         </Checkbox>
       {/each}
     </div>
-    <div class="foot-note">With nothing selected the log lists every group. The groups are the API reference’s.</div>
+    <div class="foot-note">With nothing selected the log lists every kind. The kinds are the API reference’s groups.</div>
   </aside>
 
   <section class="panel">
@@ -486,7 +486,7 @@
                           <Button variant={ref ? "ghost" : "line"} size="sm" onclick={() => go({ callers: [] })}>Everyone</Button>
                         {/if}
                         {#if orderedTags.length}
-                          <Button variant={ref || callers.length ? "ghost" : "line"} size="sm" onclick={() => go({ tags: [] })}>Every group</Button>
+                          <Button variant={ref || callers.length ? "ghost" : "line"} size="sm" onclick={() => go({ tags: [] })}>Every kind</Button>
                         {/if}
                         {#if range}
                           <Button variant={ref || callers.length || orderedTags.length ? "ghost" : "line"} size="sm" onclick={() => go({ range: null })}>Any time</Button>
@@ -608,7 +608,7 @@
             </button>
           </dd>
         {/each}
-        <dt>Group</dt>
+        <dt>Kind of call</dt>
         <dd>{#if current.tag}{current.tag}{:else}<span class="none">none, no route matched</span>{/if}</dd>
         <dt>Status</dt>
         <dd><HttpStatus status={current["http-status"]} />{current["problem-type"] ?? ""}</dd>
@@ -694,7 +694,7 @@
     {#if current}
       <div class="drawer-actions">
         {#if !onlyGroup}
-          <Button variant="line" size="sm" onclick={() => go({ tags: [current.tag] })}>Only this group</Button>
+          <Button variant="line" size="sm" onclick={() => go({ tags: [current.tag] })}>Only this kind</Button>
         {/if}
         <span class="spacer"></span>
         <Button variant="line" size="sm" disabled={currentIndex <= 0} onclick={() => step(-1)}>Newer</Button>

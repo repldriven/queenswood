@@ -79,7 +79,7 @@ and the console as first built:
   `ChangesetTable`.
 - **The Access log page.** `AccessLog.svelte` under
   `bases/console/src/lib/`: the bank's calls a page at a time, narrowed
-  by the `ui` brick's `TimeRangeFilter`, by API group, the tags the
+  by the `ui` brick's `TimeRangeFilter`, by kind of call, the tags the
   API's `/openapi.json` lists, which the console's nginx and Vite
   proxy, by the bank's members in `MemberFilter`, and by a reference
   typed into "Find a call", every filter in
