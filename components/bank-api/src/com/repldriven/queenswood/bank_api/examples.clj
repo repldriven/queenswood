@@ -87,6 +87,7 @@
    :tier "micro"
    :providers BankProviders
    :created-at "2025-01-01T00:00:00Z"
+   :created-by schema/actor-example
    :updated-at "2025-01-01T00:00:00Z"
    :party (assoc party-api/Party :type :organization)
    :accounts

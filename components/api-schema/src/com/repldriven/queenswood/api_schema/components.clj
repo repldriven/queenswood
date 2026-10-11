@@ -326,6 +326,11 @@
    "ProductId" "prd.01kprbmgcj35ptc8npmybhh4se"
    "VersionId" "prv.01kprbmgcj35ptc8npmybhh4sf"})
 
+(def actor-example
+  {:kind :member
+   :principal-id "usr.01kprbmgcj35ptc8npmybhh4s7"
+   :name "Ada Lovelace"})
+
 (def BankId (id-schema "BankId" "bnk" (id-examples "BankId")))
 
 (def PartyId (id-schema "PartyId" "pty" (id-examples "PartyId")))
