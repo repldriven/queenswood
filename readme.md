@@ -427,7 +427,7 @@ sets it up.
   Kafka brokers at 3x. Steady load, 50 payments/s: p50 25 ms, p99 50 ms.
   Peak load, 313 payments/s: none refused, p50 82 ms, p99 208 ms. The
   books balanced to the penny. See
-  [the results](perf/results/2026-10-11-gke.md).
+  [full results](perf/results/2026-10-11-gke.md).
 - **Scaling.** Services run as many replicas as you give them, except the
   dispatcher that owns every changelog cursor and scheduled trigger, which
   runs as exactly one.
