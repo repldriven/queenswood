@@ -47,6 +47,10 @@
   - `:payment-simulator-url` (optional) — root URL of the booted
     payment provider's simulator, which a step's `:base :payment-simulator`
     sends its request to, as `/simulate/inbound-payment` needs.
+  - `:payment-simulator-urls` (optional) — the root URL of every booted
+    payment provider's simulator by provider key, which a step's
+    `:base [:payment-simulator \"<key>\"]` picks from, for a scenario
+    whose banks run on more than one provider.
   - `:zyphe-simulator-url` (optional) — root URL of the booted
     identity-provider simulator, whose decision route a verification
     step posts the person's answers to.
@@ -70,12 +74,13 @@
   one boot can serve many, and the fresh `:banks` map limits the
   standing invariants to the banks this scenario created."
   [{:keys [base-url admin-token token-endpoints signing-key mail-url
-           payment-simulator-url zyphe-simulator-url providers key-suffix
-           run-id await-timeout-ms receiver]}]
+           payment-simulator-url payment-simulator-urls zyphe-simulator-url
+           providers key-suffix run-id await-timeout-ms receiver]}]
   {:base-url base-url
    :providers providers
    :key-suffix key-suffix
    :payment-simulator-url payment-simulator-url
+   :payment-simulator-urls payment-simulator-urls
    :zyphe-simulator-url zyphe-simulator-url
    :mail-url mail-url
    :admin-token admin-token

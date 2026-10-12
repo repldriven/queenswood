@@ -10,7 +10,7 @@ clearbank: !include system/payment-providers/clearbank.yml
 
 providers: !system/component
   system/component-kind: payment-provider/providers
-  default: modulr
+  default: form3
   providers:
     modulr:
       declaration: !system/local-ref modulr

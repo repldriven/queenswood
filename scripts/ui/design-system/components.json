@@ -1,0 +1,352 @@
+[
+  {
+    "name": "Logo",
+    "group": "Brand",
+    "height": 316,
+    "text": "The crowned forest: a row of conifers standing on a gold crown, drawn in five variants. Use A by default, B where the chrome wants more decoration, C for monoline applications, D where width is tight (it is the favicon), and E for seals and stamps. Give it a `size` of 24px or more and a unique `idPrefix` for each instance on a page. Never recolour the golds or redraw the geometry."
+  },
+  {
+    "name": "Wordmark",
+    "group": "Brand",
+    "height": 210,
+    "text": "The name set in type, in two registers. Use `grotesk` (QUEENS light, WOOD medium, 0.18em tracking) in product chrome beside data and controls, and `serif` (Cormorant Garamond 500) for mastheads and marketing. Supply a `size` in px; it inherits the text colour unless `color` is set."
+  },
+  {
+    "name": "AppNav",
+    "group": "Chrome",
+    "height": 182,
+    "text": "The sticky top bar of every signed-in screen: Mark A and the grotesk wordmark on the left, the person's name, the theme toggle and Sign out on the right, over a translucent blurred surface with a hairline below. Supply `user` and `onSignOut`. It is 57px tall, which is the `top` a Sidenav beneath it takes."
+  },
+  {
+    "name": "ThemeToggle",
+    "group": "Chrome",
+    "height": 72,
+    "text": "A three-state theme cycler: auto, light, dark. The icon shows the preference rather than the resolved theme, so a person on auto sees the half disc whichever way the system is set. It takes no props; it writes `data-theme` on the root element and remembers the choice."
+  },
+  {
+    "name": "SandboxBanner",
+    "group": "Chrome",
+    "height": 107,
+    "text": "A full-width gold band under AppNav saying the installation's providers are simulated. It takes no props and its copy is fixed. Show it on every screen of a sandbox installation, and use its tone for nothing else."
+  },
+  {
+    "name": "Sidenav",
+    "group": "Chrome",
+    "height": 400,
+    "members": [
+      "SidenavGroup",
+      "SidenavItem"
+    ],
+    "text": "The left rail of the console: grouped links on a sunk surface, the current page marked by a stripe and a tint. Compose it from SidenavGroup and SidenavItem, give each item a 16px stroked SVG in its `icon` snippet and a `title`, and set `top` to the height of the bar above. Its right edge drags between 220px and an icon-only 60px, and it publishes its width as `--sidenav-w` for the shell's grid."
+  },
+  {
+    "name": "PageHeader",
+    "group": "Chrome",
+    "height": 132,
+    "text": "The top of every page: a mono kicker naming the organisation or context, the page name, one line of explanation, and the page's actions on the right. Supply `kicker`, `title` and `sub` as text and Buttons in the `actions` snippet, with at most one primary among them."
+  },
+  {
+    "name": "Tabs",
+    "group": "Chrome",
+    "height": 79,
+    "text": "A tablist that switches panels in place, the selected tab underlined in pine. Supply `tabs` as `{ id, label, count }` and bind `value`; pair each panel with `id=\"pane-{id}\"` and `role=\"tabpanel\"`. A count may be a number or a short qualifier such as \"3 pending\"."
+  },
+  {
+    "name": "Button",
+    "group": "Actions",
+    "height": 436,
+    "text": "The general-purpose action. Variants name intent, not colour: `primary` (pine) for the one dominant action on a surface, `brand` (gold) for publishing, `line` for secondary actions, `ghost` for tertiary ones and `danger` for destructive ones, with `solid` for an irreversible one. Sizes are 26, 36 and 44px. Supply the label as children, verb first and in sentence case, optionally led by a 14px SVG."
+  },
+  {
+    "name": "Chip",
+    "group": "Actions",
+    "height": 66,
+    "text": "A pressable filter pill with an optional trailing count. Use a row of them to facet a list, one pressed at a time. Supply `pressed`, a `count` and an `onclick`; the label is the children. For a filter already applied use RemovableChip, and for a read-only scope FilterChips."
+  },
+  {
+    "name": "Menu",
+    "group": "Actions",
+    "height": 230,
+    "text": "A small popover of actions for a row's kebab button. Supply the trigger's bounding rectangle as `anchor`, the `items` and `onClose`; mount it only while it is open. Mark a destructive item `danger` and put a `divider` above it."
+  },
+  {
+    "name": "Field",
+    "group": "Forms",
+    "height": 315,
+    "text": "The label, control and hint trio every form is built from. Wrap one control in it, pass `label` and the control's id as `htmlFor`, and give `hint` as a string or a snippet. Stack Fields 18px apart, as a Drawer's body does."
+  },
+  {
+    "name": "Input",
+    "group": "Forms",
+    "height": 198,
+    "text": "A 40px single-line input with a gold focus ring. Bind `value`; set `affix` for a unit such as \"bps\" that sits inside the right edge. Put it inside a Field so it has a label."
+  },
+  {
+    "name": "Select",
+    "group": "Forms",
+    "height": 80,
+    "text": "A native select styled to match Input. Bind `value` and supply `<option>` children. Use it for a short fixed list; a choice that turns on more than a name needs a picker such as ProductPicker."
+  },
+  {
+    "name": "Textarea",
+    "group": "Forms",
+    "height": 156,
+    "text": "A multi-line input with a live character counter that turns rust at the limit. Bind `value` and set `maxlength`. Use it for a reason kept on the record."
+  },
+  {
+    "name": "Checkbox",
+    "group": "Forms",
+    "height": 156,
+    "text": "A labelled box that is ticked, empty or mixed. Supply `checked` as true, false or \"mixed\" and toggle it in `onclick`; the label is the children, and `aside` sits at the far end of the row. A group's box is mixed while some of its items are ticked."
+  },
+  {
+    "name": "SearchField",
+    "group": "Forms",
+    "height": 130,
+    "text": "A search input with a leading magnifier and a clear button that appears once there is a value. Bind `value`; use `size=\"sm\"` (34px) inside a PanelHead and the 40px default above a list."
+  },
+  {
+    "name": "TokenBox",
+    "group": "Forms",
+    "height": 213,
+    "text": "A secret the API answers once, with a Copy button. Supply `base` and `secret`: the secret renders in gold and the two are copied as one string. Say beside it, in a warn Callout, that the value will not be shown again."
+  },
+  {
+    "name": "Badge",
+    "group": "Status",
+    "height": 176,
+    "text": "A rounded status pill with a leading dot, for the state of a record. Pick the `tone` by meaning: pine for live or good, amber for in progress, violet for waiting, rust for refused or failed, grey for historical. Supply one or two words as children; they render lowercase. A ledger dimension takes a squared chip (Phase, GlClass, GlType) instead."
+  },
+  {
+    "name": "AccountStatusBadge",
+    "group": "Status",
+    "height": 64,
+    "text": "A cash account's lifecycle state as a Badge: opening, opened, closing, closed. Supply `status`; the tone follows."
+  },
+  {
+    "name": "JobStatusBadge",
+    "group": "Status",
+    "height": 64,
+    "text": "A scheduled job's last outcome as a Badge: scheduled, running, completed, failed. Supply `outcome`; a running badge's dot pulses."
+  },
+  {
+    "name": "MigrationStatusBadge",
+    "group": "Status",
+    "height": 138,
+    "text": "A migration's, a run's or one account's outcome as a Badge. Supply `status` and the `kind` of lifecycle it belongs to."
+  },
+  {
+    "name": "RolePill",
+    "group": "Status",
+    "height": 64,
+    "text": "A member's role, toned by reach up the ladder: owner gold, admin pine, developer violet, viewer neutral. Supply `role`. It is mono, lowercase and square-cornered so it reads as a value rather than a status."
+  },
+  {
+    "name": "Tag",
+    "group": "Status",
+    "height": 64,
+    "text": "A small read-only marker beside a name: you, the member who created the organisation, an operator, the bank's credential. Supply a `tone` and the word as children. It presses nothing; a filter is a Chip."
+  },
+  {
+    "name": "Phase",
+    "group": "Status",
+    "height": 64,
+    "text": "A squared mono chip for a balance's phase: posted in pine, pending in violet. Supply `phase`. Use it in a ledger tree row beside the balance's address."
+  },
+  {
+    "name": "HttpStatus",
+    "group": "Status",
+    "height": 64,
+    "text": "A response's status code with a dot coloured by its class: 2xx succeeded, 4xx refused, 5xx failed. Supply `status`. Use it in the access log's status column."
+  },
+  {
+    "name": "GlClass",
+    "group": "Status",
+    "height": 64,
+    "text": "A squared mono chip for a ledger account's role in the chart: control, summary or detail. Supply `value`. Control takes the gold accent so rollup accounts stand out from the leaves."
+  },
+  {
+    "name": "GlType",
+    "group": "Status",
+    "height": 64,
+    "text": "A squared mono chip for a ledger account's accounting family. Supply `value`. Asset and expense are warm, being debit-normal; liability, equity and income are cool, being credit-normal."
+  },
+  {
+    "name": "JobKindChip",
+    "group": "Status",
+    "height": 64,
+    "text": "A mono chip saying who owns a job's schedule: `user` is a quiet outline, `system` is gold-tinted with a lock. Supply `kind`."
+  },
+  {
+    "name": "RemovableChip",
+    "group": "Status",
+    "height": 68,
+    "text": "A filter already applied, with a × that removes it. Supply the filter's name as children and `onremove`. Show a row of them above the list they narrow."
+  },
+  {
+    "name": "Callout",
+    "group": "Feedback",
+    "height": 303,
+    "text": "A boxed notice with an icon, an optional bold title, a body and an optional mono type line. Every refusal the API answers takes the `danger` tone with the problem's status and type in `type`; `warn` is a consequence to read before confirming; `info` is context. Supply the body as children, saying what happened and what to do next."
+  },
+  {
+    "name": "ToastHost",
+    "group": "Feedback",
+    "height": 150,
+    "text": "One toast slot, bottom centre, confirming an action just taken. Mount ToastHost once in the app shell and call `toast(message, detail)` from anywhere; a second toast replaces the first. Put the identifier or figure in `detail`, which trails in mono."
+  },
+  {
+    "name": "Card",
+    "group": "Surfaces",
+    "height": 427,
+    "members": [
+      "CardHeader",
+      "CardBody",
+      "CardFooter"
+    ],
+    "text": "A composable container for grouped content: CardHeader (mono kicker, serif title), CardBody and CardFooter inside a Card. Use `default` for the standard raised surface, `feature` for one inverted card in a grid, `sunk` for inset content and `outline` for a hairline frame. Pass `href` or `onclick` to make the whole card the action."
+  },
+  {
+    "name": "CodeCard",
+    "group": "Surfaces",
+    "height": 315,
+    "text": "A dark code block with a title bar, dark in both themes. Supply `filename` and a `<pre>` as children, with tokens wrapped in `.syn-comment`, `.syn-keyword`, `.syn-string`, `.syn-fn`, `.syn-emphasis` and the other `.syn-*` spans."
+  },
+  {
+    "name": "Panel",
+    "group": "Surfaces",
+    "height": 299,
+    "members": [
+      "PanelHead"
+    ],
+    "text": "The raised, hairline-bordered surface every detail screen stacks. Leave `pad` at none around a flush Table and set it for prose or a hero. PanelHead gives it a title bar with a muted count or qualifier and a right-hand note or actions."
+  },
+  {
+    "name": "Drawer",
+    "group": "Surfaces",
+    "height": 600,
+    "text": "A right-side panel for a create or edit form, or detail that does not earn a route. Supply `open`, `onClose`, a `kicker`, `title` and `sub`, Fields as children and one block Button in the `footer` snippet. Esc, the scrim and the close button all call `onClose`."
+  },
+  {
+    "name": "Table",
+    "group": "Data",
+    "height": 525,
+    "members": [
+      "Thead",
+      "Tbody",
+      "Tr",
+      "Th",
+      "Td",
+      "Expander"
+    ],
+    "text": "Rows of records on a hairlined surface, with mono caps headers. Compose it from Thead, Tbody, Tr, Th and Td; a Td takes `mono` for ids, `muted`, `emphasized` for the row's name, `tabular` and `align`. `tree` makes rows expandable over the rows that make them up, with an Expander in the first cell, and `flush` fits the table inside a Panel."
+  },
+  {
+    "name": "MoneyCell",
+    "group": "Data",
+    "height": 279,
+    "text": "A table cell for a currency figure: right-aligned, mono, tabular, toned by sign. Supply `minor` units and `ccy`; negative reads in danger, zero muted. Use it for every amount in a table so figures render the same everywhere."
+  },
+  {
+    "name": "TrialBalance",
+    "group": "Data",
+    "height": 258,
+    "text": "The trial balance as one block per currency: total debits against total credits, and whether they tie. Supply `blocks` and an `asOf` time. Currencies never sum together, so there is no grand total."
+  },
+  {
+    "name": "TrialBalanceCard",
+    "group": "Data",
+    "height": 232,
+    "text": "One currency's trial balance: the two legs and the assertion. Supply the currency and both totals in minor units; the card works out whether they tie and shows the signed difference when they do not. An out-of-balance card takes the danger tone and nothing louder."
+  },
+  {
+    "name": "ChangesetTable",
+    "group": "Data",
+    "height": 499,
+    "text": "The fields an act changed, as the act left them and then as they were. Supply the audit entry's `changeset`; an object value is pretty-printed, a create has no before, and no changeset says the act changed no stored fields."
+  },
+  {
+    "name": "Effect",
+    "group": "Policy",
+    "height": 64,
+    "text": "An allow or deny pill for a capability, squared and mono so it reads down a column. Supply `effect`."
+  },
+  {
+    "name": "Bound",
+    "group": "Policy",
+    "height": 132,
+    "text": "The headline figure of a limit: the operator word, the formatted figure, its unit and a window pill. Supply the `bound`; an instant window tints violet to mark a point-in-time check."
+  },
+  {
+    "name": "Improving",
+    "group": "Policy",
+    "height": 64,
+    "text": "A gold badge marking a limit as a curative permit: an action that breaches the bound is allowed when it moves the position back toward compliance. It takes no props; place it beside the Bound it qualifies."
+  },
+  {
+    "name": "FilterChips",
+    "group": "Policy",
+    "height": 132,
+    "text": "The scope of a capability or limit as read-only chips. Supply `filters` as `{ key, value }` pairs; none renders a muted \"any\", and more than `max` collapse into \"+N more\"."
+  },
+  {
+    "name": "PolicyMatrix",
+    "group": "Policy",
+    "height": 599,
+    "text": "One policy read per domain: capabilities and limits side by side, grouped into sections. Supply the flattened `policy`; `showUngoverned` lists the domains it does not mention and `query` filters the rows."
+  },
+  {
+    "name": "TaskPipeline",
+    "group": "Workflow",
+    "height": 162,
+    "text": "A run's tasks as a horizontal stepper. Supply `steps` as `{ name, status }`, adding `detail` for what the task did and `alert` for a figure that still needs reading. An `exception` is an expected negative beat and reads gold rather than red. Use `dense` inside a list."
+  },
+  {
+    "name": "ProgressSpine",
+    "group": "Workflow",
+    "height": 161,
+    "text": "A multi-step journey as numbered nodes joined by connectors. Supply a `title` and `steps` as `{ num, label, status }`; done fills, ready wears a gold ring, running spins and locked shows a lock."
+  },
+  {
+    "name": "BankStateBand",
+    "group": "Workflow",
+    "height": 168,
+    "text": "A strip of headline figures followed by one attention cell that says what the figures add up to. Supply `cells` and the attention cell's `icon`, `title`, `sub` and `action` snippets; `attentionTone` tints its icon tile."
+  },
+  {
+    "name": "SceneCard",
+    "group": "Workflow",
+    "height": 236,
+    "text": "One step of a guided scenario: number, title, story, status and a run button over an expandable body. Supply the copy, a `status`, `open`, `onToggle` and `onRun`, and the detail as the `body` snippet. The page owns the open and run state."
+  },
+  {
+    "name": "RawCalls",
+    "group": "Workflow",
+    "height": 166,
+    "text": "A dark terminal block listing the API calls behind a friendly step list. Supply `rows` as `{ method, path, tag }`, the `backing` scenario ids, and `show`."
+  },
+  {
+    "name": "ProductPicker",
+    "group": "Pickers and filters",
+    "height": 346,
+    "text": "A searchable product chooser whose rows carry the type, published-version count and live account count the choice turns on. Supply `products`, the chosen `value`, `open`, `ontoggle` and `onselect`. Say in `hiddenNote` why a filtered list is short."
+  },
+  {
+    "name": "VersionList",
+    "group": "Pickers and filters",
+    "height": 270,
+    "text": "Pick one version of a product or several. `mode=\"multi\"` renders checkboxes with `selected` an array, `mode=\"single\"` radios with one id. Supply `versions`, `selected` and `onchange`; a draft row dims but stays selectable."
+  },
+  {
+    "name": "TimeRangeFilter",
+    "group": "Pickers and filters",
+    "height": 329,
+    "text": "A log rail's time section: preset pills relative to now, and a custom range of UTC instants with either end open. Supply `range` and `onChange`."
+  },
+  {
+    "name": "MemberFilter",
+    "group": "Pickers and filters",
+    "height": 174,
+    "text": "A log rail's section listing the bank's members as checkboxes, nothing ticked meaning everyone. Supply `members`, the `selected` user ids and `onChange`."
+  }
+]
