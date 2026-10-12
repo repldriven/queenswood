@@ -129,12 +129,18 @@
        (str/join "&")))
 
 (defn- base-url-for
-  "The root URL a request goes to: the bank API's, or the payment
-  provider's simulator's when the step names `:base :payment-simulator`."
-  [{:keys [base-url payment-simulator-url]} base]
-  (case base
-    :payment-simulator payment-simulator-url
-    base-url))
+  "The root URL a request goes to: the bank API's, the run's payment
+  provider's simulator's when the step names `:base :payment-simulator`,
+  or a named provider's when it names `[:payment-simulator \"<key>\"]`."
+  [{:keys [base-url payment-simulator-url payment-simulator-urls]} base]
+  (cond (= :payment-simulator base)
+        payment-simulator-url
+
+        (vector? base)
+        (get payment-simulator-urls (second base))
+
+        :else
+        base-url))
 
 (defn- for-run
   "The request as the run it belongs to sends it: a bank created naming

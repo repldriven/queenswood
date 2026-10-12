@@ -78,7 +78,7 @@
 (def Owner (select-keys me-api/Member [:member-id :user-id :name :email]))
 
 ;; nosemgrep: provider-name-in-domain — an example of the keys a bank records
-(def BankProviders {:payment "modulr" :idv "zyphe"})
+(def BankProviders {:payment "form3" :idv "zyphe"})
 
 (def Bank
   {:bank-id BankId
@@ -141,7 +141,7 @@
          :owner-invitation owner-invitation))
 
 ;; nosemgrep: provider-name-in-domain — an example of the keys offered
-(def Provider {:kind "payment" :providers ["form3" "modulr"] :default "modulr"})
+(def Provider {:kind "payment" :providers ["form3" "modulr"] :default "form3"})
 
 ;; nosemgrep: provider-name-in-domain — an example of the keys offered
 (def ^:private idv-provider {:kind "idv" :providers ["zyphe"] :default "zyphe"})

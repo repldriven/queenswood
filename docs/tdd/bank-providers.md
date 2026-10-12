@@ -73,7 +73,7 @@ payment-provider:
   form3: !include system/payment-providers/form3.yml
   providers: !system/component
     system/component-kind: payment-provider/providers
-    default: modulr
+    default: form3
     providers:
       modulr:
         declaration: !system/local-ref modulr
@@ -178,7 +178,7 @@ bank's activity is caught the same way (ADR-0033).
 
 - **Builds.** Every service offers the providers
   `system/payment-provider.yml` and `system/idv-provider.yml` offer, which
-  is every one with an adapter, Modulr and Zyphe the defaults, so every
+  is every one with an adapter, Form3 and Zyphe the defaults, so every
   service routes to the same set. `external-adapters-service` composes
   every adapter, `external-simulators-service` every simulator and
   `monolith-service` both, `exclusive-dispatchers-service` relays each
@@ -200,7 +200,11 @@ bank's activity is caught the same way (ADR-0033).
   providers' declarations rule out or one needing what an adapter does
   not carry yet, `:outbound-returned` on ClearBank's. A scenario
   between banks on different providers lives under
-  `scenarios/providers/` and runs once.
+  `scenarios/providers/` and runs once, a step reading a provider's
+  simulator naming it, `:base [:payment-simulator "modulr"]`. The
+  component scenario rig and the `payment` brick's run the Modulr
+  adapter alone, and offer Modulr as their one provider through
+  `system/payment-provider-modulr-test.yml`.
 - **The scheme.** The payment simulators share `scheme-simulator`,
   which each joins under the sort code it issues addresses from, so a
   payment one sends to an account another holds arrives there as an

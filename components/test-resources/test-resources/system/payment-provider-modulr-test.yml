@@ -1,0 +1,13 @@
+# The payment provider a rig running the Modulr adapter alone offers:
+# Modulr, and so its default, whichever provider an installation
+# defaults to. A rig includes it as its `payment-provider` group in place
+# of `system/payment-provider.yml`.
+modulr: !include system/payment-providers/modulr.yml
+
+providers: !system/component
+  system/component-kind: payment-provider/providers
+  default: modulr
+  providers:
+    modulr:
+      declaration: !system/local-ref modulr
+      command-channel: !keyword modulr-command

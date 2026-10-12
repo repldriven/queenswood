@@ -18,7 +18,9 @@
    [:method keyword?]
    [:path {:optional true} any?]
    [:url {:optional true} any?]
-   [:base {:optional true} [:enum :payment-simulator]]
+   [:base {:optional true}
+    [:or [:enum :payment-simulator]
+     [:tuple [:enum :payment-simulator] string?]]]
    [:path-params {:optional true} map?]
    [:query-params {:optional true} map?]
    [:headers {:optional true} map?]

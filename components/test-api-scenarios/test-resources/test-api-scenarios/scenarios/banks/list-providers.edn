@@ -8,4 +8,4 @@
     :body {:items [{:kind "idv" :providers ["onfido" "zyphe"] :default "zyphe"}
                    {:kind "payment"
                     :providers ["clearbank" "form3" "modulr"]
-                    :default "modulr"}]}}}]}
+                    :default "form3"}]}}}]}

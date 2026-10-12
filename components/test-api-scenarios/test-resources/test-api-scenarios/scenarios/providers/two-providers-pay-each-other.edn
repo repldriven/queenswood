@@ -197,7 +197,9 @@
   ;; The per-account provider holds the first bank's account, with both
   ;; payments on it, and none of the second bank's.
   {:command :api/request
-   :request {:method :get :path "/simulate/balances" :base :payment-simulator}
+   :request {:method :get
+             :path "/simulate/balances"
+             :base [:payment-simulator "modulr"]}
    :assert
    {:status 200
     :body

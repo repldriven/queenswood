@@ -21,7 +21,7 @@
                     :tier "micro"
                     :currencies ["GBP"]}}
    :as :defaulted
-   :assert {:status 201 :body {:providers {:payment "modulr" :idv "zyphe"}}}}]
+   :assert {:status 201 :body {:providers {:payment "form3" :idv "zyphe"}}}}]
  :then [{:command :api/request
          :request {:method :get
                    :path "/v1/bank"

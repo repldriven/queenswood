@@ -190,12 +190,23 @@
 (defn- runs
   "Every scenario on the default providers, then each other payment
   provider and each other IDV provider in turn, each with the
-  capabilities it lacks and its payment provider's simulator."
+  capabilities it lacks, its payment provider's simulator and every
+  payment provider's simulator by key."
   [sys {:keys [unbuilt]}]
   (let [payments (system/instance sys [:payment-provider :providers])
         idvs (system/instance sys [:idv-provider :providers])
         default-payment (name (:default payments))
         default-idv (name (:default idvs))
+        simulator-url (fn [payment]
+                        (system/instance sys
+                                         [(keyword (str payment
+                                                        "-simulator-server"))
+                                          :http-url]))
+        simulator-urls (into {}
+                             (map (fn [{:keys [provider]}]
+                                    [(name provider)
+                                     (simulator-url (name provider))]))
+                             (vals (:providers payments)))
         others (fn [{:keys [default providers]}]
                  (remove #{(name default)}
                          (sort (map (comp name :provider) (vals providers)))))
@@ -211,11 +222,8 @@
                                                     sys
                                                     [:idv-provider
                                                      (keyword idv)]))))
-               :payment-simulator-url (system/instance
-                                       sys
-                                       [(keyword (str payment
-                                                      "-simulator-server"))
-                                        :http-url])})]
+               :payment-simulator-url (simulator-url payment)
+               :payment-simulator-urls simulator-urls})]
     (concat [(run :default default-payment default-idv)]
             (map (fn [p]
                    (assoc (run :payment p default-idv)
@@ -335,8 +343,8 @@
                                                              :serial))
                                                 runnable)
            task (fn [{:keys [relative scenario run]}]
-                  (let [{:keys [provider payment-simulator-url providers
-                                key-suffix]}
+                  (let [{:keys [provider payment-simulator-url
+                                payment-simulator-urls providers key-suffix]}
                         run]
                     (fn []
                       (testing (str provider " " relative)
@@ -352,6 +360,7 @@
                                 :signing-key key-pair
                                 :mail-url mail-url
                                 :payment-simulator-url payment-simulator-url
+                                :payment-simulator-urls payment-simulator-urls
                                 :zyphe-simulator-url zyphe-simulator-url
                                 :providers providers
                                 :key-suffix key-suffix
