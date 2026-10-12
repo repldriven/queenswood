@@ -27,6 +27,9 @@ capabilities: !concat
 limits: !concat
   - !include policies/platform/restricted/limits/balances.yml
   - !include policies/platform/restricted/limits/banks.yml
+  - !include policies/platform/restricted/limits/members.yml
+  - !include policies/platform/restricted/limits/invitations.yml
+  - !include policies/platform/restricted/limits/emails.yml
   - !include policies/platform/restricted/limits/cash-account-products.yml
   - !include policies/platform/restricted/limits/cash-account-migrations.yml
   - !include policies/platform/restricted/limits/cash-accounts.yml

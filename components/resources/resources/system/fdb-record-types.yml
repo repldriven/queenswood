@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 2
+version: 3
 stores:
   account-balances:
     record-type: AccountBalance
@@ -501,6 +501,20 @@ stores:
         modified: 1
         field: token_hash
         unique: true
+      # How many times a bank's invitations were sent on a day, the
+      # count an invite or a resend is held to.
+      - name: Invitation_sum_send_count_by_bank_sent_on
+        added: 3
+        modified: 3
+        fields: [bank_id, sent_on, send_count]
+        type: sum
+      # How many times every bank's invitations were sent on a day, the
+      # count the installation's email is held to.
+      - name: Invitation_sum_send_count_by_sent_on
+        added: 3
+        modified: 3
+        fields: [sent_on, send_count]
+        type: sum
   email-deliveries:
     record-type: EmailDelivery
     primary-key: [bank_id, delivery_id]

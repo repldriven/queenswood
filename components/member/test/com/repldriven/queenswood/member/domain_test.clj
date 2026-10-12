@@ -16,6 +16,43 @@
 
 (def ^:private below-owner #{:role-admin :role-developer :role-viewer})
 
+(defn- counts
+  "The aggregates of a bank with `members` active members and `pending`
+  pending invitations that has sent `sent` invitations today, every bank
+  having sent `emails` between them."
+  [members pending sent emails]
+  {:member {#{:bank-id :status} members}
+   :invitation {#{:bank-id :status} pending #{:bank-id :sent-on} sent}
+   :email {#{:sent-on} emails}})
+
+(def ^:private unlimited
+  "What a call under no limit is given."
+  {:aggregates (counts 0 0 0 0) :policies []})
+
+(defn- limit
+  [kind window value reason]
+  {:kind {kind {}}
+   :bound {:kind {:max {:aggregate {:kind {:count {:value value
+                                                   :window window}}}}}}
+   :reason reason})
+
+(def ^:private limited-policies
+  "A bank allowed three members, two pending invitations and four
+  invitations sent a day, on an installation sending nine emails a day."
+  [{:policy-id "pol.limited"
+    :status :policy-status-active
+    :limits [(limit :member :time-window-instant 3 "At most 3 members")
+             (limit :invitation :time-window-instant 2 "At most 2 pending")
+             (limit :invitation :time-window-daily 4 "At most 4 a day")
+             (limit :email :time-window-daily 9 "At most 9 emails a day")]}])
+
+(defn- limited
+  ([members pending sent]
+   (limited members pending sent sent))
+  ([members pending sent emails]
+   {:aggregates (counts members pending sent emails)
+    :policies limited-policies}))
+
 (defn- member-actor
   [role]
   {:kind :actor-kind-member :principal-id (str "usr." (name role)) :role role})
@@ -281,7 +318,7 @@
         transitions
         {"accept" #(SUT/accept-invitation %
                                           (recipient "usr.new")
-                                          {:active-members []}
+                                          (assoc unlimited :active-members [])
                                           now)
          "decline" #(SUT/decline-invitation % (recipient "usr.new") now)
          "withdraw" #(SUT/withdraw-invitation % {:actor (:owner actors)} now)}]
@@ -298,7 +335,7 @@
           (is (not (mentions? result "hash-1"))))))
     (doseq [[status inv] terminal]
       (testing (str "resend refuses " (name status) " with its payload")
-        (let [result (SUT/resend-invitation inv (:owner actors) now)]
+        (let [result (SUT/resend-invitation inv (:owner actors) unlimited now)]
           (is (rejected? :invitation/invalid-status result))
           (is (= {:invitation-id "inv.1"
                   :status status
@@ -310,10 +347,11 @@
       (is (= {:status :invitation-status-accepted
               :updated-at now
               :updated-by (recipient "usr.new")}
-             (select-keys (SUT/accept-invitation pending
-                                                 (recipient "usr.new")
-                                                 {:active-members []}
-                                                 now)
+             (select-keys (SUT/accept-invitation
+                           pending
+                           (recipient "usr.new")
+                           (assoc unlimited :active-members [])
+                           now)
                           [:status :updated-at :updated-by])))
       (is (= {:status :invitation-status-declined
               :updated-at now
@@ -339,7 +377,7 @@
                                                    now)
                           :withdrawn-reason))))
     (testing "resend renews a pending invitation, recording the latest resend"
-      (let [resent (SUT/resend-invitation pending operator-actor now)]
+      (let [resent (SUT/resend-invitation pending operator-actor unlimited now)]
         (is (= "inv.1" (:token-hash resent)))
         (is (= (+ now SUT/invitation-lifetime-ms) (:expires-at resent)))
         (is (= now (:updated-at resent)))
@@ -399,13 +437,14 @@
     (testing "accept past expiry is refused as expired"
       (let [result (SUT/accept-invitation pending
                                           (recipient "usr.new")
-                                          {:active-members []}
+                                          (assoc unlimited :active-members [])
                                           (+ expires-at day-ms))]
         (is (rejected? :invitation/invalid-status result))
         (is (= :invitation-status-expired (:status (error/payload result))))))
     (testing "resend of an expired invitation is allowed and renews it"
       (let [later (+ expires-at (* 2 day-ms))
-            resent (SUT/resend-invitation pending (:owner actors) later)]
+            resent
+            (SUT/resend-invitation pending (:owner actors) unlimited later)]
         (is (not (error/anomaly? resent)))
         (is (= :invitation-status-pending (:status resent)))
         (is (= (+ later SUT/invitation-lifetime-ms) (:expires-at resent)))
@@ -459,13 +498,15 @@
       (is (= :role-owner (:role m)))
       (is (not (contains? m :invitation-id)))))
   (testing "new-invitation builds a pending invitation for seven days"
-    (let [inv (SUT/new-invitation
-               {:bank-id "bnk.1"
-                :email "Ada@Example.test"
-                :role :role-owner
-                :reason "Founder handover"}
-               {:actor operator-actor :member-emails [] :invitations []}
-               now)]
+    (let [inv (SUT/new-invitation {:bank-id "bnk.1"
+                                   :email "Ada@Example.test"
+                                   :role :role-owner
+                                   :reason "Founder handover"}
+                                  (assoc unlimited
+                                         :actor operator-actor
+                                         :member-emails []
+                                         :invitations [])
+                                  now)]
       (is (re-find #"^inv\." (:invitation-id inv)))
       (is (= {:bank-id "bnk.1"
               :email "Ada@Example.test"
@@ -474,6 +515,8 @@
               :status :invitation-status-pending
               :token-hash (:invitation-id inv)
               :expires-at (+ now SUT/invitation-lifetime-ms)
+              :sent-on (quot now day-ms)
+              :send-count 1
               :reason "Founder handover"
               :created-at now
               :created-by {:kind :actor-kind-operator :principal-id "ops.1"}}
@@ -483,7 +526,7 @@
                                    :email "a@example.test"
                                    :role :role-viewer
                                    :reason ""}
-                                  {:actor (:admin actors)}
+                                  (assoc unlimited :actor (:admin actors))
                                   now)]
       (is (not (contains? inv :reason)))
       (is (= {:kind :actor-kind-member :principal-id "usr.role-admin"}
@@ -520,3 +563,65 @@
                                        :active-members [m]}
                                       now)))))))
 
+(defn- limit-exceeded?
+  [reason result]
+  (and (rejected? :policy/limit-exceeded result)
+       (= reason (:message (error/payload result)))))
+
+(deftest limits-test
+  (let [input {:bank-id "bnk.1" :email "ada@example.test" :role :role-viewer}
+        invite
+        (fn [ctx]
+          (SUT/new-invitation
+           input
+           (assoc ctx :actor (:owner actors) :member-emails [] :invitations [])
+           now))
+        pending (invitation :invitation-status-pending (+ now day-ms))
+        accept (fn [ctx]
+                 (SUT/accept-invitation pending
+                                        (recipient "usr.new")
+                                        (assoc ctx :active-members [])
+                                        now))
+        resend (fn [inv ctx at]
+                 (SUT/resend-invitation inv (:owner actors) ctx at))]
+    (testing "an invitation within every limit is created"
+      (is (= :invitation-status-pending (:status (invite (limited 2 1 3))))))
+    (testing "a bank with as many members as allowed refuses an invitation"
+      (is (limit-exceeded? "At most 3 members" (invite (limited 3 0 0)))))
+    (testing "a bank with as many pending invitations as allowed refuses one"
+      (is (limit-exceeded? "At most 2 pending" (invite (limited 0 2 0)))))
+    (testing "a bank that has sent the day's invitations refuses one"
+      (is (limit-exceeded? "At most 4 a day" (invite (limited 0 0 4)))))
+    (testing "an installation that has sent the day's emails refuses one"
+      (is (limit-exceeded? "At most 9 emails a day" (invite (limited 0 0 0 9))))
+      (is (limit-exceeded? "At most 9 emails a day"
+                           (resend pending (limited 0 0 0 9) now))))
+    (testing "an operator's invitation is held to the limits too"
+      (is (limit-exceeded? "At most 2 pending"
+                           (SUT/new-invitation
+                            (assoc input :reason "Founder handover")
+                            (assoc (limited 0 2 0)
+                                   :actor operator-actor
+                                   :member-emails []
+                                   :invitations [])
+                            now))))
+    (testing "a bank with as many members as allowed refuses an acceptance"
+      (is (= :invitation-status-accepted (:status (accept (limited 2 2 4)))))
+      (is (limit-exceeded? "At most 3 members" (accept (limited 3 0 0)))))
+    (testing "a resend is held to the day's limit and no other"
+      (is (= :invitation-status-pending
+             (:status (resend pending (limited 3 2 3) now))))
+      (is (limit-exceeded? "At most 4 a day"
+                           (resend pending (limited 0 0 4) now))))
+    (testing "a resend counts beside the sends of its day, and from one after"
+      (let [today (quot now day-ms)
+            sent (assoc pending :sent-on today :send-count 2)]
+        (is (= {:sent-on today :send-count 3}
+               (select-keys (resend sent unlimited now)
+                            [:sent-on :send-count])))
+        (is (= {:sent-on (inc today) :send-count 1}
+               (select-keys (resend sent unlimited (+ now day-ms))
+                            [:sent-on :send-count])))
+        (is (= {:sent-on today :send-count 1}
+               (select-keys (resend pending unlimited now)
+                            [:sent-on :send-count])))))))

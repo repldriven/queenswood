@@ -6,6 +6,7 @@
 
     [com.repldriven.queenswood.audit.interface :as audit]
     [com.repldriven.queenswood.member-query.interface :as q]
+    [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.user.interface :as user]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -53,6 +54,30 @@
           []
           members))
 
+(defn- pending?
+  [invitation]
+  (= :invitation-status-pending (:status invitation)))
+
+(defn- counts
+  "The aggregates a limit is checked against: a bank's active members
+  and pending invitations where their lists are given, its invitations
+  sent today, and every bank's."
+  [txn bank-id {:keys [members invitations]} now]
+  (let-nom>
+    [sent (q/count-invitations-sent-on txn bank-id (domain/day-of now))]
+    (cond-> {:invitation {#{:bank-id :sent-on} (:bank sent)}
+             :email {#{:sent-on} (:total sent)}}
+            members
+            (assoc-in [:member #{:bank-id :status}] (count members))
+
+            invitations
+            (assoc-in [:invitation #{:bank-id :status}]
+             (count (filter pending? invitations))))))
+
+(defn- effective-policies
+  [txn bank-id]
+  (policy/get-effective-policies txn {:bank-id bank-id}))
+
 (defn new-member
   [txn {:keys [user-id bank-id role actor]}]
   (store/transact
@@ -79,13 +104,20 @@
          [members (q/list-active-by-bank txn bank-id)
           emails (member-emails txn members)
           invitations (q/list-invitations-by-bank txn bank-id {:now now})
+          aggregates (counts txn
+                             bank-id
+                             {:members members :invitations invitations}
+                             now)
+          policies (effective-policies txn bank-id)
           invitation (domain/new-invitation {:bank-id bank-id
                                              :email email
                                              :role role
                                              :reason reason}
                                             {:actor actor
                                              :member-emails emails
-                                             :invitations invitations}
+                                             :invitations invitations
+                                             :aggregates aggregates
+                                             :policies policies}
                                             now)
           _ (store/save-invitation txn invitation invitation-created)
           _ (audit/record txn
@@ -109,10 +141,15 @@
          [invitation (q/get-invitation-record-for-recipient txn
                                                             invitation-id
                                                             proof)
-          members (q/list-active-by-bank txn (:bank-id invitation))
+          bank-id (:bank-id invitation)
+          members (q/list-active-by-bank txn bank-id)
+          aggregates (counts txn bank-id {:members members} now)
+          policies (effective-policies txn bank-id)
           accepted (domain/accept-invitation invitation
                                              actor
-                                             {:active-members members}
+                                             {:active-members members
+                                              :aggregates aggregates
+                                              :policies policies}
                                              now)
           member (domain/new-member {:user-id user-id
                                      :bank-id (:bank-id accepted)
@@ -186,7 +223,13 @@
      (let [now (clock opts)]
        (let-nom>
          [invitation (q/get-invitation-record txn bank-id invitation-id)
-          resent (domain/resend-invitation invitation actor now)
+          aggregates (counts txn bank-id {} now)
+          policies (effective-policies txn bank-id)
+          resent (domain/resend-invitation invitation
+                                           actor
+                                           {:aggregates aggregates
+                                            :policies policies}
+                                           now)
           _ (domain/check-grant :invite actor {:role (:role invitation)})
           _ (store/save-invitation txn resent invitation-resent)
           _ (audit/record txn

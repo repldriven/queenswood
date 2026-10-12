@@ -10,7 +10,7 @@
      [InvitationAlreadyExists InvitationAlreadyMember InvitationInvalidStatus
       InvitationNotFound MemberAlreadyExists MemberInvalidStatus
       MemberLastOwner MemberNotFound ReasonRequired RoleNotGranted]]
-    [com.repldriven.queenswood.api-schema.interface :refer
+    [com.repldriven.queenswood.api-schema.interface :as api-schema :refer
      [ErrorExamples ErrorResponse]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
@@ -110,26 +110,29 @@
                         404 (ErrorResponse [#'InvitationNotFound])}
             :handler handlers/get-my-invitation}}]
     ["/accept"
-     {:post
-      {:summary "Accept an invitation"
-       :openapi {:operationId "AcceptMyInvitation"
-                 :description
-                 (str "Makes the caller a member of the invitation's "
-                      "bank with the invited role, on the same proof "
-                      "as retrieving it. An invitation that is not "
-                      "pending or has expired is refused with 409, as "
-                      "is a caller who is already a member of that " "bank.")
-                 :parameters ^:replace
-                             [shared.parameters/ref-invitation-id
-                              shared.parameters/ref-invitation-token]}
-       :responses {201 {:description "The member created."
-                        :body [:ref "Member"]
-                        :openapi {:headers {"Location" (shared.headers/location
-                                                        "member")}}}
-                   404 (ErrorResponse [#'InvitationNotFound])
-                   409 (ErrorResponse [#'InvitationInvalidStatus
-                                       #'MemberAlreadyExists])}
-       :handler handlers/accept-my-invitation}}]
+     {:post {:summary "Accept an invitation"
+             :openapi {:operationId "AcceptMyInvitation"
+                       :description
+                       (str "Makes the caller a member of the invitation's "
+                            "bank with the invited role, on the same proof "
+                            "as retrieving it. An invitation that is not "
+                            "pending or has expired is refused with 409, as "
+                            "is a caller who is already a member of that "
+                            "bank. A bank with as many members as its "
+                            "policies allow refuses with 429.")
+                       :parameters ^:replace
+                                   [shared.parameters/ref-invitation-id
+                                    shared.parameters/ref-invitation-token]}
+             :responses {201 {:description "The member created."
+                              :body [:ref "Member"]
+                              :openapi {:headers {"Location"
+                                                  (shared.headers/location
+                                                   "member")}}}
+                         404 (ErrorResponse [#'InvitationNotFound])
+                         409 (ErrorResponse [#'InvitationInvalidStatus
+                                             #'MemberAlreadyExists])
+                         429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])}
+             :handler handlers/accept-my-invitation}}]
     ["/decline"
      {:post {:summary "Decline an invitation"
              :openapi {:operationId "DeclineMyInvitation"
@@ -254,7 +257,10 @@
                      "already has a pending invitation or belongs to a member"
                      " is refused with 409. An admin inviting an owner is "
                      "refused with 403. An operator must give a reason, or "
-                     "the request is refused with 422.")
+                     "the request is refused with 422. A bank with as many "
+                     "members or pending invitations as its policies allow, "
+                     "or that has sent as many invitations today as they "
+                     "allow, refuses with 429.")
                 :security (gate "org:admin")
                 :requestBody {:required true}
                 :parameters ^:replace
@@ -272,7 +278,8 @@
                    403 (ErrorExamples [#'RoleNotGranted])
                    409 (ErrorResponse [#'InvitationAlreadyExists
                                        #'InvitationAlreadyMember])
-                   422 (ErrorResponse [#'ReasonRequired])})
+                   422 (ErrorResponse [#'ReasonRequired])
+                   429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
       :handler handlers/invite}}]
    ["/{invitation-id}"
     {:parameters {:path {:invitation-id [:ref "InvitationId"]}}}
@@ -320,20 +327,23 @@
                    " and sets its expiry seven days from now. Links in "
                    "earlier emails stop working. An invitation in any other"
                    " status is refused with 409. An admin resending an "
-                   "owner's invitation is refused with 403.")
+                   "owner's invitation is refused with 403. A bank that "
+                   "has sent as many invitations today as its policies "
+                   "allow refuses with 429.")
               :parameters ^:replace
                           [shared.parameters/ref-invitation-id
                            shared.parameters/ref-bank-id-header
                            shared.parameters/ref-idempotency-key]}
              :interceptors [server/require-idempotency-key
                             bank-idempotency/cache-response]
-             :responses (shared.idempotency/with-responses
-                         {200 {:description (str "The invitation, with a "
-                                                 "fresh expiry.")
-                               :body [:ref "Invitation"]}
-                          403 (ErrorExamples [#'RoleNotGranted])
-                          404 (ErrorResponse [#'InvitationNotFound])
-                          409 (ErrorResponse [#'InvitationInvalidStatus])})
+             :responses
+             (shared.idempotency/with-responses
+              {200 {:description (str "The invitation, with a " "fresh expiry.")
+                    :body [:ref "Invitation"]}
+               403 (ErrorExamples [#'RoleNotGranted])
+               404 (ErrorResponse [#'InvitationNotFound])
+               409 (ErrorResponse [#'InvitationInvalidStatus])
+               429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
              :handler handlers/resend-invitation}}]]])
 
 (def routes [my-members my-invitations members invitations])

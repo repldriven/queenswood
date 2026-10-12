@@ -1,0 +1,93 @@
+{:name "A bank with as many members as its tier allows takes no more"
+ ;; The `small-team` tier, which only a test system has, allows a bank
+ ;; two members. Both invitations are sent while there is room, so the
+ ;; second to be accepted is refused, and so is inviting anyone else.
+ :given
+ [{:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "team-owner"
+   :password "team-owner"
+   :as :owner-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "team-second"
+   :password "team-second"
+   :as :second-token}
+  {:command :auth/mint-user-token
+   :realm :queenswood
+   :client-id "queenswood-console"
+   :username "team-third"
+   :password "team-third"
+   :as :third-token}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Member Limit Bank"
+                    :status "test"
+                    :tier "small-team"
+                    :currencies ["GBP"]
+                    :owner-email "team-owner@queenswood.local"}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :bank :owner-invitation
+                                           :invitation-id]}
+             :auth :owner-token}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:email "team-second@queenswood.local" :role "developer"}}
+   :as :second
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:email "team-third@queenswood.local" :role "developer"}}
+   :as :third
+   :assert {:status 201}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :second :invitation-id]}
+             :auth :second-token}
+   :assert {:status 201 :body {:role "developer"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/me/invitations/{invitation-id}/accept"
+             :path-params {:invitation-id [:ref :third :invitation-id]}
+             :auth :third-token}
+   :assert {:status 429
+            :problem {:type ":policy/limit-exceeded"
+                      :detail
+                      "Small-team tier - a bank has at most 2 members"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:email "team-fourth@example.test" :role "developer"}}
+   :assert {:status 429
+            :problem {:type ":policy/limit-exceeded"
+                      :detail
+                      "Small-team tier - a bank has at most 2 members"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/members"
+             :auth :owner-token
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/in-any-order
+                           [{:email "team-owner@queenswood.local"}
+                            {:email "team-second@queenswood.local"}]]}}}]}

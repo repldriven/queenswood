@@ -1405,14 +1405,19 @@
   (ActorProto$ActorKind/forNumber (actor-kind->int actor-kind)))
 
 (def ^:private invitation-unset
-  {:reason "" :withdrawn-reason "" :updated-at 0 :updated-by nil})
+  {:reason ""
+   :withdrawn-reason ""
+   :sent-on 0
+   :send-count 0
+   :updated-at 0
+   :updated-by nil})
 
 (def ^:private invitation-actors [:created-by :updated-by])
 
 (defn pb->Invitation
-  "Parse Invitation protobuf bytes into a Clojure map. The reasons and
-  each transition's `_at` and `_by` are present only when set, and every
-  `_by` is a plain map.
+  "Parse Invitation protobuf bytes into a Clojure map. The reasons, the
+  day it was last sent on with its count, and each transition's `_at`
+  and `_by` are present only when set, and every `_by` is a plain map.
 
   Args:
   - input: protobuf bytes."

@@ -1,6 +1,8 @@
 (ns com.repldriven.queenswood.member.domain
   (:require
     [com.repldriven.queenswood.member-query.interface :as q]
+    [com.repldriven.queenswood.policy.interface :as policy]
+
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.utility.interface :as utility]
 
@@ -125,6 +127,48 @@
   invitation-lifetime-ms
   (* 7 24 60 60 1000))
 
+(def ^:private day-ms 86400000)
+
+(defn day-of
+  [now]
+  (quot now day-ms))
+
+(defn- check-limit
+  [kind dimensions window aggregates policies]
+  (policy/check-limit policies
+                      kind
+                      {:aggregate :count
+                       :window window
+                       :value (inc (get-in aggregates [kind dimensions]))}))
+
+(defn- check-member-limit
+  [aggregates policies]
+  (check-limit :member
+               #{:bank-id :status}
+               :time-window-instant
+               aggregates
+               policies))
+
+(defn- check-pending-limit
+  [aggregates policies]
+  (check-limit :invitation
+               #{:bank-id :status}
+               :time-window-instant
+               aggregates
+               policies))
+
+(defn- check-sent-limit
+  [aggregates policies]
+  (check-limit :invitation
+               #{:bank-id :sent-on}
+               :time-window-daily
+               aggregates
+               policies))
+
+(defn- check-email-limit
+  [aggregates policies]
+  (check-limit :email #{:sent-on} :time-window-daily aggregates policies))
+
 (def ^:private pending :invitation-status-pending)
 (def ^:private accepted :invitation-status-accepted)
 (def ^:private declined :invitation-status-declined)
@@ -211,7 +255,7 @@
 
 (defn new-invitation
   [{:keys [bank-id email role reason]}
-   {:keys [actor member-emails invitations]}
+   {:keys [actor member-emails invitations aggregates policies]}
    now]
   (let [email-lower (some-> email
                             str/lower-case)
@@ -220,7 +264,11 @@
       [_ (check-grant :invite actor {:role role})
        _ (check-reason actor reason)
        _ (check-not-member-email member-emails email-lower)
-       _ (check-no-pending invitations email-lower now)]
+       _ (check-no-pending invitations email-lower now)
+       _ (check-member-limit aggregates policies)
+       _ (check-pending-limit aggregates policies)
+       _ (check-sent-limit aggregates policies)
+       _ (check-email-limit aggregates policies)]
       (utility/assoc-some {:invitation-id invitation-id
                            :bank-id bank-id
                            :email email
@@ -229,16 +277,19 @@
                            :status pending
                            :token-hash invitation-id
                            :expires-at (+ now invitation-lifetime-ms)
+                           :sent-on (day-of now)
+                           :send-count 1
                            :created-at now
                            :created-by (actor-record actor)}
                           :reason
                           (some-reason reason)))))
 
 (defn accept-invitation
-  [invitation actor {:keys [active-members]} now]
+  [invitation actor {:keys [active-members aggregates policies]} now]
   (let-nom>
     [_ (ensure-invitation-status invitation #{pending} now)
-     _ (check-not-member active-members (:principal-id actor))]
+     _ (check-not-member active-members (:principal-id actor))
+     _ (check-member-limit aggregates policies)]
     (assoc invitation
            :status accepted
            :updated-by (actor-record actor)
@@ -265,15 +316,21 @@
                         (some-reason reason))))
 
 (defn resend-invitation
-  [invitation actor now]
+  [invitation actor {:keys [aggregates policies]} now]
   (let-nom>
-    [_ (ensure-invitation-status invitation #{pending expired} now)]
-    (assoc invitation
-           :status pending
-           :token-hash (:invitation-id invitation)
-           :expires-at (+ now invitation-lifetime-ms)
-           :updated-by (actor-record actor)
-           :updated-at now)))
+    [_ (ensure-invitation-status invitation #{pending expired} now)
+     _ (check-sent-limit aggregates policies)
+     _ (check-email-limit aggregates policies)]
+    (let [today (day-of now)
+          {:keys [sent-on send-count]} invitation]
+      (assoc invitation
+             :status pending
+             :token-hash (:invitation-id invitation)
+             :expires-at (+ now invitation-lifetime-ms)
+             :sent-on today
+             :send-count (if (= today sent-on) (inc send-count) 1)
+             :updated-by (actor-record actor)
+             :updated-at now))))
 
 (defn record-invitation-token
   [invitation expires-at token-hash now]

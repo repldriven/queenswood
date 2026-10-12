@@ -49,3 +49,41 @@ two-banks: !system/component
                     value: 2
                     window: !keyword time-window-instant
         reason: "Two-banks tier - the installation holds at most 2 banks on the tier"
+# A tier whose banks have two members and send five invitations a day,
+# so a scenario can reach either with a handful of calls.
+small-team: !system/component
+  system/component-kind: policies/policy
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  policy:
+    policy-id: pol.00000000000000000000000007
+    name: Small-team policy
+    description: Small-team tier - two members and five invitations a day
+    status: !keyword policy-status-active
+    labels: !strs
+      tier: small-team
+    category: !keyword policy-category-restricted
+    capabilities: []
+    limits:
+      - kind:
+          member: {}
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  count:
+                    value: 2
+                    window: !keyword time-window-instant
+        reason: "Small-team tier - a bank has at most 2 members"
+      - kind:
+          invitation: {}
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  count:
+                    value: 5
+                    window: !keyword time-window-daily
+        reason: "Small-team tier - a bank sends at most 5 invitations per day"

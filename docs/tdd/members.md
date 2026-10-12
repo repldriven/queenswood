@@ -233,8 +233,9 @@ has it, and the record keeps the latest change's `updated_at` and
   (pending, accepted, declined, withdrawn, expired), role, email as the
   inviter typed it and lower-cased for matching, the SHA-256 of the
   link's token, `expires_at`, the inviter's reason and a withdrawal's
-  as `withdrawn_reason`, and `created_by` and `updated_by` beside the
-  timestamps. The primary key is
+  as `withdrawn_reason`, the day it was last sent on as `sent_on` with
+  its sends that day as `send_count`, and `created_by` and `updated_by`
+  beside the timestamps. The primary key is
   `[bank_id, invitation_id]`; indexed by the lower-cased email, and by
   token hash under a unique index. One pending invitation per address
   per bank is a domain rule inside the transaction, off a scan of the
@@ -425,6 +426,45 @@ Guards in `domain.clj`, each the first binding of its `let-nom>`:
 A refused source state is `:invitation/invalid-status`, carrying
 `:message`, `:invitation-id`, `:status` and `:allowed`, and maps to
 409. The lifetime is a constant in `domain.clj`, seven days.
+
+### Limits on a bank's people
+
+An invitation is an email to an address its sender chooses, and a
+person signs up unvetted, so a bank's people and the mail it sends are
+bounded by its policies. `core.clj` gathers the counts into the
+aggregates map the domain takes, and the domain checks each with
+`policy/check-limit` against the bank's effective policies, an
+operator's act as much as a member's:
+
+- **Members.** `{:member {#{:bank-id :status} n}}`, the bank's active
+  members, counted from the list the act already reads. Checked as the
+  `:member` kind's instant count by create and by accept, so a full
+  bank refuses an invitation and an acceptance.
+- **Pending invitations.** `{:invitation {#{:bank-id :status} n}}`,
+  those pending and unexpired, counted from the list create already
+  reads. Checked as the `:invitation` kind's instant count by create.
+- **Invitations sent in a day.** `{:invitation {#{:bank-id :sent-on}
+  n}}`. An invitation records the day it was last sent on as `sent_on`
+  and its sends that day as `send_count`: a create writes one, a resend
+  on the same day adds one, and a resend on a later day starts again at
+  one. `member-query/count-invitations-sent-on` reads the day's sum
+  from the SUM index `Invitation_sum_send_count_by_bank_sent_on`, at
+  snapshot. Checked as the `:invitation` kind's daily count by create
+  and by resend, so neither resending one invitation nor withdrawing
+  and inviting again passes it.
+- **Emails the installation sends in a day.** `{:email {#{:sent-on}
+  n}}`, the same sum across every bank, from
+  `Invitation_sum_send_count_by_sent_on`. Checked as the `:email`
+  kind's daily count by create and by resend. An invitation is the only
+  email the platform sends.
+
+The micro tier's limits are in
+`policies/micro/restricted/limits/members.yml` and `invitations.yml`,
+and the platform's beside them with `emails.yml`. A refusal is
+`:policy/limit-exceeded`, 429, carrying the limit's reason. The
+installation's email limit takes a higher value under the `test`
+profile, since one run of the scenario suite sends more than an
+installation is to send in a day.
 
 ### Managing people
 
@@ -719,8 +759,16 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
   resend of an expired invitation, held here because no scenario verb
   moves the clock; `record-invitation-token` and an accept by the hash
   it wrote, with a superseded `expires_at` refused; the command dispatch
-  and its replies; and the `invitations` changelog carrying one entry
-  for a create and one for a resend and none for an accept.
+  and its replies; the `invitations` changelog carrying one entry
+  for a create and one for a resend and none for an accept; each limit
+  refusing a create, an accept and a resend at its bound, an operator's
+  included; a resend counted beside its day's sends and from one on a
+  later day; and a day's sends summed for a bank and for every bank.
+- **The API scenarios** cover the micro tier refusing a third pending
+  invitation and taking one once another is withdrawn, and, on a tier
+  only the scenario rig has, a bank of two members refusing an
+  acceptance and an invitation, and a bank that has sent its day's
+  invitations refusing a resend and an invitation.
 - **The `member-query` brick** covers the reads against records the
   tests write through its own store, and the token hash.
 - **The `access-log` brick** covers a bank's log newest first and paged,
@@ -818,6 +866,19 @@ The email that follows is [outbound-email.md](outbound-email.md)'s.
 
 ## Known Limitations
 
+- **The installation's email limit refuses an operator too.** Once
+  the day's emails are sent, a bank created with an owner's address is
+  refused with every other invitation, until the next day.
+- **Nothing bounds mail to one address.** The limits count a bank's
+  sends and the installation's, not a recipient's, so every bank may
+  invite the same address.
+- **The day is UTC's.** A bank may send a day's invitations before
+  midnight and another day's after it.
+- **The sent counts are read at snapshot.** Sends committing at once
+  each read the count without the others, so a bank or the installation
+  can pass a day's limit by as many sends as were in flight.
+- **An ended member's place is free again.** The member limit counts
+  active members, so removing one makes room for another.
 - **No invitation without mail.** An installation with no mail server
   configured records invitations that nobody receives, except an
   invitee who signs in with the invited address verified and finds it

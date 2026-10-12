@@ -116,6 +116,10 @@
     (let-nom> [invitations (store/list-invitations-by-bank txn bank-id)]
       (mapv #(as-read % now) invitations))))
 
+(defn count-invitations-sent-on
+  [txn bank-id day]
+  (store/count-invitations-sent-on txn bank-id day))
+
 (defn page-invitations-by-bank
   [txn bank-id opts]
   (let [now (clock opts)]
