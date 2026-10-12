@@ -33,6 +33,8 @@ message Invitation {
   required int64 expires_at = 8;
   optional string reason = 9;
   optional string withdrawn_reason = 10;
+  optional int64 sent_on = 11 [(fideslang.data_category) = "system.operations"]; // epoch day it was last sent on
+  optional int64 send_count = 12 [(fideslang.data_category) = "system.operations"]; // sends on that day
 
   required int64 created_at = 101;
   required com.repldriven.queenswood.schema.actor.Actor created_by = 102;

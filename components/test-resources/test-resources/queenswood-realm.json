@@ -967,6 +967,51 @@
       ]
     },
     {
+      "username": "team-owner",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "team-owner@queenswood.local",
+      "firstName": "Team",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "team-owner",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "team-second",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "team-second@queenswood.local",
+      "firstName": "Team",
+      "lastName": "Second",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "team-second",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "team-third",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "team-third@queenswood.local",
+      "firstName": "Team",
+      "lastName": "Third",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "team-third",
+          "temporary": false
+        }
+      ]
+    },
+    {
       "username": "founder-colleague",
       "enabled": true,
       "emailVerified": true,

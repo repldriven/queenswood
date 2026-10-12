@@ -222,7 +222,11 @@ operator's, not as a member's.
 An owner or admin invites a colleague by email address, choosing the
 role the colleague will hold. An admin may not choose owner. One
 invitation may be pending per address per organisation, and an address
-that already belongs to a member is refused.
+that already belongs to a member is refused. An organisation's tier
+limits how many members it has, how many invitations it has pending and
+how many it sends in a day, and the platform limits how many every
+organisation sends in a day between them. An invitation past any of
+them is refused, with the limit named.
 
 The platform sends the invitation by email: the organisation's name, who
 sent it, the role, and a link to accept it that stops working when the

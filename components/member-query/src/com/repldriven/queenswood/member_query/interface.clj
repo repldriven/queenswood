@@ -194,6 +194,18 @@
   ([txn bank-id opts]
    (core/list-invitations-by-bank txn bank-id opts)))
 
+(defn count-invitations-sent-on
+  "How many times invitations were sent on a day, a first send and each
+  resend counted: `:bank`, the bank's, and `:total`, every bank's, both
+  read at snapshot. Returns the map or an anomaly.
+
+  Args:
+  - txn: FDB transaction or config.
+  - bank-id: bank id (string).
+  - day: epoch day (long)."
+  [txn bank-id day]
+  (core/count-invitations-sent-on txn bank-id day))
+
 (defn page-invitations-by-bank
   "One page of a bank's pending, expired and accepted invitations, newest
   first; declined and withdrawn ones are left out, and a page is filled

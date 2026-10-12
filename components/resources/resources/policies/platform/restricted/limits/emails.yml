@@ -1,0 +1,15 @@
+# A test system sends more in one run than an installation is to send
+# in a day.
+- kind:
+    email: {}
+  bound:
+    kind:
+      max:
+        aggregate:
+          kind:
+            count:
+              value: !profile
+                test: 100000
+                default: 200
+              window: !keyword time-window-daily
+  reason: "Platform-restricted - the installation sends at most 200 emails per day"

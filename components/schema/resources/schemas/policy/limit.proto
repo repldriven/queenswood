@@ -135,6 +135,8 @@ message CashAccountProductLimit {
   repeated CashAccountProductLimitFilter filters = 1;
 }
 
+message EmailLimit {}
+
 message IdvLimit {}
 
 message InboundPaymentLimitFilter {
@@ -154,6 +156,10 @@ message InterestLimit {
 }
 
 message InternalPaymentLimit {}
+
+message InvitationLimit {}
+
+message MemberLimit {}
 
 message OutboundPaymentLimitFilter {
   optional com.repldriven.queenswood.schema.scheme_type.SchemeType scheme = 1;
@@ -207,5 +213,8 @@ message Limit {
     PolicyLimit policy = 23;
     TransactionLimit transaction = 24;
     WebhookEndpointLimit webhook_endpoint = 25;
+    InvitationLimit invitation = 26;
+    MemberLimit member = 27;
+    EmailLimit email = 28;
   }
 }

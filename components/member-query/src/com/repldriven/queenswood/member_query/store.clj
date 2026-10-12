@@ -151,6 +151,20 @@
           (remove #(contains? closed-statuses (:status %)))
           invitations)))
 
+(defn count-invitations-sent-on
+  [txn bank-id day]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [[by-bank total]
+           (fdb/aggregate-records-snapshot
+            (fdb/open txn invitations-store-name)
+            [[:sum "Invitation_sum_send_count_by_bank_sent_on" [bank-id day]]
+             [:sum "Invitation_sum_send_count_by_sent_on" [day]]])]
+       {:bank by-bank :total total}))
+   :invitation/count-sent
+   "Failed to count invitations sent"))
+
 (defn- open-invitations
   [entries]
   (into []

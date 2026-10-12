@@ -1,0 +1,88 @@
+{:name "A bank that has sent the day's invitations is refused another"
+ ;; The `small-team` tier, which only a test system has, allows a bank
+ ;; five invitations sent a day. A first send and each resend count one,
+ ;; so one invitation resent reaches the limit, and neither a resend nor
+ ;; a new invitation passes it.
+ :given
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/banks"
+             :auth :admin
+             :body {:name "Daily Limit Bank"
+                    :status "test"
+                    :tier "small-team"
+                    :currencies ["GBP"]}}
+   :as :bank
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:email "daily-limit@example.test"
+                    :role "developer"
+                    :reason "Setting the team up"}}
+   :as :invitation
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations/{invitation-id}/resend"
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations/{invitation-id}/resend"
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations/{invitation-id}/resend"
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/invitations/{invitation-id}/resend"
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200 :body {:status "pending"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations/{invitation-id}/resend"
+             :path-params {:invitation-id [:ref :invitation :invitation-id]}
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 429
+            :problem {:type ":policy/limit-exceeded"
+                      :detail
+                      "Small-team tier - a bank sends at most 5 invitations per day"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/invitations"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}
+             :body {:email "daily-limit-other@example.test"
+                    :role "developer"
+                    :reason "Setting the team up"}}
+   :assert {:status 429
+            :problem {:type ":policy/limit-exceeded"
+                      :detail
+                      "Small-team tier - a bank sends at most 5 invitations per day"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/invitations"
+             :auth :admin
+             :headers {:bank-id [:ref :bank :bank-id]}}
+   :assert {:status 200
+            :body {:items [:m/equals
+                           [[:m/embeds
+                             {:email "daily-limit@example.test"
+                              :status "pending"}]]]}}}]}

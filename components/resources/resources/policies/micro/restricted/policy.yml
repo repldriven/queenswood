@@ -10,6 +10,8 @@ capabilities: !concat
   - !include policies/micro/restricted/capabilities/ledger-accounts.yml
 limits: !concat
   - !include policies/micro/restricted/limits/banks.yml
+  - !include policies/micro/restricted/limits/members.yml
+  - !include policies/micro/restricted/limits/invitations.yml
   - !include policies/micro/restricted/limits/transactions.yml
   - !include policies/micro/restricted/limits/cash-accounts.yml
   - !include policies/micro/restricted/limits/cash-account-products.yml
