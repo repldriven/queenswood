@@ -952,6 +952,21 @@
       ]
     },
     {
+      "username": "bank-limit-person",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "bank-limit-person@queenswood.local",
+      "firstName": "Bank Limit",
+      "lastName": "Person",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "bank-limit-person",
+          "temporary": false
+        }
+      ]
+    },
+    {
       "username": "founder-colleague",
       "enabled": true,
       "emailVerified": true,

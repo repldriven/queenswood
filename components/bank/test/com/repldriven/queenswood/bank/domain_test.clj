@@ -4,7 +4,8 @@
   when the bound company snapshot is not active, the actor a create
   records when its command carries none, `:idv/unsupported-criteria`
   when a tier requires what the identity provider does not establish,
-  and the providers a create chooses."
+  `:policy/limit-exceeded` when a person has created as many banks as
+  the tier or the platform allows, and the providers a create chooses."
   (:require
     [com.repldriven.queenswood.bank.domain :as SUT]
 
@@ -40,6 +41,17 @@
   empty list."
   [{:policy-id "pol.micro"}])
 
+(def ^:private limited-tier-policies
+  "A tier allowing a person two banks."
+  [{:policy-id "pol.limited"
+    :status :policy-status-active
+    :limits [{:kind {:bank {}}
+              :bound {:kind {:max {:aggregate
+                                   {:kind {:count {:value 2
+                                                   :window
+                                                   :time-window-instant}}}}}}
+              :reason "At most 2 banks"}]}])
+
 (def ^:private active-binding
   {:registry :company-registry-uk-companies-house
    :company-number "12345678"
@@ -55,7 +67,8 @@
                              active-binding
                              tier-policies
                              permissive-policies
-                             idv-provider)]
+                             idv-provider
+                             nil)]
       (is (re-find #"^bnk\." (:bank-id bank)))
       (is (= :bank-status-test (:status bank)))
       (is (= "micro" (:tier bank)))
@@ -67,7 +80,8 @@
                              nil
                              tier-policies
                              permissive-policies
-                             idv-provider)]
+                             idv-provider
+                             nil)]
       (is (not (contains? bank :company-binding)))))
   (testing "rejects a nil tier"
     (let [r (SUT/new-bank "Acme"
@@ -76,7 +90,8 @@
                           nil
                           []
                           permissive-policies
-                          idv-provider)]
+                          idv-provider
+                          nil)]
       (is (error/rejection? r))
       (is (= :bank/unknown-tier (error/kind r)))))
   (testing "rejects a tier that resolves to no policies"
@@ -86,7 +101,8 @@
                           nil
                           []
                           permissive-policies
-                          idv-provider)]
+                          idv-provider
+                          nil)]
       (is (error/rejection? r))
       (is (= :bank/unknown-tier (error/kind r)))))
   (testing "rejects a binding whose company is not active"
@@ -96,7 +112,8 @@
                           (assoc active-binding :status "dissolved")
                           tier-policies
                           permissive-policies
-                          idv-provider)]
+                          idv-provider
+                          nil)]
       (is (error/rejection? r))
       (is (= :bank/company-not-active (error/kind r)))))
   (testing "rejects a tier requiring what the identity provider lacks"
@@ -106,10 +123,54 @@
                           nil
                           address-tier-policies
                           permissive-policies
-                          idv-provider)]
+                          idv-provider
+                          nil)]
       (is (error/rejection? r))
       (is (= :idv/unsupported-criteria (error/kind r)))
-      (is (= [:idv-verification-address] (:unmet (error/payload r)))))))
+      (is (= [:idv-verification-address] (:unmet (error/payload r))))))
+  (testing "a person's create within the tier's limit is allowed"
+    (let [bank (SUT/new-bank "Acme"
+                             :bank-status-test
+                             "micro"
+                             active-binding
+                             limited-tier-policies
+                             permissive-policies
+                             idv-provider
+                             1)]
+      (is (re-find #"^bnk\." (:bank-id bank)))))
+  (testing "a person's create past the tier's limit is refused"
+    (let [r (SUT/new-bank "Acme"
+                          :bank-status-test
+                          "micro"
+                          active-binding
+                          limited-tier-policies
+                          permissive-policies
+                          idv-provider
+                          2)]
+      (is (error/rejection? r))
+      (is (= :policy/limit-exceeded (error/kind r)))
+      (is (= "At most 2 banks" (:message (error/payload r))))))
+  (testing "a person's create past the platform's limit is refused"
+    (let [r (SUT/new-bank "Acme"
+                          :bank-status-test
+                          "micro"
+                          active-binding
+                          tier-policies
+                          (conj permissive-policies
+                                (first limited-tier-policies))
+                          idv-provider
+                          2)]
+      (is (= :policy/limit-exceeded (error/kind r)))))
+  (testing "an operator's create is not counted"
+    (let [bank (SUT/new-bank "Acme"
+                             :bank-status-test
+                             "micro"
+                             nil
+                             limited-tier-policies
+                             permissive-policies
+                             idv-provider
+                             nil)]
+      (is (re-find #"^bnk\." (:bank-id bank))))))
 
 (def ^:private test-bank {:bank-id "bnk.1" :status :bank-status-live})
 

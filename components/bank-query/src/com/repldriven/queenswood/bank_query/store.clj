@@ -39,6 +39,19 @@
                 :bank/get
                 "Failed to load bank"))
 
+(defn count-created-by
+  [txn principal-id]
+  (fdb/transact txn
+                (fn [txn]
+                  (count (fdb/query-records
+                          (fdb/open txn store-name)
+                          "Bank"
+                          ["created_by" "principal_id"]
+                          principal-id
+                          {:index "Bank_by_creator_idempotency_key"})))
+                :bank/count
+                "Failed to count banks"))
+
 (defn get-banks
   ([txn]
    (get-banks txn nil))

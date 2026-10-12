@@ -36,7 +36,7 @@
 
 (defn new-bank
   [bank-name bank-status tier company-binding tier-policies policies
-   idv-provider]
+   idv-provider created]
   (let-nom>
     [_ (policy/check-capability policies
                                 :bank
@@ -47,6 +47,13 @@
                        {:message "No policies found for tier"
                         :bank-name bank-name
                         :tier tier}))
+     _ (when created
+         (policy/check-limit (concat policies tier-policies)
+                             :bank
+                             {:aggregate :count
+                              :window :time-window-instant
+                              :value (inc created)
+                              :status bank-status}))
      _ (idv/check-criteria (concat policies tier-policies) idv-provider)
      _ (when (and company-binding
                   (not= "active" (:status company-binding)))

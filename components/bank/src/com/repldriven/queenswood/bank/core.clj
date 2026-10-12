@@ -217,13 +217,16 @@
        tier-policies (if (some? tier)
                        (policy/get-policies-by-tier txn tier)
                        [])
+       created (when (= :actor-kind-member (:kind actor))
+                 (bank-query/count-created-by txn (:principal-id actor)))
        bank (error/nom-> (domain/new-bank bank-name
                                           bank-status
                                           tier
                                           company-binding
                                           tier-policies
                                           policies
-                                          idv-provider)
+                                          idv-provider
+                                          created)
                          (assoc :providers (vec (:providers opts))))
        bank-id (:bank-id bank)
        _ (store/create txn

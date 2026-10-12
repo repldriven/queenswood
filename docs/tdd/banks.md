@@ -177,8 +177,8 @@ user, a member, or else as an operator with principal id
    and the earliest owner invitation carrying the step-14 reason,
    each only where `opts` asks for it, writing nothing. Two creates
    racing under one key conflict on the index range the lookup read,
-   and the runner's retry finds the winner. A person may own any
-   number of banks.
+   and the runner's retry finds the winner. A replay is not a create,
+   so step 5's limit never refuses one.
 3. **Resolve platform policies** — `policy/get-effective-policies
    txn {}` with empty selectors, since the bank does not exist
    yet. `opts` may override with `:policies`. These are threaded
@@ -192,8 +192,11 @@ user, a member, or else as an operator with principal id
    `:bank-action-create` capability check, rejects
    `:bank/company-not-active` when `opts` carries a
    `:company-binding` whose status is not active, and rejects
-   `:bank/unknown-tier` when step 4 resolved no policies. Then it
-   mints the record with a `bnk.*` id, the tier and the binding.
+   `:bank/unknown-tier` when step 4 resolved no policies. Where the
+   actor is a member it checks the `:bank` count limit, described
+   under [the limit on a person's banks](#the-limit-on-a-persons-banks),
+   and rejects `:policy/limit-exceeded`. Then it mints the record
+   with a `bnk.*` id, the tier and the binding.
 6. **Persist the bank** — with the actor as `created_by` and the
    key as `idempotency_key`; neither leaves the store, in the
    return value or the view.
@@ -256,13 +259,38 @@ bank's `providers`, one per kind, which the bank records for good, as
 - A signed-in person must name a company, and gets the defaults and an
   owner member of their own. Naming a status, tier, currencies or
   owner is refused 403 `auth/forbidden`, and naming no company 422
-  `:bank/company-required`, both before the registry is asked.
+  `:bank/company-required`, both before the registry is asked. A
+  person who has created as many banks as the policies allow is
+  refused 429 `:policy/limit-exceeded`.
 
 Both return 201 with the bank's `Location`, `/v1/bank`, read with the
 bank's id in the `Bank-Id` header as every bank-scoped route is. A
 `GET` there returns the bank as the list shows it, to an operator or
 to one of the bank's own members; a member naming another bank is
 refused with 403.
+
+### The limit on a person's banks
+
+A person signs up unvetted, and each bank they create costs a ledger
+chart, an own-funds account at the payment provider, a set of scheduled
+jobs and a service-account client, none of which is ever removed. The
+create therefore counts what the person has already created:
+
+- **The count.** `bank-query/count-created-by` reads the banks whose
+  `created_by.principal_id` is the actor's, from
+  `Bank_by_creator_idempotency_key`, serializably, so two creates by one
+  person conflict on the range and the second is retried against the
+  first's bank.
+- **The check.** `domain/new-bank` calls `policy/check-limit` for the
+  `:bank` kind with `{:aggregate :count :window :time-window-instant
+  :value <count + 1> :status <status>}` against the platform's policies
+  and the policies of the tier the bank is created on.
+- **The limits.** `policies/micro/restricted/limits/banks.yml` holds
+  the micro tier's, and `policies/platform/restricted/limits/banks.yml`
+  the ceiling on any tier.
+- **Who is counted.** Only a member actor. An operator's creates are
+  not counted, and a bank an operator creates and hands to a person
+  through `owner-email` is the operator's.
 
 ### The default ledger chart
 
@@ -432,10 +460,16 @@ new one, as the create does.
   platform-tier rule ever needed the about-to-be-created bank.
 - **The processor checks a capability, not a principal.**
   `domain/new-bank` runs a `:bank-action-create` capability check
-  and nothing more. Which principals may reach it is the api
-  base's: the `admin` and `user` gates on `POST /v1/banks`, and the
-  fields only an operator may send. Code calling the command directly
-  bypasses both.
+  and, for a member actor, the count limit, and nothing more. Which
+  principals may reach it is the api base's: the `admin` and `user`
+  gates on `POST /v1/banks`, and the fields only an operator may
+  send. Code calling the command directly bypasses both.
+- **The limit counts creates, not banks held.** A bank cannot be
+  closed, so a person at the limit stays there: starting a fresh
+  bank from the console is refused, and an operator creates the next
+  one. A person who signs up again under another identity is counted
+  from zero, and nothing limits how many banks the installation
+  holds or how many one company stands behind.
 
 ## References
 

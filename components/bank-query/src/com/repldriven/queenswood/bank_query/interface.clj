@@ -28,6 +28,17 @@
   [txn bank-id]
   (store/find-bank txn bank-id))
 
+(defn count-created-by
+  "The number of banks the principal created, read serializably so two
+  creates by one principal conflict rather than both pass a limit.
+  Returns the count or an anomaly.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - principal-id: the creator's principal id."
+  [txn principal-id]
+  (store/count-created-by txn principal-id))
+
 (defn get-bank-view
   "Load a bank by id enriched with its party, its accounts (with
   balances and GL codes), and `:client-id`. Returns the rich bank map,
