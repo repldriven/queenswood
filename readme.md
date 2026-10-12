@@ -63,6 +63,8 @@ The same bank from your customer's side, in the
 
 ## For decision-makers
 
+[Read the pitch](docs/pitch/decision-makers.pdf).
+
 - **Open source.** The code is yours to read, run and change under the MIT
   licence, on infrastructure you choose. There's no licence fee, and no vendor
   deciding your roadmap or moving the product from under you.
