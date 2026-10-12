@@ -45,8 +45,8 @@
                        :status bank-status}))
 
 (defn new-bank
-  [bank-name bank-status tier company-binding tier-policies policies
-   idv-provider aggregates]
+  [bank-name bank-status tier company-binding idv-provider aggregates
+   tier-policies policies]
   (let-nom>
     [_ (policy/check-capability policies
                                 :bank

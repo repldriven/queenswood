@@ -84,10 +84,10 @@
                              :bank-status-test
                              "micro"
                              active-binding
-                             tier-policies
-                             permissive-policies
                              idv-provider
-                             nil)]
+                             nil
+                             tier-policies
+                             permissive-policies)]
       (is (re-find #"^bnk\." (:bank-id bank)))
       (is (= :bank-status-test (:status bank)))
       (is (= "micro" (:tier bank)))
@@ -97,20 +97,20 @@
                              :bank-status-test
                              "micro"
                              nil
-                             tier-policies
-                             permissive-policies
                              idv-provider
-                             nil)]
+                             nil
+                             tier-policies
+                             permissive-policies)]
       (is (not (contains? bank :company-binding)))))
   (testing "rejects a nil tier"
     (let [r (SUT/new-bank "Acme"
                           :bank-status-test
                           nil
                           nil
-                          []
-                          permissive-policies
                           idv-provider
-                          nil)]
+                          nil
+                          []
+                          permissive-policies)]
       (is (error/rejection? r))
       (is (= :bank/unknown-tier (error/kind r)))))
   (testing "rejects a tier that resolves to no policies"
@@ -118,10 +118,10 @@
                           :bank-status-test
                           "no-such-tier"
                           nil
-                          []
-                          permissive-policies
                           idv-provider
-                          nil)]
+                          nil
+                          []
+                          permissive-policies)]
       (is (error/rejection? r))
       (is (= :bank/unknown-tier (error/kind r)))))
   (testing "rejects a binding whose company is not active"
@@ -129,10 +129,10 @@
                           :bank-status-test
                           "micro"
                           (assoc active-binding :status "dissolved")
-                          tier-policies
-                          permissive-policies
                           idv-provider
-                          nil)]
+                          nil
+                          tier-policies
+                          permissive-policies)]
       (is (error/rejection? r))
       (is (= :bank/company-not-active (error/kind r)))))
   (testing "rejects a tier requiring what the identity provider lacks"
@@ -140,10 +140,10 @@
                           :bank-status-test
                           "address"
                           nil
-                          address-tier-policies
-                          permissive-policies
                           idv-provider
-                          nil)]
+                          nil
+                          address-tier-policies
+                          permissive-policies)]
       (is (error/rejection? r))
       (is (= :idv/unsupported-criteria (error/kind r)))
       (is (= [:idv-verification-address] (:unmet (error/payload r))))))
@@ -152,20 +152,20 @@
                              :bank-status-test
                              "micro"
                              active-binding
-                             limited-tier-policies
-                             limited-platform-policies
                              idv-provider
-                             (created 1 4))]
+                             (created 1 4)
+                             limited-tier-policies
+                             limited-platform-policies)]
       (is (re-find #"^bnk\." (:bank-id bank)))))
   (testing "a person's create past the tier's limit is refused"
     (let [r (SUT/new-bank "Acme"
                           :bank-status-test
                           "micro"
                           active-binding
-                          limited-tier-policies
-                          limited-platform-policies
                           idv-provider
-                          (created 2 2))]
+                          (created 2 2)
+                          limited-tier-policies
+                          limited-platform-policies)]
       (is (error/rejection? r))
       (is (= :policy/limit-exceeded (error/kind r)))
       (is (= "At most 2 banks" (:message (error/payload r))))))
@@ -174,21 +174,21 @@
                           :bank-status-test
                           "micro"
                           active-binding
+                          idv-provider
+                          (created 2 2)
                           tier-policies
                           (conj permissive-policies
-                                (first limited-tier-policies))
-                          idv-provider
-                          (created 2 2))]
+                                (first limited-tier-policies)))]
       (is (= :policy/limit-exceeded (error/kind r)))))
   (testing "a person's create past the installation's limit is refused"
     (let [r (SUT/new-bank "Acme"
                           :bank-status-test
                           "micro"
                           active-binding
-                          limited-tier-policies
-                          limited-platform-policies
                           idv-provider
-                          (created 0 5))]
+                          (created 0 5)
+                          limited-tier-policies
+                          limited-platform-policies)]
       (is (error/rejection? r))
       (is (= :policy/limit-exceeded (error/kind r)))
       (is (= "At most 5 banks in all" (:message (error/payload r))))))
@@ -197,10 +197,10 @@
                              :bank-status-test
                              "micro"
                              nil
-                             limited-tier-policies
-                             limited-platform-policies
                              idv-provider
-                             nil)]
+                             nil
+                             limited-tier-policies
+                             limited-platform-policies)]
       (is (re-find #"^bnk\." (:bank-id bank))))))
 
 (def ^:private test-bank {:bank-id "bnk.1" :status :bank-status-live})
