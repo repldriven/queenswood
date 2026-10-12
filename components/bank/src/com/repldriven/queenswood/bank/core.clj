@@ -205,12 +205,12 @@
                                                          (:reason i))))
                                                invitations)))})))
 
-(defn- created-so-far
+(defn- counts
   [txn {:keys [kind principal-id]}]
   (let-nom>
-    [creator (bank-query/count-created-by txn principal-id)
-     installation (bank-query/count-created-by-kind txn kind)]
-    {:creator creator :installation installation}))
+    [by-creator (bank-query/count-created-by txn principal-id)
+     by-kind (bank-query/count-created-by-kind txn kind)]
+    {:bank {#{:created-by} by-creator #{:created-by-kind} by-kind}}))
 
 (defn- create-bank
   [txn bank-name bank-status tier currencies actor opts]
@@ -224,8 +224,8 @@
        tier-policies (if (some? tier)
                        (policy/get-policies-by-tier txn tier)
                        [])
-       created (when (= :actor-kind-member (:kind actor))
-                 (created-so-far txn actor))
+       aggregates (when (= :actor-kind-member (:kind actor))
+                    (counts txn actor))
        bank (error/nom-> (domain/new-bank bank-name
                                           bank-status
                                           tier
@@ -233,7 +233,7 @@
                                           tier-policies
                                           policies
                                           idv-provider
-                                          created)
+                                          aggregates)
                          (assoc :providers (vec (:providers opts))))
        bank-id (:bank-id bank)
        _ (store/create txn

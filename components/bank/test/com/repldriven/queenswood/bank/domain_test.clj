@@ -65,6 +65,12 @@
                               5
                               "At most 5 banks in all")]}))
 
+(defn- created
+  "The aggregates of a person who has created `by-creator` banks, people
+  having created `by-kind` between them."
+  [by-creator by-kind]
+  {:bank {#{:created-by} by-creator #{:created-by-kind} by-kind}})
+
 (def ^:private active-binding
   {:registry :company-registry-uk-companies-house
    :company-number "12345678"
@@ -149,7 +155,7 @@
                              limited-tier-policies
                              limited-platform-policies
                              idv-provider
-                             {:creator 1 :installation 4})]
+                             (created 1 4))]
       (is (re-find #"^bnk\." (:bank-id bank)))))
   (testing "a person's create past the tier's limit is refused"
     (let [r (SUT/new-bank "Acme"
@@ -159,7 +165,7 @@
                           limited-tier-policies
                           limited-platform-policies
                           idv-provider
-                          {:creator 2 :installation 2})]
+                          (created 2 2))]
       (is (error/rejection? r))
       (is (= :policy/limit-exceeded (error/kind r)))
       (is (= "At most 2 banks" (:message (error/payload r))))))
@@ -172,7 +178,7 @@
                           (conj permissive-policies
                                 (first limited-tier-policies))
                           idv-provider
-                          {:creator 2 :installation 2})]
+                          (created 2 2))]
       (is (= :policy/limit-exceeded (error/kind r)))))
   (testing "a person's create past the installation's limit is refused"
     (let [r (SUT/new-bank "Acme"
@@ -182,7 +188,7 @@
                           limited-tier-policies
                           limited-platform-policies
                           idv-provider
-                          {:creator 0 :installation 5})]
+                          (created 0 5))]
       (is (error/rejection? r))
       (is (= :policy/limit-exceeded (error/kind r)))
       (is (= "At most 5 banks in all" (:message (error/payload r))))))

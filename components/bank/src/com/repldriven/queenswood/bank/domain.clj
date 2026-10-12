@@ -34,19 +34,19 @@
               {:kind kind :provider (get chosen kind (name default))})
             (sort-by :kind offered)))))
 
-(defn- check-created
-  [policies bank-status scope created]
+(defn- check-limit
+  [scope dimensions bank-status aggregates policies]
   (policy/check-limit policies
                       :bank
                       {:aggregate :count
                        :window :time-window-instant
-                       :value (inc created)
+                       :value (inc (get-in aggregates [:bank dimensions]))
                        :scope scope
                        :status bank-status}))
 
 (defn new-bank
   [bank-name bank-status tier company-binding tier-policies policies
-   idv-provider created]
+   idv-provider aggregates]
   (let-nom>
     [_ (policy/check-capability policies
                                 :bank
@@ -57,16 +57,18 @@
                        {:message "No policies found for tier"
                         :bank-name bank-name
                         :tier tier}))
-     _ (when created
-         (check-created (concat policies tier-policies)
-                        bank-status
-                        :bank-limit-scope-creator
-                        (:creator created)))
-     _ (when created
-         (check-created (concat policies tier-policies)
-                        bank-status
-                        :bank-limit-scope-installation
-                        (:installation created)))
+     _ (when aggregates
+         (check-limit :bank-limit-scope-creator
+                      #{:created-by}
+                      bank-status
+                      aggregates
+                      (concat policies tier-policies)))
+     _ (when aggregates
+         (check-limit :bank-limit-scope-installation
+                      #{:created-by-kind}
+                      bank-status
+                      aggregates
+                      (concat policies tier-policies)))
      _ (idv/check-criteria (concat policies tier-policies) idv-provider)
      _ (when (and company-binding
                   (not= "active" (:status company-binding)))

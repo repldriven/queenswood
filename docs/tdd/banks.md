@@ -287,11 +287,14 @@ people have created between them:
   reads how many banks member actors have created, from the COUNT index
   `Bank_count_by_creator_kind`, at snapshot, so one person's create
   never conflicts with another's.
-- **The check.** `domain/new-bank` calls `policy/check-limit` for the
-  `:bank` kind once for each count, with `{:aggregate :count :window
-  :time-window-instant :value <count + 1> :scope <scope> :status
-  <status>}`, against the platform's policies and the policies of the
-  tier the bank is created on. `:scope` is
+- **The check.** `core/create-bank` gathers both into the aggregates
+  map `{:bank {#{:created-by} n, #{:created-by-kind} n}}` it hands
+  `domain/new-bank`, as the cash-account create does, and nil for an
+  actor who is not counted. `domain/new-bank` calls
+  `policy/check-limit` for the `:bank` kind once for each count, with
+  `{:aggregate :count :window :time-window-instant :value <count + 1>
+  :scope <scope> :status <status>}`, against the platform's policies
+  and the policies of the tier the bank is created on. `:scope` is
   `:bank-limit-scope-creator` for the person's count and
   `:bank-limit-scope-installation` for the installation's, and a limit
   names the one it bounds in its filter.
