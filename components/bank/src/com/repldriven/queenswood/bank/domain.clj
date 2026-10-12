@@ -35,18 +35,18 @@
             (sort-by :kind offered)))))
 
 (defn- check-limit
-  [scope dimensions bank-status aggregates policies]
+  [dimensions request aggregates policies]
   (policy/check-limit policies
                       :bank
-                      {:aggregate :count
-                       :window :time-window-instant
-                       :value (inc (get-in aggregates [:bank dimensions]))
-                       :scope scope
-                       :status bank-status}))
+                      (assoc request
+                             :aggregate :count
+                             :window :time-window-instant
+                             :value (inc (get-in aggregates
+                                                 [:bank dimensions])))))
 
 (defn new-bank
-  [bank-name bank-status tier company-binding aggregates tier-policies
-   policies idv-provider]
+  [bank-name bank-status tier company-binding created-by aggregates
+   tier-policies policies idv-provider]
   (let-nom>
     [_ (policy/check-capability policies
                                 :bank
@@ -57,18 +57,20 @@
                        {:message "No policies found for tier"
                         :bank-name bank-name
                         :tier tier}))
-     _ (when aggregates
-         (check-limit :bank-limit-scope-creator
-                      #{:created-by}
-                      bank-status
-                      aggregates
-                      (concat policies tier-policies)))
-     _ (when aggregates
-         (check-limit :bank-limit-scope-installation
-                      #{:created-by-kind}
-                      bank-status
-                      aggregates
-                      (concat policies tier-policies)))
+     _ (check-limit #{}
+                    {:status bank-status}
+                    aggregates
+                    (concat policies tier-policies))
+     _ (check-limit #{:tier}
+                    {:status bank-status :tier tier}
+                    aggregates
+                    (concat policies tier-policies))
+     _ (check-limit #{:tier :created-by}
+                    {:status bank-status
+                     :tier tier
+                     :created-by-kind (:kind created-by)}
+                    aggregates
+                    (concat policies tier-policies))
      _ (idv/check-criteria (concat policies tier-policies) idv-provider)
      _ (when (and company-binding
                   (not= "active" (:status company-binding)))

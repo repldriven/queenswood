@@ -221,14 +221,22 @@ stores:
               field: principal_id
           - idempotency_key
         unique: true
-      # How many banks each kind of actor has created, the count a
-      # person's create is held to across the installation.
-      - name: Bank_count_by_creator_kind
+      # How many banks sit on each tier, and across the tiers how many
+      # the installation holds, the counts a create is held to.
+      - name: Bank_count_by_tier
         added: 2
         modified: 2
-        field: created_by
-        nest:
-          field: kind
+        field: tier
+        type: count
+      # How many banks one actor has created on a tier.
+      - name: Bank_count_by_tier_created_by
+        added: 2
+        modified: 2
+        fields:
+          - tier
+          - field: created_by
+            nest:
+              fields: [kind, principal_id]
         type: count
   payee-checks:
     record-type: PayeeCheck

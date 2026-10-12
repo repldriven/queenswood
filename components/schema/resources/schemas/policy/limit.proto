@@ -3,6 +3,7 @@ syntax = "proto2";
 package com.repldriven.queenswood.schema.policy;
 
 import "schemas/account-product-type/account-product-type.proto";
+import "schemas/actor/actor.proto";
 import "schemas/amount/amount.proto";
 import "schemas/balance/types.proto";
 import "schemas/bank/bank.proto";
@@ -90,16 +91,12 @@ message BalanceLimit {
   repeated BalanceLimitFilter filters = 1;
 }
 
-// Which banks a limit on creating one counts.
-enum BankLimitScope {
-  BANK_LIMIT_SCOPE_UNKNOWN = 0;
-  BANK_LIMIT_SCOPE_CREATOR = 1; // those the person creating one has created
-  BANK_LIMIT_SCOPE_INSTALLATION = 2; // those people have created, across the installation
-}
-
+// A filter naming a tier bounds the banks on it, and one naming a kind of
+// creator as well the banks one creator of that kind has on it.
 message BankLimitFilter {
-  optional BankLimitScope scope = 1;
+  optional string tier = 1;
   optional com.repldriven.queenswood.schema.bank.BankStatus status = 2;
+  optional com.repldriven.queenswood.schema.actor.ActorKind created_by_kind = 3;
 }
 
 message BankLimit {

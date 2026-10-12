@@ -20,3 +20,32 @@ no-webhooks: !system/component
           webhook-endpoint:
             action: !keyword webhook-endpoint-action-register
     limits: []
+# A tier holding two banks, so a scenario can fill one. The micro tier's
+# own limit is beyond a test system's reach.
+two-banks: !system/component
+  system/component-kind: policies/policy
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  policy:
+    policy-id: pol.00000000000000000000000006
+    name: Two-banks policy
+    description: Two-banks tier - holds at most two banks
+    status: !keyword policy-status-active
+    labels: !strs
+      tier: two-banks
+    category: !keyword policy-category-restricted
+    capabilities: []
+    limits:
+      - kind:
+          bank:
+            filters:
+              - tier: two-banks
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  count:
+                    value: 2
+                    window: !keyword time-window-instant
+        reason: "Two-banks tier - the installation holds at most 2 banks on the tier"

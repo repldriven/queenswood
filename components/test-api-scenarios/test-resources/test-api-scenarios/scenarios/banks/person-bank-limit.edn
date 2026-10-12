@@ -1,9 +1,9 @@
-{:name "A person's fourth bank is refused by the micro tier's limit"
+{:name "A member's third bank is refused by the micro tier's limit"
  ;; WEYLAND-YUTANI CORP LTD is `active` in the Companies House
  ;; simulator's examples, and one company may stand behind several banks,
- ;; so only the number of banks the person has created could refuse the
- ;; fourth. A bank an operator creates and hands to the person is the
- ;; operator's, and counts for nothing.
+ ;; so only the number of banks the person has created on the tier could
+ ;; refuse the third. A bank an operator creates and hands to the person
+ ;; is the operator's, and counts for nothing against the person.
  :given
  [{:command :auth/mint-user-token
    :realm :queenswood
@@ -34,29 +34,23 @@
              :path "/v1/banks"
              :auth :person-token
              :body {:company-number "WY002122" :name "Bank Limit First"}}
-   :assert {:status 201}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/banks"
-             :auth :person-token
-             :body {:company-number "WY002122" :name "Bank Limit Second"}}
    :assert {:status 201}}]
  :when
  [{:command :api/request
    :request {:method :post
              :path "/v1/banks"
              :auth :person-token
-             :body {:company-number "WY002122" :name "Bank Limit Third"}}
+             :body {:company-number "WY002122" :name "Bank Limit Second"}}
    :assert {:status 201 :body {:tier "micro" :member {:role "owner"}}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/banks"
              :auth :person-token
-             :body {:company-number "WY002122" :name "Bank Limit Fourth"}}
+             :body {:company-number "WY002122" :name "Bank Limit Third"}}
    :assert {:status 429
             :problem {:type ":policy/limit-exceeded"
                       :detail
-                      "Micro tier - a person may create at most 3 banks"}}}]
+                      "Micro tier - a member may create at most 2 banks"}}}]
  :then
  [{:command :api/request
    :request {:method :get :path "/v1/me/members" :auth :person-token}
@@ -65,5 +59,4 @@
                            [{:bank-name "Bank Limit Operator Bank"
                              :role "owner"}
                             {:bank-name "Bank Limit First" :role "owner"}
-                            {:bank-name "Bank Limit Second" :role "owner"}
-                            {:bank-name "Bank Limit Third" :role "owner"}]]}}}]}
+                            {:bank-name "Bank Limit Second" :role "owner"}]]}}}]}

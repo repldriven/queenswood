@@ -165,16 +165,17 @@
                    _ (is (= 2 (count listed)))
                    _ (is (= 2 (count (set (map :bank-id listed)))))
                    _ (is (every? #(= :role-owner (:role %)) listed))]))
-     (testing "both count as the person's, and as people's"
-       (nom-test> [creator (bank-query/count-created-by config user-id)
-                   _ (is (= 2 creator))
-                   people (bank-query/count-created-by-kind config
-                                                            :actor-kind-member)
-                   _ (is (= 2 people))
-                   operators (bank-query/count-created-by-kind
-                              config
-                              :actor-kind-operator)
-                   _ (is (zero? operators))])))))
+     (testing "both count on their tier, and as the person's there"
+       (nom-test> [counts (bank-query/limit-counts config "micro" person)
+                   _ (is (= {:total 2 :tier 2 :created-by 2} counts))
+                   elsewhere
+                   (bank-query/limit-counts config "test-scenario" person)
+                   _ (is (= {:total 2 :tier 0 :created-by 0} elsewhere))
+                   another (bank-query/limit-counts config
+                                                    "micro"
+                                                    {:kind :actor-kind-operator
+                                                     :principal-id user-id})
+                   _ (is (= {:total 2 :tier 2 :created-by 0} another))])))))
 
 (deftest new-bank-with-owner-invitation-test
   (with-test-system

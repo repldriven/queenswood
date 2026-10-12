@@ -39,29 +39,25 @@
                 :bank/get
                 "Failed to load bank"))
 
-(defn count-created-by
-  [txn principal-id]
-  (fdb/transact txn
-                (fn [txn]
-                  (count (fdb/query-records
-                          (fdb/open txn store-name)
-                          "Bank"
-                          ["created_by" "principal_id"]
-                          principal-id
-                          {:index "Bank_by_creator_idempotency_key"})))
-                :bank/count
-                "Failed to count banks"))
-
-(defn count-created-by-kind
-  [txn actor-kind]
-  (fdb/transact txn
-                (fn [txn]
-                  (fdb/count-records-snapshot (fdb/open txn store-name)
-                                              "Bank_count_by_creator_kind"
-                                              [(schema/actor-kind->int
-                                                actor-kind)]))
-                :bank/count
-                "Failed to count banks"))
+(defn limit-counts
+  [txn tier created-by]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [store (fdb/open txn store-name)
+           {:keys [kind principal-id]} created-by
+           [total by-tier] (fdb/aggregate-records-snapshot
+                            store
+                            [[:count "Bank_count_by_tier" []]
+                             [:count "Bank_count_by_tier" [tier]]])
+           by-creator (fdb/count-records store
+                                         "Bank_count_by_tier_created_by"
+                                         [tier
+                                          (schema/actor-kind->int kind)
+                                          principal-id])]
+       {:total total :tier by-tier :created-by by-creator}))
+   :bank/limit-counts
+   {:message "Failed to count banks for the limits" :tier tier}))
 
 (defn get-banks
   ([txn]

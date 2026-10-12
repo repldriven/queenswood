@@ -206,11 +206,10 @@
                                                invitations)))})))
 
 (defn- counts
-  [txn {:keys [kind principal-id]}]
+  [txn tier actor]
   (let-nom>
-    [by-creator (bank-query/count-created-by txn principal-id)
-     by-kind (bank-query/count-created-by-kind txn kind)]
-    {:bank {#{:created-by} by-creator #{:created-by-kind} by-kind}}))
+    [{:keys [total tier created-by]} (bank-query/limit-counts txn tier actor)]
+    {:bank {#{} total #{:tier} tier #{:tier :created-by} created-by}}))
 
 (defn- create-bank
   [txn bank-name bank-status tier currencies actor opts]
@@ -224,12 +223,13 @@
        tier-policies (if (some? tier)
                        (policy/get-policies-by-tier txn tier)
                        [])
-       aggregates (when (= :actor-kind-member (:kind actor))
-                    (counts txn actor))
+       aggregates (when (seq tier-policies)
+                    (counts txn tier actor))
        bank (error/nom-> (domain/new-bank bank-name
                                           bank-status
                                           tier
                                           company-binding
+                                          actor
                                           aggregates
                                           tier-policies
                                           policies
