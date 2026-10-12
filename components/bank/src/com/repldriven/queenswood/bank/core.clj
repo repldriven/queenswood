@@ -230,10 +230,10 @@
                                           bank-status
                                           tier
                                           company-binding
-                                          idv-provider
                                           aggregates
                                           tier-policies
-                                          policies)
+                                          policies
+                                          idv-provider)
                          (assoc :providers (vec (:providers opts))))
        bank-id (:bank-id bank)
        _ (store/create txn
