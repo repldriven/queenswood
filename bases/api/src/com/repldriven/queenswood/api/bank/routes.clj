@@ -41,27 +41,31 @@
        :openapi
        {:operationId "CreateBank"
         :security ^:replace [{"bearerAuth" ["admin"]} {"bearerAuth" ["user"]}]
-        :description (str "Creates the bank with its party, its ledger and "
-                          "an own-funds cash account in each currency, bound "
-                          "to the tier's policies and to the company "
-                          "`company-number` names, looked up in the company "
-                          "registry. A signed-in person must name a company, "
-                          "gets a test bank on the micro tier in GBP, and "
-                          "becomes its owner; naming a status, tier, "
-                          "currencies or owner is refused with 403, and naming"
-                          " no company with 422. An unknown company returns "
-                          "404, and one that is not active is refused with "
-                          "422, as is a tier with no policies and one "
-                          "requiring a verification or screening the "
-                          "identity provider does not establish. A kind of "
-                          "provider left out of `providers` takes the "
-                          "installation's default, and a kind or a provider "
-                          "the installation does not offer is refused with "
-                          "422. The response "
-                          "carries the bank's client secret, returned only "
-                          "here, the person's owner member, and with "
-                          "`owner-email` the owner invitation emailed to that "
-                          "address.")
+        :description
+        (str "Creates the bank with its party, its ledger and "
+             "an own-funds cash account in each currency, bound "
+             "to the tier's policies and to the company "
+             "`company-number` names, looked up in the company "
+             "registry. A signed-in person must name a company, "
+             "gets a test bank on the micro tier in GBP, and "
+             "becomes its owner; naming a status, tier, "
+             "currencies or owner is refused with 403, and naming"
+             " no company with 422. A create is refused with 429 "
+             "once the platform or the tier holds as many banks "
+             "as its policies allow, and a person's once they "
+             "have created as many on the tier as its policies "
+             "allow a member. An unknown "
+             "company returns 404, and one that is not active is refused with "
+             "422, as is a tier with no policies and one "
+             "requiring a verification or screening the "
+             "identity provider does not establish. A kind of "
+             "provider left out of `providers` takes the "
+             "installation's default, and a kind or a provider "
+             "the installation does not offer is refused with "
+             "422. The response "
+             "carries the bank's client secret, returned only "
+             "here, the person's owner member, and with `owner-email` "
+             "the owner invitation emailed to that address.")
         :requestBody {:required true}
         :parameters ^:replace [shared.parameters/ref-idempotency-key]}
        :interceptors [server/require-idempotency-key
@@ -78,6 +82,7 @@
          422 (ErrorResponse [#'BankUnknownProvider #'BankUnknownTier
                              #'CompanyNotActive #'CompanyRequired
                              #'IdvUnsupportedCriteria])
+         429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])
          503 (ErrorExamples [#'company-api/CompanyRegistryUnavailable])})
        :handler bank-commands/create-bank}}]]
    ["/bank"

@@ -177,8 +177,8 @@ user, a member, or else as an operator with principal id
    and the earliest owner invitation carrying the step-14 reason,
    each only where `opts` asks for it, writing nothing. Two creates
    racing under one key conflict on the index range the lookup read,
-   and the runner's retry finds the winner. A person may own any
-   number of banks.
+   and the runner's retry finds the winner. A replay is not a create,
+   so step 5's limit never refuses one.
 3. **Resolve platform policies** — `policy/get-effective-policies
    txn {}` with empty selectors, since the bank does not exist
    yet. `opts` may override with `:policies`. These are threaded
@@ -192,8 +192,11 @@ user, a member, or else as an operator with principal id
    `:bank-action-create` capability check, rejects
    `:bank/company-not-active` when `opts` carries a
    `:company-binding` whose status is not active, and rejects
-   `:bank/unknown-tier` when step 4 resolved no policies. Then it
-   mints the record with a `bnk.*` id, the tier and the binding.
+   `:bank/unknown-tier` when step 4 resolved no policies. Where the
+   It checks the `:bank` count limits, described under
+   [the limits on creating a bank](#the-limits-on-creating-a-bank),
+   and rejects `:policy/limit-exceeded`. Then it mints the record
+   with a `bnk.*` id, the tier and the binding.
 6. **Persist the bank** — with the actor as `created_by` and the
    key as `idempotency_key`; neither leaves the store, in the
    return value or the view.
@@ -256,13 +259,54 @@ bank's `providers`, one per kind, which the bank records for good, as
 - A signed-in person must name a company, and gets the defaults and an
   owner member of their own. Naming a status, tier, currencies or
   owner is refused 403 `auth/forbidden`, and naming no company 422
-  `:bank/company-required`, both before the registry is asked.
+  `:bank/company-required`, both before the registry is asked. A
+  create by either is refused 429 `:policy/limit-exceeded` once the
+  installation or the tier holds as many banks as the policies allow,
+  and a member's once they have created as many on the tier as it
+  allows a member.
 
 Both return 201 with the bank's `Location`, `/v1/bank`, read with the
 bank's id in the `Bank-Id` header as every bank-scoped route is. A
 `GET` there returns the bank as the list shows it, to an operator or
 to one of the bank's own members; a member naming another bank is
 refused with 403.
+
+### The limits on creating a bank
+
+A person signs up unvetted, and each bank costs a ledger chart, an
+own-funds account at the payment provider, a set of scheduled jobs and
+a service-account client, none of which is ever removed. Every create,
+an operator's as much as a member's, is therefore held to three counts:
+
+- **The counts.** `bank-query/limit-counts` reads the banks the
+  installation holds and the banks on the tier, from the COUNT index
+  `Bank_count_by_tier`, at snapshot, so one create never conflicts with
+  another over them, and the banks the actor has created on the tier,
+  from `Bank_count_by_tier_created_by`, serializably, so two creates by
+  one actor conflict and the second is retried against the first's
+  bank.
+- **The aggregates.** `core/create-bank` gathers them into the map
+  `{:bank {#{} n, #{:tier} n, #{:tier :created-by} n}}` it hands
+  `domain/new-bank`, each count under the dimensions it is grouped by,
+  as the cash-account create does.
+- **The check.** `domain/new-bank` calls `policy/check-limit` for the
+  `:bank` kind once for each count, with `{:aggregate :count :window
+  :time-window-instant :value <count + 1> :status <status>}`, adding
+  `:tier` for the tier's count and `:tier` and `:created-by-kind` for
+  the actor's, against the platform's policies and the policies of the
+  tier the bank is created on.
+- **The limits.** A limit bounds the count its filter names: none, the
+  installation's, a `tier`, that tier's, and a `tier` and a
+  `created-by-kind`, what one actor of that kind has created on it.
+  `policies/platform/restricted/limits/banks.yml` holds the
+  installation's, and `policies/micro/restricted/limits/banks.yml` the
+  micro tier's and a member's on it. A tier's limit must name its tier:
+  one with no filter bounds the installation's count wherever it is
+  written.
+- **Test systems.** One run of the scenario suite creates more banks
+  than an installation is to hold, so the installation's and the micro
+  tier's limits take a higher value under the `test` profile. A
+  member's limit is the same everywhere.
 
 ### The default ledger chart
 
@@ -432,10 +476,24 @@ new one, as the create does.
   platform-tier rule ever needed the about-to-be-created bank.
 - **The processor checks a capability, not a principal.**
   `domain/new-bank` runs a `:bank-action-create` capability check
-  and nothing more. Which principals may reach it is the api
-  base's: the `admin` and `user` gates on `POST /v1/banks`, and the
-  fields only an operator may send. Code calling the command directly
-  bypasses both.
+  and, for a member actor, the count limit, and nothing more. Which
+  principals may reach it is the api base's: the `admin` and `user`
+  gates on `POST /v1/banks`, and the fields only an operator may
+  send. Code calling the command directly bypasses both.
+- **The limits count banks ever created.** A bank cannot be closed,
+  so a member at their limit stays there, and so does a tier:
+  starting a fresh bank from the console is refused, and an operator
+  creates the next one, on a tier with room.
+- **A member's limit is per identity.** A person who signs up again
+  under another identity is counted from zero, and only the tier's
+  limit holds them.
+- **The tier's and the installation's counts are read at snapshot.**
+  Creates committing at once each read the counts without the others,
+  so a tier can pass its limit by as many creates as were in flight.
+- **A tier change is not held to the limits.** `change-tier` moves a
+  bank onto a tier that is full, and its count rises past the limit.
+  The route is an operator's.
+- **Nothing limits how many banks one company stands behind.**
 
 ## References
 

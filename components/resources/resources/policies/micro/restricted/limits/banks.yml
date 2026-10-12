@@ -1,0 +1,31 @@
+# A test system creates more banks on the tier in one run than an
+# installation is to hold.
+- kind:
+    bank:
+      filters:
+        - tier: micro
+  bound:
+    kind:
+      max:
+        aggregate:
+          kind:
+            count:
+              value: !profile
+                test: 100000
+                default: 100
+              window: !keyword time-window-instant
+  reason: "Micro tier - the installation holds at most 100 banks on the tier"
+- kind:
+    bank:
+      filters:
+        - tier: micro
+          created-by-kind: !keyword actor-kind-member
+  bound:
+    kind:
+      max:
+        aggregate:
+          kind:
+            count:
+              value: 2
+              window: !keyword time-window-instant
+  reason: "Micro tier - a member may create at most 2 banks"

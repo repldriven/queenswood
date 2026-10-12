@@ -205,6 +205,12 @@
                                                          (:reason i))))
                                                invitations)))})))
 
+(defn- counts
+  [txn tier actor]
+  (let-nom>
+    [{:keys [total tier created-by]} (bank-query/limit-counts txn tier actor)]
+    {:bank {#{} total #{:tier} tier #{:tier :created-by} created-by}}))
+
 (defn- create-bank
   [txn bank-name bank-status tier currencies actor opts]
   (let [{:keys [idv-provider payment-provider company-binding member
@@ -217,10 +223,14 @@
        tier-policies (if (some? tier)
                        (policy/get-policies-by-tier txn tier)
                        [])
+       aggregates (when (seq tier-policies)
+                    (counts txn tier actor))
        bank (error/nom-> (domain/new-bank bank-name
                                           bank-status
                                           tier
                                           company-binding
+                                          actor
+                                          aggregates
                                           tier-policies
                                           policies
                                           idv-provider)

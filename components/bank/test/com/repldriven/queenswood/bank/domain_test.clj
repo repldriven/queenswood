@@ -4,7 +4,9 @@
   when the bound company snapshot is not active, the actor a create
   records when its command carries none, `:idv/unsupported-criteria`
   when a tier requires what the identity provider does not establish,
-  and the providers a create chooses."
+  `:policy/limit-exceeded` when the installation, the tier or a member on
+  the tier holds as many banks as the policies allow, and the providers
+  a create chooses."
   (:require
     [com.repldriven.queenswood.bank.domain :as SUT]
 
@@ -40,6 +42,42 @@
   empty list."
   [{:policy-id "pol.micro"}])
 
+(defn- bank-limit
+  [filters value reason]
+  {:kind {:bank (if filters {:filters filters} {})}
+   :bound {:kind {:max {:aggregate {:kind {:count {:value value
+                                                   :window
+                                                   :time-window-instant}}}}}}
+   :reason reason})
+
+(def ^:private limited-tier-policies
+  "A tier holding five banks, two of them any one member's."
+  [{:policy-id "pol.limited"
+    :status :policy-status-active
+    :limits [(bank-limit [{:tier "micro"}] 5 "At most 5 banks on the tier")
+             (bank-limit [{:tier "micro" :created-by-kind :actor-kind-member}]
+                         2
+                         "At most 2 banks a member")]}])
+
+(def ^:private limited-platform-policies
+  "A platform holding eight banks."
+  (conj permissive-policies
+        {:policy-id "pol.installation"
+         :status :policy-status-active
+         :limits [(bank-limit nil 8 "At most 8 banks in all")]}))
+
+(defn- counts
+  "The aggregates of an installation holding `total` banks, `tier` of
+  them on the tier and `created-by` of those the creator's."
+  [total tier created-by]
+  {:bank {#{} total #{:tier} tier #{:tier :created-by} created-by}})
+
+(def ^:private no-banks (counts 0 0 0))
+
+(def ^:private person {:kind :actor-kind-member :principal-id "usr.1"})
+
+(def ^:private operator {:kind :actor-kind-operator :principal-id "ops.1"})
+
 (def ^:private active-binding
   {:registry :company-registry-uk-companies-house
    :company-number "12345678"
@@ -53,6 +91,8 @@
                              :bank-status-test
                              "micro"
                              active-binding
+                             person
+                             no-banks
                              tier-policies
                              permissive-policies
                              idv-provider)]
@@ -65,6 +105,8 @@
                              :bank-status-test
                              "micro"
                              nil
+                             person
+                             no-banks
                              tier-policies
                              permissive-policies
                              idv-provider)]
@@ -74,6 +116,8 @@
                           :bank-status-test
                           nil
                           nil
+                          person
+                          no-banks
                           []
                           permissive-policies
                           idv-provider)]
@@ -84,6 +128,8 @@
                           :bank-status-test
                           "no-such-tier"
                           nil
+                          person
+                          no-banks
                           []
                           permissive-policies
                           idv-provider)]
@@ -94,6 +140,8 @@
                           :bank-status-test
                           "micro"
                           (assoc active-binding :status "dissolved")
+                          person
+                          no-banks
                           tier-policies
                           permissive-policies
                           idv-provider)]
@@ -104,16 +152,90 @@
                           :bank-status-test
                           "address"
                           nil
+                          person
+                          no-banks
                           address-tier-policies
                           permissive-policies
                           idv-provider)]
       (is (error/rejection? r))
       (is (= :idv/unsupported-criteria (error/kind r)))
-      (is (= [:idv-verification-address] (:unmet (error/payload r)))))))
+      (is (= [:idv-verification-address] (:unmet (error/payload r))))))
+  (testing "a member's create within every limit is allowed"
+    (let [r (SUT/new-bank "Acme"
+                          :bank-status-test
+                          "micro"
+                          active-binding
+                          person
+                          (counts 7 4 1)
+                          limited-tier-policies
+                          limited-platform-policies
+                          idv-provider)]
+      (is (re-find #"^bnk\." (:bank-id r)))))
+  (testing "a member's create past their own limit on the tier is refused"
+    (let [r (SUT/new-bank "Acme"
+                          :bank-status-test
+                          "micro"
+                          active-binding
+                          person
+                          (counts 2 2 2)
+                          limited-tier-policies
+                          limited-platform-policies
+                          idv-provider)]
+      (is (error/rejection? r))
+      (is (= :policy/limit-exceeded (error/kind r)))
+      (is (= "At most 2 banks a member" (:message (error/payload r))))))
+  (testing "a create past the tier's limit is refused"
+    (let [r (SUT/new-bank "Acme"
+                          :bank-status-test
+                          "micro"
+                          active-binding
+                          person
+                          (counts 5 5 0)
+                          limited-tier-policies
+                          limited-platform-policies
+                          idv-provider)]
+      (is (error/rejection? r))
+      (is (= :policy/limit-exceeded (error/kind r)))
+      (is (= "At most 5 banks on the tier" (:message (error/payload r))))))
+  (testing "a create past the installation's limit is refused"
+    (let [r (SUT/new-bank "Acme"
+                          :bank-status-test
+                          "micro"
+                          active-binding
+                          person
+                          (counts 8 1 0)
+                          limited-tier-policies
+                          limited-platform-policies
+                          idv-provider)]
+      (is (error/rejection? r))
+      (is (= :policy/limit-exceeded (error/kind r)))
+      (is (= "At most 8 banks in all" (:message (error/payload r))))))
+  (testing "an operator is not held to a member's limit"
+    (let [r (SUT/new-bank "Acme"
+                          :bank-status-test
+                          "micro"
+                          active-binding
+                          operator
+                          (counts 4 4 4)
+                          limited-tier-policies
+                          limited-platform-policies
+                          idv-provider)]
+      (is (re-find #"^bnk\." (:bank-id r)))))
+  (testing "an operator's create past the tier's limit is refused"
+    (let [r (SUT/new-bank "Acme"
+                          :bank-status-test
+                          "micro"
+                          active-binding
+                          operator
+                          (counts 5 5 0)
+                          limited-tier-policies
+                          limited-platform-policies
+                          idv-provider)]
+      (is (error/rejection? r))
+      (is (= :policy/limit-exceeded (error/kind r)))
+      (is (= "At most 5 banks on the tier" (:message (error/payload r)))))))
 
 (def ^:private test-bank {:bank-id "bnk.1" :status :bank-status-live})
-
-(def ^:private operator {:kind :actor-kind-operator :principal-id "ops.1"})
 
 (def ^:private new-tier-policies [{:policy-id "pol.new"}])
 

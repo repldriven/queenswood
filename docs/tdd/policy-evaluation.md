@@ -231,7 +231,9 @@ plus policies bound to the selector's `:bank-id` (via
 `PolicyBinding` records); finer selectors (account-type,
 product) aren't honoured yet (see Known Limitations).
 `get-policies-by-tier` is used at bank creation to apply
-tier-labelled policy sets.
+tier-labelled policy sets, and a create is checked against the count
+limits of the platform and of the tier the bank is created on before
+the bank exists to be bound; see [banks.md](banks.md).
 
 ### How domains use the engine
 

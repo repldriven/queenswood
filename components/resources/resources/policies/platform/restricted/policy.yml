@@ -26,6 +26,7 @@ capabilities: !concat
   - !include policies/platform/restricted/capabilities/webhook-endpoints.yml
 limits: !concat
   - !include policies/platform/restricted/limits/balances.yml
+  - !include policies/platform/restricted/limits/banks.yml
   - !include policies/platform/restricted/limits/cash-account-products.yml
   - !include policies/platform/restricted/limits/cash-account-migrations.yml
   - !include policies/platform/restricted/limits/cash-accounts.yml

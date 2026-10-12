@@ -286,13 +286,16 @@ an expired first invitation is sent again from there.
 ### Working across organisations
 
 A person belongs to as many organisations as have invited them or as
-they have created, with a role in each. The console shows which
-organisation the person is acting in, offers the others in a switcher,
-and returns to the one they last used on their next sign-in. Every
-action the console takes names the organisation it is for. The platform
-refuses one the person does not belong to and applies the role they hold
-there — an owner of one organisation is a viewer in another if that is
-what they were invited as.
+they have created, with a role in each. The platform limits how many a
+person may create on a tier, and how many organisations a tier and the
+platform hold, and an operator creates one for a person who has reached
+theirs. The console shows which organisation the person is acting in,
+offers the others in a switcher, and returns to the one they last used
+on their next sign-in. Every action the console takes names the
+organisation it is for. The platform refuses one the person does not
+belong to and applies the role they hold there — an owner of one
+organisation is a viewer in another if that is what they were invited
+as.
 
 The banking API scopes a signed-in person's call to the organisation the
 call names, never to the first one the platform finds.

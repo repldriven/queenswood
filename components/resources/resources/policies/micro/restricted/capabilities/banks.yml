@@ -1,5 +1,0 @@
-- effect: !keyword effect-deny
-  reason: "Micro tier - deny creating banks"
-  kind:
-    bank:
-      action: !keyword bank-action-create
