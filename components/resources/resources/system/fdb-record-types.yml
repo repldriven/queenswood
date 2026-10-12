@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 1
+version: 2
 stores:
   account-balances:
     record-type: AccountBalance
@@ -221,6 +221,15 @@ stores:
               field: principal_id
           - idempotency_key
         unique: true
+      # How many banks each kind of actor has created, the count a
+      # person's create is held to across the installation.
+      - name: Bank_count_by_creator_kind
+        added: 2
+        modified: 2
+        field: created_by
+        nest:
+          field: kind
+        type: count
   payee-checks:
     record-type: PayeeCheck
     primary-key: [bank_id, check_id]

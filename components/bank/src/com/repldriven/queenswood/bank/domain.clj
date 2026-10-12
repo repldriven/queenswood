@@ -34,6 +34,16 @@
               {:kind kind :provider (get chosen kind (name default))})
             (sort-by :kind offered)))))
 
+(defn- check-created
+  [policies bank-status scope created]
+  (policy/check-limit policies
+                      :bank
+                      {:aggregate :count
+                       :window :time-window-instant
+                       :value (inc created)
+                       :scope scope
+                       :status bank-status}))
+
 (defn new-bank
   [bank-name bank-status tier company-binding tier-policies policies
    idv-provider created]
@@ -48,12 +58,15 @@
                         :bank-name bank-name
                         :tier tier}))
      _ (when created
-         (policy/check-limit (concat policies tier-policies)
-                             :bank
-                             {:aggregate :count
-                              :window :time-window-instant
-                              :value (inc created)
-                              :status bank-status}))
+         (check-created (concat policies tier-policies)
+                        bank-status
+                        :bank-limit-scope-creator
+                        (:creator created)))
+     _ (when created
+         (check-created (concat policies tier-policies)
+                        bank-status
+                        :bank-limit-scope-installation
+                        (:installation created)))
      _ (idv/check-criteria (concat policies tier-policies) idv-provider)
      _ (when (and company-binding
                   (not= "active" (:status company-binding)))

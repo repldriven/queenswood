@@ -1,5 +1,7 @@
 - kind:
-    bank: {}
+    bank:
+      filters:
+        - scope: !keyword bank-limit-scope-creator
   bound:
     kind:
       max:
@@ -9,3 +11,16 @@
               value: 25
               window: !keyword time-window-instant
   reason: "Platform-restricted - a person may create at most 25 banks"
+- kind:
+    bank:
+      filters:
+        - scope: !keyword bank-limit-scope-installation
+  bound:
+    kind:
+      max:
+        aggregate:
+          kind:
+            count:
+              value: 200
+              window: !keyword time-window-instant
+  reason: "Platform-restricted - people may create at most 200 banks in all"

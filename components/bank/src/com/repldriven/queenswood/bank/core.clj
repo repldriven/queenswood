@@ -205,6 +205,13 @@
                                                          (:reason i))))
                                                invitations)))})))
 
+(defn- created-so-far
+  [txn {:keys [kind principal-id]}]
+  (let-nom>
+    [creator (bank-query/count-created-by txn principal-id)
+     installation (bank-query/count-created-by-kind txn kind)]
+    {:creator creator :installation installation}))
+
 (defn- create-bank
   [txn bank-name bank-status tier currencies actor opts]
   (let [{:keys [idv-provider payment-provider company-binding member
@@ -218,7 +225,7 @@
                        (policy/get-policies-by-tier txn tier)
                        [])
        created (when (= :actor-kind-member (:kind actor))
-                 (bank-query/count-created-by txn (:principal-id actor)))
+                 (created-so-far txn actor))
        bank (error/nom-> (domain/new-bank bank-name
                                           bank-status
                                           tier

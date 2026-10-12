@@ -1,5 +1,7 @@
 - kind:
-    bank: {}
+    bank:
+      filters:
+        - scope: !keyword bank-limit-scope-creator
   bound:
     kind:
       max:

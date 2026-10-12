@@ -5,7 +5,8 @@
   records when its command carries none, `:idv/unsupported-criteria`
   when a tier requires what the identity provider does not establish,
   `:policy/limit-exceeded` when a person has created as many banks as
-  the tier or the platform allows, and the providers a create chooses."
+  the tier or the platform allows, or people as many as the installation
+  holds, and the providers a create chooses."
   (:require
     [com.repldriven.queenswood.bank.domain :as SUT]
 
@@ -41,16 +42,28 @@
   empty list."
   [{:policy-id "pol.micro"}])
 
+(defn- bank-limit
+  [scope value reason]
+  {:kind {:bank {:filters [{:scope scope}]}}
+   :bound {:kind {:max {:aggregate {:kind {:count {:value value
+                                                   :window
+                                                   :time-window-instant}}}}}}
+   :reason reason})
+
 (def ^:private limited-tier-policies
   "A tier allowing a person two banks."
   [{:policy-id "pol.limited"
     :status :policy-status-active
-    :limits [{:kind {:bank {}}
-              :bound {:kind {:max {:aggregate
-                                   {:kind {:count {:value 2
-                                                   :window
-                                                   :time-window-instant}}}}}}
-              :reason "At most 2 banks"}]}])
+    :limits [(bank-limit :bank-limit-scope-creator 2 "At most 2 banks")]}])
+
+(def ^:private limited-platform-policies
+  "A platform allowing people five banks between them."
+  (conj permissive-policies
+        {:policy-id "pol.installation"
+         :status :policy-status-active
+         :limits [(bank-limit :bank-limit-scope-installation
+                              5
+                              "At most 5 banks in all")]}))
 
 (def ^:private active-binding
   {:registry :company-registry-uk-companies-house
@@ -134,9 +147,9 @@
                              "micro"
                              active-binding
                              limited-tier-policies
-                             permissive-policies
+                             limited-platform-policies
                              idv-provider
-                             1)]
+                             {:creator 1 :installation 4})]
       (is (re-find #"^bnk\." (:bank-id bank)))))
   (testing "a person's create past the tier's limit is refused"
     (let [r (SUT/new-bank "Acme"
@@ -144,9 +157,9 @@
                           "micro"
                           active-binding
                           limited-tier-policies
-                          permissive-policies
+                          limited-platform-policies
                           idv-provider
-                          2)]
+                          {:creator 2 :installation 2})]
       (is (error/rejection? r))
       (is (= :policy/limit-exceeded (error/kind r)))
       (is (= "At most 2 banks" (:message (error/payload r))))))
@@ -159,15 +172,27 @@
                           (conj permissive-policies
                                 (first limited-tier-policies))
                           idv-provider
-                          2)]
+                          {:creator 2 :installation 2})]
       (is (= :policy/limit-exceeded (error/kind r)))))
+  (testing "a person's create past the installation's limit is refused"
+    (let [r (SUT/new-bank "Acme"
+                          :bank-status-test
+                          "micro"
+                          active-binding
+                          limited-tier-policies
+                          limited-platform-policies
+                          idv-provider
+                          {:creator 0 :installation 5})]
+      (is (error/rejection? r))
+      (is (= :policy/limit-exceeded (error/kind r)))
+      (is (= "At most 5 banks in all" (:message (error/payload r))))))
   (testing "an operator's create is not counted"
     (let [bank (SUT/new-bank "Acme"
                              :bank-status-test
                              "micro"
                              nil
                              limited-tier-policies
-                             permissive-policies
+                             limited-platform-policies
                              idv-provider
                              nil)]
       (is (re-find #"^bnk\." (:bank-id bank))))))

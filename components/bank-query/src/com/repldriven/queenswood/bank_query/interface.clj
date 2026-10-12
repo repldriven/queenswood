@@ -39,6 +39,18 @@
   [txn principal-id]
   (store/count-created-by txn principal-id))
 
+(defn count-created-by-kind
+  "The number of banks actors of one kind have created across the
+  installation, read at snapshot, so creates in flight are not counted
+  and none conflicts with another over it. Returns the count or an
+  anomaly.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - actor-kind: the creators' kind, e.g. `:actor-kind-member`."
+  [txn actor-kind]
+  (store/count-created-by-kind txn actor-kind))
+
 (defn get-bank-view
   "Load a bank by id enriched with its party, its accounts (with
   balances and GL codes), and `:client-id`. Returns the rich bank map,

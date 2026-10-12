@@ -52,6 +52,17 @@
                 :bank/count
                 "Failed to count banks"))
 
+(defn count-created-by-kind
+  [txn actor-kind]
+  (fdb/transact txn
+                (fn [txn]
+                  (fdb/count-records-snapshot (fdb/open txn store-name)
+                                              "Bank_count_by_creator_kind"
+                                              [(schema/actor-kind->int
+                                                actor-kind)]))
+                :bank/count
+                "Failed to count banks"))
+
 (defn get-banks
   ([txn]
    (get-banks txn nil))
