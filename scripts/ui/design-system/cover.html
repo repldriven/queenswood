@@ -1,0 +1,70 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Queenswood</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--surface); color: var(--fg); font-family: var(--font-grotesk); overflow: hidden; }
+  .cover { position: relative; height: 288px; overflow: hidden; }
+  .art { position: absolute; top: 0; left: 480px; width: 480px; height: 288px; overflow: hidden; }
+  .art svg { display: block; width: 480px; height: 288px; }
+  .forest { fill: var(--pine-3); rx: var(--radius-12); }
+  .tree-far { fill: var(--pine-5); }
+  .tree-near { fill: var(--pine-1); }
+  .crown { fill: var(--gold); }
+  .band { rx: var(--radius-6); }
+  .slab { fill: var(--fg); rx: var(--radius-12); }
+  .relief { fill: var(--surface-sunk); rx: var(--radius-8); }
+  .words { position: absolute; left: var(--space-36); bottom: var(--space-28); max-width: 440px; }
+  .name { margin: 0; font-family: var(--font-serif); font-weight: 500; font-size: 76px; line-height: 0.95; letter-spacing: 0.04em; color: var(--fg); }
+  .tag { margin: var(--space-12) 0 0 2px; font-size: 14px; line-height: 20px; color: var(--fg-2); }
+</style>
+</head>
+<body>
+<div class="cover">
+<div class="art" aria-hidden="true">
+<svg viewBox="0 0 480 288" width="480" height="288">
+<!--
+  blocks      pine-3 216×144 (the forest, largest) · gold 216×36 band beneath it (the crown) · fg slab 228 wide bleeding off the top, bottom and right edge · surface-sunk 96×72 relief on the slab — about a third of 960×288
+  arrangement the mark, squared off: forest block over crown band on the left, one tall slab with a satellite on the right, space-24 from the box edge and space-24 between columns
+  pattern     the literal motif, from "a row of conifers standing on a gold crown": eight conifer triangles cut into the forest block in pine-5 and pine-1, six crown teeth hanging from the band in gold, a bauble under each
+  scales      block sides in space-24 and space-36 multiples; gap forest to band space-12; teeth space-36 wide; corners radius-12, radius-8 and radius-6 on the band
+-->
+<defs><clipPath id="cv-forest"><rect x="24" y="24" width="216" height="144" rx="12"/></clipPath></defs>
+<rect class="forest" x="24" y="24" width="216" height="144" rx="12"/>
+<g clip-path="url(#cv-forest)">
+  <polygon class="tree-far" points="48,96 30,168 66,168"/>
+  <polygon class="tree-far" points="102,60 78,168 126,168"/>
+  <polygon class="tree-far" points="156,72 132,168 180,168"/>
+  <polygon class="tree-far" points="210,84 189,168 231,168"/>
+  <polygon class="tree-near" points="72,108 54,168 90,168"/>
+  <polygon class="tree-near" points="126,96 105,168 147,168"/>
+  <polygon class="tree-near" points="186,48 159,168 213,168"/>
+  <polygon class="tree-near" points="228,120 213,168 243,168"/>
+</g>
+<rect class="crown band" x="24" y="180" width="216" height="36" rx="6"/>
+<polygon class="crown" points="24,210 60,210 42,258"/>
+<polygon class="crown" points="60,210 96,210 78,258"/>
+<polygon class="crown" points="96,210 132,210 114,258"/>
+<polygon class="crown" points="132,210 168,210 150,258"/>
+<polygon class="crown" points="168,210 204,210 186,258"/>
+<polygon class="crown" points="204,210 240,210 222,258"/>
+<circle class="crown" cx="42" cy="266" r="4"/>
+<circle class="crown" cx="78" cy="266" r="4"/>
+<circle class="crown" cx="114" cy="266" r="4"/>
+<circle class="crown" cx="150" cy="266" r="4"/>
+<circle class="crown" cx="186" cy="266" r="4"/>
+<circle class="crown" cx="222" cy="266" r="4"/>
+<rect class="slab" x="264" y="-12" width="228" height="312" rx="12"/>
+<rect class="relief" x="288" y="192" width="96" height="72" rx="8"/>
+</svg>
+</div>
+<div class="words">
+  <h1 class="name">Queenswood</h1>
+  <p class="tag">Open-source core banking.</p>
+</div>
+</div>
+</body>
+</html>

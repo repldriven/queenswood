@@ -1,0 +1,10 @@
+body { margin: 0; padding: 20px; background: var(--surface); color: var(--fg); font-family: var(--grotesk); font-size: 14px; -webkit-font-smoothing: antialiased; }
+.pv-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.pv-stack { display: grid; gap: 16px; }
+.pv-grid { display: grid; gap: 16px; }
+.pv-cell { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.pv-label { font-family: var(--mono); font-size: 11px; color: var(--fg-muted); min-width: 64px; }
+.pv-frame { border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; background: var(--surface); }
+.pv-unstick .nav { position: relative !important; top: auto !important; }
+.pv-sidenav { position: relative; height: 360px; width: 320px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.pv-sidenav .sidenav { position: relative !important; top: auto !important; height: 100% !important; border-right: none !important; }

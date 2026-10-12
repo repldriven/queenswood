@@ -1,0 +1,440 @@
+{
+  "fonts": {
+    "from": "site/assets/fonts",
+    "files": [
+      {
+        "family": "Geist",
+        "file": "geist-latin-300-normal.woff2",
+        "weight": "300",
+        "style": "normal"
+      },
+      {
+        "family": "Geist",
+        "file": "geist-latin-400-normal.woff2",
+        "weight": "400",
+        "style": "normal"
+      },
+      {
+        "family": "Geist",
+        "file": "geist-latin-500-normal.woff2",
+        "weight": "500",
+        "style": "normal"
+      },
+      {
+        "family": "Geist",
+        "file": "geist-latin-600-normal.woff2",
+        "weight": "600",
+        "style": "normal"
+      },
+      {
+        "family": "Geist Mono",
+        "file": "geist-mono-latin-400-normal.woff2",
+        "weight": "400",
+        "style": "normal"
+      },
+      {
+        "family": "Geist Mono",
+        "file": "geist-mono-latin-500-normal.woff2",
+        "weight": "500",
+        "style": "normal"
+      },
+      {
+        "family": "Cormorant Garamond",
+        "file": "cormorant-garamond-latin-500-normal.woff2",
+        "weight": "500",
+        "style": "normal"
+      },
+      {
+        "family": "Cormorant Garamond",
+        "file": "cormorant-garamond-latin-600-normal.woff2",
+        "weight": "600",
+        "style": "normal"
+      },
+      {
+        "family": "Cormorant Garamond",
+        "file": "cormorant-garamond-latin-500-italic.woff2",
+        "weight": "500",
+        "style": "italic"
+      }
+    ],
+    "licences": [
+      "geist-OFL.txt",
+      "geist-mono-OFL.txt",
+      "cormorant-garamond-OFL.txt"
+    ]
+  },
+  "type": [
+    {
+      "name": "Brand",
+      "family": "serif",
+      "styles": [
+        {
+          "name": "type-display",
+          "fontSize": "92px",
+          "lineHeight": 1.02,
+          "fontWeight": 500,
+          "usage": "The marketing hero, scaling down to 46px on a phone. One per page.",
+          "letterSpacing": "-0.01em",
+          "sample": "Open-source core banking."
+        },
+        {
+          "name": "type-section",
+          "fontSize": "56px",
+          "lineHeight": 1.04,
+          "fontWeight": 500,
+          "usage": "Section headings on the marketing site, scaling down to 34px, at most 18ch wide.",
+          "letterSpacing": "-0.01em",
+          "sample": "General ledger and trial balance"
+        },
+        {
+          "name": "type-card-title",
+          "fontSize": "22px",
+          "lineHeight": 1.15,
+          "fontWeight": 500,
+          "usage": "CardHeader's title.",
+          "letterSpacing": "-0.005em",
+          "sample": "One unified API. OpenAPI is the contract."
+        },
+        {
+          "name": "type-emphasis",
+          "fontSize": "56px",
+          "lineHeight": 1.04,
+          "fontWeight": 500,
+          "usage": "An italic phrase inside a serif heading, in gold-deep.",
+          "letterSpacing": "-0.01em",
+          "sample": "core banking.",
+          "fontStyle": "italic"
+        }
+      ]
+    },
+    {
+      "name": "Product",
+      "family": "grotesk",
+      "styles": [
+        {
+          "name": "type-page-title",
+          "fontSize": "22px",
+          "lineHeight": 1.15,
+          "fontWeight": 500,
+          "usage": "PageHeader's and Drawer's title.",
+          "letterSpacing": "-0.005em",
+          "sample": "Products"
+        },
+        {
+          "name": "type-lede",
+          "fontSize": "20px",
+          "lineHeight": 1.5,
+          "fontWeight": 400,
+          "usage": "The marketing site's lede paragraph, scaling down to 17px, at most 56ch wide.",
+          "sample": "Queenswood runs the banking behind it."
+        },
+        {
+          "name": "type-item-title",
+          "fontSize": "17px",
+          "lineHeight": 1.3,
+          "fontWeight": 500,
+          "usage": "Feature item headings on the marketing site.",
+          "sample": "Configurable products"
+        },
+        {
+          "name": "type-panel-title",
+          "fontSize": "15px",
+          "lineHeight": 1.3,
+          "fontWeight": 500,
+          "usage": "PanelHead's title.",
+          "sample": "Runs"
+        },
+        {
+          "name": "type-body",
+          "fontSize": "14px",
+          "lineHeight": 1.55,
+          "fontWeight": 400,
+          "usage": "Body copy in a Card; the text inside an Input.",
+          "sample": "Capabilities and limits are records."
+        },
+        {
+          "name": "type-ui",
+          "fontSize": "13px",
+          "lineHeight": 1.2,
+          "fontWeight": 500,
+          "usage": "Button labels, Field labels, Tabs, an emphasised table cell.",
+          "letterSpacing": "0.005em",
+          "sample": "New product"
+        },
+        {
+          "name": "type-cell",
+          "fontSize": "13px",
+          "lineHeight": 1.4,
+          "fontWeight": 400,
+          "usage": "Table cells, a PageHeader's sub line.",
+          "sample": "GBP Current Account"
+        },
+        {
+          "name": "type-hint",
+          "fontSize": "12px",
+          "lineHeight": 1.4,
+          "fontWeight": 400,
+          "usage": "A Field's hint.",
+          "sample": "Basis points. 100 bps = 1.00%."
+        },
+        {
+          "name": "type-badge",
+          "fontSize": "11px",
+          "lineHeight": 1,
+          "fontWeight": 500,
+          "usage": "Badge labels, always lowercase.",
+          "letterSpacing": "0.02em",
+          "sample": "published"
+        }
+      ]
+    },
+    {
+      "name": "Data",
+      "family": "mono",
+      "styles": [
+        {
+          "name": "type-code-block",
+          "fontSize": "13.5px",
+          "lineHeight": 1.65,
+          "fontWeight": 400,
+          "usage": "Code blocks on the marketing site.",
+          "sample": "curl -X POST /v1/organisations"
+        },
+        {
+          "name": "type-code",
+          "fontSize": "12px",
+          "lineHeight": 1.4,
+          "fontWeight": 400,
+          "usage": "Ids, codes and amounts in a table cell; an Input's affix.",
+          "sample": "prd.01ks5kya"
+        },
+        {
+          "name": "type-eyebrow",
+          "fontSize": "11.5px",
+          "lineHeight": 1.4,
+          "fontWeight": 400,
+          "usage": "The marketing site's eyebrow, uppercase, gold-deep, led by a 20px rule.",
+          "letterSpacing": "0.2em",
+          "sample": "FOR FINANCE"
+        },
+        {
+          "name": "type-kicker",
+          "fontSize": "11px",
+          "lineHeight": 1.4,
+          "fontWeight": 400,
+          "usage": "PageHeader's kicker, uppercase, gold-deep. A CardHeader's kicker tracks at 0.16em.",
+          "letterSpacing": "0.08em",
+          "sample": "GALACTIC BANK"
+        },
+        {
+          "name": "type-th",
+          "fontSize": "10px",
+          "lineHeight": 1.4,
+          "fontWeight": 500,
+          "usage": "Table headers, uppercase, fg-muted.",
+          "letterSpacing": "0.08em",
+          "sample": "AVAILABLE BALANCE"
+        }
+      ]
+    }
+  ],
+  "spacing": [
+    {
+      "name": "space-4",
+      "value": "4px",
+      "usage": "Between a PageHeader's kicker, title and sub."
+    },
+    {
+      "name": "space-6",
+      "value": "6px",
+      "usage": "Between a Field's label and its control; between a Button's icon and label."
+    },
+    {
+      "name": "space-8",
+      "value": "8px",
+      "usage": "Between Buttons in an action cluster."
+    },
+    {
+      "name": "space-12",
+      "value": "12px",
+      "usage": "Between a Card's header, body and footer; an Input's side padding."
+    },
+    {
+      "name": "space-16",
+      "value": "16px",
+      "usage": "A Button's and a table cell's side padding; compact Card padding."
+    },
+    {
+      "name": "space-18",
+      "value": "18px",
+      "usage": "Between Fields in a Drawer's body."
+    },
+    {
+      "name": "space-24",
+      "value": "24px",
+      "usage": "Default Card padding; between a page's sections; a Drawer body's top and bottom."
+    },
+    {
+      "name": "space-28",
+      "value": "28px",
+      "usage": "A Drawer's side padding; a page's top padding."
+    },
+    {
+      "name": "space-36",
+      "value": "36px",
+      "usage": "Spacious Card padding; a page's side padding."
+    }
+  ],
+  "radius": [
+    {
+      "name": "radius-3",
+      "value": "3px",
+      "usage": "Inline code."
+    },
+    {
+      "name": "radius-4",
+      "value": "4px",
+      "usage": "Squared mono chips: Phase, GlClass, GlType, RolePill, Tag. A Checkbox's box."
+    },
+    {
+      "name": "radius-6",
+      "value": "6px",
+      "usage": "Controls: Buttons, Inputs, Selects, Tabs, Menu items, a Table's frame."
+    },
+    {
+      "name": "radius-8",
+      "value": "8px",
+      "usage": "Panels, the toast, ChangesetTable, RawCalls."
+    },
+    {
+      "name": "radius-10",
+      "value": "10px",
+      "usage": "SceneCard, TrialBalanceCard, ProgressSpine."
+    },
+    {
+      "name": "radius-12",
+      "value": "12px",
+      "usage": "Cards and CodeCards."
+    },
+    {
+      "name": "radius-pill",
+      "value": "999px",
+      "usage": "Badges, Chips, RemovableChips."
+    }
+  ],
+  "shadow": [
+    {
+      "name": "shadow-card-hover",
+      "value": {
+        "light": "0 8px 24px -10px rgba(20, 15, 10, 0.14)",
+        "dark": "0 8px 24px -10px rgba(0, 0, 0, 0.5)"
+      },
+      "usage": "A clickable Card on hover, with a 1px lift."
+    },
+    {
+      "name": "shadow-menu",
+      "value": {
+        "light": "0 14px 36px -12px rgba(20, 15, 10, 0.28)",
+        "dark": "0 14px 36px -12px rgba(0, 0, 0, 0.6)"
+      },
+      "usage": "The Menu popover."
+    },
+    {
+      "name": "shadow-drawer",
+      "value": {
+        "light": "-16px 0 48px -16px rgba(20, 15, 10, 0.12)",
+        "dark": "-16px 0 48px -16px rgba(0, 0, 0, 0.5)"
+      },
+      "usage": "The Drawer's left edge."
+    },
+    {
+      "name": "shadow-toast",
+      "value": "0 8px 28px -8px rgba(0, 0, 0, 0.45)",
+      "usage": "The toast."
+    }
+  ],
+  "size": [
+    {
+      "name": "size-button-sm",
+      "value": "26px",
+      "usage": "Small Button height."
+    },
+    {
+      "name": "size-button-md",
+      "value": "36px",
+      "usage": "Default Button height."
+    },
+    {
+      "name": "size-button-lg",
+      "value": "44px",
+      "usage": "Large Button height."
+    },
+    {
+      "name": "size-input",
+      "value": "40px",
+      "usage": "Input, Select and SearchField height."
+    },
+    {
+      "name": "size-input-sm",
+      "value": "34px",
+      "usage": "Compact SearchField height."
+    },
+    {
+      "name": "size-badge",
+      "value": "22px",
+      "usage": "Badge height."
+    },
+    {
+      "name": "size-appnav",
+      "value": "57px",
+      "usage": "AppNav height, and so a Sidenav's top."
+    },
+    {
+      "name": "size-sidenav",
+      "value": "220px",
+      "usage": "Sidenav width, expanded."
+    },
+    {
+      "name": "size-sidenav-collapsed",
+      "value": "60px",
+      "usage": "Sidenav width, icon-only."
+    },
+    {
+      "name": "size-drawer",
+      "value": "420px",
+      "usage": "Drawer width."
+    }
+  ],
+  "zIndex": [
+    {
+      "name": "z-sidenav-handle",
+      "value": "5",
+      "usage": "The Sidenav's drag handle."
+    },
+    {
+      "name": "z-appnav",
+      "value": "30",
+      "usage": "AppNav."
+    },
+    {
+      "name": "z-drawer-scrim",
+      "value": "40",
+      "usage": "The Drawer's scrim."
+    },
+    {
+      "name": "z-drawer",
+      "value": "50",
+      "usage": "The Drawer."
+    },
+    {
+      "name": "z-menu",
+      "value": "60",
+      "usage": "The Menu popover, above its backdrop at 59."
+    },
+    {
+      "name": "z-toast",
+      "value": "80",
+      "usage": "The toast."
+    }
+  ]
+}

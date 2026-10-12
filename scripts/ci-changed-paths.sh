@@ -37,6 +37,9 @@ fi
 CONSOLE_TREES='^(bases/console/|components/ui/|package\.json$|yarn\.lock$|\.yarnrc\.yml$)'
 # The demos' customer apps: JS bases beside the console, in no image yet.
 DEMO_TREES='^bases/demo-[a-z-]+-app/'
+# The design system's producer and what it reads: ui's sources, the fonts
+# it copies and the JS toolchain. Ships nowhere.
+DESIGN_SYSTEM_TREES='^(scripts/ui/|components/ui/(src/|package\.json$)|site/assets/fonts/|package\.json$|yarn\.lock$|\.yarnrc\.yml$)'
 # Dev-only brick: renders docs/diagrams to committed SVGs, ships nowhere.
 DIAGRAM_TREES='^components/excalidraw/'
 
@@ -97,8 +100,12 @@ fi
 # paths, and scripts/ holds the hooks and check-versions.sh.
 bucket clojure "$WORKSPACE|^(development/|scripts/)|^\.github/workflows/test\.yml$" "$clojure_files"
 
-# Builds the console bundle, the ui showcase and the demo apps.
-bucket js "$CONSOLE_TREES|$DEMO_TREES|$BUNDLED_DOCS|$MONO_IMPORT|^infra/docker/console/|^\.github/workflows/test\.yml$"
+# Builds the console bundle, the ui showcase, the design system and the
+# demo apps.
+bucket js "$CONSOLE_TREES|$DEMO_TREES|$DESIGN_SYSTEM_TREES|$BUNDLED_DOCS|$MONO_IMPORT|^infra/docker/console/|^\.github/workflows/test\.yml$"
+
+# One step of the js job, which runs it only when this is true.
+bucket design_system "$DESIGN_SYSTEM_TREES|^\.github/workflows/test\.yml$"
 
 bucket helm '^infra/helm/|^\.github/workflows/test\.yml$'
 
