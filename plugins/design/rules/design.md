@@ -79,29 +79,31 @@ the SUM index on `transaction-legs` over `amount`, grouped by
 `[bank_id, product_type, currency, balance_type, balance_status,
 side]`, which the Record Layer keeps by atomic mutation. A cash
 account's own `default` and `interest-accrued` buckets are the sums of
-its legs, read from the per-account SUM index, so `balance/apply-legs`
+its legs, read from the per-account SUM index, so `balance/accept-legs`
 applies a leg on one only after it is recorded in the same
 transaction, and writes the bucket's row only when it opens. 2400
 interest-payable is the sum of the customers' `interest-accrued /
 posted` buckets the same way. A posting adds no leg for a control:
-call `ledger-account/ensure-controls` on a posting's legs before
+call `ledger-account/accept-legs` on a posting's legs before
 recording them, which refuses `:gl/missing-currency-account` or
 `:ledger-account/closed` and returns the legs unchanged. 1200
 pending-outbound holds none either: its balance mirrors every customer
-account's `default / pending-outgoing` balance, its legs stay in each
-transaction's journal, and `ledger-account/stored-legs` drops them
-before `balance/apply-legs`. 1100 cash-at-correspondent and 5100
-interest-expense hold none: each balance is the sum of its own legs,
-read from the SUM index on `transaction-legs` through
-`transaction/sum-legs`, and `stored-legs` leaves their legs out of the
-balance writes too. Read a ledger account's
-balance through
+account's `default / pending-outgoing` balance, and its legs stay in
+each transaction's journal. 1100 cash-at-correspondent, 2500 suspense
+and 5100 interest-expense hold none: each balance is the sum of its own
+legs, read from the SUM index on `transaction-legs` through
+`transaction/sum-legs`, so no ledger account keeps a stored balance.
+Give every leg a `product_type`, required on the record: its cash
+account's, or `general-ledger` on a ledger account. Hand
+`balance/accept-legs` a recorded posting's every leg: it takes those of
+a cash account's product type and passes over the `general-ledger`
+ones. Read a ledger account's balance through
 `ledger-account/get-balances`, never `balance-query` directly, at
 snapshot except a guard deciding inside its own transaction, and read
-a day's payment count or sum for a limit check at snapshot. A leg on a
-cash account carries its account's `product_type`, and every leg its
-`bank_id`, stamped when it is recorded, so every cash account's legs
-are summed into its own control. 2500 keeps a stored balance. An
+a day's payment count or sum for a limit check at snapshot. Every leg
+carries its `bank_id`, stamped when it is recorded, and a cash
+account's leg its account's `product_type`, so every cash account's
+legs are summed into its own control. An
 interest run appends: a chunk's accrual is one transaction per
 currency, crediting each account's `interest-accrued` bucket and
 debiting 5100, its capitalisation one per account from that bucket to
@@ -110,7 +112,8 @@ is the sum of the `carry_delta` on the account's accrual rows.
 See [ADR-0037](../../../docs/adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md),
 [ADR-0038](../../../docs/adr/0038-an-outbound-submit-writes-no-row-every-payment-shares.md),
 [ADR-0039](../../../docs/adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md),
-[ADR-0042](../../../docs/adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md).
+[ADR-0042](../../../docs/adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md),
+[ADR-0048](../../../docs/adr/0048-suspenses-balance-is-the-sum-of-its-legs.md).
 
 ## Record meta-data evolves by declared versions
 
@@ -132,9 +135,10 @@ Where every installation's FoundationDB is emptied before it deploys,
 the declaration MAY be reset to `version: 1`, every `added` and
 `modified` at 1, with no `since` or `former-indexes` and no deprecated
 fields; the guard compares a version-1 tree with the last release's
-tag and skips it while that release is above version 1. Run the migrator before the services roll: it opens every
-store and
-builds online each index of the store's record type the open left
+tag and skips it while that release is above version 1, or is the one
+the declaration names as `resets-after`, which a reset after a release
+at version 1 carries. Run the migrator before the services roll: it
+opens every store and builds online each index of the store's record type the open left
 disabled, which a store past a few hundred records leaves a new one.
 `just test-all` runs the guard whatever changed.
 Commands: `just test-all`.

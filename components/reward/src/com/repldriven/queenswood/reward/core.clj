@@ -73,10 +73,10 @@
            [house (house-account config txn bank-id (:currency account))
             reward (or existing (domain/new-reward account amount))
             transaction (domain/reward-transaction house account reward)
-            legs (ledger-accounts/ensure-controls txn
-                                                  bank-id
-                                                  (:currency reward)
-                                                  (:legs transaction))
+            legs (ledger-accounts/accept-legs txn
+                                              bank-id
+                                              (:currency reward)
+                                              (:legs transaction))
             posted (transactions/record-and-post txn
                                                  bank-id
                                                  (assoc transaction

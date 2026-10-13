@@ -131,10 +131,12 @@
         (get schema-proto))))
 
 (defn- reset?
-  "Whether `new` starts the meta-data again at version 1 below `old`,
-  which only a store emptied before it is deployed can take."
-  [old new]
-  (and (= 1 (get new "version")) (< 1 (get old "version"))))
+  "Whether `new` starts the meta-data again at version 1: below `old`,
+  or after `tag` where that is the release it names as `resets-after`.
+  Only a store emptied before it is deployed can take either."
+  [old new tag]
+  (and (= 1 (get new "version"))
+       (or (< 1 (get old "version")) (= tag (get new "resets-after")))))
 
 (defn- meta-data
   [root include-path]
@@ -161,7 +163,8 @@
                 "evolve from")
 
        (reset? (declaration (io/file dir declaration-path))
-               (declaration (io/file root declaration-path)))
+               (declaration (io/file root declaration-path))
+               tag)
        (do (println "the working tree resets the meta-data to version 1 from"
                     tag
                     "so there is nothing to evolve from")

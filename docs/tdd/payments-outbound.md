@@ -180,13 +180,13 @@ sequenceDiagram
     end
     PP->>DB: read the debtor's CashAccount
     opt the ledger account id cache holds their ids
-    PP->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, without waiting
+    PP->>DB: read 🟧 1200, 🟧 1100, 🟦 2500 and 🟥 5100's LedgerAccounts, in one batch, without waiting
     end
     PP->>DB: read 🟧 1200's LedgerAccount
     PP->>DB: read today's OutboundPayment count and sum, at snapshot
     PP->>DB: save Transaction and the two TransactionLegs, in one batch
     PP->>DB: write transaction-posted to the bank's activity log
-    PP->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PP->>DB: read 🟧 1200, 🟧 1100, 🟦 2500 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PP->>DB: sum the debtor's legs by bucket, at snapshot unless a limit floors its balance
     PP->>DB: read every Balance row of the debtor's account, at snapshot
     opt the debtor's default/pending-outgoing bucket has no row
@@ -214,7 +214,7 @@ The submission refuses a scheme the bank's provider does not declare,
 then checks the debtor, the capability, the daily count and the instant
 and daily amount limits. The bank's policies are read again only when
 the policy stamp has moved since they were cached. Where the ledger
-account id cache holds their ids, one read fetches 1200, 1100, 5100 and
+account id cache holds their ids, one read fetches 1200, 1100, 2500, 5100 and
 the debtor's control at once, and each later read of one takes it. It
 reserves the amount: a debit on the debtor's `default /
 pending-outgoing` bucket, which drops the available balance and leaves
@@ -572,14 +572,14 @@ sequenceDiagram
     end
     PE->>DB: read the debtor's CashAccount
     opt the ledger account id cache holds their ids
-    PE->>DB: read 🟧 1200, 🟧 1100, 🟥 5100 and the debtor's control LedgerAccounts, in one batch, without waiting
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟦 2500, 🟥 5100 and the debtor's control LedgerAccounts, in one batch, without waiting
     end
     PE->>DB: read 🟧 1200's LedgerAccount
     PE->>DB: read 🟧 1100's LedgerAccount
     PE->>DB: read the control LedgerAccount the debtor's posted leg rolls into
     PE->>DB: save Transaction and the four TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟦 2500 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: sum the debtor's legs by bucket, at snapshot
     PE->>DB: read every Balance row of the debtor's account, at snapshot
     opt a bucket a leg reaches has no row
@@ -709,13 +709,13 @@ sequenceDiagram
     end
     end
     opt their ids cached
-    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, without waiting
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟦 2500 and 🟥 5100's LedgerAccounts, in one batch, without waiting
     end
     PE->>DB: read 🟧 1200's LedgerAccount
     PE->>DB: read the debtor's CashAccount
     PE->>DB: save Transaction, reversing the reservation, and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟦 2500 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: sum the debtor's legs by bucket, at snapshot unless a limit caps its balance
     PE->>DB: read every Balance row of the debtor's account, at snapshot
     opt the debtor's default/pending-outgoing bucket has no row
@@ -921,13 +921,13 @@ sequenceDiagram
     end
     PE->>DB: read the debtor's CashAccount
     opt their ids cached
-    PE->>DB: read 🟧 1200, 🟧 1100, 🟥 5100 and the debtor's control LedgerAccounts, in one batch, without waiting
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟦 2500, 🟥 5100 and the debtor's control LedgerAccounts, in one batch, without waiting
     end
     PE->>DB: read 🟧 1100's LedgerAccount
     PE->>DB: read the control LedgerAccount the debtor's leg rolls into
     PE->>DB: save Transaction outbound-return and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟦 2500 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: sum the debtor's legs by bucket, at snapshot unless a limit caps its balance
     PE->>DB: read every Balance row of the debtor's account, at snapshot
     opt the debtor's default/posted bucket has no row

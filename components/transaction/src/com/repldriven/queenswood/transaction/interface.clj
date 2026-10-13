@@ -14,7 +14,7 @@
 
 (defn record-transaction
   "Record a transaction and its legs without updating balances.
-  Callers must call `apply-legs` separately when balance side-
+  Callers must call `accept-legs` separately when balance side-
   effects are required.
 
   Args:

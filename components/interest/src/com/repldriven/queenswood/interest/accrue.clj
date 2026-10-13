@@ -105,7 +105,7 @@
                                              accrued
                                              business-day)
        _ (reduce (fn [_ transaction]
-                   (let [checked (ledger-accounts/ensure-controls
+                   (let [checked (ledger-accounts/accept-legs
                                   txn
                                   bank-id
                                   (:currency transaction)

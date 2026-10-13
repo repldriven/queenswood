@@ -238,11 +238,11 @@ rolls into its control, 2400 and the deposit control of the
 account's product type, so the one entry moves both sides of the
 bank's books.
 
-The chunk records every account's transaction and then applies
-all their legs with one `apply-legs`, which reads the accounts'
-sums in one round trip: at snapshot, since a credit reads nothing
-a payment writes, unless a limit in force caps the account's
-balance, as
+The chunk records every account's transaction and then has the
+accounts accept all their legs with one `balance/accept-legs`, which
+reads the accounts' sums in one round trip: at snapshot, since a
+credit reads nothing a payment writes, unless a limit in force caps
+the account's balance, as
 [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
 decides.
 

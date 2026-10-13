@@ -111,7 +111,7 @@ Each cash-account rolls up to a GL **control account** via its
   currency;
 - `get-balances` — a ledger account's balances, a control's summed
   from its sub-ledger;
-- `ensure-controls` — refuse a posting whose posted default
+- `accept-legs` — refuse a posting whose posted default
   sub-ledger leg rolls into a control that is missing or closed,
   keyed off the leg's `:product-type`.
 
@@ -125,7 +125,7 @@ graph LR
     L["LedgerAccount<br/>(GL: controls + detail)<br/>ledger-account"]
     A["CashAccount<br/>(customer + own-funds)<br/>cash-account"]
     BANK["new-bank: seed chart<br/>+ own-funds account<br/>bank"]
-    EL["ensure-controls<br/>(product-type → control)<br/>ledger-account"]
+    EL["accept-legs<br/>(product-type → control)<br/>ledger-account"]
     TX["Legs + Balances<br/>transaction<br/>balance"]
     FDB[("FDB<br/>one transaction")]
 
@@ -400,16 +400,17 @@ not summed, so the control moves when the payment posts. A
 customer `interest-accrued` bucket is summed into 2400 rather than
 the deposit control, so interest is counted once, on 2400, until
 capitalisation moves it to the default bucket and so to 2100; see
-[interest.md](interest.md). 2500 is a detail account, posted to
-directly. 1100 and 5100 are detail accounts whose balance is the
-sum of their legs, read from a SUM index on `transaction-legs` over
-`amount` grouped by account, bucket and side: every posting naming
-one still records its leg, but the leg is left out of the balance
-writes, so settlements in one bank share no row on 1100, and an
-interest run's chunks none on 5100; see
-[ADR-0039](../adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md)
+[interest.md](interest.md). 1100, 2500 and 5100 are detail accounts,
+posted to directly, whose balance is the sum of their legs, read from
+a SUM index on `transaction-legs` over `amount` grouped by account,
+bucket and side: every posting naming one still records its leg, but
+the leg is left out of the balance writes, so settlements in one bank
+share no row on 1100, an interest run's chunks none on 5100, and no
+account in the chart keeps a stored balance; see
+[ADR-0039](../adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md),
+[ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
 and
-[ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md).
+[ADR-0048](../adr/0048-suspenses-balance-is-the-sum-of-its-legs.md).
 
 A bucket a leg opens takes the leg's `:product-type`, else that of
 the account's existing buckets, and is tagged
@@ -424,8 +425,9 @@ rolls into a control, read from the same SUM index with credit
 and debit swapped. The outbound reservation still carries a leg
 crediting 1200 beside the customer's debit, and the settlement or
 a reversal one debiting it, so every transaction balances, but
-`stored-legs` drops those legs before the balances are written, so
-outbound payments in one bank share no row on 1200; see
+`balance/accept-legs` passes over those legs, which are tagged
+`general-ledger`, so outbound payments in one bank share no row on
+1200; see
 [ADR-0038](../adr/0038-an-outbound-submit-writes-no-row-every-payment-shares.md)
 and [payments.md](payments.md).
 
@@ -585,8 +587,8 @@ One movement deliberately does not reach a control:
   1200 mirrors and no deposit control sums. The deposit control
   moves at settlement, when the customer's posted debit is recorded
   — see [payments.md](payments.md).
-A posting site calls `ensure-controls` on its legs before recording
-them. For each posted default leg carrying a sub-ledger
+A posting site calls `ledger-account/accept-legs` on its legs before
+recording them. For each posted default leg carrying a sub-ledger
 `:product-type`, it resolves the control that product type maps to,
 and for each posted interest-accrued one 2400, reading the
 `LedgerAccount` record, and returns the legs unchanged.
@@ -603,8 +605,8 @@ The `interest` brick raises its own
 a posting whose control was missing, the other an interest run
 that found no chart to post against.
 
-Interest calls `ensure-controls` on each transaction a chunk
-records: accrual's credits each account's interest-accrued bucket
+Interest calls `ledger-account/accept-legs` on each transaction a
+chunk records: accrual's credits each account's interest-accrued bucket
 and debits 5100, and capitalisation's moves each account's interest
 from that bucket to its default one, both legs carrying the
 account's product type.
@@ -704,7 +706,7 @@ guards:
 - the `:ledger-account` close capability, which a tier may deny.
 
 A closed account is not quietly skipped by a posting.
-`find-by-code` and `ensure-controls` both reject
+`find-by-code` and `accept-legs` both reject
 `:ledger-account/closed`, so a posting that needed the account,
 or moved a closed control's sub-ledger, fails.
 
@@ -747,7 +749,7 @@ at any layer holds more than one currency.
   `find-by-code`, `get-account`, `list-accounts`, `get-balances`
   (a control's summed from its sub-ledger),
   `product-type->control-code`, `chart-number`,
-  `debit-normal?`, and `ensure-controls` (refuse a posting whose
+  `debit-normal?`, and `accept-legs` (refuse a posting whose
   control is missing or closed, keyed on a leg's
   `:product-type`).
 - **`bank`** holds the canonical chart template in a
@@ -761,7 +763,7 @@ at any layer holds more than one currency.
 - **`payment`** resolves GL accounts via
   `ledger-account/find-by-code`, tags its customer legs with
   `:product-type`, and checks their controls via
-  `ensure-controls`.
+  `accept-legs`.
 - **`interest`** resolves 5100 and 2400 through its own
   `domain/chart.clj` before a run touches an account: a chunk's
   accrual debits 5100 and credits each account's interest-accrued
@@ -818,7 +820,7 @@ A caller that posts cash-account legs:
 
 1. Builds the legs, each tagged with its account's
    `:product-type`.
-2. Calls `ledger-account/ensure-controls` on them, inside the
+2. Calls `ledger-account/accept-legs` on them, inside the
    transaction it is about to record in.
 3. Calls `transaction/record-transaction` with the legs, which
    `validate-legs` checks and commits.
@@ -826,7 +828,7 @@ A caller that posts cash-account legs:
 A caller that posts GL-only legs (interest's aggregate entries,
 an opening journal) skips step 2: nothing carries a
 `:product-type`, so no control is checked. A caller that posts
-both writes them in one call, and `ensure-controls` checks only
+both writes them in one call, and `accept-legs` checks only
 the cash-account legs that roll into a control.
 
 ## Alternatives Considered
@@ -1040,7 +1042,7 @@ the cash-account legs that roll into a control.
   emerges)
 - `ledger-account` brick interface (the `LedgerAccount`
   record type, `find-by-code`, `close-account`, `get-balances`,
-  `ensure-controls`, `product-type->control-code`)
+  `accept-legs`, `product-type->control-code`)
 - `transaction` / `balance` brick interfaces (the
   leg + bucket substrate, shared across cash and ledger ids)
 - `bank` brick interface (chart seeding and own-funds

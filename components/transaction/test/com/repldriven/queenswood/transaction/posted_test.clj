@@ -9,6 +9,7 @@
     [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.avro.interface :as avro]
+    [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
      [with-test-system nom-test>]]
@@ -38,8 +39,14 @@
                     :transaction-type :transaction-type-inbound-transfer
                     :currency "GBP"
                     :scheme-account-id "acc.1"
-                    :legs [(leg "gl.1100" :leg-side-debit 500)
-                           (leg "acc.1" :leg-side-credit 500)]})]
+                    :legs [(leg "gl.1100"
+                                :leg-side-debit 500
+                                :product-type
+                                :account-product-type-general-ledger)
+                           (leg "acc.1"
+                                :leg-side-credit 500
+                                :product-type
+                                :account-product-type-sub-ledger-current)]})]
      (nom-test> [_ recorded
                  _ (fdb/process-changelog
                     (:record-db config)
@@ -66,3 +73,22 @@
                 (mapv (fn [l] [(:account-id l) (:amount l)]) (:legs data)))))
        (testing "and the account the scheme moved the money through"
          (is (= "acc.1" (:scheme-account-id data))))))))
+
+(deftest leg-without-product-type-is-not-recorded-test
+  (with-test-system
+   [sys "classpath:transaction/application-test.yml"]
+   (let [config {:record-db (system/instance sys [:fdb :record-db])
+                 :record-store (system/instance sys [:fdb :store])}
+         result (SUT/record-transaction
+                 config
+                 {:bank-id "bnk.2"
+                  :idempotency-key "k-untagged"
+                  :transaction-type :transaction-type-inbound-transfer
+                  :currency "GBP"
+                  :legs [(leg "gl.1100"
+                              :leg-side-debit 500
+                              :product-type
+                              :account-product-type-general-ledger)
+                         (leg "acc.1" :leg-side-credit 500)]})]
+     (is (error/anomaly? result))
+     (is (= :transaction/save (error/kind result))))))

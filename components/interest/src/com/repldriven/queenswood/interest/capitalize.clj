@@ -15,7 +15,7 @@
   [txn bank-id transactions]
   (let-nom>
     [_ (reduce (fn [_ [currency txs]]
-                 (let [checked (ledger-accounts/ensure-controls
+                 (let [checked (ledger-accounts/accept-legs
                                 txn
                                 bank-id
                                 currency
@@ -54,12 +54,12 @@
               (record txn bank-id (mapv (comp :transaction second) swept))
               [])
        _ (when (seq legs)
-           (balances/apply-legs txn
-                                bank-id
-                                legs
-                                :transaction-type-interest-capitalization
-                                {:policies (policy/platform-policies
-                                            policies)}))]
+           (balances/accept-legs txn
+                                 bank-id
+                                 legs
+                                 :transaction-type-interest-capitalization
+                                 {:policies (policy/platform-policies
+                                             policies)}))]
       (into {}
             (map (fn [[account sweep]] [(:account-id account) sweep]))
             swept))))

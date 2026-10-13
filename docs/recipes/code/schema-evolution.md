@@ -144,6 +144,10 @@ unreadable, and the guard runs the same validator between the last
   compares a working tree at version 1 with the last release's tag, not
   the last `stable-*` tag, and skips it while that release is above
   version 1.
+- Reset again after a release that carried version 1, where every
+  installation that deployed it is emptied first, by naming that
+  release in the declaration as `resets-after`. The guard skips a
+  version-1 tree while the release it names is still the last.
 
 ## Discussion
 
@@ -197,6 +201,9 @@ emptied first. Until a release carries version 1, no installation
 holds a store at version 1 that it has not emptied, so a version-1 tree
 is measured against the last release and stays free to change; the
 first release at version 1 ends that, and from it each change evolves.
+A declaration that names that release as `resets-after` starts again
+from it, and the next release ends that in turn, since it is no longer
+the one named.
 
 A field stays in the descriptor once written because the validator
 compares descriptors, not data, and cannot know no stored record

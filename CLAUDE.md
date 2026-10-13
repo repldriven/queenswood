@@ -73,11 +73,13 @@ non-trivial work on their topic.
   the sum of its sub-ledger's, read from SUM indexes the Record Layer
   keeps by atomic mutation, so a posting writes only the accounts its
   legs name; 1200 pending-outbound mirrors the customers' pending-outgoing
-  balances the same way, and 1100 cash-at-correspondent sums its own legs.
+  balances the same way, and 1100 cash-at-correspondent and 2500 suspense
+  sum their own legs, so no account keeps a stored balance.
   See
   [ADR-0037](docs/adr/0037-a-control-accounts-balance-is-the-sum-of-the-balances-that-roll-into-it.md),
   [ADR-0038](docs/adr/0038-an-outbound-submit-writes-no-row-every-payment-shares.md),
-  [ADR-0039](docs/adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md)
+  [ADR-0039](docs/adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md),
+  [ADR-0048](docs/adr/0048-suspenses-balance-is-the-sum-of-its-legs.md)
   and [tdd/chart-of-accounts.md](docs/tdd/chart-of-accounts.md).
 - **Schema evolution** — the declared meta-data `version`, `added`
   and `modified` per index, former indexes, deprecating a proto field

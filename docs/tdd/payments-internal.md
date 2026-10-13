@@ -209,8 +209,8 @@ sequenceDiagram
 
 The command's one FDB transaction checks both accounts are operable and
 in the payment's currency, the capability and the daily count,
-`ensure-controls` checking the control each leg's product type rolls
-into is open in the currency, and then records and posts. The bank's
+`ledger-account/accept-legs` checking the control each leg's product
+type rolls into is open in the currency, and then records and posts. The bank's
 policies are read again only when the policy stamp has moved since they
 were cached. A ledger account's id is cached for 30 seconds once read by
 code, and a cached one is read by id, its load started before the count

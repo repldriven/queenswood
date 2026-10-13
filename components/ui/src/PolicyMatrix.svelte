@@ -4,7 +4,7 @@
      The point of this screen: read DOWN the Domain column and ACROSS to
      see everything that applies to a domain — its capabilities and its
      limits, side by side — without opening anything. One row per domain,
-     grouped into sections (Core Banking / Payments / Identity / Platform)
+     grouped into sections (Core Banking / Payments / Identity / People / Platform)
      with a separator row that counts how many of the section's domains
      the policy governs.
 

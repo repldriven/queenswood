@@ -203,7 +203,7 @@ sequenceDiagram
     Note over PE: the handler fails
     else an opened account
     opt their ids cached
-    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the creditor's control, by id
+    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟦 2500, 🟥 5100 and the creditor's control, by id
     end
     PE->>DB: read 🟧 1100
     PE->>DB: read today's InboundPayment count, and the count and value to the creditor's product type, at snapshot
@@ -211,7 +211,7 @@ sequenceDiagram
     PE->>DB: read the control LedgerAccount the creditor's leg rolls into
     PE->>DB: save Transaction inbound-transfer and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟦 2500 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: sum the creditor's legs by bucket, at snapshot unless a limit caps its balance
     PE->>DB: read every Balance row of the creditor's account, at snapshot
     opt its default/posted bucket opens
@@ -308,7 +308,7 @@ sequenceDiagram
     PE->>DB: read an open hold for the end-to-end id, account and amount
     alt the account is opened, and a check refuses
     opt their ids cached
-    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the creditor's control, by id
+    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟦 2500, 🟥 5100 and the creditor's control, by id
     end
     PE->>DB: read 🟧 1100
     PE->>DB: read today's InboundPayment count, and the count and value to the creditor's product type, at snapshot
@@ -316,15 +316,13 @@ sequenceDiagram
     Note over PE: no checks run
     end
     opt their ids cached
-    PE->>DB: start loading 🟧 1100, 🟧 1200 and 🟥 5100, by id
+    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟦 2500 and 🟥 5100, by id
     end
     PE->>DB: read 🟧 1100
     PE->>DB: read 🟦 2500
     PE->>DB: save Transaction inbound-transfer, DEBIT 🟧 1100 and CREDIT 🟦 2500,<br/>and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
-    PE->>DB: read every Balance row of 🟦 2500
-    PE->>DB: save 🟦 2500's default/posted Balance row
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟦 2500 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: save InboundPayment, suspended with the reason
     PE->>DB: write suspend to the inbound-payments changelog
     PE->>DB: write inbound-payment-suspended to the bank's activity log
@@ -334,8 +332,10 @@ sequenceDiagram
 
 An inbound the receiving account cannot take, because it is not opened
 or a policy refuses it, is kept in the bank's 2500 suspense rather than
-lost, recording the ISO 20022 reason as `suspense-reason-code`. 2500
-keeps a stored row, which only these rare postings write. Both activity
+lost, recording the ISO 20022 reason as `suspense-reason-code`. 2500's
+balance is the sum of its legs, per
+[ADR-0048](../adr/0048-suspenses-balance-is-the-sum-of-its-legs.md),
+so the posting writes no balance row. Both activity
 entries reach `payment/activity-event-processor` as
 [payments-internal.md](payments-internal.md) draws. Under
 `balances: per-account` the `transaction-posted` entry moves the money
@@ -455,7 +455,7 @@ sequenceDiagram
     PE->>DB: read the open hold for the end-to-end id, account and amount
     alt the account is opened
     opt their ids cached
-    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the creditor's control, by id
+    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟦 2500, 🟥 5100 and the creditor's control, by id
     end
     PE->>DB: read 🟧 1100
     PE->>DB: read today's InboundPayment count, and the count and value to the creditor's product type, at snapshot
@@ -463,7 +463,7 @@ sequenceDiagram
     PE->>DB: read the control LedgerAccount the creditor's leg rolls into
     PE->>DB: save Transaction inbound-transfer and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟦 2500 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: sum the creditor's legs by bucket, at snapshot unless a limit caps its balance
     PE->>DB: read every Balance row of the creditor's account, at snapshot
     opt its default/posted bucket opens
@@ -665,13 +665,13 @@ sequenceDiagram
     PE->>DB: read an open hold for the end-to-end id, account and amount
     alt the account is still opened
     opt their ids cached
-    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the creditor's control, by id
+    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟦 2500, 🟥 5100 and the creditor's control, by id
     end
     PE->>DB: read 🟧 1100
     PE->>DB: read the control LedgerAccount the creditor's leg rolls into
     PE->>DB: save Transaction inbound-transfer and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟦 2500 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: sum the creditor's legs by bucket, at snapshot unless a limit caps its balance
     PE->>DB: read every Balance row of the creditor's account, at snapshot
     opt its default/posted bucket opens
@@ -891,15 +891,13 @@ sequenceDiagram
     end
     end
     opt their ids cached
-    PE->>DB: start loading 🟧 1100, 🟧 1200 and 🟥 5100, by id
+    PE->>DB: start loading 🟧 1100, 🟧 1200, 🟦 2500 and 🟥 5100, by id
     end
     PE->>DB: read 🟧 1100
     PE->>DB: read 🟦 2500
     PE->>DB: save Transaction inbound-return, DEBIT 🟦 2500 and CREDIT 🟧 1100,<br/>and the two TransactionLegs, in one batch
     PE->>DB: write transaction-posted to the bank's activity log
-    PE->>DB: read 🟧 1200, 🟧 1100 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
-    PE->>DB: read every Balance row of 🟦 2500
-    PE->>DB: save 🟦 2500's default/posted Balance row
+    PE->>DB: read 🟧 1200, 🟧 1100, 🟦 2500 and 🟥 5100's LedgerAccounts, in one batch, whose legs write no balance
     PE->>DB: save InboundPayment, returned
     PE->>DB: write return to the inbound-payments changelog
     else returned already, a redelivery

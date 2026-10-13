@@ -119,7 +119,8 @@
                :balance-type-interest-accrued :leg-side-credit 3]
               ["acc.2" :account-product-type-sub-ledger-savings
                :balance-type-interest-accrued :leg-side-credit 5]
-              ["led.expense" nil :balance-type-default :leg-side-debit 8]]
+              ["led.expense" :account-product-type-general-ledger
+               :balance-type-default :leg-side-debit 8]]
              (mapv (juxt :account-id :product-type :balance-type :side :amount)
                    legs)))))
   (testing "an overdrawn account's accrual is a debit"

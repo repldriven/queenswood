@@ -14,7 +14,7 @@
   This brick owns: the product-type to control-code mapping, the
   `new-account` creation call (callers loop it over their own chart
   of accounts), code/id lookups, ledger accounts' balances, and
-  `ensure-controls`, which posting sites use to refuse a customer leg
+  `accept-legs`, which posting sites use to refuse a customer leg
   whose control is missing or closed."
   (:require
     [com.repldriven.queenswood.ledger-account.core :as core]
@@ -42,11 +42,11 @@
 
 (defn new-account
   "Create one bank-owned `LedgerAccount` from a chart-of-accounts
-  `row` in `currency`, along with its single default-posted opening
-  balance, unless it is a control, whose balance is summed from its
-  sub-ledger. Stamps a fresh `led.` id and timestamps. Returns the
-  created account, or an anomaly. Callers loop this over their own
-  chart and wrap the loop in a transaction for all-or-nothing seeding.
+  `row` in `currency`. It opens no balance row: a ledger account's
+  balance is summed from its sub-ledger or its own legs. Stamps a fresh
+  `led.` id and timestamps. Returns the created account, or an anomaly.
+  Callers loop this over their own chart and wrap the loop in a
+  transaction for all-or-nothing seeding.
 
   Gated on the `:ledger-account` create capability: `opts` may carry
   `:policies` (the caller's already-resolved effective policies, as
@@ -76,12 +76,13 @@
   (core/get-account txn bank-id ledger-account-id))
 
 (defn get-balances
-  "A ledger account's balances with their posted and available totals,
+  "A ledger account's one balance with its posted and available totals,
   `{:balances [...] :posted-balance {...} :available-balance {...}}`, as
-  the balance brick derives them for any account. A control account's
-  single default-posted balance is the sum of its sub-ledger's, read
-  from the balances store's indexes rather than a stored row. Returns
-  the map or an anomaly.
+  the balance brick derives them for any account. The balance is the sum
+  of the account's sub-ledger or of its own legs, read from the legs'
+  indexes; no ledger account holds a balance row. Returns the map, or an
+  anomaly: `:ledger-account/derive-balance` for an account whose code
+  names no derivation.
 
   Args:
   - txn: FDB transaction or db handle.
@@ -136,10 +137,9 @@
 
 (defn prefetch
   "Start loading, without waiting, the ledger accounts a posting in
-  `currency` on accounts of `product-types` goes on to read: each
-  product type's control, as `ensure-controls` would, and, unless `opts`
-  says `:journal? false`, 1100, 1200 and 5100, as `find-by-code` and
-  `stored-legs` would. Only an account whose id the transaction's
+  `currency` goes on to read: the control of each of `product-types`, as
+  `accept-legs` reads it, and the accounts in the `codes` roles, as
+  `find-by-code` does. Only an account whose id the transaction's
   `:ledger-account` cache holds is started; the rest are read as usual
   when asked for. Returns nil, or an anomaly when the loads could not be
   started.
@@ -149,12 +149,11 @@
   - bank-id: owning bank id.
   - currency: ISO 4217 currency string of the posting.
   - product-types: the product types of the cash accounts it posts to.
-  - opts: optional `{:journal? false}` for a posting that names no
-    journal account and calls no `stored-legs`."
+  - codes: optional `:ledger-account-code-*` roles the posting names."
   ([txn bank-id currency product-types]
-   (core/prefetch txn bank-id currency product-types {}))
-  ([txn bank-id currency product-types opts]
-   (core/prefetch txn bank-id currency product-types opts)))
+   (core/prefetch txn bank-id currency product-types []))
+  ([txn bank-id currency product-types codes]
+   (core/prefetch txn bank-id currency product-types codes)))
 
 (defn list-accounts
   "Return every `LedgerAccount` for `bank-id` (the bank's full chart),
@@ -170,9 +169,8 @@
   "Return the bank's chart paired with each account's balances, as a
   vector of `{:account LedgerAccount :balances [Balance ...]}` in
   account-id order, or an anomaly. Read in one transaction, so every
-  balance is as of one moment and the chart's trial balance ties: the
-  stored balances in one round trip, and a derived account's balances
-  its one balance summed from its sub-ledger or its legs, as
+  balance is as of one moment and the chart's trial balance ties: each
+  account's one balance summed from its sub-ledger or its legs, as
   `get-balances` returns.
 
   Args:
@@ -213,7 +211,7 @@
   [account]
   (domain/debit-normal? account))
 
-(defn ensure-controls
+(defn accept-legs
   "Check the control every posted default customer leg in `legs` rolls
   into, by its sub-ledger `:product-type`, in `currency` — the
   transaction's currency, which every leg of one transaction shares.
@@ -233,24 +231,4 @@
   - currency: ISO 4217 currency string of the transaction.
   - legs: transaction legs (customer legs carry `:product-type`)."
   [txn bank-id currency legs]
-  (core/ensure-controls txn bank-id currency legs))
-
-(defn stored-legs
-  "The legs of a recorded transaction whose balances are stored, for
-  `balance/apply-legs`: `legs` less those on a ledger account that keeps
-  no balance row — 1200 pending-outbound, which mirrors the customers'
-  pending-outgoing balances, and 1100 cash-at-correspondent and 5100
-  interest-expense, which sum their own legs. Such a leg stays in the
-  transaction, which balances with it, and in the journal; it is only
-  left out of the balance writes, so no posting rewrites a row every
-  payment shares. One of those accounts the bank has no row for in
-  `currency` names no leg, so it is passed over. See ADR-0038, ADR-0039
-  and ADR-0042.
-
-  Args:
-  - txn: FDB transaction or db handle.
-  - bank-id: owning bank id.
-  - currency: ISO 4217 currency string of the transaction.
-  - legs: the transaction's legs."
-  [txn bank-id currency legs]
-  (core/stored-legs txn bank-id currency legs))
+  (core/accept-legs txn bank-id currency legs))

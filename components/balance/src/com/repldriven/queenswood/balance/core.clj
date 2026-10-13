@@ -74,14 +74,6 @@
     (or (and (neg? delta) (contains? sides :min))
         (and (pos? delta) (contains? sides :max)))))
 
-(defn- cash-account?
-  "Whether `account-legs` post to a cash account, whose default buckets
-  are its legs' sums, rather than a ledger account keeping its balances
-  in its rows."
-  [account-legs]
-  (q/derived? {:balance-type :balance-type-default
-               :product-type (:product-type (first account-legs))}))
-
 (defn- load-account-balances
   [txn bank-id legs transaction-type policies]
   (let [by-account (group-by :account-id legs)]
@@ -95,35 +87,32 @@
                                                     transaction-type
                                                     account-legs)))
                                 (map key))
-                          by-account)
-      :stored-ids (into #{}
-                        (comp (remove (fn [[_ account-legs]]
-                                        (cash-account? account-legs)))
-                              (map key))
-                        by-account)})))
+                          by-account)})))
 
-(defn apply-legs
+(defn accept-legs
   ([txn bank-id legs transaction-type]
-   (apply-legs txn bank-id legs transaction-type {}))
+   (accept-legs txn bank-id legs transaction-type {}))
   ([txn bank-id legs transaction-type opts]
-   (store/transact
-    txn
-    (fn [txn]
-      (let-nom>
-        [policies (telemetry/with-span
-                   ["balance-policies"]
-                   (get-policies txn (:account-id (first legs)) opts))
-         account-balances (telemetry/with-span
-                           ["balance-load"]
-                           (load-account-balances txn
-                                                  bank-id
-                                                  legs
-                                                  transaction-type
-                                                  policies))
-         changed (domain/apply-legs bank-id
-                                    account-balances
-                                    legs
-                                    transaction-type
-                                    policies)]
-        (telemetry/with-span ["balance-save"]
-                             (store/save-balances txn changed)))))))
+   (let [legs (domain/cash-account-legs legs)]
+     (when (seq legs)
+       (store/transact
+        txn
+        (fn [txn]
+          (let-nom>
+            [policies (telemetry/with-span
+                       ["balance-policies"]
+                       (get-policies txn (:account-id (first legs)) opts))
+             account-balances (telemetry/with-span
+                               ["balance-load"]
+                               (load-account-balances txn
+                                                      bank-id
+                                                      legs
+                                                      transaction-type
+                                                      policies))
+             opened (domain/accept-legs bank-id
+                                        account-balances
+                                        legs
+                                        transaction-type
+                                        policies)]
+            (telemetry/with-span ["balance-save"]
+                                 (store/save-balances txn opened)))))))))

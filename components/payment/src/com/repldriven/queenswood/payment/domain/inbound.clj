@@ -96,6 +96,7 @@
         :currency currency
         :scheme-account-id creditor-account-id
         :legs [{:account-id cash-account-id
+                :product-type :account-product-type-general-ledger
                 :balance-type :balance-type-default
                 :balance-status :balance-status-posted
                 :side :leg-side-debit
@@ -173,11 +174,13 @@
       :transaction-type :transaction-type-inbound-transfer
       :currency currency
       :legs [{:account-id cash-at-correspondent-id
+              :product-type :account-product-type-general-ledger
               :balance-type :balance-type-default
               :balance-status :balance-status-posted
               :side :leg-side-debit
               :amount amount}
              {:account-id suspense-account-id
+              :product-type :account-product-type-general-ledger
               :balance-type :balance-type-default
               :balance-status :balance-status-posted
               :side :leg-side-credit
@@ -245,6 +248,7 @@
        :currency currency
        :scheme-account-id creditor-account-id
        :legs [{:account-id cash-at-correspondent-id
+               :product-type :account-product-type-general-ledger
                :balance-type :balance-type-default
                :balance-status :balance-status-posted
                :side :leg-side-debit
@@ -332,6 +336,7 @@
       :currency currency
       :scheme-account-id creditor-account-id
       :legs [{:account-id cash-at-correspondent-id
+              :product-type :account-product-type-general-ledger
               :balance-type :balance-type-default
               :balance-status :balance-status-posted
               :side :leg-side-debit
@@ -412,11 +417,13 @@
       :transaction-type :transaction-type-inbound-return
       :currency currency
       :legs [{:account-id suspense-account-id
+              :product-type :account-product-type-general-ledger
               :balance-type :balance-type-default
               :balance-status :balance-status-posted
               :side :leg-side-debit
               :amount amount}
              {:account-id cash-at-correspondent-id
+              :product-type :account-product-type-general-ledger
               :balance-type :balance-type-default
               :balance-status :balance-status-posted
               :side :leg-side-credit

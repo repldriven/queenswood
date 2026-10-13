@@ -13,7 +13,7 @@ account's balance only where a rule needs it, so a credit commits
 without reading anything a payment writes, and a batch that posts to
 many accounts conflicts with no payment.
 
-Every posting reads its accounts' balances today. `balance/apply-legs`
+Every posting reads its accounts' balances today. `balance/accept-legs`
 reads each `Balance` row a leg moves at serializable isolation and
 rewrites it, so any two postings to one account conflict, whichever way
 the money moves. Payments to one account are kept apart by their
@@ -75,8 +75,8 @@ The parts, in two stages, each released and load-tested before the next:
   - Read a deposit or own-funds control, and 1200 pending-outbound, from
     the new index, in place of ADR-0037's two indexes on `balances`.
   - Stop writing `Balance` rows for a cash account's legs in
-    `apply-legs`, and write the rows of 2400, 2500 and 5100, the bank's
-    own accounts, as now.
+    `balance/accept-legs`, and write the rows of 2400, 2500 and 5100,
+    the bank's own accounts, as now.
   - Keep a debit's funds check reading its account's sum inside its own
     transaction at serializable isolation, so an overdraft stays
     impossible.

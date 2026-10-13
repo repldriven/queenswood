@@ -4,7 +4,6 @@
     [com.repldriven.queenswood.ledger-account.store :as store]
 
     [com.repldriven.queenswood.balance-query.interface :as balance-query]
-    [com.repldriven.queenswood.balance.interface :as balances]
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.queenswood.transaction.interface :as transactions]
 
@@ -26,11 +25,7 @@
                                         row
                                         policies
                                         (:actor opts))
-     _ (store/save-account txn account)
-     _ (when-not (domain/derived (:code account))
-         (balances/new-balances txn
-                                bank-id
-                                [(domain/opening-balance account)]))]
+     _ (store/save-account txn account)]
     account))
 
 (defn get-account
@@ -58,9 +53,10 @@
             product-types)))
 
 (defn- derived-balance
-  [txn account spec opts]
+  [txn account opts]
   (let-nom>
-    [sums (if (:journal? spec)
+    [spec (domain/derivation account)
+     sums (if (:journal? spec)
             (transactions/sum-legs txn
                                    (:bank-id account)
                                    (:ledger-account-id account)
@@ -70,28 +66,11 @@
             (sub-ledger-sums txn account spec opts))]
     (domain/derived-balance account spec sums)))
 
-(defn- account-balances
-  [txn bank-id account]
-  (if-let [spec (domain/derived (:code account))]
-    (let-nom> [balance (derived-balance txn account spec {})]
-      [balance])
-    (balance-query/list-balances txn bank-id (:ledger-account-id account))))
-
 (defn get-balances
-  [txn bank-id account]
+  [txn _bank-id account]
   (let-nom>
-    [balances (account-balances txn bank-id account)]
-    (balance-query/totals balances (:currency account))))
-
-(defn- posted-balance
-  [txn bank-id account]
-  (if-let [spec (domain/derived (:code account))]
-    (derived-balance txn account spec {:isolation :serializable})
-    (balance-query/get-balance txn
-                               bank-id
-                               (:ledger-account-id account)
-                               :balance-type-default
-                               :balance-status-posted)))
+    [balance (derived-balance txn account {})]
+    (balance-query/totals [balance] (:currency account))))
 
 (defn close-account
   ([txn bank-id ledger-account-id]
@@ -100,7 +79,7 @@
    (let-nom>
      [policies (get-policies txn bank-id opts)
       account (get-account txn bank-id ledger-account-id)
-      balance (posted-balance txn bank-id account)
+      balance (derived-balance txn account {:isolation :serializable})
       closed (domain/close account balance policies)
       _ (store/save-account txn closed)]
      closed)))
@@ -110,37 +89,20 @@
   [txn bank-id]
   (store/list-by-bank txn bank-id))
 
-(defn- paired
-  [txn accounts stored]
-  (reduce (fn [acc {:keys [ledger-account-id code] :as account}]
-            (if-let [spec (domain/derived code)]
-              (let [balance (derived-balance txn account spec {})]
-                (if (error/anomaly? balance)
-                  (reduced balance)
-                  (conj acc {:account account :balances [balance]})))
-              (conj acc
-                    {:account account
-                     :balances (get stored ledger-account-id [])})))
-          []
-          accounts))
-
 (defn list-accounts-with-balances
   [txn bank-id]
   (store/transact
    txn
    (fn [txn]
      (let-nom>
-       [accounts (store/list-by-bank txn bank-id)
-        stored-ids (into []
-                         (comp (remove (fn [{:keys [code]}]
-                                         (domain/derived code)))
-                               (map :ledger-account-id))
-                         accounts)
-        stored (balance-query/list-balances-of txn
-                                               bank-id
-                                               stored-ids
-                                               {:stored-ids stored-ids})]
-       (paired txn accounts stored)))
+       [accounts (store/list-by-bank txn bank-id)]
+       (reduce (fn [acc account]
+                 (let [balance (derived-balance txn account {})]
+                   (if (error/anomaly? balance)
+                     (reduced balance)
+                     (conj acc {:account account :balances [balance]}))))
+               []
+               accounts)))
    :ledger-account/list-with-balances
    "Failed to list ledger accounts with balances"))
 
@@ -197,21 +159,16 @@
   (let-nom> [[account] (find-by-codes txn bank-id [code] currency)]
     account))
 
-(def ^:private journal-codes
-  (into []
-        (keep (fn [[code spec]] (when (domain/posted-to? spec) code)))
-        domain/derived))
-
 (defn prefetch
-  [txn bank-id currency product-types {:keys [journal?] :or {journal? true}}]
+  [txn bank-id currency product-types codes]
   (when-let [cache (store/cache txn)]
-    (let [codes (into (if journal? (set journal-codes) #{})
+    (let [codes (into (set codes)
                       (keep domain/product-type->control-code)
                       product-types)
           ids (vals (cached-ids cache bank-id codes currency))]
       (when (seq ids) (store/preload-by-ids txn bank-id ids)))))
 
-(defn ensure-controls
+(defn accept-legs
   [txn bank-id currency legs]
   (let-nom>
     [_ (find-by-codes txn
@@ -219,10 +176,3 @@
                       (vec (into #{} (keep domain/control-code) legs))
                       currency)]
     legs))
-
-(defn stored-legs
-  [txn bank-id currency legs]
-  (let-nom>
-    [accounts (load-by-codes txn bank-id journal-codes currency)
-     ids (into #{} (keep :ledger-account-id) (vals accounts))]
-    (into [] (remove (fn [leg] (contains? ids (:account-id leg)))) legs)))

@@ -3,12 +3,14 @@
     [com.repldriven.queenswood.test-scenarios.interface :as SUT]
     [com.repldriven.queenswood.test-scenarios.rig :as rig]
 
-    [com.repldriven.queenswood.balance.interface :as balances]
+    [com.repldriven.queenswood.fdb.interface :as fdb]
     [com.repldriven.queenswood.ledger-account.interface :as ledger-accounts]
+    [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.error.interface :as error]
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.test-system.interface :refer [with-test-system]]
+    [com.repldriven.mono.utility.interface :as utility]
 
     [clojure.test :refer [deftest is testing]]))
 
@@ -88,16 +90,28 @@
                        bank-id
                        :ledger-account-code-suspense
                        "GBP")]
-         (is (nil? (balances/apply-legs bank
-                                        bank-id
-                                        [{:account-id (:ledger-account-id
-                                                       suspense)
-                                          :balance-type :balance-type-default
-                                          :balance-status :balance-status-posted
-                                          :currency "GBP"
-                                          :side :leg-side-credit
-                                          :amount 100}]
-                                        :transaction-type-fee)))
+         ;; A leg with no other side, which no posting can record: every
+         ;; balance is the sum of its legs, so one saved alone is the way
+         ;; to untie the books.
+         (is
+          (not
+           (error/anomaly?
+            (fdb/transact bank
+                          (fn [txn]
+                            (fdb/save-record
+                             (fdb/open txn "transaction-legs")
+                             (schema/TransactionLeg->java
+                              {:bank-id bank-id
+                               :account-id (:ledger-account-id suspense)
+                               :transaction-id (utility/generate-id "txn")
+                               :leg-id (utility/generate-id "leg")
+                               :product-type
+                               :account-product-type-general-ledger
+                               :balance-type :balance-type-default
+                               :balance-status :balance-status-posted
+                               :currency "GBP"
+                               :side :leg-side-credit
+                               :amount 100})))))))
          (is (seq (:invariant-failures (SUT/trial-failure
                                         ctx
                                         [{:command :inbound-transfer

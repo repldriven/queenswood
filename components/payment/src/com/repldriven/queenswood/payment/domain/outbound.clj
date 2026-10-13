@@ -73,6 +73,7 @@
                 :side :leg-side-debit
                 :amount amount}
                {:account-id pending-outbound-account-id
+                :product-type :account-product-type-general-ledger
                 :balance-type :balance-type-default
                 :balance-status :balance-status-pending-outgoing
                 :side :leg-side-credit
@@ -203,11 +204,13 @@
               :side :leg-side-debit
               :amount amount}
              {:account-id pending-outbound-id
+              :product-type :account-product-type-general-ledger
               :balance-type :balance-type-default
               :balance-status :balance-status-pending-outgoing
               :side :leg-side-debit
               :amount amount}
              {:account-id cash-at-correspondent-id
+              :product-type :account-product-type-general-ledger
               :balance-type :balance-type-default
               :balance-status :balance-status-posted
               :side :leg-side-credit
@@ -229,6 +232,7 @@
      :transaction-type :transaction-type-outbound-transfer
      :currency currency
      :legs [{:account-id pending-outbound-account-id
+             :product-type :account-product-type-general-ledger
              :balance-type :balance-type-default
              :balance-status :balance-status-pending-outgoing
              :side :leg-side-debit
@@ -256,6 +260,7 @@
       :currency currency
       :scheme-account-id debtor-account-id
       :legs [{:account-id cash-at-correspondent-id
+              :product-type :account-product-type-general-ledger
               :balance-type :balance-type-default
               :balance-status :balance-status-posted
               :side :leg-side-debit

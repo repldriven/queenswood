@@ -54,9 +54,9 @@ The parts:
 - Declare 1200 in `ledger-account`'s `derived` beside the controls, with
   the product types it sums, the `pending-outgoing` status and that it
   mirrors, crediting what they debit.
-- Keep 1200's leg in the submit, the settlement and the reversal, and
-  pass a transaction's legs through `ledger-account/stored-legs` before
-  `balance/apply-legs`, which drops a leg on a mirroring account.
+- Keep 1200's leg in the submit, the settlement and the reversal,
+  tagged `general-ledger`, so `balance/accept-legs`, which takes a
+  posting's legs on cash accounts, passes it over.
 - Read 1200's balance from the indexes wherever one is read, as a
   control's is, and seed no opening row for it.
 - Assert after every step of the domain scenario runner that 1200

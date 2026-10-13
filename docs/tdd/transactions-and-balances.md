@@ -66,17 +66,16 @@ Two bricks:
   (Transaction + Legs). `record-transaction` is the only
   write surface.
 - **`balance`** — owns the Balance buckets and the derived
-  posted/available views. A cash account's `default` buckets
-  are the sums of its legs, read from the legs' SUM index, and
-  their rows are written only when a bucket opens; every other
-  bucket is a stored row that `apply-legs` updates. See
+  posted/available views. A cash account's buckets are the sums
+  of its legs, read from the legs' SUM index, and a row is
+  written only when a bucket opens, by `accept-legs`. See
   [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md).
 
 ```mermaid
 graph LR
     CMD[Domain command]
     TX["transaction<br/>record-transaction"]
-    BAL["balance<br/>apply-legs"]
+    BAL["balance<br/>accept-legs"]
     FDB[("FDB<br/>one transaction")]
 
     CMD -->|legs| TX
@@ -173,9 +172,9 @@ The split is deliberate. The Transaction is the immutable
 record of what happened; the Balance update is a separate
 concern that happens against potentially many buckets.
 
-### Applying legs to balances
+### Accepting legs on balances
 
-`balance/apply-legs`:
+`balance/accept-legs`:
 
 - For each leg, locates its target Balance by the composite
   key. A cash account's `default` bucket is read as the sum of
@@ -188,11 +187,15 @@ concern that happens against potentially many buckets.
   `:balance` — the policy can deny postings to specific
   balance buckets, and (via the threaded `transaction-type`)
   scope policy filters to the kind of transaction.
-- Saves the updated stored balances, and a cash account's
-  `default` bucket only when it opens, at zero: its legs are what
-  move it.
+- Saves a cash account's bucket only when it opens, at zero: its
+  legs are what move it.
+- Takes, of the posting's legs it is handed, those of a cash
+  account's product type. A ledger account's leg is tagged
+  `general-ledger` and is passed over, its balance being a sum of
+  the journal, per
+  [ADR-0048](../adr/0048-suspenses-balance-is-the-sum-of-its-legs.md).
 
-`apply-legs` is a separate call from `record-transaction`.
+`balance/accept-legs` is a separate call from `record-transaction`.
 The processor wraps both in one FDB transaction:
 
 ```clojure
@@ -200,7 +203,7 @@ The processor wraps both in one FDB transaction:
   (fn [tx]
     (error/let-nom>
       [txn (transaction/record-transaction tx data)
-       _   (balance/apply-legs tx
+       _   (balance/accept-legs tx
                                     (:legs data)
                                     (:transaction-type data))]
       txn)))
@@ -259,7 +262,7 @@ credit the posted bucket of the same account.
 
 ### Policy integration
 
-`apply-legs` consults `policy/check-capability` per leg
+`balance/accept-legs` consults `policy/check-capability` per leg
 with kind `:balance`. The request includes the action,
 balance-type, balance-status, and the threaded
 transaction-type. Policies can therefore:
@@ -274,7 +277,7 @@ transaction-type. Policies can therefore:
 
 Per-leg evaluation means a multi-leg transaction can fail on
 one leg while others would pass. The `error/let-nom>` chain
-in `apply-legs` short-circuits on the first anomaly. First
+in `accept-legs` short-circuits on the first anomaly. First
 failure wins; the transaction doesn't commit.
 
 ### Currency
@@ -303,7 +306,7 @@ not one large transaction**.
 Concretely: an interest-accrual run iterates accounts in
 chunks (typically tens to a few hundred per chunk), and each
 chunk is one FDB transaction containing the record-transaction
-+ apply-legs for that chunk's accounts. Failure in chunk N
++ accept-legs for that chunk's accounts. Failure in chunk N
 doesn't lose the work of chunks 1..N-1; the run resumes from
 the next un-processed chunk on retry.
 
@@ -328,7 +331,7 @@ valuable.
 
 ### Caller contract
 
-A caller of `record-transaction` + `apply-legs` must:
+A caller of `record-transaction` + `accept-legs` must:
 
 1. Wrap both calls in one FDB transaction.
 2. Pass the same `:transaction-type` to both (record sets
