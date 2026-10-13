@@ -1,0 +1,57 @@
+{:name "A simulated inbound transfer arrives as an inbound payment"
+ :runs-on {:payment :every}
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Simulated Inbound Bank"}}
+  ;; The bank's own-funds account opens at its provider after the bank is
+  ;; created, and money is sent in only to an opened account.
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :bank-0 :bank :accounts 0
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200 :body {:status "opened"}}
+   :as :own-funds}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/inbound-transfer"
+             :auth [:ref :bank-0 :token]
+             :headers {:bank-id [:ref :bank-0 :bank :bank-id]}
+             :body {:amount 2500 :currency "GBP"}}
+   :as :requested
+   :assert {:status 202
+            :body {:account-id [:ref :own-funds :account-id]
+                   :amount 2500
+                   :currency "GBP"
+                   :reference "Simulated inbound transfer"}}}]
+ :then
+ ;; The provider sends the payment in, and it is credited and recorded
+ ;; as any inbound payment is.
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :own-funds :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200
+           :body {:available-balance {:value 2500 :currency "GBP"}
+                  :posted-balance {:value 2500 :currency "GBP"}}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/payments/inbound"
+             :query-params {"status" "settled"}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200
+           :body {:items [{:creditor-account-id [:ref :own-funds :account-id]
+                           :amount 2500
+                           :currency "GBP"
+                           :reference "Simulated inbound transfer"
+                           :status "settled"}]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-log"
+             :query-params {"kind" "cash-account-inbound-payment-simulated"}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:items [{:kind "cash-account-inbound-payment-simulated"
+                            :subject-id [:ref :own-funds :account-id]}]}}}]}

@@ -246,6 +246,54 @@
                                   (outbox-event config "ptr.1:completed"))
                          [:transfer-id :bank-id]))))))
 
+(def ^:private simulated-context
+  {:bank-id "bnk.1"
+   :account-id "acc.own"
+   :provider-account-id "A1"
+   :amount 2500
+   :reference "Simulated inbound transfer"
+   :debtor-name "Simulated debtor"})
+
+(deftest simulated-payment-credits-the-provider-account-test
+  (with-test-system
+   [sys "classpath:modulr-relay/application-test.yml"]
+   (let [calls (atom [])
+         config
+         (runner-config sys (recording calls (fn [_] {:status 200 :body ""})))]
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.s1"
+                            :modulr-outbound-intent-kind-simulated-payment
+                            "sim.bnk.1.key-1"
+                            "{}" simulated-context))])
+     (SUT/drain-once config 0)
+     (testing "the account is credited from outside, as Modulr's sandbox does"
+       (let [{:keys [path raw-body]} (first @calls)
+             body (json/read-str raw-body :key-fn keyword)]
+         (is (= "/credit" path))
+         (is (= "A1" (:accountId body)))
+         (is (= 25.0 (double (:amount body))))
+         (is (= "Simulated inbound transfer" (:description body)))
+         (is (= "Simulated debtor" (get-in body [:payerDetail :name])))))
+     (testing "and nothing is reported: the payment in reports itself"
+       (is (= :outbound-intent-status-settled
+              (:status (load-intent config "int.s1"))))))))
+
+(deftest simulated-payment-refused-test
+  (with-test-system
+   [sys "classpath:modulr-relay/application-test.yml"]
+   (let [config (runner-config sys (fn [_ _] (json-response 404 "{}")))]
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.s2"
+                            :modulr-outbound-intent-kind-simulated-payment
+                            "sim.bnk.1.key-2"
+                            "{}" simulated-context))])
+     (SUT/drain-once config 0)
+     (testing "a provider with no sandbox credit fails the request"
+       (is (= :outbound-intent-status-failed
+              (:status (load-intent config "int.s2"))))))))
+
 (def ^:private opened
   (str "{\"id\":\"A2\",\"status\":\"ACTIVE\",\"identifiers\":"
        "[{\"type\":\"SCAN\",\"sortCode\":\"000000\","

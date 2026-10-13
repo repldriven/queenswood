@@ -2,6 +2,7 @@
   (:require
     [com.repldriven.queenswood.clearbank-relay.outbound.accounts]
     [com.repldriven.queenswood.clearbank-relay.outbound.payments]
+    [com.repldriven.queenswood.clearbank-relay.outbound.simulations]
 
     [com.repldriven.queenswood.clearbank-relay.store :as store]
 

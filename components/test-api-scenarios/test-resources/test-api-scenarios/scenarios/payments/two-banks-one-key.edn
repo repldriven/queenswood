@@ -24,20 +24,17 @@
           :party-id [:ref :party-a :party :party-id]
           :product-id [:ref :product-a :product :product-id]
           :name "Savings"}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/simulate/inbound-transfer"
-             :auth :admin
-             :headers {:bank-id [:ref :bank-a :bank :bank-id]}
-             :body {:amount 100000 :currency "GBP"}}
+  {:fixture :own-funds
    :as :funded-1
-   :assert {:status 200}}
+   :with {:bank-id [:ref :bank-a :bank :bank-id]
+          :token [:ref :bank-a :token]
+          :amount 100000}}
   ;; The money reaches the customer from the bank's own funds.
   {:command :api/request
    :request {:method :post
              :path "/v1/payments/internal"
              :auth [:ref :bank-a :token]
-             :body {:debtor-account-id [:ref :funded-1 :account-id]
+             :body {:debtor-account-id [:ref :funded-1 :requested :account-id]
                     :creditor-account-id [:ref :debtor-a :account :account-id]
                     :currency "GBP"
                     :amount 100000
@@ -72,20 +69,17 @@
           :party-id [:ref :party-b :party :party-id]
           :product-id [:ref :product-b :product :product-id]
           :name "Savings"}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/simulate/inbound-transfer"
-             :auth :admin
-             :headers {:bank-id [:ref :bank-b :bank :bank-id]}
-             :body {:amount 100000 :currency "GBP"}}
+  {:fixture :own-funds
    :as :funded-2
-   :assert {:status 200}}
+   :with {:bank-id [:ref :bank-b :bank :bank-id]
+          :token [:ref :bank-b :token]
+          :amount 100000}}
   ;; The money reaches the customer from the bank's own funds.
   {:command :api/request
    :request {:method :post
              :path "/v1/payments/internal"
              :auth [:ref :bank-b :token]
-             :body {:debtor-account-id [:ref :funded-2 :account-id]
+             :body {:debtor-account-id [:ref :funded-2 :requested :account-id]
                     :creditor-account-id [:ref :debtor-b :account :account-id]
                     :currency "GBP"
                     :amount 100000

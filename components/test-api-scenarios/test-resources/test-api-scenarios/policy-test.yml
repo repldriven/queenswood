@@ -87,3 +87,79 @@ small-team: !system/component
                     value: 5
                     window: !keyword time-window-daily
         reason: "Small-team tier - a bank sends at most 5 invitations per day"
+# A tier whose banks take small inbound payments: two a day of at most
+# GBP 1,000 to own funds, and at most GBP 100 a payment and GBP 150 a
+# day to current accounts, so a scenario can reach each with a handful
+# of payments.
+inbound-capped: !system/component
+  system/component-kind: policies/policy
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  policy:
+    policy-id: pol.00000000000000000000000008
+    name: Inbound-capped policy
+    description: Inbound-capped tier - small inbound payments by product type
+    status: !keyword policy-status-active
+    labels: !strs
+      tier: inbound-capped
+    category: !keyword policy-category-restricted
+    capabilities: []
+    limits:
+      - kind:
+          inbound-payment:
+            filters:
+              - product-type: !keyword account-product-type-sub-ledger-own-funds
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  count:
+                    value: 2
+                    window: !keyword time-window-daily
+        reason: "Inbound-capped tier - max 2 inbound payments to own funds per day"
+      - kind:
+          inbound-payment:
+            filters:
+              - product-type: !keyword account-product-type-sub-ledger-own-funds
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  amount:
+                    value:
+                      value: 100000
+                      currency: GBP
+                    window: !keyword time-window-instant
+        reason: "Inbound-capped tier - max GBP 1,000 per inbound payment to own funds"
+      - kind:
+          inbound-payment:
+            filters:
+              - product-type: !keyword account-product-type-sub-ledger-current
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  amount:
+                    value:
+                      value: 10000
+                      currency: GBP
+                    window: !keyword time-window-instant
+        reason: "Inbound-capped tier - max GBP 100 per inbound payment to a current account"
+      - kind:
+          inbound-payment:
+            filters:
+              - product-type: !keyword account-product-type-sub-ledger-current
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  amount:
+                    value:
+                      value: 15000
+                      currency: GBP
+                    window: !keyword time-window-daily
+        reason: "Inbound-capped tier - max GBP 150 inbound value per day to current accounts"

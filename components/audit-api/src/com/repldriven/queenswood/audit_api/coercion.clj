@@ -27,6 +27,8 @@
     "cash-account-close-requested" :audit-kind-cash-account-close-requested
     "cash-account-rotation-requested"
     :audit-kind-cash-account-rotation-requested
+    "cash-account-inbound-payment-simulated"
+    :audit-kind-cash-account-inbound-payment-simulated
     "product-created" :audit-kind-product-created
     "product-version-drafted" :audit-kind-product-version-drafted
     "product-version-updated" :audit-kind-product-version-updated

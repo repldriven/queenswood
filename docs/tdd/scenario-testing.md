@@ -336,7 +336,10 @@ logged with its reason and counted in the run's summary, and reports no
 
 `await.clj` is the API runner's one loop: it re-runs a step until its
 assertion holds or a deadline passes, and `:api/poll`,
-`:mail/await-invitation` and `:idv/verify` use it. The timeout is one
+`:mail/await-invitation` and `:idv/verify` use it. A write `:api/poll`
+repeats goes under a fresh idempotency key each time, so a refusal is
+not answered again from the cache, as the `own-funds` fixture needs
+while a bank's own-funds account is still opening. The timeout is one
 config key, `await-timeout-ms`, in the rig's YAML. `:wait` is for a
 token's expiry only. `:webhook/await-delivery` uses the same loop, so a
 delivery's wait reaches past the relay to the bus, the webhook

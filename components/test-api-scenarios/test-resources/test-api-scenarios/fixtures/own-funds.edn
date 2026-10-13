@@ -1,0 +1,23 @@
+{:doc
+ "The bank's own funds in `:currency` holding at least `:amount`, after
+  an inbound payment its provider was asked to send in. The request is
+  made again until the bank's own-funds account has opened."
+ :required #{:bank-id :token}
+ :params {:currency "GBP" :amount 100000}
+ :steps
+ [{:command :api/poll
+   :request {:method :post
+             :path "/v1/simulate/inbound-transfer"
+             :auth :admin
+             :headers {:bank-id [:param :bank-id]}
+             :body {:amount [:param :amount] :currency [:param :currency]}}
+   :until {:status 202}
+   :as :requested}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :requested :account-id]}
+             :auth [:param :token]}
+   :until {:status 200
+           :body {:available-balance {:value [:m/at-least [:param :amount]]
+                                      :currency [:param :currency]}}}}]}

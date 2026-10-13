@@ -37,6 +37,33 @@
         (is (= :balance-status-posted (:balance-status credit)))
         (is (= 1000 (:amount credit)))))))
 
+(deftest simulated-inbound-test
+  (let [data
+        {:bank-id "bnk.1" :idempotency-key "key-1" :amount 2500 :currency "GBP"}
+        account (assoc (fixtures/account "acc.own" "GBP")
+                       :bban "04007530000001"
+                       :provider-account-id "A1")]
+    (testing "the payment is addressed to the account, as it stands"
+      (is (= {:simulation-id "sim.bnk.1.key-1"
+              :account-id "acc.own"
+              :provider-account-id "A1"
+              :creditor-bban "04007530000001"
+              :amount 2500
+              :currency "GBP"
+              :reference "Simulated inbound transfer"
+              :debtor-name "Simulated debtor"}
+             (SUT/simulated-inbound data account))))
+    (testing "the same command names the same payment"
+      (is (= (:simulation-id (SUT/simulated-inbound data account))
+             (:simulation-id (SUT/simulated-inbound data account)))))
+    (testing "an account that is not opened is refused"
+      (let [res
+            (SUT/simulated-inbound
+             data
+             (fixtures/account "acc.own" "GBP" :cash-account-status-opening))]
+        (is (error/rejection? res))
+        (is (= :payment/creditor-account-not-operable (error/kind res)))))))
+
 (deftest account-refusal-test
   (is (= "AC01" (:reason-code (SUT/account-refusal nil))))
   (is (= "AC04"
@@ -76,20 +103,27 @@
                                                    :inbound-payment))))))))
 
 (deftest admitted-inbound-test
-  (let [admitted (SUT/admitted-inbound-payment {:end-to-end-id "e2e-1"
-                                                :scheme "fps"
-                                                :currency "GBP"
-                                                :amount 250
-                                                :reference "Lunch"}
-                                               "acc.1"
-                                               "bnk.1"
-                                               20260928)
+  (let [admitted (SUT/admitted-inbound-payment
+                  {:end-to-end-id "e2e-1"
+                   :scheme "fps"
+                   :currency "GBP"
+                   :amount 250
+                   :reference "Lunch"}
+                  (assoc (fixtures/account "acc.1" "GBP")
+                         :bank-id "bnk.1"
+                         :product-type :account-product-type-sub-ledger-current)
+                  20260928)
         tx (SUT/admitted-inbound->transaction admitted
                                               (fixtures/account "acc.1" "GBP")
                                               "1100")]
     (testing "an admission is recorded admitted, with nothing posted"
       (is (= :inbound-payment-status-admitted (:status admitted)))
       (is (not (contains? admitted :transaction-id))))
+    (testing "and counts towards the day's totals for the account's type"
+      (is (= "bnk.1" (:bank-id admitted)))
+      (is (= "acc.1" (:creditor-account-id admitted)))
+      (is (= :account-product-type-sub-ledger-current
+             (:creditor-product-type admitted))))
     (testing "its settlement credits the account from 1100"
       (is (= "acc.1" (:account-id (fixtures/side tx :leg-side-credit))))
       (is (= "1100" (:account-id (fixtures/side tx :leg-side-debit))))
@@ -110,7 +144,77 @@
 
 (defn- inbound-count
   [n]
-  {:inbound-payment {#{:bank-id :business-day} n}})
+  {:inbound-payment {#{:bank-id :business-day} n
+                     #{:bank-id :business-day :product-type} 0
+                     #{:bank-id :business-day :product-type :amount} 0}})
+
+(def ^:private own-funds :account-product-type-sub-ledger-own-funds)
+
+(def ^:private current :account-product-type-sub-ledger-current)
+
+(defn- to-type
+  "Today's inbound aggregates with `n` payments worth `sum` to accounts
+  of the creditor's product type."
+  [n sum]
+  {:inbound-payment {#{:bank-id :business-day} n
+                     #{:bank-id :business-day :product-type} n
+                     #{:bank-id :business-day :product-type :amount} sum}})
+
+(defn- limit
+  [product-type aggregate]
+  {:kind {:inbound-payment {:filters [{:product-type product-type}]}}
+   :bound {:kind {:max {:aggregate {:kind aggregate}}}}})
+
+(def ^:private by-product-type
+  "Own funds take two payments a day of at most 1000 each, and current
+  accounts at most 100 a payment and 250 a day."
+  [{:status :policy-status-active
+    :capabilities [{:effect :effect-allow
+                    :kind {:inbound-payment {:action
+                                             :inbound-payment-action-receive}}}]
+    :limits [(limit own-funds {:count {:value 2 :window :time-window-daily}})
+             (limit own-funds
+                    {:amount {:value {:value 1000 :currency "GBP"}
+                              :window :time-window-instant}})
+             (limit current
+                    {:amount {:value {:value 100 :currency "GBP"}
+                              :window :time-window-instant}})
+             (limit current
+                    {:amount {:value {:value 250 :currency "GBP"}
+                              :window :time-window-daily}})]}])
+
+(deftest product-type-limits-test
+  (let [accept (fn [amount product-type aggregates]
+                 (SUT/check-inbound-acceptance
+                  {:currency "GBP" :amount amount}
+                  (assoc (fixtures/account "creditor" "GBP")
+                         :product-type
+                         product-type)
+                  by-product-type
+                  aggregates))
+        exceeded? (fn [result]
+                    (and (checks/refused? result)
+                         (= :policy/limit-exceeded (error/kind result))))]
+    (testing "a payment is held to the caps of its account's product type"
+      (is (nil? (accept 1000 own-funds (to-type 0 0))))
+      (is (exceeded? (accept 1001 own-funds (to-type 0 0))))
+      (is (nil? (accept 100 current (to-type 0 0))))
+      (is (exceeded? (accept 101 current (to-type 0 0)))))
+    (testing "a day's count is of payments to that product type"
+      (is (nil? (accept 10 own-funds (to-type 1 10))))
+      (is (exceeded? (accept 10 own-funds (to-type 2 20))))
+      (is (nil? (accept 10 current (to-type 2 20)))))
+    (testing "a day's value is of payments to that product type"
+      (is (nil? (accept 50 current (to-type 2 200))))
+      (is (exceeded? (accept 51 current (to-type 2 200))))
+      (is (nil? (accept 51 own-funds (to-type 1 200)))))
+    (testing "an amount in another currency is held to no GBP cap"
+      (is (nil?
+           (SUT/check-inbound-acceptance
+            {:currency "USD" :amount 5000}
+            (assoc (fixtures/account "creditor" "USD") :product-type own-funds)
+            by-product-type
+            (to-type 0 0)))))))
 
 (deftest check-inbound-acceptance-test
   (let [data {:currency "GBP" :amount 100}
@@ -181,16 +285,18 @@
         (is (checks/refused? result))
         (is (= :policy/denied (error/kind result)))))))
 
-(deftest release-count-test
-  (let [held {:business-day 20000}]
+(deftest release-aggregates-test
+  (let [held {:business-day 20000 :amount 40}
+        today (to-type 3 100)]
     (testing "a release on the held day leaves the held record uncounted"
-      (is (= 2 (SUT/release-count 3 held 20000))))
+      (is (= (to-type 2 60) (SUT/release-aggregates today held 20000))))
     (testing "a release on a later day counts every inbound of that day"
-      (is (= 3 (SUT/release-count 3 held 20001))))))
+      (is (= today (SUT/release-aggregates today held 20001))))))
 
 (deftest suspended-from-held-test
   (let [held {:payment-id "pmt-held"
               :creditor-account-id "creditor"
+              :creditor-product-type :account-product-type-sub-ledger-current
               :scheme-transaction-id "held-placeholder"
               :status :inbound-payment-status-held
               :updated-at 1700000000000}
@@ -203,6 +309,7 @@
     (is (= "stx-9" (:scheme-transaction-id suspended)))
     (is (= "txn-9" (:transaction-id suspended)))
     (is (= "creditor" (:creditor-account-id suspended)))
+    (is (not (contains? suspended :creditor-product-type)))
     (is (= "AC04" (:suspended-reason-code suspended)))
     (is (= "The account is closed" (:suspended-reason suspended)))
     (is (>= (:updated-at suspended) (:updated-at held)))))

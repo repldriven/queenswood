@@ -226,20 +226,21 @@
     :bank-id bank-id
     :status status}))
 
-(defn count-internal-by-org-business-day
+(defn get-internal-aggregates
   [txn bank-id business-day]
   (fdb/transact
    txn
    (fn [txn]
-     (fdb/count-records-snapshot (fdb/open txn internal-payments-store-name)
-                                 "InternalPayment_count_by_bank_business_day"
-                                 [bank-id business-day]))
-   :payment/count-internal-by-org-business-day
+     {:count (fdb/count-records-snapshot
+              (fdb/open txn internal-payments-store-name)
+              "InternalPayment_count_by_bank_business_day"
+              [bank-id business-day])})
+   :payment/get-internal-aggregates
    {:message "Failed to count internal payments by org/day"
     :bank-id bank-id
     :business-day business-day}))
 
-(defn outbound-totals-by-org-business-day
+(defn get-outbound-aggregates
   [txn bank-id business-day]
   (fdb/transact
    txn
@@ -251,20 +252,31 @@
                        [:sum "OutboundPayment_sum_amount_by_bank_business_day"
                         [bank-id business-day]]])]
        {:count n :sum total}))
-   :payment/outbound-totals-by-org-business-day
+   :payment/get-outbound-aggregates
    {:message "Failed to total outbound payments by org/day"
     :bank-id bank-id
     :business-day business-day}))
 
-(defn count-inbound-by-org-business-day
-  [txn bank-id business-day]
+(defn get-inbound-aggregates
+  [txn bank-id business-day product-type currency]
   (fdb/transact
    txn
    (fn [txn]
-     (fdb/count-records-snapshot (fdb/open txn inbound-payments-store-name)
-                                 "InboundPayment_count_by_bank_business_day"
-                                 [bank-id business-day]))
-   :payment/count-inbound-by-org-business-day
-   {:message "Failed to count inbound payments by org/day"
+     (let [type (schema/product-type->int product-type)
+           [n by-type total]
+           (fdb/aggregate-records-snapshot
+            (fdb/open txn inbound-payments-store-name)
+            [[:count "InboundPayment_count_by_bank_business_day"
+              [bank-id business-day]]
+             [:count
+              "InboundPayment_count_by_bank_business_day_creditor_product_type"
+              [bank-id business-day type]]
+             [:sum
+              (str "InboundPayment_sum_amount_by_bank_business_day"
+                   "_creditor_product_type_currency")
+              [bank-id business-day type currency]]])]
+       {:count n :product-type-count by-type :product-type-sum total}))
+   :payment/get-inbound-aggregates
+   {:message "Failed to total inbound payments by org/day"
     :bank-id bank-id
     :business-day business-day}))

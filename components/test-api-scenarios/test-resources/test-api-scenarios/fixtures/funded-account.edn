@@ -1,6 +1,6 @@
 {:doc
  "A cash account, opened and holding `:amount`, paid in from the bank's
-  own funds after an inbound transfer to them."
+  own funds after an inbound payment to them."
  :required #{:bank-id :party-id :product-id :token}
  :params {:name "Current Account" :currency "GBP" :amount 100000}
  :steps
@@ -11,19 +11,17 @@
           :product-id [:param :product-id]
           :name [:param :name]
           :currency [:param :currency]}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/simulate/inbound-transfer"
-             :auth :admin
-             :headers {:bank-id [:param :bank-id]}
-             :body {:amount [:param :amount] :currency [:param :currency]}}
+  {:fixture :own-funds
    :as :own-funds
-   :assert {:status 200}}
+   :with {:bank-id [:param :bank-id]
+          :token [:param :token]
+          :currency [:param :currency]
+          :amount [:param :amount]}}
   {:command :api/request
    :request {:method :post
              :path "/v1/payments/internal"
              :auth [:param :token]
-             :body {:debtor-account-id [:ref :own-funds :account-id]
+             :body {:debtor-account-id [:ref :own-funds :requested :account-id]
                     :creditor-account-id [:ref :opened :account :account-id]
                     :currency [:param :currency]
                     :amount [:param :amount]

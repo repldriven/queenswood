@@ -224,9 +224,10 @@ not the customer's news.
 ### Funding the bank
 
 `POST /v1/simulate/inbound-transfer` loses its
-`account-id`. Its body is `{amount currency}`, it credits the house
-account for that currency, and its response names the account it
-credited. A bank funds itself, so there is nothing to choose, and the
+`account-id`. Its body is `{amount currency}`, it has the bank's
+provider send a payment in to the house account for that currency, as
+[payments-inbound](payments-inbound.md) describes, and its response
+names that account. A bank funds itself, so there is nothing to choose, and the
 field was only a way to be wrong. A currency the bank was not created
 with answers `:gl/missing-currency-account` 409 as it does today. The
 route's security stays `org:developer` and `admin`, and the tenant

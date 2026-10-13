@@ -1,0 +1,52 @@
+{
+  "type": "record",
+  "name": "InboundPaymentSimulationRequested",
+  "namespace": "com.repldriven.queenswood.schema.payment",
+  "doc": "A payment a test bank asked its payment provider to send in to one of its accounts.",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "simulation_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "provider_account_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "creditor_bban",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "amount",
+      "type": "long"
+    },
+    {
+      "name": "currency",
+      "type": "string"
+    },
+    {
+      "name": "reference",
+      "type": "string"
+    },
+    {
+      "name": "debtor_name",
+      "type": "string"
+    }
+  ]
+}

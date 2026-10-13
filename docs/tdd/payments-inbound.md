@@ -12,8 +12,9 @@ returns payments changes the path, with the records each FDB
 transaction writes.
 
 In scope: an inbound settled, parked in 2500 suspense, held then
-released or returned, admitted before it settles, and returned from
-suspense to its sender.
+released or returned, admitted before it settles, returned from
+suspense to its sender, and sent in by a sandbox provider at a test
+bank's request.
 
 Out of scope: the provider declaration and the adapter contract, see
 [payments.md](payments.md); internal and outbound payments, see
@@ -205,7 +206,7 @@ sequenceDiagram
     PE->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the creditor's control, by id
     end
     PE->>DB: read 🟧 1100
-    PE->>DB: read today's InboundPayment count, at snapshot
+    PE->>DB: read today's InboundPayment count, and the count and value to the creditor's product type, at snapshot
     alt the checks pass
     PE->>DB: read the control LedgerAccount the creditor's leg rolls into
     PE->>DB: save Transaction inbound-transfer and the two TransactionLegs, in one batch
@@ -227,8 +228,9 @@ sequenceDiagram
 ```
 
 The settlement resolves the creditor by BBAN, checks the account is
-opened and that the inbound capability and daily count allow it, and
-posts DEBIT 1100 / CREDIT creditor. The bank's policies are read again
+opened and that the inbound capability, the daily count and the
+[limits by product type](#limits-by-the-creditors-product-type) allow
+it, and posts DEBIT 1100 / CREDIT creditor. The bank's policies are read again
 only when the policy stamp has moved since they were cached, and a
 ledger account whose id is cached is read by its id. Neither leg
 rewrites a balance row: 1100's balance is the sum of its legs, per
@@ -309,7 +311,7 @@ sequenceDiagram
     PE->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the creditor's control, by id
     end
     PE->>DB: read 🟧 1100
-    PE->>DB: read today's InboundPayment count, at snapshot
+    PE->>DB: read today's InboundPayment count, and the count and value to the creditor's product type, at snapshot
     else the account is not opened
     Note over PE: no checks run
     end
@@ -456,7 +458,7 @@ sequenceDiagram
     PE->>DB: start loading 🟧 1100, 🟧 1200, 🟥 5100 and the creditor's control, by id
     end
     PE->>DB: read 🟧 1100
-    PE->>DB: read today's InboundPayment count, at snapshot
+    PE->>DB: read today's InboundPayment count, and the count and value to the creditor's product type, at snapshot
     alt the checks pass, the count without the hold
     PE->>DB: read the control LedgerAccount the creditor's leg rolls into
     PE->>DB: save Transaction inbound-transfer and the two TransactionLegs, in one batch
@@ -578,7 +580,7 @@ sequenceDiagram
     PP->>DB: read the Policy it binds
     end
     end
-    PP->>DB: read today's InboundPayment count, at snapshot
+    PP->>DB: read today's InboundPayment count, and the count and value to the creditor's product type, at snapshot
     alt the checks pass
     PP->>DB: save InboundPayment, admitted
     PP->>DB: write admit to the inbound-payments changelog
@@ -929,20 +931,129 @@ refuses or does not deliver is reported as `inbound-return-failed`, and
 the payment becomes `return-failed`, its money still in suspense, with
 the provider's reason.
 
+### Limits by the creditor's product type
+
+`inbound/check-inbound-acceptance` holds an inbound to the limits for
+the kind of account it is for, at settlement, at a hold's release and
+at admission, in the transaction that records it:
+
+- **The request.** Each limit check on `inbound-payment` carries the
+  creditor account's `product-type`, which `InboundPaymentLimitFilter`
+  may name. A limit naming one bounds the payments to accounts of that
+  type, and a limit with no filter, as the daily count is, bounds them
+  all.
+- **What is checked.** The day's count of every inbound; and, for the
+  creditor's product type, the day's count, the payment's amount, and
+  the day's value in the payment's currency with the payment added. An
+  amount limit in another currency is not applied.
+- **What counts.** `InboundPayment.creditor_product_type` is set while
+  the payment is credited, or to be, to the account: settled, held and
+  admitted. A payment parked in suspense or returned carries none, so
+  it leaves its type's count and value, and stays in the day's count of
+  every inbound. A hold's release is checked without the hold itself.
+- **The read.** `payment-query/get-inbound-aggregates`
+  reads the three aggregates at snapshot in one round trip, from
+  `InboundPayment_count_by_bank_business_day`, the count index by bank,
+  day and product type, and the sum index by bank, day, product type
+  and currency.
+- **The micro tier.** A current, savings or term-deposit account takes
+  at most GBP 10,000 a payment and GBP 50,000 a day across the bank's
+  accounts of its type; own funds take at most GBP 100,000 a payment
+  and five payments a day.
+
+### Sent in by a sandbox provider
+
+A test bank asks for money with `POST /v1/simulate/inbound-transfer`,
+which answers 202 with the bank's own-funds account in the request's
+currency. The request posts nothing. The bank's provider is asked to
+send a payment in to that account, and the payment arrives as
+[Settled](#settled) or
+[Admitted before it settles](#admitted-before-it-settles) draws, held
+to the checks made there. The route refuses a live bank, and a provider
+that is not a sandbox has no such call, so the request fails there and
+no money arrives.
+
+```mermaid
+sequenceDiagram
+    box rgba(165, 216, 255, 0.45)
+    participant API as api-service<br/>POST /v1/simulate/inbound-transfer
+    end
+    box rgba(165, 216, 255, 0.45)
+    participant PC as topic-payments-command
+    end
+    box rgba(208, 191, 255, 0.45)
+    participant PP as financial-processors-service<br/>payment/processor
+    end
+    box rgba(255, 236, 153, 0.5)
+    participant DB as FDB
+    end
+    box rgba(208, 191, 255, 0.45)
+    participant AP as financial-processors-service<br/>payment/activity-event-processor
+    end
+    box rgba(255, 216, 168, 0.5)
+    participant AD as external-adapters-service<br/>the provider's adapter
+    end
+    box rgba(233, 236, 239, 0.5)
+    participant PR as the provider's sandbox
+    end
+    API->>PC: simulate-inbound-payment
+    PC->>PP: one command at a time
+    critical transact
+    PP->>DB: read 🟧 1100 and the own-funds account in the currency
+    PP->>DB: write activity entry inbound-payment-simulation-requested
+    PP->>DB: append audit entry cash-account-inbound-payment-simulated
+    end
+    PP-->>API: the account, amount, currency and reference
+    Note over API: 202
+    DB->>AP: the entry, relayed on topic-bank-activity-event
+    AP->>AD: simulate-provider-payment, on the provider's command topic
+    critical transact
+    AD->>DB: save an intent kind simulated-payment, pending, subject the account
+    end
+    AD->>PR: send a payment in to the account
+    PR->>AD: the payment in, by webhook, as any other
+```
+
+- **What `payment/simulate-inbound` refuses.** A currency the bank has
+  no 1100 in is `:gl/missing-currency-account`, and an own-funds account
+  that is not opened is `:payment/creditor-account-not-operable`, both
+  409, since money arriving at an account that is not opened is parked
+  in suspense.
+- **The entry.** `inbound-payment-simulation-requested` carries the
+  account, its BBAN and provider account as they are at the commit, the
+  amount, the reference `Simulated inbound transfer` and a simulation id
+  made of the bank and the command's idempotency key, which is the
+  adapter's dedup key, so a redelivered command is the intent the
+  adapter already holds.
+- **The provider call.** The Modulr adapter credits the provider account
+  with its sandbox's `POST /credit`. The Form3 and ClearBank adapters
+  call `/simulate/inbound-payment` on the simulator standing in for the
+  provider, with the BBAN. The intent settles when the call is answered
+  and reports nothing: the payment in reports itself.
+- **The audit entry.** The request is audited against the own-funds
+  account, with an empty changeset.
+
 ### Tests
 
 - **`payment`** — settlement and its checks, parking in suspense,
-  holds, admission and each reason it rejects with, and the return
-  transitions and their refusals.
+  holds, admission and each reason it rejects with, the return
+  transitions and their refusals, a simulated inbound built for an
+  opened account and refused for any other, the limits by product type
+  and the totals they read.
 - **`<provider>-adapter`** — each provider event mapped to its scheme
   event, every amount converted, an unauthenticated delivery refused,
   and, for Form3, admission answered from `payment`'s reply.
+- **`<provider>-relay`** — a simulated payment sent in with one call,
+  settled when it is answered and failed when it is refused.
 - **`<provider>-simulator`** — `/simulate/inbound-payment` firing a
   settlement, or a hold that settles or returns, and on a simulator
   that asks for admission, sending the request first.
 - **`test-api-scenarios`** — the inbound journeys, settled, held then
   released or returned, on every provider that carries each, with an
-  admission admitted and one refused, and an inbound returned.
+  admission admitted and one refused, an inbound returned, a
+  simulated inbound transfer arriving on every provider, and, on a tier
+  with small limits, payments over a product type's limits parked or
+  refused at admission.
 
 ## Alternatives Considered
 
@@ -985,6 +1096,23 @@ the provider's reason.
   leaves a per-account provider refusing the close for its balance: the
   account returns to where it closed from, the inbound is parked, and a
   second close succeeds once the parked money has moved to own funds.
+- **A simulated inbound that fails is not reported.** A call the
+  provider refuses, or one never delivered, fails its intent with the
+  reason and is logged. The request was answered 202, and no record or
+  notification says the money will not arrive.
+- **A simulated inbound is checked when it arrives.** A request over
+  an inbound limit is answered 202, and the payment is parked in
+  suspense and returned as any other the checks refuse, or refused at
+  admission.
+- **A day's value is the bank's, not an account's.** The daily value
+  limit bounds what all the bank's accounts of a product type take
+  together.
+- **A hold counts until it ends.** A held inbound is part of its
+  product type's count and value from the hold, so one never released
+  uses the day's allowance.
+- **Form3 and ClearBank are simulated by a route their sandboxes lack.**
+  Their adapters call the simulators' `/simulate/inbound-payment`, which
+  either provider's own sandbox refuses.
 - **Nothing is screened under `screening: bank`.** No payment is held
   until a screening design exists, so an installation on rails screens
   outside the platform.

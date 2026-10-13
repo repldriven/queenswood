@@ -11,7 +11,7 @@ const SUBJECTS = [
   ["member", "Member", ["member-role-changed", "member-removed", "member-left"]],
   ["party", "Party", ["party-created", "party-suspended", "party-resumed", "party-closed", "party-merged"]],
   ["verification-session", "Verification session", ["verification-session-opened"]],
-  ["cash-account", "Cash account", ["cash-account-opened", "cash-account-suspended", "cash-account-resumed", "cash-account-close-requested", "cash-account-rotation-requested"]],
+  ["cash-account", "Cash account", ["cash-account-opened", "cash-account-suspended", "cash-account-resumed", "cash-account-close-requested", "cash-account-rotation-requested", "cash-account-inbound-payment-simulated"]],
   ["product-version", "Product version", ["product-version-drafted", "product-version-updated", "product-version-published", "product-version-discarded"]],
   ["product", "Product", ["product-created"]],
   ["migration", "Migration", ["migration-created", "migration-approved", "migration-cancelled"]],
@@ -32,7 +32,7 @@ const SUBJECTS = [
 export const AUDIT_GROUPS = [
   { id: "products", label: "Products", kinds: ["product-created", "product-version-drafted", "product-version-updated", "product-version-published", "product-version-discarded"] },
   { id: "parties", label: "Parties", kinds: ["party-created", "verification-session-opened", "party-suspended", "party-resumed", "party-merged", "party-closed"] },
-  { id: "payments", label: "Payments", kinds: ["payee-check-made", "internal-payment-submitted", "outbound-payment-submitted", "transaction-simulated"] },
+  { id: "payments", label: "Payments", kinds: ["payee-check-made", "internal-payment-submitted", "outbound-payment-submitted", "cash-account-inbound-payment-simulated", "transaction-simulated"] },
   { id: "accounts", label: "Accounts", kinds: ["cash-account-opened", "cash-account-suspended", "cash-account-resumed", "cash-account-rotation-requested", "cash-account-close-requested"] },
   { id: "migrations", label: "Migrations", kinds: ["migration-previewed", "migration-created", "migration-approved", "migration-cancelled"] },
   { id: "jobs", label: "Jobs", kinds: ["job-schedule-updated", "job-paused", "job-resumed", "job-run-forced"] },

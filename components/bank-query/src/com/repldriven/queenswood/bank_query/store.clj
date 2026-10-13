@@ -39,7 +39,7 @@
                 :bank/get
                 "Failed to load bank"))
 
-(defn limit-counts
+(defn get-aggregates
   [txn tier created-by]
   (fdb/transact
    txn
@@ -56,8 +56,8 @@
                                           (schema/actor-kind->int kind)
                                           principal-id])]
        {:total total :tier by-tier :created-by by-creator}))
-   :bank/limit-counts
-   {:message "Failed to count banks for the limits" :tier tier}))
+   :bank/get-aggregates
+   {:message "Failed to count banks" :tier tier}))
 
 (defn get-banks
   ([txn]

@@ -19,7 +19,7 @@
                                       {:bank-id bank-id
                                        :cash-product-id product-id}))))
 
-(defn- counts
+(defn- get-aggregates
   [txn bank-id product-type]
   (let-nom>
     [total (q/count-by-org txn bank-id)
@@ -71,7 +71,7 @@
        (let-nom>
          [policies (get-policies txn bank-id opts)
           template (q/get-template txn (:template-id data))
-          aggregates (counts txn bank-id (:product-type template))
+          aggregates (get-aggregates txn bank-id (:product-type template))
           version (domain/new-product bank-id
                                       template
                                       (assoc data :created-by (:actor opts))

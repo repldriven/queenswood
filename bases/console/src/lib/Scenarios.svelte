@@ -207,10 +207,11 @@
     {
       id: "s4", num: "04", title: "Fund", view: "ledger",
       story:
-        "The bank's treasury sends £50,000 from outside into the bank's own funds. The books move — 1100 cash at correspondent debited, own funds credited — and debits equal credits, to the penny. Customers are paid from here, never from nowhere.",
-      backing: ["simulate/inbound-transfer-foreign-bank-refused", "ledger-accounts/post-second-currency"],
+        "The bank's treasury sends £50,000 from outside into the bank's own funds. The sandbox asks the bank's payment provider to send it, and it arrives as any inbound payment does. The books move — 1100 cash at correspondent debited, own funds credited — and debits equal credits, to the penny. Customers are paid from here, never from nowhere.",
+      backing: ["simulate/inbound-transfer", "simulate/inbound-transfer-foreign-bank-refused", "ledger-accounts/post-second-currency"],
       steps: [
-        { name: "Fund the bank · £50,000 into own funds", raw: [{ method: "POST", path: "/v1/simulate/inbound-transfer", tag: "request" }] },
+        { name: "Fund the bank · £50,000 sent to own funds", raw: [{ method: "POST", path: "/v1/simulate/inbound-transfer", tag: "request" }] },
+        { name: "The payment arrives", raw: [{ method: "GET", path: "/v1/cash-accounts/{id}/balances", tag: "poll" }] },
         { name: "Trial balance ties", raw: [{ method: "GET", path: "/v1/ledger-accounts", tag: "request" }] },
       ],
     },
@@ -652,13 +653,18 @@
       });
     },
     async s4({ step }) {
+      // The money lands a moment after the request is accepted, so the
+      // scene waits for the own funds to hold it before the books are read.
+      const before = ctx.house ? available(await api.get_cash_account_balances(ctx.house)) : 0;
       await step(0, async () => {
         const r = await api.simulate_inbound_transfer({ amount: FUND_BANK, currency: "GBP" });
         if (!ok2xx(r)) throw new Error(`fund the bank: ${r.status}`);
         ctx.house = r.body["account-id"];
         persistCtx();
       });
-      await step(1, () => api.list_ledger_accounts());
+      await step(1, () =>
+        poll(() => api.get_cash_account_balances(ctx.house), (r) => r.status === 200 && available(r) >= before + FUND_BANK));
+      await step(2, () => api.list_ledger_accounts());
     },
     async s5({ step }) {
       const open = (key, party, name, kind) => () =>

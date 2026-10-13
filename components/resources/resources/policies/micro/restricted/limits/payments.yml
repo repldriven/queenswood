@@ -10,6 +10,68 @@
               window: !keyword time-window-daily
   reason: "Micro tier - max 500 inbound payments per day"
 - kind:
+    inbound-payment:
+      filters:
+        - product-type: !keyword account-product-type-sub-ledger-current
+        - product-type: !keyword account-product-type-sub-ledger-savings
+        - product-type: !keyword account-product-type-sub-ledger-term-deposit
+  bound:
+    kind:
+      max:
+        aggregate:
+          kind:
+            amount:
+              value:
+                value: 1000000
+                currency: GBP
+              window: !keyword time-window-instant
+  reason: "Micro tier - max GBP 10,000 per inbound payment to a customer account"
+- kind:
+    inbound-payment:
+      filters:
+        - product-type: !keyword account-product-type-sub-ledger-current
+        - product-type: !keyword account-product-type-sub-ledger-savings
+        - product-type: !keyword account-product-type-sub-ledger-term-deposit
+  bound:
+    kind:
+      max:
+        aggregate:
+          kind:
+            amount:
+              value:
+                value: 5000000
+                currency: GBP
+              window: !keyword time-window-daily
+  reason: "Micro tier - max GBP 50,000 inbound value per day to each kind of customer account"
+- kind:
+    inbound-payment:
+      filters:
+        - product-type: !keyword account-product-type-sub-ledger-own-funds
+  bound:
+    kind:
+      max:
+        aggregate:
+          kind:
+            amount:
+              value:
+                value: 10000000
+                currency: GBP
+              window: !keyword time-window-instant
+  reason: "Micro tier - max GBP 100,000 per inbound payment to own funds"
+- kind:
+    inbound-payment:
+      filters:
+        - product-type: !keyword account-product-type-sub-ledger-own-funds
+  bound:
+    kind:
+      max:
+        aggregate:
+          kind:
+            count:
+              value: 5
+              window: !keyword time-window-daily
+  reason: "Micro tier - max 5 inbound payments to own funds per day"
+- kind:
     internal-payment: {}
   bound:
     kind:

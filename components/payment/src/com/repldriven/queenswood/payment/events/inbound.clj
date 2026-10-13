@@ -107,6 +107,24 @@
      _ (record-suspended txn payment (:account-id account))]
     payment))
 
+(defn- get-inbound-aggregates
+  "Today's count of inbound payments for `account`'s bank, and the count
+  and value in `currency` of those to accounts of its product type."
+  [txn account business-day currency]
+  (let [{:keys [bank-id product-type]} account]
+    (let-nom> [today (telemetry/with-span ["payment-inbound-aggregates"]
+                                          (q/get-inbound-aggregates
+                                           txn
+                                           bank-id
+                                           business-day
+                                           product-type
+                                           currency))]
+      {:inbound-payment
+       {#{:bank-id :business-day} (:count today)
+        #{:bank-id :business-day :product-type} (:product-type-count today)
+        #{:bank-id :business-day :product-type :amount}
+        (:product-type-sum today)}})))
+
 (defn- record-inbound-settlement
   [txn data account business-day policies]
   (let [{:keys [account-id bank-id product-type]} account
@@ -119,14 +137,8 @@
                                   bank-id
                                   :ledger-account-code-cash-at-correspondent
                                   currency))
-       today-count (telemetry/with-span ["payment-daily-count"]
-                                        (q/count-inbound-by-org-business-day
-                                         txn
-                                         bank-id
-                                         business-day))]
-      (let [aggregates {:inbound-payment
-                        {#{:bank-id :business-day} today-count}}
-            transaction (inbound/inbound-payment->transaction
+       aggregates (get-inbound-aggregates txn account business-day currency)]
+      (let [transaction (inbound/inbound-payment->transaction
                          data
                          account
                          (:ledger-account-id cash)
@@ -164,8 +176,7 @@
                                           legs))
              _ (apply-legs txn bank-id stored transaction-type policies)
              payment (inbound/new-inbound-payment data
-                                                  account-id
-                                                  bank-id
+                                                  account
                                                   business-day
                                                   transaction-id)
              _ (telemetry/with-span
@@ -218,13 +229,8 @@
              bank-id
              :ledger-account-code-cash-at-correspondent
              currency)
-       today-count (q/count-inbound-by-org-business-day
-                    txn
-                    bank-id
-                    business-day)]
-      (let [aggregates {:inbound-payment
-                        {#{:bank-id :business-day}
-                         (inbound/release-count today-count held business-day)}}
+       today (get-inbound-aggregates txn account business-day currency)]
+      (let [aggregates (inbound/release-aggregates today held business-day)
             transaction (inbound/inbound-release->transaction
                          held
                          account
@@ -310,15 +316,12 @@
   (let [{:keys [account-id bank-id]} account]
     (let-nom>
       [policies (bank-policies config txn bank-id)
-       today-count (q/count-inbound-by-org-business-day txn
-                                                        bank-id
-                                                        business-day)]
-      (let [accepted (inbound/check-inbound-acceptance
-                      data
-                      account
-                      policies
-                      {:inbound-payment {#{:bank-id :business-day}
-                                         today-count}})]
+       aggregates
+       (get-inbound-aggregates txn account business-day (:currency data))]
+      (let [accepted (inbound/check-inbound-acceptance data
+                                                       account
+                                                       policies
+                                                       aggregates)]
         (cond
          (checks/refused? accepted)
          (let [refusal (inbound/acceptance-refusal accepted)]
@@ -331,8 +334,7 @@
 
          :else
          (let [admitted (inbound/admitted-inbound-payment data
-                                                          account-id
-                                                          bank-id
+                                                          account
                                                           business-day)]
            (let-nom> [_ (store/save-inbound-payment
                          txn
@@ -507,10 +509,8 @@
               data)
 
           :else
-          (let [{:keys [account-id bank-id]} account
-                payment (inbound/held-inbound-payment data
-                                                      account-id
-                                                      bank-id
+          (let [payment (inbound/held-inbound-payment data
+                                                      account
                                                       business-day)]
             (let-nom> [_ (store/save-inbound-payment
                           txn

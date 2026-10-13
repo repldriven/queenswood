@@ -42,6 +42,30 @@
   (let [{:keys [clearbank-url signing-key post-fn]} config]
     ((or post-fn post-signed) (str clearbank-url path) signing-key request)))
 
+(defn classify
+  "A call's result as the poller reads one: `[:answered body]`,
+  `[:refused reason]` or `[:retry reason]`."
+  [res]
+  (let [status (:status res)]
+    (cond
+     (error/anomaly? res)
+     [:retry (:message (error/payload res))]
+
+     (not (int? status))
+     [:retry "no HTTP status"]
+
+     (or (<= 500 status) (= 408 status) (= 429 status))
+     [:retry (str "HTTP " status)]
+
+     (<= 400 status 499)
+     [:refused (or (:detail (http/res->edn res)) (str "HTTP " status))]
+
+     (<= 200 status 299)
+     [:answered (http/res->edn res)]
+
+     :else
+     [:retry (str "HTTP " status)])))
+
 (defn undelivered
   [failure reason]
   (if (= :undelivered failure) (str "Undelivered: " reason) reason))

@@ -66,13 +66,13 @@
          :status :policy-status-active
          :limits [(bank-limit nil 8 "At most 8 banks in all")]}))
 
-(defn- counts
+(defn- aggregates
   "The aggregates of an installation holding `total` banks, `tier` of
   them on the tier and `created-by` of those the creator's."
   [total tier created-by]
   {:bank {#{} total #{:tier} tier #{:tier :created-by} created-by}})
 
-(def ^:private no-banks (counts 0 0 0))
+(def ^:private no-banks (aggregates 0 0 0))
 
 (def ^:private person {:kind :actor-kind-member :principal-id "usr.1"})
 
@@ -166,7 +166,7 @@
                           "micro"
                           active-binding
                           person
-                          (counts 7 4 1)
+                          (aggregates 7 4 1)
                           limited-tier-policies
                           limited-platform-policies
                           idv-provider)]
@@ -177,7 +177,7 @@
                           "micro"
                           active-binding
                           person
-                          (counts 2 2 2)
+                          (aggregates 2 2 2)
                           limited-tier-policies
                           limited-platform-policies
                           idv-provider)]
@@ -190,7 +190,7 @@
                           "micro"
                           active-binding
                           person
-                          (counts 5 5 0)
+                          (aggregates 5 5 0)
                           limited-tier-policies
                           limited-platform-policies
                           idv-provider)]
@@ -203,7 +203,7 @@
                           "micro"
                           active-binding
                           person
-                          (counts 8 1 0)
+                          (aggregates 8 1 0)
                           limited-tier-policies
                           limited-platform-policies
                           idv-provider)]
@@ -216,7 +216,7 @@
                           "micro"
                           active-binding
                           operator
-                          (counts 4 4 4)
+                          (aggregates 4 4 4)
                           limited-tier-policies
                           limited-platform-policies
                           idv-provider)]
@@ -227,7 +227,7 @@
                           "micro"
                           active-binding
                           operator
-                          (counts 5 5 0)
+                          (aggregates 5 5 0)
                           limited-tier-policies
                           limited-platform-policies
                           idv-provider)]

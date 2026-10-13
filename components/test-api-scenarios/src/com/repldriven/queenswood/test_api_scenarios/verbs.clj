@@ -41,6 +41,7 @@
    :m/all-of (fn [& ms] (apply m/all-of ms))
    :m/mismatch (fn [mm] (m/mismatch mm))
    :m/within-delta (fn [d v] (m/within-delta d v))
+   :m/at-least (fn [n] (m/pred (fn [v] (and (number? v) (>= v n)))))
    :m/any (fn [] (m/pred any?))
    :m/non-empty (fn [] (m/pred seq))})
 
@@ -599,17 +600,32 @@
   (Thread/sleep ^long duration-ms)
   ctx)
 
+(defn- keyed-attempt
+  "`request` as one attempt of a poll sends it: a write that names no
+  idempotency key under one of its own, so an attempt refused is not
+  answered again from the cache."
+  [{:keys [run-id counter]} {:keys [method] :as request} attempt]
+  (cond-> request
+          (and (write-methods method)
+               (nil? (idempotency-header (:headers request))))
+          (assoc-in [:headers :idempotency-key]
+           (str "ik-poll-" run-id "-" counter "-" attempt))))
+
 (defmethod dispatch :api/poll
   [{:keys [captures await-timeout-ms] :as ctx}
    {:keys [request until timeout-ms interval-ms as]}]
   (let [resolved-request (refs/resolve-all captures request)
         until-matcher (expand-matchers (refs/resolve-all captures until))
         timeout (or timeout-ms await-timeout-ms)
-        {:keys [done? value]} (await/until
-                               {:timeout-ms timeout :interval-ms interval-ms}
-                               (fn [] (send-once ctx resolved-request))
-                               (fn [response]
-                                 (standalone/match? until-matcher response)))]
+        attempts (atom 0)
+        {:keys [done? value]}
+        (await/until
+         {:timeout-ms timeout :interval-ms interval-ms}
+         (fn []
+           (send-once
+            ctx
+            (keyed-attempt ctx resolved-request (swap! attempts inc))))
+         (fn [response] (standalone/match? until-matcher response)))]
     (if done?
       (cond-> (assoc ctx :last-response value)
               as

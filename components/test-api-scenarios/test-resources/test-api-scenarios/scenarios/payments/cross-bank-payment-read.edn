@@ -39,20 +39,17 @@
              :auth [:ref :bank-a :token]}
    :until {:status 200 :body {:status "opened"}}
    :as :creditor-a}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/simulate/inbound-transfer"
-             :auth :admin
-             :headers {:bank-id [:ref :bank-a :bank :bank-id]}
-             :body {:amount 100000 :currency "GBP"}}
+  {:fixture :own-funds
    :as :funded-1
-   :assert {:status 200}}
+   :with {:bank-id [:ref :bank-a :bank :bank-id]
+          :token [:ref :bank-a :token]
+          :amount 100000}}
   ;; The money reaches the customer from the bank's own funds.
   {:command :api/request
    :request {:method :post
              :path "/v1/payments/internal"
              :auth [:ref :bank-a :token]
-             :body {:debtor-account-id [:ref :funded-1 :account-id]
+             :body {:debtor-account-id [:ref :funded-1 :requested :account-id]
                     :creditor-account-id [:ref :debtor-a :account :account-id]
                     :currency "GBP"
                     :amount 100000

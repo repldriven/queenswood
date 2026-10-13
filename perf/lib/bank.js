@@ -9,9 +9,11 @@ import {
   batch,
   env,
   expect,
+  get,
   post,
   postRetried,
   token,
+  until,
 } from "./api.js";
 
 export const ZYPHE_SIMULATOR_URL = env(
@@ -265,17 +267,31 @@ function credited(accounts, each) {
 }
 
 // Pays `each` minor units into every account from the bank's own funds,
-// after crediting those funds with an inbound transfer.
+// after an inbound payment the bank's provider is asked to send them
+// has arrived. The request is made again while the own-funds account is
+// still opening, which the platform refuses with 409.
 function fund(accounts, each, bearer) {
-  const own = expect(
-    postRetried(
-      "/v1/simulate/inbound-transfer",
-      { amount: credited(accounts, each), currency: "GBP" },
-      bearer,
-      { tags: SETUP },
-    ),
-    200,
-    "crediting the bank's own funds",
+  const amount = credited(accounts, each);
+  const asked = until(
+    () =>
+      postRetried(
+        "/v1/simulate/inbound-transfer",
+        { amount, currency: "GBP" },
+        bearer,
+        { tags: SETUP },
+      ),
+    (res) => res.status !== 409,
+    "the bank's own funds to open",
+  );
+  const own = expect(asked, 202, "crediting the bank's own funds");
+  until(
+    () =>
+      get(`/v1/cash-accounts/${own["account-id"]}/balances`, bearer, {
+        tags: SETUP,
+      }),
+    (res) =>
+      res.status === 200 && res.json()["available-balance"].value >= amount,
+    "the bank's own funds to arrive",
   );
   postAll(
     accounts,

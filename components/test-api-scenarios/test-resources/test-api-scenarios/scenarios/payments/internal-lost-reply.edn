@@ -29,20 +29,17 @@
           :party-id [:ref :party :party :party-id]
           :product-id [:ref :product :product :product-id]
           :name "Savings"}}
-  {:command :api/request
-   :request {:method :post
-             :path "/v1/simulate/inbound-transfer"
-             :auth :admin
-             :headers {:bank-id [:ref :bank-0 :bank :bank-id]}
-             :body {:amount 100000 :currency "GBP"}}
+  {:fixture :own-funds
    :as :funded-1
-   :assert {:status 200}}
+   :with {:bank-id [:ref :bank-0 :bank :bank-id]
+          :token [:ref :bank-0 :token]
+          :amount 100000}}
   ;; The money reaches the customer from the bank's own funds.
   {:command :api/request
    :request {:method :post
              :path "/v1/payments/internal"
              :auth [:ref :bank-0 :token]
-             :body {:debtor-account-id [:ref :funded-1 :account-id]
+             :body {:debtor-account-id [:ref :funded-1 :requested :account-id]
                     :creditor-account-id [:ref :debtor :account :account-id]
                     :currency "GBP"
                     :amount 100000

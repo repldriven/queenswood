@@ -3,19 +3,84 @@
     [com.repldriven.queenswood.payment.domain.checks :as checks]
     [com.repldriven.queenswood.payment.domain.scheme :as scheme]
 
+    [com.repldriven.queenswood.policy.interface :as policy]
+
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.utility.interface :as utility]))
 
+(defn- check-limit
+  "Check a limit on inbound payments to accounts of `product-type`."
+  [policies product-type request]
+  (policy/check-limit policies
+                      :inbound-payment
+                      (assoc request :product-type product-type)))
+
 (defn check-inbound-acceptance
   [data creditor-account policies aggregates]
-  (let [{:keys [currency]} data]
+  (let [{:keys [currency amount]} data
+        {:keys [product-type]} creditor-account
+        today (:inbound-payment aggregates)]
     (let-nom>
       [_ (checks/ensure-currency-matches currency creditor-account)
        _ (checks/check-capability policies
                                   :inbound-payment
                                   :inbound-payment-action-receive)
-       _ (checks/check-daily-count policies :inbound-payment aggregates)]
+       _ (checks/check-daily-count policies :inbound-payment aggregates)
+       _ (check-limit policies
+                      product-type
+                      {:aggregate :count
+                       :window :time-window-daily
+                       :value (inc (get today
+                                        #{:bank-id :business-day
+                                          :product-type}))})
+       _ (check-limit policies
+                      product-type
+                      {:aggregate :amount
+                       :window :time-window-instant
+                       :value {:currency currency :value amount}})
+       _ (check-limit policies
+                      product-type
+                      {:aggregate :amount
+                       :window :time-window-daily
+                       :value {:currency currency
+                               :value (+ (get today
+                                              #{:bank-id :business-day
+                                                :product-type :amount})
+                                         amount)}})]
       nil)))
+
+(def ^:private
+     ^{:doc "The reference a simulated inbound payment arrives with."}
+     simulated-reference
+  "Simulated inbound transfer")
+
+(def ^:private
+     ^{:doc "Who a simulated inbound payment says paid."} simulated-debtor
+  "Simulated debtor")
+
+(defn simulated-inbound
+  "The payment a test bank asks its provider to send in to `account`,
+  named by the bank and the command's idempotency key, so a redelivered
+  command asks for the same one. Rejects where the account is not opened,
+  since money arriving at it would be parked in suspense."
+  [data account]
+  (let [{:keys [bank-id idempotency-key amount currency]} data
+        {:keys [account-id provider-account-id bban]} account]
+    (let-nom> [_ (checks/ensure-account-operable account :creditor)]
+      (utility/assoc-some {:simulation-id (str "sim."
+                                               bank-id
+                                               "."
+                                               (or idempotency-key
+                                                   (utility/uuidv7)))
+                           :account-id account-id
+                           :amount amount
+                           :currency currency
+                           :reference simulated-reference
+                           :debtor-name simulated-debtor}
+                          :provider-account-id
+                          provider-account-id
+                          :creditor-bban
+                          bban))))
 
 (defn inbound-payment->transaction
   [data creditor-account cash-account-id policies aggregates]
@@ -70,14 +135,29 @@
   [payment status]
   (assoc payment :status status :updated-at (utility/now)))
 
+(defn- credited-to
+  "`payment` as credited, or to be, to `account`: carrying its product
+  type, which counts it in the day's totals for that type."
+  [payment account]
+  (assoc payment
+         :creditor-account-id (:account-id account)
+         :creditor-product-type (:product-type account)))
+
+(defn- not-credited
+  "`payment` as one its account will not be credited with, which leaves
+  the day's totals for the account's product type."
+  [payment]
+  (dissoc payment :creditor-product-type))
+
 (defn new-inbound-payment
-  [data creditor-account-id bank-id business-day transaction-id]
-  (assoc (arrived data
-                  bank-id
-                  business-day
-                  :inbound-payment-status-settled)
-         :creditor-account-id creditor-account-id
-         :transaction-id transaction-id))
+  [data creditor-account business-day transaction-id]
+  (assoc (credited-to (arrived data
+                               (:bank-id creditor-account)
+                               business-day
+                               :inbound-payment-status-settled)
+                      creditor-account)
+         :transaction-id
+         transaction-id))
 
 (defn inbound-suspense->transaction
   "DEBIT 1100 cash-at-correspondent / CREDIT 2500 suspense — an inbound
@@ -126,19 +206,30 @@
   posted transaction yet (funds are held at ClearBank, not ours). The held
   webhook carries no scheme transaction id, so a placeholder is generated;
   it is replaced with the real one on release."
-  [data creditor-account-id bank-id business-day]
-  (assoc (arrived data
-                  bank-id
-                  business-day
-                  :inbound-payment-status-held)
-         :creditor-account-id creditor-account-id
-         :scheme-transaction-id (str "held-" (utility/uuidv7))))
+  [data creditor-account business-day]
+  (assoc (credited-to (arrived data
+                               (:bank-id creditor-account)
+                               business-day
+                               :inbound-payment-status-held)
+                      creditor-account)
+         :scheme-transaction-id
+         (str "held-" (utility/uuidv7))))
 
-(defn release-count
-  [today-count held business-day]
+(defn release-aggregates
+  "Today's inbound aggregates without `held` itself, which they count
+  where it was held today."
+  [aggregates held business-day]
   (if (= business-day (:business-day held))
-    (dec today-count)
-    today-count))
+    (update aggregates
+            :inbound-payment
+            (fn [today]
+              (-> today
+                  (update #{:bank-id :business-day} dec)
+                  (update #{:bank-id :business-day :product-type} dec)
+                  (update #{:bank-id :business-day :product-type :amount}
+                          -
+                          (:amount held)))))
+    aggregates))
 
 (defn inbound-release->transaction
   "DEBIT 1100 cash-at-correspondent / CREDIT creditor — settle a held inbound
@@ -175,8 +266,8 @@
 
 (defn suspended-from-held
   [held scheme-transaction-id transaction-id refusal]
-  (utility/assoc-some (assoc (moved held
-                                    :inbound-payment-status-suspended)
+  (utility/assoc-some (assoc (not-credited
+                              (moved held :inbound-payment-status-suspended))
                              :scheme-transaction-id scheme-transaction-id
                              :transaction-id transaction-id
                              :suspended-reason-code (:reason-code refusal))
@@ -219,13 +310,14 @@
   resolved, with nothing posted until the scheme settles it. The
   admission carries no scheme transaction id, so a placeholder is
   generated; the settlement replaces it."
-  [data creditor-account-id bank-id business-day]
-  (assoc (arrived data
-                  bank-id
-                  business-day
-                  :inbound-payment-status-admitted)
-         :creditor-account-id creditor-account-id
-         :scheme-transaction-id (str "admitted-" (utility/uuidv7))))
+  [data creditor-account business-day]
+  (assoc (credited-to (arrived data
+                               (:bank-id creditor-account)
+                               business-day
+                               :inbound-payment-status-admitted)
+                      creditor-account)
+         :scheme-transaction-id
+         (str "admitted-" (utility/uuidv7))))
 
 (defn admitted-inbound->transaction
   "DEBIT 1100 cash-at-correspondent / CREDIT creditor — settle an admitted
@@ -267,7 +359,7 @@
   "Transition a held inbound to `returned` on decline — the funds went back
   to the remitter, so nothing posts on our books."
   [held]
-  (moved held :inbound-payment-status-returned))
+  (not-credited (moved held :inbound-payment-status-returned)))
 
 (defn return-failed-inbound-payment
   "A suspended inbound the provider did not send back: its return failed,

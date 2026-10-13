@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "SimulateProviderPayment",
+  "namespace": "com.repldriven.queenswood.schema.payment_provider.payment",
+  "doc": "Have a sandbox provider send a payment in to a cash account, which it then reports as it does any payment arriving. The adapter resolves the provider account and the address from the cash account it holds, where the command names neither.",
+  "fields": [
+    {"name": "simulation_id",       "type": "string"},
+    {"name": "bank_id",             "type": "string"},
+    {"name": "account_id",          "type": "string"},
+    {"name": "provider_account_id", "type": ["null", "string"], "default": null},
+    {"name": "creditor_bban",       "type": ["null", "string"], "default": null},
+    {"name": "amount",              "type": "long", "doc": "minor units"},
+    {"name": "currency",            "type": "string"},
+    {"name": "reference",           "type": "string"},
+    {"name": "debtor_name",         "type": "string"}
+  ]
+}

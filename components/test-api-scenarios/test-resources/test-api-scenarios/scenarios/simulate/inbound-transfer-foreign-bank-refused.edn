@@ -1,8 +1,8 @@
 {:name "A bank's token cannot fund another bank over the simulator"
  ;; The simulate inbound-transfer route drops to the org tier so a
  ;; tenant can fund its own sandbox, and it takes its bank from the
- ;; path. Without a check against the principal's bank, any tenant's
- ;; service token could post a credit into any other tenant's books.
+ ;; header. Without a check against the principal's bank, any tenant's
+ ;; service token could have money sent in to any other tenant's books.
  :given [{:fixture :bank :as :bank-a :with {:name "Tenant A Bank"}}
          {:fixture :bank :as :bank-b :with {:name "Tenant B Bank"}}
          {:command :auth/mint-token
@@ -45,28 +45,29 @@
             :body {:available-balance [:ref :b-before :available-balance]
                    :posted-balance [:ref :b-before :posted-balance]
                    :items [:m/in-any-order [:ref :b-before :items]]}}}
-  ;; A's token on A's own path is untouched by the check.
-  {:command :api/request
+  ;; A's token on A's own bank is untouched by the check. Each accepted
+  ;; request is made again until the bank's own-funds account has opened.
+  {:command :api/poll
    :request {:method :post
              :path "/v1/simulate/inbound-transfer"
              :auth :bank-a-token
              :headers {:bank-id [:ref :bank-a :bank :bank-id]}
              :body {:amount 100000 :currency "GBP"}}
-   :assert {:status 200}}
-  ;; The admin takes its bank from the path, so it may fund either —
-  ;; both are posted, since a check that short-circuits on the role
+   :until {:status 202}}
+  ;; The admin takes its bank from the header, so it may fund either —
+  ;; both are accepted, since a check that short-circuits on the role
   ;; would pass one bank and a check that compares banks would not.
-  {:command :api/request
+  {:command :api/poll
    :request {:method :post
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
              :headers {:bank-id [:ref :bank-b :bank :bank-id]}
              :body {:amount 100000 :currency "GBP"}}
-   :assert {:status 200}}
-  {:command :api/request
+   :until {:status 202}}
+  {:command :api/poll
    :request {:method :post
              :path "/v1/simulate/inbound-transfer"
              :auth :admin
              :headers {:bank-id [:ref :bank-a :bank :bank-id]}
              :body {:amount 100000 :currency "GBP"}}
-   :assert {:status 200}}]}
+   :until {:status 202}}]}

@@ -66,13 +66,23 @@
                                payment-id
                                (dissoc data :bank-id :creditor-account-id))))))
 
+(defn- simulate-payment
+  [config data]
+  (let [{:keys [bank-id simulation-id]} data]
+    (provider/send-command config
+                           bank-id
+                           "simulate-provider-payment"
+                           simulation-id
+                           data)))
+
 (def ^:private handlers
   {"cash-account-open-requested" open-account
    "cash-account-close-requested" close-account
    "cash-account-address-rotation-requested" reissue-address
    "transaction-posted" provider-transfer/mirror-posted
    "outbound-payment-submitted" submit-payment
-   "inbound-payment-suspended" return-payment})
+   "inbound-payment-suspended" return-payment
+   "inbound-payment-simulation-requested" simulate-payment})
 
 (defn handle
   "Send the bank's payment provider what an activity entry asks of it,

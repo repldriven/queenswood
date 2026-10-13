@@ -11,32 +11,13 @@
    [:amount [:ref "PaymentMinorUnits"]]
    [:currency [:ref "Currency"]]])
 
-(def TransactionLeg
-  [:map
-   [:leg-id [:ref "LegId"]]
-   [:transaction-id [:ref "TransactionId"]]
-   ;; A leg targets any account in the shared account-id space: a
-   ;; customer/house cash account (acc.) or a bank-owned ledger
-   ;; control/detail account (led.) added by control fan-out.
-   [:account-id [:or [:ref "CashAccountId"] [:ref "LedgerAccountId"]]]
-   [:balance-type [:ref "BalanceType"]]
-   [:balance-status [:ref "BalanceStatus"]]
-   [:side [:ref "LegSide"]]
-   [:amount [:ref "MinorUnits"]]
-   [:currency [:ref "Currency"]]
-   [:created-at {:optional true} [:maybe [:ref "Timestamp"]]]])
-
 (def SimulateInboundTransferResponse
   [:map {:json-schema/example examples/SimulateInboundTransferResponse}
    [:account-id [:ref "CashAccountId"]]
-   [:transaction-id [:ref "TransactionId"]]
-   [:transaction-type [:ref "TransactionType"]]
+   [:amount [:ref "PaymentMinorUnits"]]
    [:currency [:ref "Currency"]]
-   [:reference {:optional true} [:maybe string?]]
-   [:created-at {:optional true} [:maybe [:ref "Timestamp"]]]
-   [:created-by {:optional true} [:ref "Actor"]]
-   [:legs [:vector [:ref "TransactionLeg"]]]])
+   [:reference string?]])
 
 (def registry
-  (components-registry [#'SimulateInboundTransferRequest #'TransactionLeg
+  (components-registry [#'SimulateInboundTransferRequest
                         #'SimulateInboundTransferResponse]))

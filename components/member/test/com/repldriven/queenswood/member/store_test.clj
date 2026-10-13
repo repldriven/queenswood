@@ -250,17 +250,17 @@
                                         (sent "bnk.sent.2" "inv.s3" 20000 2))
                  _ (SUT/save-invitation config
                                         (sent "bnk.sent.1" "inv.s4" 20001 5))
-                 counts (q/count-invitations-sent-on config "bnk.sent.1" 20000)
+                 counts (q/get-invitation-aggregates config "bnk.sent.1" 20000)
                  _ (testing "a day's sends are summed for a bank and for all"
                      (is (= {:bank 4 :total 6} counts)))
                  _ (SUT/save-invitation config
                                         (sent "bnk.sent.1" "inv.s1" 20001 1))
-                 before (q/count-invitations-sent-on config "bnk.sent.1" 20000)
-                 after (q/count-invitations-sent-on config "bnk.sent.1" 20001)
+                 before (q/get-invitation-aggregates config "bnk.sent.1" 20000)
+                 after (q/get-invitation-aggregates config "bnk.sent.1" 20001)
                  _ (testing
                      "an invitation sent again on a later day leaves the first"
                      (is (= {:bank 1 :total 3} before))
                      (is (= {:bank 6 :total 6} after)))
-                 none (q/count-invitations-sent-on config "bnk.sent.3" 20000)
+                 none (q/get-invitation-aggregates config "bnk.sent.3" 20000)
                  _ (testing "a bank that sent nothing counts none"
                      (is (= {:bank 0 :total 3} none)))]))))

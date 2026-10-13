@@ -57,6 +57,8 @@ inbound-payment-status-changed: schemas/payment/inbound-payment-status-changed.a
 admit-inbound-payment: schemas/payment/admit-inbound-payment.avsc.json
 admit-inbound-payment-reply: schemas/payment/admit-inbound-payment-reply.avsc.json
 internal-payment-settled: schemas/payment/internal-payment-settled.avsc.json
+simulate-inbound-payment: schemas/payment/simulate-inbound-payment.avsc.json
+simulate-inbound-payment-reply: schemas/payment/simulate-inbound-payment-reply.avsc.json
 
 account-reward-status-changed: schemas/reward/account-reward-status-changed.avsc.json
 
@@ -79,6 +81,7 @@ inbound-return-failed: schemas/payment-provider/payment/inbound-return-failed.av
 transfer-between-provider-accounts: schemas/payment-provider/payment/transfer-between-provider-accounts.avsc.json
 transfer-completed: schemas/payment-provider/payment/transfer-completed.avsc.json
 transfer-failed: schemas/payment-provider/payment/transfer-failed.avsc.json
+simulate-provider-payment: schemas/payment-provider/payment/simulate-provider-payment.avsc.json
 
 company: schemas/company/company.avsc.json
 lookup-company: schemas/company/lookup-company.avsc.json
@@ -89,4 +92,5 @@ cash-account-close-requested: schemas/cash-account/cash-account-close-requested.
 cash-account-address-rotation-requested: schemas/cash-account/cash-account-address-rotation-requested.avsc.json
 outbound-payment-submitted: schemas/payment/outbound-payment-submitted.avsc.json
 inbound-payment-suspended: schemas/payment/inbound-payment-suspended.avsc.json
+inbound-payment-simulation-requested: schemas/payment/inbound-payment-simulation-requested.avsc.json
 idv-session-open-requested: schemas/idv/idv-session-open-requested.avsc.json

@@ -2,32 +2,7 @@
   (:require
     [com.repldriven.queenswood.clearbank-relay.outbound.shared :as shared]
 
-    [com.repldriven.queenswood.intent-poller.interface :as intent-poller]
-
-    [com.repldriven.mono.error.interface :as error]
-    [com.repldriven.mono.http-client.interface :as http]))
-
-(defn- classify-account-call
-  [res]
-  (let [status (:status res)]
-    (cond
-     (error/anomaly? res)
-     [:retry (:message (error/payload res))]
-
-     (not (int? status))
-     [:retry "no HTTP status"]
-
-     (or (<= 500 status) (= 408 status) (= 429 status))
-     [:retry (str "HTTP " status)]
-
-     (<= 400 status 499)
-     [:refused (or (:detail (http/res->edn res)) (str "HTTP " status))]
-
-     (<= 200 status 299)
-     [:answered (http/res->edn res)]
-
-     :else
-     [:retry (str "HTTP " status)])))
+    [com.repldriven.queenswood.intent-poller.interface :as intent-poller]))
 
 (defn- addresses
   [body]
@@ -36,7 +11,7 @@
 
 (defn- open
   [config _now intent]
-  (classify-account-call
+  (shared/classify
    (shared/post config "/v1/virtual-accounts" (:request intent))))
 
 (defn- opened
@@ -64,7 +39,7 @@
 (defn- close
   [config _now intent]
   (let [{:keys! [provider-account-id]} (shared/context intent)]
-    (classify-account-call
+    (shared/classify
      (shared/post config
                   (str "/v1/virtual-accounts/" provider-account-id "/close")
                   (:request intent)))))
@@ -95,7 +70,7 @@
         path (if provider-account-id
                (str "/v1/virtual-accounts/" provider-account-id "/reissue")
                "/v1/virtual-accounts")]
-    (classify-account-call (shared/post config path (:request intent)))))
+    (shared/classify (shared/post config path (:request intent)))))
 
 (defn- reissued
   [_config _now intent body]

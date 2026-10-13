@@ -184,19 +184,18 @@
   [txn bank-id idempotency-key]
   (store/find-account-by-idempotency-key txn bank-id idempotency-key))
 
-(defn limit-counts
+(defn get-aggregates
   "Count a bank's accounts, and those of one product type, account type
   and currency, in one round trip, as `{:total :subtotal}`. Read
-  serializably, so a limit is never exceeded: an open that commits
-  between the read and the write conflicts it. A read primitive for the
-  write sibling's limit checks.
+  serializably, so an open that commits between the read and the write
+  conflicts it. A read primitive for the write sibling's checks.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - product-type, account-type, currency: the subtotal's group."
   [txn bank-id product-type account-type currency]
-  (store/limit-counts txn bank-id product-type account-type currency))
+  (store/get-aggregates txn bank-id product-type account-type currency))
 
 (defn find-accounts-by-party
   "Return every CashAccount held by a party, regardless of status. A

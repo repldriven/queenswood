@@ -18,6 +18,7 @@
     [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]
 
+    [clojure.string :as str]
     [clojure.test :refer [deftest is testing]]))
 
 (defn- event
@@ -383,6 +384,52 @@
                         (outbox-event
                          config
                          "reissue:acc.1:rot-1:payment-address-reissued")))))))))
+
+(deftest simulated-payment-test
+  (with-test-system
+   [sys "classpath:clearbank-relay/application-test.yml"]
+   (let [config (relay-config sys nil)
+         calls (atom [])
+         relay (fn [res]
+                 (assoc config
+                        :post-fn
+                        (fn [url _signing-key request]
+                          (swap! calls conj [url request])
+                          res)))
+         now 1700000000000
+         context {:bank-id "bnk.1"
+                  :account-id "acc.own"
+                  :creditor-bban "04000420000001"
+                  :amount 2500
+                  :currency "GBP"
+                  :reference "Simulated inbound transfer"
+                  :debtor-name "Simulated debtor"}]
+     (testing "the simulator is asked to send the payment to the address"
+       (nom-test> [_ (SUT/save-intent
+                      config
+                      (account-intent
+                       "int.30"
+                       :clearbank-outbound-intent-kind-simulated-payment
+                       "sim.bnk.1.key-1" context))])
+       (outbound/drain-once
+        (relay (json-response 202 "{\"endToEndIdentification\":\"e2e-1\"}"))
+        now)
+       (let [[url request] (last @calls)]
+         (is (= "http://scheme.invalid/simulate/inbound-payment" url))
+         (is (str/includes? request "\"bban\":\"04000420000001\""))
+         (is (str/includes? request "\"amount\":25")))
+       (is (= :outbound-intent-status-settled
+              (:status (load-intent config "int.30")))))
+     (testing "a provider with no such route fails the request"
+       (nom-test> [_ (SUT/save-intent
+                      config
+                      (account-intent
+                       "int.31"
+                       :clearbank-outbound-intent-kind-simulated-payment
+                       "sim.bnk.1.key-2" context))])
+       (outbound/drain-once (relay (json-response 404 "{}")) now)
+       (is (= :outbound-intent-status-failed
+              (:status (load-intent config "int.31"))))))))
 
 (deftest allocate-account-number-test
   (with-test-system
