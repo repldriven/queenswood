@@ -27,15 +27,17 @@
                         (:policy-cache config))))
 
 (defn- accept-legs
-  [txn bank-id legs transaction-type policies]
-  (telemetry/with-span ["payment-inbound-accept-legs"]
-                       (balances/accept-legs txn
-                                             bank-id
-                                             legs
-                                             transaction-type
-                                             {:policies
-                                              (policy/platform-policies
-                                               policies)})))
+  ([txn bank-id legs transaction-type policies]
+   (accept-legs txn bank-id legs transaction-type policies nil))
+  ([txn bank-id legs transaction-type policies account-policies]
+   (telemetry/with-span ["payment-inbound-accept-legs"]
+                        (balances/accept-legs
+                         txn
+                         bank-id
+                         legs
+                         transaction-type
+                         {:policies (policy/platform-policies policies)
+                          :account-policies account-policies}))))
 
 (defn- check-debit-credit-code
   [debit-credit-code]
@@ -191,7 +193,13 @@
                                 txn
                                 (assoc transaction :legs checked-legs)))
              {:keys [transaction-id transaction-type legs]} transaction+legs
-             _ (accept-legs txn bank-id legs transaction-type policies)
+             _ (accept-legs txn
+                            bank-id
+                            legs
+                            transaction-type
+                            policies
+                            (account-limits/version-policies
+                             {account-id limits}))
              payment (inbound/new-inbound-payment data
                                                   account
                                                   business-day
@@ -279,7 +287,13 @@
                        txn
                        (assoc transaction :legs checked-legs))
              {:keys [transaction-id transaction-type legs]} recorded
-             _ (accept-legs txn bank-id legs transaction-type policies)
+             _ (accept-legs txn
+                            bank-id
+                            legs
+                            transaction-type
+                            policies
+                            (account-limits/version-policies
+                             {account-id limits}))
              released (inbound/settled-from-held held
                                                  scheme-transaction-id
                                                  transaction-id)

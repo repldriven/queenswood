@@ -208,9 +208,9 @@ opened under it, and what they may hold:
 - **How often money is taken out.** A fixed-rate saver may allow one
   withdrawal a year, or one a quarter. A withdrawal that fails gives
   its allowance back; one that went and was later returned does not.
-- **What the account holds.** A lowest and a highest balance: zero for
-  an account that cannot be overdrawn, below zero for an arranged
-  overdraft.
+- **What the account holds.** A lowest and a highest balance. An
+  account cannot be overdrawn unless its product says how far, and an
+  arranged overdraft is not yet honoured.
 
 A period runs by the calendar or from the day the account was opened,
 as the product states. Interest and rewards paid into an account are
