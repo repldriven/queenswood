@@ -405,8 +405,8 @@ non-trivial work on their topic.
   demo-digital-bank, idempotency, infrastructure, interest, members,
   onboarding, outbound-delivery, outbound-email, parties, payments, with
   payments-internal, payments-outbound and payments-inbound drawing each
-  flow and the records it writes, policy-evaluation, rewards,
-  scenario-testing, scheduler, service-apis, traceability,
+  flow and the records it writes, policy-evaluation, product-limits,
+  rewards, scenario-testing, scheduler, service-apis, traceability,
   transaction-processing, transactions-and-balances, webhooks).
 - **Per-capability requirements** — `docs/prd/` has the
   product-shaped requirements (cash-account-migrations,

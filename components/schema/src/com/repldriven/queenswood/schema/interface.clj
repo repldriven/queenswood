@@ -8,6 +8,7 @@
   (:require
     [com.repldriven.queenswood.schema.account_product_type :as
      account-product-type]
+    [com.repldriven.queenswood.schema.account_type :as account-type]
     [com.repldriven.queenswood.schema.access_log :as access-log]
     [com.repldriven.queenswood.schema.actor :as actor]
     [com.repldriven.queenswood.schema.audit :as audit]
@@ -45,7 +46,8 @@
 
     [protojure.protobuf :as proto]
 
-    [clojure.string :as str])
+    [clojure.string :as str]
+    [clojure.walk :as walk])
   (:import
     (com.google.protobuf Descriptors$Descriptor
                          Descriptors$FieldDescriptor
@@ -170,7 +172,7 @@
 (def ^{:doc "Map of CashAccount AccountType label to protobuf int
   value."}
      account-type->int
-  cash-account/AccountType-label2val)
+  account-type/AccountType-label2val)
 
 (def ^{:doc "Map of IsoCashAccountType label to protobuf int value."}
      iso-cash-account-type->int
@@ -272,12 +274,33 @@
               without-unset
               {:day :interest-payment-day-unknown :day-of-month 0 :month 0})))
 
+(defn- plain-limits
+  "A version's limits as plain maps, each oneof a map of its one set
+  variant, without an aggregate's anchor, start or rolling span where
+  none was given."
+  [limits]
+  (walk/postwalk
+   (fn [form]
+     (if (map? form)
+       (into {}
+             (remove (fn [[k v]]
+                       (or (nil? v)
+                           (and (contains? #{:starts-month :starts-day-of-month
+                                             :rolling-window-ms}
+                                           k)
+                                (zero? v))
+                           (and (= :anchor k) (= :window-anchor-unknown v))
+                           (and (= :allow k) (= :limit-allow-unknown v)))))
+             form)
+       form))
+   (vec limits)))
+
 (defn pb->CashAccountProduct
   "Parse CashAccountProduct protobuf bytes into a Clojure map, without the
   optional fields the version was never given: a zero `effective_to`,
   `published_at` or `discarded_at`, an empty idempotency key, no interest
-  terms, or no publishing, discarding or updating actor. An embedded
-  message is a plain map.
+  terms, no limits, or no publishing, discarding or updating actor. An
+  embedded message is a plain map.
 
   Args:
   - input: protobuf bytes."
@@ -291,6 +314,12 @@
 
      (nil? (:interest-terms version))
      (dissoc :interest-terms)
+
+     (empty? (:limits version))
+     (dissoc :limits)
+
+     (seq (:limits version))
+     (update :limits plain-limits)
 
      (zero? (:updated-at version 0))
      (dissoc :updated-at)

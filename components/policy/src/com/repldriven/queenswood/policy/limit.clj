@@ -94,11 +94,29 @@
 ;; where the per-value-kind rules — currency for `:amount`, …  — kick in).
 ;; New aggregate kinds register their own behaviour.
 
+(defn- period
+  "The period an aggregate is counted over: its window, and the anchor
+  and start it names."
+  [agg]
+  (let [{:keys [window anchor starts-month starts-day-of-month]}
+        (aggregate-fields agg)]
+    (cond-> {:window window}
+            (not (match/none? anchor))
+            (assoc :anchor anchor)
+
+            (pos? (or starts-month 0))
+            (assoc :starts-month starts-month)
+
+            (pos? (or starts-day-of-month 0))
+            (assoc :starts-day-of-month starts-day-of-month))))
+
 (defn- aggregate-shape-matches?
   [agg request]
   (and (= (:aggregate request) (aggregate-kind agg))
-       (window-matches? (:window (aggregate-fields agg))
-                        (:window request))
+       (if-some [requested (:period request)]
+         (= requested (period agg))
+         (window-matches? (:window (aggregate-fields agg))
+                          (:window request)))
        (compatible-values? (:value (aggregate-fields agg))
                            (:value request))))
 
@@ -188,6 +206,20 @@
               (filter (fn [{:keys [aggregate]}]
                         (aggregate-applies? aggregate request)))
               (map :side))
+        (enabled-limits policies)))
+
+(defn periods
+  [policies kind request]
+  (into #{}
+        (comp (filter (fn [l] (match/matches? l kind request)))
+              (mapcat (fn [{:keys [bound]}] (bound-sides bound)))
+              (map :aggregate)
+              (filter (fn [agg]
+                        (and (= (:aggregate request) (aggregate-kind agg))
+                             (compatible-values? (:value (aggregate-fields
+                                                          agg))
+                                                 (:value request)))))
+              (map period))
         (enabled-limits policies)))
 
 (defn check

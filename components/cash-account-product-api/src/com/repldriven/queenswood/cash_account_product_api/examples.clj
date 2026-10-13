@@ -54,6 +54,8 @@
 (def VersionId (schema/id-examples "VersionId"))
 (def TemplateId "tpl.00000000000000000000000001")
 (def OpeningReward {:amount 1000})
+(def PaymentLimit
+  {:direction "in" :measure "amount" :max 30000 :period "month"})
 
 (def CashAccountProductVersion
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"

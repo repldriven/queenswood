@@ -16,7 +16,8 @@
             (fixtures/account "debtor" "GBP")
             (fixtures/account "creditor" "GBP")
             (fixtures/allow-all)
-            (fixtures/empty-aggregates :internal-payment))]
+            (fixtures/empty-aggregates :internal-payment)
+            nil)]
     (testing "envelope carries idempotency-key, type, currency, reference"
       (is (= "idem-1" (:idempotency-key tx)))
       (is (= :transaction-type-internal-transfer (:transaction-type tx)))

@@ -293,6 +293,18 @@ stores:
         modified: 1
         fields: [bank_id, business_day]
         type: count
+      # One account's payments in by day and status, so one parked in
+      # suspense stops counting when it is saved.
+      - name: InboundPayment_count_by_bank_creditor_business_day_status
+        added: 1
+        modified: 1
+        fields: [bank_id, creditor_account_id, business_day, status]
+        type: count
+      - name: InboundPayment_sum_amount_by_bank_creditor_business_day_status
+        added: 1
+        modified: 1
+        fields: [bank_id, creditor_account_id, business_day, status, amount]
+        type: sum
       - name: InboundPayment_by_bank_status_created_at
         added: 1
         modified: 1
@@ -331,6 +343,18 @@ stores:
         modified: 1
         fields: [bank_id, business_day, amount]
         type: sum
+      # One account's payments out by day and status, so one that fails
+      # stops counting when it is saved.
+      - name: OutboundPayment_count_by_bank_debtor_business_day_status
+        added: 1
+        modified: 1
+        fields: [bank_id, debtor_account_id, business_day, status]
+        type: count
+      - name: OutboundPayment_sum_amount_by_bank_debtor_business_day_status
+        added: 1
+        modified: 1
+        fields: [bank_id, debtor_account_id, business_day, status, amount]
+        type: sum
       - name: OutboundPayment_by_status_created_at
         added: 1
         modified: 1
@@ -349,6 +373,28 @@ stores:
         modified: 1
         fields: [bank_id, business_day]
         type: count
+      # One account's payments out and in by day, which a product
+      # version's limits on its accounts' payments are counted from.
+      - name: InternalPayment_count_by_bank_debtor_business_day
+        added: 1
+        modified: 1
+        fields: [bank_id, debtor_account_id, business_day]
+        type: count
+      - name: InternalPayment_sum_amount_by_bank_debtor_business_day
+        added: 1
+        modified: 1
+        fields: [bank_id, debtor_account_id, business_day, amount]
+        type: sum
+      - name: InternalPayment_count_by_bank_creditor_business_day
+        added: 1
+        modified: 1
+        fields: [bank_id, creditor_account_id, business_day]
+        type: count
+      - name: InternalPayment_sum_amount_by_bank_creditor_business_day
+        added: 1
+        modified: 1
+        fields: [bank_id, creditor_account_id, business_day, amount]
+        type: sum
   policies:
     record-type: Policy
     indexes:

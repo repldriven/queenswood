@@ -39,7 +39,8 @@
                               (fixtures/account "debtor" "GBP")
                               (fixtures/account "creditor" "GBP")
                               (fixtures/allow-all)
-                              (fixtures/empty-aggregates :internal-payment)))))
+                              (fixtures/empty-aggregates :internal-payment)
+                              nil))))
     (is (not (error/anomaly? (outbound/outbound-payment->transaction
                               {:idempotency-key "ob-op"
                                :debtor-account-id "debtor"
@@ -60,7 +61,8 @@
                     (fixtures/account "debtor" "GBP" status)
                     (fixtures/account "creditor" "GBP")
                     (fixtures/allow-all)
-                    (fixtures/empty-aggregates :internal-payment))]
+                    (fixtures/empty-aggregates :internal-payment)
+                    nil)]
         (is (error/anomaly? result))
         (is (= :payment/debtor-account-not-operable (error/kind result)))
         (is (= {:account-id "debtor"
@@ -77,7 +79,8 @@
                     (fixtures/account "debtor" "GBP")
                     (fixtures/account "creditor" "GBP" status)
                     (fixtures/allow-all)
-                    (fixtures/empty-aggregates :internal-payment))]
+                    (fixtures/empty-aggregates :internal-payment)
+                    nil)]
         (is (error/anomaly? result))
         (is (= :payment/creditor-account-not-operable (error/kind result)))
         (is (= {:account-id "creditor"
@@ -112,7 +115,8 @@
                   (fixtures/account "debtor" "GBP")
                   (fixtures/account "creditor" "EUR")
                   (fixtures/allow-all)
-                  (fixtures/empty-aggregates :internal-payment))]
+                  (fixtures/empty-aggregates :internal-payment)
+                  nil)]
       (is (error/anomaly? result))
       (is (= :payment/currency-mismatch (error/kind result)))))
   (testing "internal-payment: creditor currency must match payment currency"
@@ -125,7 +129,8 @@
                   (fixtures/account "debtor" "GBP")
                   (fixtures/account "creditor" "EUR")
                   (fixtures/allow-all)
-                  (fixtures/empty-aggregates :internal-payment))]
+                  (fixtures/empty-aggregates :internal-payment)
+                  nil)]
       (is (error/anomaly? result))
       (is (= :payment/currency-mismatch (error/kind result)))))
   (testing "inbound-payment: creditor currency must match payment currency"

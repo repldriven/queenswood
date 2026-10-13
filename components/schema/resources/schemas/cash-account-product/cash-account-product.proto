@@ -6,6 +6,7 @@ import "record_metadata_options.proto";
 import "schemas/account-product-type/account-product-type.proto";
 import "schemas/actor/actor.proto";
 import "schemas/cash-account-product/types.proto";
+import "schemas/policy/limit.proto";
 
 option java_outer_classname = "CashAccountProductProto";
 
@@ -108,6 +109,7 @@ message CashAccountProduct {
   repeated RewardTerms reward_terms = 15;
   required int64 effective_from = 16; // epoch day
   optional int64 effective_to = 17; // epoch day
+  repeated com.repldriven.queenswood.schema.policy.Limit limits = 18;
 
   optional string idempotency_key = 100;
   required int64 created_at = 101;

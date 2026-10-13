@@ -54,7 +54,13 @@
                        (+ (get-in aggregates
                                   [:outbound-payment
                                    #{:bank-id :business-day :amount}])
-                          amount))]
+                          amount))
+       _ (checks/check-account-payment policies
+                                       debtor-account-id
+                                       :payment-direction-out
+                                       amount
+                                       currency
+                                       aggregates)]
       ;; Reserve, don't post: the customer's funds move to their
       ;; pending-outgoing bucket (available drops, posted untouched) and
       ;; the bank's 1200 claim is likewise pending — the whole transfer

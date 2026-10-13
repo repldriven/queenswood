@@ -196,6 +196,27 @@ accounts onto a newer published version of the same product
 type. Staying put is what happens by default, and that is
 the cohort property the versioning model exists to deliver.
 
+### Limits on an account's payments
+
+A product can state what may be paid into and out of the accounts
+opened under it, and what they may hold:
+
+- **How much is paid in.** A regular saver that pays a high rate may
+  take at most 300 a month. A payment that would pass the month's
+  amount is refused, whether it comes from another account at the bank
+  or from outside.
+- **How often money is taken out.** A fixed-rate saver may allow one
+  withdrawal a year, or one a quarter. A withdrawal that fails gives
+  its allowance back; one that went and was later returned does not.
+- **What the account holds.** A lowest and a highest balance: zero for
+  an account that cannot be overdrawn, below zero for an arranged
+  overdraft.
+
+A period runs by the calendar or from the day the account was opened,
+as the product states. Interest and rewards paid into an account are
+never refused by its limits. Like its other terms, a product's limits
+are fixed once it is published, and its existing accounts keep them.
+
 ### Policy bounds
 
 The platform enforces two kinds of bounds when a customer
@@ -330,7 +351,9 @@ Only an approved migration moves it.
 - **Engineering view**:
   [tdd/cash-account-products](../tdd/cash-account-products.md)
   for the data model, lifecycle invariants, and the cohort
-  pinning mechanism.
+  pinning mechanism;
+  [tdd/product-limits](../tdd/product-limits.md) for the limits
+  a product states on its accounts' payments.
 - **Platform context**: [platform](platform.md);
   [onboarding](onboarding.md) — the customer's default
   product is created and published as part of the bootstrap.

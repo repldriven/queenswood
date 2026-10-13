@@ -3,11 +3,11 @@ syntax = "proto2";
 package com.repldriven.queenswood.schema.policy;
 
 import "schemas/account-product-type/account-product-type.proto";
+import "schemas/account-type/account-type.proto";
 import "schemas/actor/actor.proto";
 import "schemas/amount/amount.proto";
 import "schemas/balance/types.proto";
 import "schemas/bank/bank.proto";
-import "schemas/cash-account/types.proto";
 import "schemas/party/party.proto";
 import "schemas/policy/capability.proto";
 import "schemas/policy/types.proto";
@@ -23,18 +23,33 @@ enum TimeWindow {
   TIME_WINDOW_WEEKLY = 3;
   TIME_WINDOW_MONTHLY = 4;
   TIME_WINDOW_ROLLING = 5;
+  TIME_WINDOW_QUARTERLY = 6;
+  TIME_WINDOW_ANNUALLY = 7;
+}
+
+// The day a window's periods are counted from.
+enum WindowAnchor {
+  WINDOW_ANCHOR_UNKNOWN = 0;
+  WINDOW_ANCHOR_ACCOUNT = 1; // the day the account was opened
+  WINDOW_ANCHOR_CALENDAR = 2; // the first of the month, quarter or year, or starts_month and starts_day_of_month
 }
 
 message AmountAggregate {
   required com.repldriven.queenswood.schema.amount.Amount value = 1;
   required TimeWindow window = 2;
   optional int64 rolling_window_ms = 3;
+  optional WindowAnchor anchor = 4;
+  optional int32 starts_month = 5; // 1 to 12
+  optional int32 starts_day_of_month = 6; // 1 to 28
 }
 
 message CountAggregate {
-  optional int64 value = 1;
+  required int64 value = 1;
   required TimeWindow window = 2;
   optional int64 rolling_window_ms = 3;
+  optional WindowAnchor anchor = 4;
+  optional int32 starts_month = 5; // 1 to 12
+  optional int32 starts_day_of_month = 6; // 1 to 28
 }
 
 message Aggregate {
@@ -68,6 +83,22 @@ message Bound {
 enum LimitAllow {
   LIMIT_ALLOW_UNKNOWN = 0;
   LIMIT_ALLOW_IMPROVING = 1;
+}
+
+// Whether a payment is into an account or out of it.
+enum PaymentDirection {
+  PAYMENT_DIRECTION_UNKNOWN = 0;
+  PAYMENT_DIRECTION_IN = 1;
+  PAYMENT_DIRECTION_OUT = 2;
+}
+
+// A filter naming a direction bounds one account's payments in it.
+message AccountPaymentLimitFilter {
+  optional PaymentDirection direction = 1;
+}
+
+message AccountPaymentLimit {
+  repeated AccountPaymentLimitFilter filters = 1;
 }
 
 message ActualBalance {
@@ -105,7 +136,7 @@ message BankLimit {
 
 message CashAccountLimitFilter {
   optional com.repldriven.queenswood.schema.account_product_type.AccountProductType product_type = 1;
-  optional com.repldriven.queenswood.schema.cash_account.AccountType account_type = 2;
+  optional com.repldriven.queenswood.schema.account_type.AccountType account_type = 2;
   optional string currency = 3;
 }
 
@@ -219,5 +250,6 @@ message Limit {
     InvitationLimit invitation = 26;
     MemberLimit member = 27;
     EmailLimit email = 28;
+    AccountPaymentLimit account_payment = 29;
   }
 }

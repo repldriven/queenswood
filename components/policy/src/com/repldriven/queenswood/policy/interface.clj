@@ -8,7 +8,8 @@
 
     [com.repldriven.queenswood.policy.capability :as capability]
     [com.repldriven.queenswood.policy.core :as core]
-    [com.repldriven.queenswood.policy.limit :as limit]))
+    [com.repldriven.queenswood.policy.limit :as limit]
+    [com.repldriven.queenswood.policy.period :as period]))
 
 (defn new-policy
   "Persist a policy. Returns the saved policy map or an anomaly.
@@ -137,12 +138,59 @@
     `{:aggregate :count|:amount
       :window    :time-window-instant|:time-window-daily|
                  :time-window-weekly|:time-window-monthly|
+                 :time-window-quarterly|:time-window-annually|
                  :time-window-rolling
+      :period    <a period from `periods`>
       :value     <number-or-amount>
       :pre-value <number-or-amount>}` — `:pre-value` is optional
-    and unlocks `:limit-allow-improving` leniency when present."
+    and unlocks `:limit-allow-improving` leniency when present. A
+    request naming a `:period` is checked against the limits counted
+    over exactly that period, in place of those of its `:window`."
   [policies kind request]
   (limit/check policies kind request))
+
+(defn periods
+  "The periods the live limits in `policies` matching `request` are
+  counted over, as a set of `{:window :anchor :starts-month
+  :starts-day-of-month}` maps without the keys a limit leaves unset. A
+  caller whose limits come as data reads an aggregate for each and
+  checks it with the period in its request.
+
+  Args:
+  - policies: collection of policy maps to evaluate.
+  - kind: limit kind keyword.
+  - request: map of the shape `check-limit` takes, without `:window` or
+    `:period`; its `:value` need carry only the currency an `:amount`
+    limit is matched on."
+  [policies kind request]
+  (limit/periods policies kind request))
+
+(defn period-start
+  "The first epoch day of the period `day` falls in. A period is counted
+  from the day the account was opened, `opened-on`, unless it names the
+  `:window-anchor-calendar` anchor or no opening day is given, when it
+  is counted from the first of January, or from the `:starts-month` and
+  `:starts-day-of-month` it names, and a week from a Monday. A month, a
+  quarter and a year step by whole months from the anchor, an instant
+  and a day are the day itself, and a rolling window reaches back its
+  whole days.
+
+  Args:
+  - period: a period map, as `periods` returns.
+  - day: the epoch day the period is wanted for.
+  - opened-on: the epoch day the account was opened, or nil."
+  [period day opened-on]
+  (period/start period day opened-on))
+
+(defn limits->policy
+  "A live policy holding `limits`, for limits that come from somewhere
+  other than a stored policy, such as a product version's, so they are
+  evaluated beside the policies in force.
+
+  Args:
+  - limits: collection of limit maps."
+  [limits]
+  {:status :policy-status-active :limits (vec limits)})
 
 (defn bound-sides
   "The sides, `:max` and `:min`, that the live limits in `policies`

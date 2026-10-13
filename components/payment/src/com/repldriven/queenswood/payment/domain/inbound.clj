@@ -46,7 +46,13 @@
                                :value (+ (get today
                                               #{:bank-id :business-day
                                                 :product-type :amount})
-                                         amount)}})]
+                                         amount)}})
+       _ (checks/check-account-payment policies
+                                       (:account-id creditor-account)
+                                       :payment-direction-in
+                                       amount
+                                       currency
+                                       aggregates)]
       nil)))
 
 (def ^:private

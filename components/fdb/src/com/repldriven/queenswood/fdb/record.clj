@@ -1,7 +1,8 @@
 (ns com.repldriven.queenswood.fdb.record
   (:refer-clojure :exclude [load])
   (:import
-    (com.apple.foundationdb.record ExecuteProperties
+    (com.apple.foundationdb.record EndpointType
+                                   ExecuteProperties
                                    IndexEntry
                                    IndexScanType
                                    IsolationLevel
@@ -299,11 +300,22 @@
                                          nil
                                          ScanProperties/FORWARD_SCAN)))))
 
+(defn- group-range
+  "The groups under `prefix`, or those from the group `prefix` and `from`
+  name to the last that `prefix` and `through` begin."
+  [prefix from through]
+  (if (and from through)
+    (TupleRange. (->tuple (into (vec prefix) from))
+                 (->tuple (into (vec prefix) through))
+                 EndpointType/RANGE_INCLUSIVE
+                 EndpointType/RANGE_INCLUSIVE)
+    (TupleRange/allOf (->tuple prefix))))
+
 (defn sum-groups-later
-  [^FDBRecordStore store index-name prefix {:keys [isolation]}]
+  [^FDBRecordStore store index-name prefix {:keys [isolation from through]}]
   (let [index (.getIndex (.getRecordMetaData store) index-name)
         bounds (IndexScanRange. IndexScanType/BY_GROUP
-                                (TupleRange/allOf (->tuple prefix)))
+                                (group-range prefix from through))
         props (ScanProperties. (-> (ExecuteProperties/newBuilder)
                                    (.setIsolationLevel
                                     (if (= :snapshot isolation)

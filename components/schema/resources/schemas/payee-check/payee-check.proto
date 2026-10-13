@@ -3,8 +3,8 @@ syntax = "proto2";
 package com.repldriven.queenswood.schema.payee_check;
 
 import "record_metadata_options.proto";
+import "schemas/account-type/account-type.proto";
 import "schemas/actor/actor.proto";
-import "schemas/cash-account/types.proto";
 import "schemas/fideslang/data-category.proto";
 
 option java_outer_classname = "PayeeCheckProto";
@@ -25,7 +25,7 @@ message AccountIdentifier {
 message PayeeCheckRequest {
   required string creditor_name = 1 [(fideslang.data_category) = "user.name"];
   required AccountIdentifier account = 2;
-  required com.repldriven.queenswood.schema.cash_account.AccountType account_type = 3;
+  required com.repldriven.queenswood.schema.account_type.AccountType account_type = 3;
 }
 
 message PayeeCheckResult {
