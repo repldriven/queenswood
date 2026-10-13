@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.payment.core
   (:require
     [com.repldriven.queenswood.payment.domain.checks :as checks]
+    [com.repldriven.queenswood.payment.domain.inbound :as inbound]
     [com.repldriven.queenswood.payment.domain.internal :as internal]
     [com.repldriven.queenswood.payment.domain.outbound :as outbound]
     [com.repldriven.queenswood.payment.domain.scheme :as scheme]
@@ -49,6 +50,25 @@
       (or existing result))
     result))
 
+(defn- get-internal-aggregates
+  [txn bank-id business-day]
+  (let-nom> [today (telemetry/with-span ["payment-internal-aggregates"]
+                                        (q/get-internal-aggregates
+                                         txn
+                                         bank-id
+                                         business-day))]
+    {:internal-payment {#{:bank-id :business-day} (:count today)}}))
+
+(defn- get-outbound-aggregates
+  [txn bank-id business-day]
+  (let-nom> [today (telemetry/with-span ["payment-outbound-aggregates"]
+                                        (q/get-outbound-aggregates
+                                         txn
+                                         bank-id
+                                         business-day))]
+    {:outbound-payment {#{:bank-id :business-day} (:count today)
+                        #{:bank-id :business-day :amount} (:sum today)}}))
+
 (defn submit-internal
   [config data]
   (or-already-submitted
@@ -82,13 +102,7 @@
                                        [(:product-type debtor-account)
                                         (:product-type creditor-account)]
                                        {:journal? false})
-           today-count (telemetry/with-span
-                        ["payment-daily-count"]
-                        (q/count-internal-by-org-business-day txn
-                                                              bank-id
-                                                              business-day))
-           aggregates {:internal-payment
-                       {#{:bank-id :business-day} today-count}}
+           aggregates (get-internal-aggregates txn bank-id business-day)
            payment-transaction (telemetry/with-span
                                 ["payment-checks"]
                                 (internal/internal-payment->transaction
@@ -197,17 +211,9 @@
                                           bank-id
                                           :ledger-account-code-pending-outbound
                                           currency))
-                    today (telemetry/with-span
-                           ["payment-daily-totals"]
-                           (q/outbound-totals-by-org-business-day
-                            txn
-                            bank-id
-                            business-day))
-                    aggregates {:outbound-payment
-                                {#{:bank-id :business-day}
-                                 (:count today)
-                                 #{:bank-id :business-day :amount}
-                                 (:sum today)}}
+                    aggregates (get-outbound-aggregates txn
+                                                        bank-id
+                                                        business-day)
                     transaction (telemetry/with-span
                                  ["payment-checks"]
                                  (outbound/outbound-payment->transaction
@@ -277,3 +283,39 @@
                             q/find-outbound-payment-by-idempotency-key)
       (let-nom> [{:keys [payment]} raw]
         payment))))
+
+(defn simulate-inbound
+  [config data]
+  (let [{:keys [bank-id currency]} data]
+    (store/transact
+     config
+     (fn [txn]
+       (let-nom>
+         [_ (ledger-accounts/find-by-code
+             txn
+             bank-id
+             :ledger-account-code-cash-at-correspondent
+             currency)
+          account (cash-accounts/house-account txn bank-id currency)
+          simulated (inbound/simulated-inbound data account)
+          {:keys [account-id]} account
+          _ (bank-activity/record txn
+                                  {:bank-id bank-id
+                                   :event-name
+                                   "inbound-payment-simulation-requested"
+                                   :data simulated
+                                   :causation-id account-id
+                                   :dedup-key (:simulation-id simulated)})
+          _ (audit/record
+             txn
+             {:bank-id bank-id
+              :kind :audit-kind-cash-account-inbound-payment-simulated
+              :subject-kind :audit-subject-kind-cash-account
+              :subject-id account-id
+              :request-id (:request-id data)
+              :before account
+              :after account
+              :performed-by (:actor data)})]
+         (select-keys simulated [:account-id :amount :currency :reference])))
+     :payment/simulate-inbound
+     "Failed to ask for a simulated inbound payment")))

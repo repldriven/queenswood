@@ -397,10 +397,12 @@ processor's index outlives the cache entry.
 
 - `POST /v1/cash-accounts`, `POST /v1/parties`,
   `POST /v1/payments/internal`, `POST /v1/payments/outbound`,
-  `POST /v1/cash-account-products`,
-  `POST /v1/cash-account-migrations` and
-  `POST /v1/simulate/inbound-transfer`, each read
+  `POST /v1/cash-account-products` and
+  `POST /v1/cash-account-migrations`, each read
   back off a unique index headed by `bank_id`.
+- `POST /v1/simulate/inbound-transfer` names the payment it asks the
+  bank's provider for by the bank and the key, so a retry asks the
+  provider's adapter for the one it already holds.
 - `POST /v1/banks` reads off the index headed by the creator's
   principal, so a retry makes no second bank, and creates the
   Keycloak client only once the bank has committed, under the bank's

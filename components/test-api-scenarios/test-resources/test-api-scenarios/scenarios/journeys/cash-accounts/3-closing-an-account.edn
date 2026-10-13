@@ -19,7 +19,7 @@
              :auth [:ref :bank-0 :token]
              :body {:debtor-account-id [:ref :leaving :opened :account
                                         :account-id]
-                    :creditor-account-id [:ref :leaving :own-funds :account-id]
+                    :creditor-account-id [:ref :leaving :own-funds :requested :account-id]
                     :currency "GBP"
                     :amount 100000
                     :reference "Sweep"}}

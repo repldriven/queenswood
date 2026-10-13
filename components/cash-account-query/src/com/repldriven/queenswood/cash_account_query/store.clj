@@ -162,7 +162,7 @@
                 {:message "Failed to count accounts by org"
                  :bank-id bank-id}))
 
-(defn limit-counts
+(defn get-aggregates
   [txn bank-id product-type account-type currency]
   (fdb/transact
    txn
@@ -178,8 +178,8 @@
                (schema/account-type->int account-type)
                currency]]])]
        {:total total :subtotal subtotal}))
-   :cash-account/limit-counts
-   {:message "Failed to count accounts for the limits"
+   :cash-account/get-aggregates
+   {:message "Failed to count accounts"
     :bank-id bank-id}))
 
 (defn count-by-version

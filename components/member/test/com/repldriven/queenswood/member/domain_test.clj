@@ -16,7 +16,7 @@
 
 (def ^:private below-owner #{:role-admin :role-developer :role-viewer})
 
-(defn- counts
+(defn- aggregates
   "The aggregates of a bank with `members` active members and `pending`
   pending invitations that has sent `sent` invitations today, every bank
   having sent `emails` between them."
@@ -27,7 +27,7 @@
 
 (def ^:private unlimited
   "What a call under no limit is given."
-  {:aggregates (counts 0 0 0 0) :policies []})
+  {:aggregates (aggregates 0 0 0 0) :policies []})
 
 (defn- limit
   [kind window value reason]
@@ -50,7 +50,7 @@
   ([members pending sent]
    (limited members pending sent sent))
   ([members pending sent emails]
-   {:aggregates (counts members pending sent emails)
+   {:aggregates (aggregates members pending sent emails)
     :policies limited-policies}))
 
 (defn- member-actor

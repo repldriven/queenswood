@@ -28,20 +28,19 @@
   [txn bank-id]
   (store/find-bank txn bank-id))
 
-(defn limit-counts
-  "The counts a bank create is held to: `:total`, the banks the
-  installation holds, and `:tier`, those on the tier, both read at
-  snapshot so creates never conflict over them, and `:created-by`, those
-  the actor has created on the tier, read serializably so two creates by
-  one actor conflict rather than both pass a limit. Returns the map or
-  an anomaly.
+(defn get-aggregates
+  "Count the banks: `:total`, those the installation holds, and `:tier`,
+  those on the tier, both read at snapshot so creates never conflict
+  over them, and `:created-by`, those the actor has created on the tier,
+  read serializably so two creates by one actor conflict rather than
+  both pass. Returns the map or an anomaly.
 
   Args:
   - txn: FDB transaction or db handle.
   - tier: the tier's name.
   - created-by: the creating actor, `{:kind :principal-id}`."
   [txn tier created-by]
-  (store/limit-counts txn tier created-by))
+  (store/get-aggregates txn tier created-by))
 
 (defn get-bank-view
   "Load a bank by id enriched with its party, its accounts (with

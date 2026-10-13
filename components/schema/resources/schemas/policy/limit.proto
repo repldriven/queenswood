@@ -139,8 +139,11 @@ message EmailLimit {}
 
 message IdvLimit {}
 
+// A filter naming a product type bounds the inbound payments to accounts
+// of that type.
 message InboundPaymentLimitFilter {
   optional com.repldriven.queenswood.schema.scheme_type.SchemeType scheme = 1;
+  optional com.repldriven.queenswood.schema.account_product_type.AccountProductType product_type = 2;
 }
 
 message InboundPaymentLimit {

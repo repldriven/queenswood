@@ -190,16 +190,24 @@ demo-digital-bank-seed:
       if (( REWARD > 0 )); then SUFFIX=", $REWARD pence opening reward"; fi
       printf '  %-14s %s, %s bps%s\n' "$NAME" "$PRODUCT" "$BPS" "$SUFFIX"
     done
+    for _ in {1..30}; do
+      RES=$(curl -sS {{ DEMO_API_URL }}/v1/bank -H "authorization: Bearer $TOKEN")
+      if [[ "$(jq -r '[.accounts[]?.status] | length > 0 and all(. == "opened")' <<<"$RES")" == true ]]; then
+        break
+      fi
+      sleep 1
+    done
     RES=$(curl -sS -X POST "{{ DEMO_API_URL }}/v1/simulate/inbound-transfer" \
       -H "authorization: Bearer $TOKEN" \
       -H 'content-type: application/json' \
       -H "idempotency-key: demo-digital-bank-fund-house" \
       -d '{"amount":1000000,"currency":"GBP"}')
-    if [[ "$(jq -r '.status // empty' <<<"$RES")" != posted ]]; then
+    HOUSE=$(jq -r '."account-id" // empty' <<<"$RES")
+    if [[ -z "$HOUSE" ]]; then
       echo "funding the bank refused: $RES" >&2
       exit 1
     fi
-    echo "own funds $(jq -r '."account-id"' <<<"$RES") hold 1000000 pence, which pays the rewards"
+    echo "own funds $HOUSE are sent 1000000 pence, which pays the rewards once it arrives"
     RES=$(curl -sS {{ DEMO_API_URL }}/v1/webhook-endpoints -H "authorization: Bearer $TOKEN")
     ENDPOINT=$(jq -r --arg a "{{ DEMO_WEBHOOK_URL }}" \
       '[.items[] | select(.address == $a and .status != "removed")][0]["endpoint-id"] // empty' <<<"$RES")
@@ -259,11 +267,12 @@ demo-digital-bank-fund amount:
       -H 'content-type: application/json' \
       -H "idempotency-key: demo-digital-bank-fund-$(date +%s%N)" \
       -d '{"amount":{{ amount }},"currency":"GBP"}')
-    if [[ "$(jq -r '.status // empty' <<<"$RES")" != posted ]]; then
+    HOUSE=$(jq -r '."account-id" // empty' <<<"$RES")
+    if [[ -z "$HOUSE" ]]; then
       echo "funding refused: $RES" >&2
       exit 1
     fi
-    echo "{{ amount }} pence into own funds $(jq -r '."account-id"' <<<"$RES"): $(jq -r '."transaction-id"' <<<"$RES")"
+    echo "{{ amount }} pence sent in to own funds $HOUSE, arriving as an inbound payment"
 
 # Film a new customer signing up and opening an Everyday and a Rainy Day with Playwright against DEMO_APP_URL (http://localhost:5174), the monolith, the bank and the app already running and the bank seeded; the Everyday's reward is paid as it opens; the video lands in target/recordings/demo-digital-bank.webm, a failed take included.
 demo-digital-bank-record-walkthrough:

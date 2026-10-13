@@ -3,6 +3,7 @@
     [com.repldriven.queenswood.form3-relay.outbound.accounts]
     [com.repldriven.queenswood.form3-relay.outbound.payments]
     [com.repldriven.queenswood.form3-relay.outbound.returns]
+    [com.repldriven.queenswood.form3-relay.outbound.simulations]
 
     [com.repldriven.queenswood.form3-relay.store :as store]
 

@@ -89,6 +89,26 @@
                 :currency "GBP"
                 :reason-code "AC04"})
        (is (empty? @sent)))
+     (testing "a simulated inbound is sent for the provider to send in"
+       (reset! sent [])
+       (handle "inbound-payment-simulation-requested"
+               {:bank-id "bnk.a"
+                :simulation-id "sim.bnk.a.key-1"
+                :account-id "acc.own"
+                :creditor-bban "04001000000002"
+                :amount 2500
+                :currency "GBP"
+                :reference "Simulated inbound transfer"
+                :debtor-name "Simulated debtor"})
+       (let [[[message opts]] @sent
+             data (avro/deserialize-same (get schemas
+                                              "simulate-provider-payment")
+                                         (:payload message))]
+         (is (= "simulate-provider-payment" (:command message)))
+         (is (= {:key "bnk.a"} opts))
+         (is (= "sim.bnk.a.key-1" (:simulation-id data)))
+         (is (= "04001000000002" (:creditor-bban data)))
+         (is (= 2500 (:amount data)))))
      (testing "an entry no payment provider acts on sends nothing"
        (reset! sent [])
        (is (nil? (handle "idv-session-open-requested"

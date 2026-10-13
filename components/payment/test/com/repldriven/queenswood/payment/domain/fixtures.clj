@@ -50,7 +50,9 @@
   of any limit boundary."
   [kind]
   {kind {#{:bank-id :business-day} 0
-         #{:bank-id :business-day :amount} 0}})
+         #{:bank-id :business-day :amount} 0
+         #{:bank-id :business-day :product-type} 0
+         #{:bank-id :business-day :product-type :amount} 0}})
 
 (defn account
   "Minimal cash-account fixture — just the fields the domain guards

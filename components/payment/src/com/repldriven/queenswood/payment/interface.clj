@@ -16,7 +16,8 @@
   the order it committed and sends the bank's provider, keyed by bank,
   what each entry asks: an account's opening, closing or address
   reissue, a submitted outbound payment, a parked inbound's return where
-  the provider returns inbounds, and, where the provider holds a balance
+  the provider returns inbounds, a payment a test bank asked the provider
+  to send in, and, where the provider holds a balance
   for each account, the transfers mirroring a posting, which it records
   and the adapter's `transfer-completed` and `transfer-failed` events
   settle.
@@ -68,6 +69,27 @@
   Returns the payment map or an anomaly."
   [config data]
   (core/submit-outbound config data))
+
+(defn simulate-inbound
+  "Ask the bank's payment provider to send a payment in to the bank's
+  own-funds account in the request's currency, recording the request as
+  the bank's activity for the activity event processor to send. Nothing
+  is posted: the money arrives as any inbound payment does, through
+  `settle-inbound`, held to the checks made there. A redelivered command
+  asks for the same payment, which the provider's adapter takes once.
+
+  Args:
+  - config: FDB handle.
+  - data: `{:bank-id :currency :amount :idempotency-key :request-id
+    :actor}`, the amount in minor units.
+
+  Returns `{:account-id :amount :currency :reference}`, the account the
+  payment is addressed to and the reference it arrives with, or an
+  anomaly: `:gl/missing-currency-account` or
+  `:cash-account/house-account-not-found` where the bank has no account
+  in the currency."
+  [config data]
+  (core/simulate-inbound config data))
 
 (defn settle-inbound
   "Process an inbound `provider-payment-settled` event. Looks up the

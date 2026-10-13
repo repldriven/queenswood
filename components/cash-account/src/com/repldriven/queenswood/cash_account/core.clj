@@ -29,10 +29,10 @@
                                       {:bank-id bank-id
                                        :account-id account-id}))))
 
-(defn- counts
+(defn- get-aggregates
   [txn bank-id product-type account-type currency]
   (let-nom> [{:keys [total subtotal]}
-             (q/limit-counts txn bank-id product-type account-type currency)]
+             (q/get-aggregates txn bank-id product-type account-type currency)]
     {:cash-account
      {#{:bank-id} total
       #{:bank-id :product-type :account-type :currency} subtotal}}))
@@ -141,12 +141,12 @@
               product-version (products/active-version product today)
               aggregates (when product-version
                            (telemetry/with-span
-                            ["cash-account-counts"]
-                            (counts txn
-                                    bank-id
-                                    (product-type-of product-version)
-                                    (domain/party->account-type party)
-                                    currency)))
+                            ["cash-account-aggregates"]
+                            (get-aggregates txn
+                                            bank-id
+                                            (product-type-of product-version)
+                                            (domain/party->account-type party)
+                                            currency)))
               account (domain/open-account
                        data
                        product-version

@@ -104,7 +104,7 @@
 
 (def ^:private allow-open [(policy-allowing :cash-account-action-open)])
 
-(defn- counts
+(defn- aggregates
   "The two counts core reads before an open: the bank's total and the
   subtotal for this product type, account type and currency."
   [total subtotal]
@@ -125,20 +125,21 @@
 (deftest open-account-payment-scheme-test
   (testing "a version allowing no scheme cannot be addressed"
     (let [result (open-account-past-the-guards (version-with-schemes [])
-                                               (counts 0 0)
+                                               (aggregates 0 0)
                                                allow-open)]
       (is (error/rejection? result))
       (is (= :cash-account/no-payment-schemes (error/kind result)))))
   (testing "a scheme the provider is not asked for is named"
     (let [result (open-account-past-the-guards (version-with-schemes
                                                 [:payment-address-scheme-iban])
-                                               (counts 0 0)
+                                               (aggregates 0 0)
                                                allow-open)]
       (is (error/rejection? result))
       (is (= :cash-account/unsupported-scheme (error/kind result)))))
   (testing "and a scan account opens with no address until the provider's"
-    (let [result
-          (open-account-past-the-guards scan-version (counts 0 0) allow-open)]
+    (let [result (open-account-past-the-guards scan-version
+                                               (aggregates 0 0)
+                                               allow-open)]
       (is (= :cash-account-status-opening (:status result)))
       (is (= [] (:payment-addresses result)))
       (is (not (contains? result :bban))))))
@@ -189,12 +190,12 @@
   (let [two-in-total (allow-open-within (count-limit 2 nil))]
     (testing "the bank's total admits an open up to the bound"
       (let [result (open-account-past-the-guards scan-version
-                                                 (counts 1 1)
+                                                 (aggregates 1 1)
                                                  two-in-total)]
         (is (= :cash-account-status-opening (:status result)))))
     (testing "and refuses the open past it"
       (let [result (open-account-past-the-guards scan-version
-                                                 (counts 2 2)
+                                                 (aggregates 2 2)
                                                  two-in-total)]
         (is (error/rejection? result))
         (is (= :policy/limit-exceeded (error/kind result)))))))
@@ -210,13 +211,13 @@
                              :account-product-type-sub-ledger-term-deposit}]))]
     (testing "a limit filtered by product type bites on that type's subtotal"
       (let [result (open-account-past-the-guards term-deposit
-                                                 (counts 5 1)
+                                                 (aggregates 5 1)
                                                  one-term-deposit)]
         (is (error/rejection? result))
         (is (= :policy/limit-exceeded (error/kind result)))))
     (testing "and leaves another product type alone at the same counts"
       (let [result (open-account-past-the-guards scan-version
-                                                 (counts 5 1)
+                                                 (aggregates 5 1)
                                                  one-term-deposit)]
         (is (= :cash-account-status-opening (:status result)))))))
 

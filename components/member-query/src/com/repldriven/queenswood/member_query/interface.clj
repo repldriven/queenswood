@@ -194,7 +194,7 @@
   ([txn bank-id opts]
    (core/list-invitations-by-bank txn bank-id opts)))
 
-(defn count-invitations-sent-on
+(defn get-invitation-aggregates
   "How many times invitations were sent on a day, a first send and each
   resend counted: `:bank`, the bank's, and `:total`, every bank's, both
   read at snapshot. Returns the map or an anomaly.
@@ -204,7 +204,7 @@
   - bank-id: bank id (string).
   - day: epoch day (long)."
   [txn bank-id day]
-  (core/count-invitations-sent-on txn bank-id day))
+  (core/get-invitation-aggregates txn bank-id day))
 
 (defn page-invitations-by-bank
   "One page of a bank's pending, expired and accepted invitations, newest

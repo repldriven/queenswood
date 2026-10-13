@@ -93,17 +93,19 @@ against a provider's own sandbox.
 - **The Modulr simulator keeps a balance per account.** It runs in
   `external-simulators-service`, apart from the adapter. A payment its source
   cannot cover waits as `PENDING_FOR_FUNDS` and expires after
-  `pending-for-funds-ms`, 30 seconds, with no notification. Money the
-  platform credits through `POST /v1/simulate/inbound-transfer` reaches
-  the simulator as a credit, so its balances follow the ledger's.
+  `pending-for-funds-ms`, 30 seconds, with no notification. Money a
+  bank asks for through `POST /v1/simulate/inbound-transfer` is credited
+  at the simulator, which reports it as a payment in, so its balances
+  and the ledger's agree.
 - **A test bank is built over the API.** An admin token from
   `POST /oauth/token` creates a bank with `POST /v1/banks`, whose response
   carries the bank's client id and secret once. A party starts pending
   and becomes active only after a verification session is decided at the
   IDV simulator; a cash account opens only for an active party and after
   a round trip to Modulr. `POST /v1/simulate/inbound-transfer`, refused
-  for a bank not in `test` status, credits the bank's own-funds account,
-  and internal payments from it fund the rest. The scenario fixtures in
+  for a bank not in `test` status, has the provider send a payment in
+  to the bank's own-funds account once that account has opened, and
+  internal payments from it fund the rest. The scenario fixtures in
   `test-api-scenarios` do each step.
 - **Policies cap a bank's day.** The micro tier allows 50 cash accounts,
   500 internal and 500 outbound payments and 50 verification sessions a
@@ -259,8 +261,9 @@ its daily counts start at zero:
    match at the IDV simulator, and waits for each to be active.
 5. Opens `ACCOUNTS` accounts, 200 by default, across those parties in
    turn, and waits for each to be opened.
-6. Credits the own-funds account by `POST /v1/simulate/inbound-transfer`
-   and pays each account its share from it.
+6. Asks for money into the own-funds account by
+   `POST /v1/simulate/inbound-transfer`, waits for it to arrive, and
+   pays each account its share from it.
 
 Requests in `setup()` carry the tag `phase: setup`, and every threshold
 filters on `phase: load`.

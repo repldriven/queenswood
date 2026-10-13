@@ -269,6 +269,14 @@ suspense and records a `suspended` InboundPayment, on
 settlement and on the release of a hold alike. See
 [payments.md](payments.md).
 
+An inbound payment's request also carries the receiving
+account's `product-type`, which an `inbound-payment` limit's
+filter may name. A limit naming one bounds the payments to
+accounts of that type, so a bank's own funds and its customers'
+accounts take different amounts, and a limit with no filter
+bounds them all. See
+[payments-inbound.md](payments-inbound.md).
+
 ### Why declarative beats imperative here
 
 - **Visible.** A list of policies is a list of rules. You

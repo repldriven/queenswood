@@ -151,7 +151,7 @@
           (remove #(contains? closed-statuses (:status %)))
           invitations)))
 
-(defn count-invitations-sent-on
+(defn get-invitation-aggregates
   [txn bank-id day]
   (fdb/transact
    txn

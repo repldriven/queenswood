@@ -78,6 +78,24 @@
                                   :creditor-provider-account-id
                                   creditor-provider-account-id))}))
 
+(defn- simulation-intent
+  [data]
+  (let [{:keys [simulation-id bank-id account-id provider-account-id amount
+                reference debtor-name]}
+        data]
+    {:idempotency-key simulation-id
+     :kind :modulr-outbound-intent-kind-simulated-payment
+     :subjects [account-id]
+     :request "{}"
+     :context (transit/write-str (utility/assoc-some
+                                  {:bank-id bank-id
+                                   :account-id account-id
+                                   :amount amount
+                                   :reference reference
+                                   :debtor-name debtor-name}
+                                  :provider-account-id
+                                  provider-account-id))}))
+
 (defn- open-intent
   [config data]
   (let [{:keys [bank-id account-id currency]} data]
@@ -131,6 +149,8 @@
           "transfer-between-provider-accounts" (save-intent config
                                                             (transfer-intent
                                                              data))
+          "simulate-provider-payment" (save-intent config
+                                                   (simulation-intent data))
           "open-payment-account" (save-intent config (open-intent config data))
           "close-payment-account" (save-intent config (close-intent data))
           "reissue-payment-address" (save-intent config

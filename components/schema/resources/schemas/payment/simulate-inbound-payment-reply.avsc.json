@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "SimulateInboundPaymentReply",
+  "namespace": "com.repldriven.queenswood.schema.payment",
+  "doc": "The payment the provider was asked to send in, and the account it is addressed to.",
+  "fields": [
+    {"name": "account_id", "type": "string"},
+    {"name": "amount",     "type": "long", "doc": "minor units"},
+    {"name": "currency",   "type": "string"},
+    {"name": "reference",  "type": "string"}
+  ]
+}

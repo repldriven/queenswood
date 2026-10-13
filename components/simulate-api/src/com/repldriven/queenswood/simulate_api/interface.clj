@@ -14,7 +14,7 @@
   ^{:doc
     "Malli registry of the simulate schemas, keyed by the name each
   appears under in the document's `components/schemas`:
-  `SimulateInboundTransferRequest`, `TransactionLeg`,
+  `SimulateInboundTransferRequest` and
   `SimulateInboundTransferResponse`. Merged into the coercion
   registry in `api.clj`, so `[:ref \"X\"]` resolves them on any route."}
   registry
@@ -30,27 +30,6 @@
   feeding the document's `components/examples` section."}
   examples
   examples/registry)
-
-(def
-  ^{:doc
-    "RFC 9457 body for a 404 `:balance/not-found` rejection: Balance
-  not found."}
-  BalanceNotFound
-  examples/BalanceNotFound)
-
-(def
-  ^{:doc
-    "RFC 9457 body for a 422 `:transaction/invalid-amount` rejection:
-  Transaction amount must be positive."}
-  InvalidAmount
-  examples/InvalidAmount)
-
-(def
-  ^{:doc
-    "RFC 9457 body for a 409 `:ledger-account/closed` rejection: Ledger
-  account is closed."}
-  LedgerAccountClosed
-  examples/LedgerAccountClosed)
 
 (def
   ^{:doc

@@ -302,7 +302,7 @@ thing so the first rejection or error short-circuits.
                (error/reject :cash-account/open
                              {:message "Product is not published"
                               :product-id product-id}))
-           aggregates (counts txn organization-id ...)
+           aggregates (get-aggregates txn organization-id ...)
            account (domain/open-account
                     data product-version party aggregates policies)
            _ (balances/new-balances
@@ -325,6 +325,18 @@ Three things to note:
 - `domain/open-account` does **not** receive `txn`. Effects it
   needs (here, the payment-address counter) are passed in as
   thunks.
+- What the domain measures a request against is gathered by a
+  private `get-aggregates`, which reads the query brick's
+  `get-aggregates`, or `get-<subject>-aggregates` where the brick
+  has several, and returns `{kind {#{dimensions} n}}`, handed to
+  the domain as `aggregates`. The names say neither count, total
+  nor day, nor that a limit is checked: the map's dimensions carry
+  the window, `:amount` among them marks a sum, and only the
+  domain knows what it compares them with. Where a brick gathers
+  for more than one path, each function and its span is named for
+  the path, as `get-inbound-aggregates` and
+  `payment-inbound-aggregates`, so their timings are not summed
+  as one.
 
 ### `events.clj` — reacting to another brick's transition
 

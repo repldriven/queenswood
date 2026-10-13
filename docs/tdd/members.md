@@ -447,7 +447,7 @@ operator's act as much as a member's:
   n}}`. An invitation records the day it was last sent on as `sent_on`
   and its sends that day as `send_count`: a create writes one, a resend
   on the same day adds one, and a resend on a later day starts again at
-  one. `member-query/count-invitations-sent-on` reads the day's sum
+  one. `member-query/get-invitation-aggregates` reads the day's sum
   from the SUM index `Invitation_sum_send_count_by_bank_sent_on`, at
   snapshot. Checked as the `:invitation` kind's daily count by create
   and by resend, so neither resending one invitation nor withdrawing

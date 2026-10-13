@@ -5,7 +5,7 @@
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
 # and removed at. See docs/recipes/code/schema-evolution.md.
-version: 3
+version: 4
 stores:
   account-balances:
     record-type: AccountBalance
@@ -283,6 +283,16 @@ stores:
         added: 1
         modified: 1
         fields: [bank_id, status, created_at]
+      - name: InboundPayment_count_by_bank_business_day_creditor_product_type
+        added: 4
+        modified: 4
+        fields: [bank_id, business_day, creditor_product_type]
+        type: count
+      - name: InboundPayment_sum_amount_by_bank_business_day_creditor_product_type_currency
+        added: 4
+        modified: 4
+        fields: [bank_id, business_day, creditor_product_type, currency, amount]
+        type: sum
   outbound-payments:
     record-type: OutboundPayment
     primary-key: [bank_id, payment_id]

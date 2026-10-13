@@ -1,0 +1,52 @@
+{:name
+ "A simulated inbound transfer over the tier's own-funds limit never reaches own funds"
+ :runs-on {:payment :every}
+ ;; The simulated transfer is an inbound payment, so the tier's inbound
+ ;; limits for own funds decide it where it arrives: the request is
+ ;; accepted either way. One over GBP 1,000 is refused there, and one
+ ;; within it, asked for afterwards, is the only money that lands.
+ :given
+ [{:fixture :bank
+   :as :bank-0
+   :with {:name "Capped Own Funds" :tier "inbound-capped"}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :bank-0 :bank :accounts 0
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200 :body {:status "opened"}}
+   :as :own-funds}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/inbound-transfer"
+             :auth [:ref :bank-0 :token]
+             :headers {:bank-id [:ref :bank-0 :bank :bank-id]}
+             :body {:amount 100100 :currency "GBP"}}
+   :assert {:status 202}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/simulate/inbound-transfer"
+             :auth [:ref :bank-0 :token]
+             :headers {:bank-id [:ref :bank-0 :bank :bank-id]}
+             :body {:amount 1000 :currency "GBP"}}
+   :assert {:status 202}}]
+ :then
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :own-funds :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200
+           :body {:available-balance {:value 1000 :currency "GBP"}
+                  :posted-balance {:value 1000 :currency "GBP"}}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/payments/inbound"
+             :query-params {"status" "settled"}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:items [{:creditor-account-id [:ref :own-funds :account-id]
+                            :amount 1000
+                            :status "settled"}]}}}]}

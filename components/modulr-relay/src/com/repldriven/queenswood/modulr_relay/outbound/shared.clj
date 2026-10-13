@@ -9,6 +9,13 @@
     [com.repldriven.mono.transit.interface :as transit]
     [com.repldriven.mono.utility.interface :as utility]))
 
+(def
+  ^{:doc
+    "The account a sandbox credit says paid, since Modulr requires
+  a payer's."}
+  sandbox-identifier
+  {:type "SCAN" :sortCode "000000" :accountNumber "00000000"})
+
 (defn reconcile-at
   [config now]
   (+ now (:reconcile-after-ms config)))

@@ -104,6 +104,22 @@
                                   :provider-account-id provider-account-id
                                   :rotation-key rotation-key})}))
 
+(defn- simulation-intent
+  [data]
+  (let [{:keys [simulation-id bank-id account-id creditor-bban amount currency
+                reference debtor-name]}
+        data]
+    {:idempotency-key simulation-id
+     :kind :form3-outbound-intent-kind-simulated-payment
+     :request "{}"
+     :context (transit/write-str {:bank-id bank-id
+                                  :account-id account-id
+                                  :creditor-bban creditor-bban
+                                  :amount amount
+                                  :currency currency
+                                  :reference reference
+                                  :debtor-name debtor-name})}))
+
 (defn- subjects
   [data]
   (vec (keep data [:account-id :debtor-account-id])))
@@ -122,6 +138,11 @@
           "return-payment"
           (save-intent config
                        (assoc (return-intent data) :subjects (subjects data)))
+          "simulate-provider-payment"
+          (save-intent config
+                       (assoc (simulation-intent data)
+                              :subjects
+                              (subjects data)))
           "open-payment-account"
           (save-intent config
                        (assoc (open-intent data) :subjects (subjects data)))

@@ -31,8 +31,7 @@
 
 (def ^:private sandbox-payer
   "Who the sandbox credit says paid, since Modulr requires a payer."
-  {:name "Sandbox funding"
-   :identifier {:type "SCAN" :sortCode "000000" :accountNumber "00000000"}})
+  {:name "Sandbox funding" :identifier shared/sandbox-identifier})
 
 (defn- transfer-body
   [config intent]

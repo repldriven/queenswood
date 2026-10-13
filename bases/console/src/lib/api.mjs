@@ -447,7 +447,8 @@ export function get_outbound_payment(payment_id) {
 //
 // Drives money onto the books the way the scheme would. The
 // inbound-transfer route is org-tier, so a bank can fund its own test
-// bank, and a live bank is refused. The sandbox runs interest by
+// bank, and a live bank is refused; the route answers 202 and the money
+// arrives a moment later, as an inbound payment from the bank's provider. The sandbox runs interest by
 // force-starting the daily-interest job.
 
 export function list_rewards(account_id) {

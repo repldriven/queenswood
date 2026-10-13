@@ -266,6 +266,53 @@
               (:status (load-intent config "int.r2"))))
        (is (nil? (outbox-event config "IN2:returned")))))))
 
+(def ^:private simulated-context
+  {:bank-id "bnk.1"
+   :account-id "acc.own"
+   :creditor-bban "04007530000001"
+   :amount 2500
+   :currency "GBP"
+   :reference "Simulated inbound transfer"
+   :debtor-name "Simulated debtor"})
+
+(deftest simulated-payment-sent-in-test
+  (with-test-system
+   [sys "classpath:form3-relay/application-test.yml"]
+   (let [calls (atom [])
+         config
+         (runner-config sys (recording calls (fn [_] (json-response 202 {}))))]
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.s1"
+                            :form3-outbound-intent-kind-simulated-payment
+                            "sim.bnk.1.key-1" simulated-context))])
+     (SUT/drain-once config 0)
+     (testing "the simulator is asked to send the payment to the address"
+       (let [{:keys [path body]} (first @calls)]
+         (is (= "/simulate/inbound-payment" path))
+         (is (= "04007530000001" (:bban body)))
+         (is (= 25.0 (double (:amount body))))
+         (is (= "Simulated inbound transfer" (:reference body)))))
+     (testing "and nothing is reported: the payment in reports itself"
+       (is (= :outbound-intent-status-settled
+              (:status (load-intent config "int.s1"))))))))
+
+(deftest simulated-payment-refused-test
+  (with-test-system
+   [sys "classpath:form3-relay/application-test.yml"]
+   (let [config (runner-config sys
+                               (fn [_ _]
+                                 (json-response 404 {:error_message "No"})))]
+     (nom-test> [_ (relay/save-intent
+                    config
+                    (intent "int.s2"
+                            :form3-outbound-intent-kind-simulated-payment
+                            "sim.bnk.1.key-2" simulated-context))])
+     (SUT/drain-once config 0)
+     (testing "a provider with no such route fails the request"
+       (is (= :outbound-intent-status-failed
+              (:status (load-intent config "int.s2"))))))))
+
 (deftest reconcile-reads-the-return-back-test
   (with-test-system
    [sys "classpath:form3-relay/application-test.yml"]

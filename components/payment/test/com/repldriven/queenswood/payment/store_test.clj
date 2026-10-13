@@ -178,6 +178,69 @@
                    (q/find-inbound-payment config "bnk.test" "pmt.missing")
                    _ (is (nil? inbound))])))))
 
+(deftest inbound-aggregates-test
+  (with-test-system
+   [sys "classpath:payment/application-test.yml"]
+   (let [config {:record-db (system/instance sys [:fdb :record-db])
+                 :record-store (system/instance sys [:fdb :store])}
+         own-funds :account-product-type-sub-ledger-own-funds
+         current :account-product-type-sub-ledger-current
+         save (fn [payment]
+                (store/save-inbound-payment
+                 config
+                 (inbound-payment (assoc payment :bank-id "bnk.totals"))
+                 {:change-kind :inbound-payment-change-kind-settle}))
+         totals (fn [product-type currency]
+                  (q/get-inbound-aggregates config
+                                            "bnk.totals"
+                                            20260101
+                                            product-type
+                                            currency))]
+     (nom-test> [_ (save {:payment-id "pmt.t1"
+                          :creditor-product-type own-funds
+                          :amount 1000})
+                 _ (save {:payment-id "pmt.t2"
+                          :creditor-product-type own-funds
+                          :amount 500})
+                 _ (save {:payment-id "pmt.t3"
+                          :creditor-product-type own-funds
+                          :currency "USD"
+                          :amount 70})
+                 _ (save {:payment-id "pmt.t4"
+                          :creditor-product-type current
+                          :amount 25})
+                 _ (save {:payment-id "pmt.t5" :amount 9})
+                 _ (save {:payment-id "pmt.t6"
+                          :creditor-product-type own-funds
+                          :business-day 20260102
+                          :amount 3})])
+     (testing "the day's count is of every inbound, whatever it credits"
+       (nom-test> [found (totals own-funds "GBP") _ (is (= 5 (:count found)))]))
+     (testing "a product type's count is of every currency, its sum of one"
+       (nom-test> [gbp (totals own-funds "GBP")
+                   usd (totals own-funds "USD")
+                   _ (is (= 3 (:product-type-count gbp)))
+                   _ (is (= 1500 (:product-type-sum gbp)))
+                   _ (is (= 70 (:product-type-sum usd)))]))
+     (testing "another product type has its own"
+       (nom-test> [found (totals current "GBP")
+                   _ (is (= 1 (:product-type-count found)))
+                   _ (is (= 25 (:product-type-sum found)))]))
+     (testing "a payment that stops being credited leaves its type's totals"
+       (nom-test> [_ (store/save-inbound-payment
+                      config
+                      (inbound-payment {:payment-id "pmt.t2"
+                                        :bank-id "bnk.totals"
+                                        :status
+                                        :inbound-payment-status-suspended
+                                        :amount 500})
+                      {:change-kind :inbound-payment-change-kind-suspend
+                       :status-before :inbound-payment-status-held})
+                   found (totals own-funds "GBP")
+                   _ (is (= 5 (:count found)))
+                   _ (is (= 2 (:product-type-count found)))
+                   _ (is (= 1000 (:product-type-sum found)))])))))
+
 (deftest open-hold-match-test
   (with-test-system
    [sys "classpath:payment/application-test.yml"]

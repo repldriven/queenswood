@@ -14,6 +14,7 @@ enum Form3OutboundIntentKind {
   FORM3_OUTBOUND_INTENT_KIND_OPEN_ACCOUNT = 3;
   FORM3_OUTBOUND_INTENT_KIND_CLOSE_ACCOUNT = 4;
   FORM3_OUTBOUND_INTENT_KIND_REISSUE_ADDRESS = 5;
+  FORM3_OUTBOUND_INTENT_KIND_SIMULATED_PAYMENT = 6;
 }
 
 // A call to Form3 the adapter has yet to make, or to hear back from.

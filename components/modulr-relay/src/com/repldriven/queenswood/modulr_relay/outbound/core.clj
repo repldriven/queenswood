@@ -2,6 +2,7 @@
   (:require
     [com.repldriven.queenswood.modulr-relay.outbound.accounts]
     [com.repldriven.queenswood.modulr-relay.outbound.payments]
+    [com.repldriven.queenswood.modulr-relay.outbound.simulations]
     [com.repldriven.queenswood.modulr-relay.outbound.transfers]
 
     [com.repldriven.queenswood.modulr-relay.store :as store]

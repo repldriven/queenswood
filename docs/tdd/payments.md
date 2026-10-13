@@ -62,7 +62,8 @@ the bank's operations.
   order it committed (ADR-0033): a submitted outbound payment, a parked
   inbound and each posted transaction record an entry on the bank's
   activity log, relayed onto `bank-activity-event` keyed by bank, and
-  the processor sends `submit-payment`, `return-payment` and
+  the processor sends `submit-payment`, `return-payment`,
+  `simulate-provider-payment` and
   `transfer-between-provider-accounts` on the provider's one command channel,
   `modulr-command` for Modulr, keyed by bank. The adapter's outbox is
   relayed onto `schemes-payments-event`, whose consumer dead-letters an
@@ -311,10 +312,12 @@ expense has paid out.
   between their provider accounts; between a cash account and a GL
   account, against the bank's own-funds provider account. An inbound
   parked in 2500 after a policy refusal is mirrored from the
-  receiving account's provider account to own-funds. Money that
-  reaches a cash account from 1100 without the scheme — the sandbox's
-  simulated inbound — is credited to its provider account from
-  outside, which only a sandbox provider can do.
+  receiving account's provider account to own-funds. Money a posting
+  moves from 1100 to a cash account without the scheme is credited to
+  its provider account from outside, which only a sandbox provider can
+  do. A simulated inbound is not such a posting: the provider sends it
+  in, so it moves itself, as
+  [payments-inbound.md](payments-inbound.md) describes.
 - **The trigger.** `transaction` records a `transaction-posted` entry
   on the bank's activity — bank id, transaction id, type, currency,
   legs and, where the scheme itself settled the posting,
@@ -396,6 +399,9 @@ runs changes nothing outside it:
   [payments-inbound.md](payments-inbound.md) describes.
 - **Returns.** Under `returns: [inbound]`, it consumes
   `return-payment` and reports the return.
+- **Simulates.** It consumes `simulate-provider-payment` and has its
+  sandbox send a payment in to the account, which it then reports as
+  any other.
 - **Issues accounts.** It consumes `open-payment-account`,
   `reissue-payment-address` and `close-payment-account` into intents,
   and its runner opens, reissues and closes at the provider, reporting

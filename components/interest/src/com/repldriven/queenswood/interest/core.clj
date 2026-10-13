@@ -10,6 +10,14 @@
     [com.repldriven.queenswood.policy.interface :as policy]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
+(defn- get-aggregates
+  [config bank-id run-kind policy-kind as-of-date]
+  (let-nom> [runs (store/count-by-org-business-day-per-kind config
+                                                            bank-id
+                                                            run-kind
+                                                            as-of-date)]
+    {policy-kind {#{:bank-id :business-day} runs}}))
+
 (defn- run-interest
   "Run an interest pass under the platform daily-count limit for
   `policy-kind`. Counts prior runs of this kind for the org on
@@ -51,11 +59,11 @@
       [chart-of-accounts (ledger-accounts/list-accounts config bank-id)
        gl (chart/by-currency chart-of-accounts bank-id gl-fn)
        policies (policy/get-effective-policies config {:bank-id bank-id})
-       today-count (store/count-by-org-business-day-per-kind config
-                                                             bank-id
-                                                             run-kind
-                                                             as-of-date)
-       aggregates {policy-kind {#{:bank-id :business-day} today-count}}
+       aggregates (get-aggregates config
+                                  bank-id
+                                  run-kind
+                                  policy-kind
+                                  as-of-date)
        _ (run/check-daily-count policies policy-kind aggregates)
        tally (scan/post-accounts config (assoc ctx :gl gl :policies policies))
        _ (run/check-complete bank-id as-of-date tally)

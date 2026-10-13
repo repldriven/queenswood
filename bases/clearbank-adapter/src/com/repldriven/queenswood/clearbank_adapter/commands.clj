@@ -93,6 +93,24 @@
                                                  :provider-account-id
                                                  provider-account-id))}))))
 
+(defn- simulation-intent
+  [config data]
+  (let [{:keys [simulation-id bank-id account-id creditor-bban amount currency
+                reference debtor-name]}
+        data]
+    (save-intent config
+                 {:idempotency-key simulation-id
+                  :kind :clearbank-outbound-intent-kind-simulated-payment
+                  :subjects [account-id]
+                  :request "{}"
+                  :context (transit/write-str {:bank-id bank-id
+                                               :account-id account-id
+                                               :creditor-bban creditor-bban
+                                               :amount amount
+                                               :currency currency
+                                               :reference reference
+                                               :debtor-name debtor-name})})))
+
 (defn- dispatch
   [config message]
   (let [{:keys [command payload]} message
@@ -105,6 +123,9 @@
         (case command
           "submit-payment"
           (submit-payment-intent config data)
+
+          "simulate-provider-payment"
+          (simulation-intent config data)
 
           "open-payment-account"
           (open-account-intent config data)

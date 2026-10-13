@@ -58,13 +58,12 @@
   [invitation]
   (= :invitation-status-pending (:status invitation)))
 
-(defn- counts
-  "The aggregates a limit is checked against: a bank's active members
-  and pending invitations where their lists are given, its invitations
-  sent today, and every bank's."
+(defn- get-aggregates
+  "A bank's active members and pending invitations where their lists are
+  given, its invitations sent today, and every bank's."
   [txn bank-id {:keys [members invitations]} now]
   (let-nom>
-    [sent (q/count-invitations-sent-on txn bank-id (domain/day-of now))]
+    [sent (q/get-invitation-aggregates txn bank-id (domain/day-of now))]
     (cond-> {:invitation {#{:bank-id :sent-on} (:bank sent)}
              :email {#{:sent-on} (:total sent)}}
             members
@@ -104,10 +103,10 @@
          [members (q/list-active-by-bank txn bank-id)
           emails (member-emails txn members)
           invitations (q/list-invitations-by-bank txn bank-id {:now now})
-          aggregates (counts txn
-                             bank-id
-                             {:members members :invitations invitations}
-                             now)
+          aggregates (get-aggregates txn
+                                     bank-id
+                                     {:members members :invitations invitations}
+                                     now)
           policies (effective-policies txn bank-id)
           invitation (domain/new-invitation {:bank-id bank-id
                                              :email email
@@ -143,7 +142,7 @@
                                                             proof)
           bank-id (:bank-id invitation)
           members (q/list-active-by-bank txn bank-id)
-          aggregates (counts txn bank-id {:members members} now)
+          aggregates (get-aggregates txn bank-id {:members members} now)
           policies (effective-policies txn bank-id)
           accepted (domain/accept-invitation invitation
                                              actor
@@ -223,7 +222,7 @@
      (let [now (clock opts)]
        (let-nom>
          [invitation (q/get-invitation-record txn bank-id invitation-id)
-          aggregates (counts txn bank-id {} now)
+          aggregates (get-aggregates txn bank-id {} now)
           policies (effective-policies txn bank-id)
           resent (domain/resend-invitation invitation
                                            actor

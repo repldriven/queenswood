@@ -36,6 +36,11 @@
                              (->response config
                                          "admit-inbound-payment-reply"
                                          (inbound/admit-inbound config data)))
+   "simulate-inbound-payment" (fn [config data]
+                                (->response config
+                                            "simulate-inbound-payment-reply"
+                                            (core/simulate-inbound config
+                                                                   data)))
    "submit-outbound-payment" (fn [config data]
                                (->response
                                 config

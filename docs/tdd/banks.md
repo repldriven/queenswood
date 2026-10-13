@@ -278,7 +278,7 @@ own-funds account at the payment provider, a set of scheduled jobs and
 a service-account client, none of which is ever removed. Every create,
 an operator's as much as a member's, is therefore held to three counts:
 
-- **The counts.** `bank-query/limit-counts` reads the banks the
+- **The counts.** `bank-query/get-aggregates` reads the banks the
   installation holds and the banks on the tier, from the COUNT index
   `Bank_count_by_tier`, at snapshot, so one create never conflicts with
   another over them, and the banks the actor has created on the tier,

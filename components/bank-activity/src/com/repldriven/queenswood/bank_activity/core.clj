@@ -35,6 +35,8 @@
    "schemas/payment/outbound-payment-submitted.avsc.json"
    "inbound-payment-suspended"
    "schemas/payment/inbound-payment-suspended.avsc.json"
+   "inbound-payment-simulation-requested"
+   "schemas/payment/inbound-payment-simulation-requested.avsc.json"
    "idv-session-open-requested"
    "schemas/idv/idv-session-open-requested.avsc.json"
    "transaction-posted" "schemas/transaction/transaction-posted.avsc.json"})

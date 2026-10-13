@@ -842,6 +842,7 @@
    :suspended-reason-code ""
    :suspended-reason ""
    :return-failed-reason ""
+   :creditor-product-type :account-product-type-unknown
    :updated-at 0})
 
 (defn pb->InboundPayment
@@ -850,7 +851,8 @@
   a held or admitted one posts no transaction, the scheme supplies
   `debtor-name` and `reference` only when the debtor's bank sent them,
   each state's `_at` only once the payment reached it, a suspended one's
-  reason code and reason, and a failed return's reason.
+  reason code and reason, a failed return's reason, and the creditor's
+  product type while the payment is credited, or to be, to the account.
 
   Args:
   - input: protobuf bytes."
