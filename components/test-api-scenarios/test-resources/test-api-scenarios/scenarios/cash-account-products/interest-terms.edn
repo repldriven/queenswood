@@ -1,0 +1,113 @@
+{:name "A product states its rate as a schedule and when interest is paid"
+ ;; A version takes its interest terms in full and returns them as they
+ ;; were stated: bands, a later step and the day interest is paid. A
+ ;; schedule that breaks one of its rules is refused with the rule.
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Interest Terms Product Bank" :status "live"}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Easy Saver"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-terms
+                    {:basis "relative"
+                     :banding "marginal"
+                     :steps [{:bands [{:up-to 500000 :rate-bps 500}
+                                      {:rate-bps 0}]}
+                             {:starts-after-months 12
+                              :bands [{:rate-bps 150}]}]
+                     :day-count "actual-365"
+                     :payment {:frequency "monthly" :day "account"}}
+                    :min-balance 0
+                    :payment-limits
+                    [{:direction "out"
+                      :measure "count"
+                      :max 3
+                      :period "year"
+                      :anchor "calendar"
+                      :starts-month 4
+                      :starts-day-of-month 6
+                      :reason "Three withdrawals a tax year"}
+                     {:direction "in"
+                      :measure "amount"
+                      :max 5000000
+                      :period "day"}]
+                    :opening-reward {:amount 2500}
+                    :effective-from "2026-11-01"}}
+   :as :v1
+   :assert
+   {:status 201
+    :body
+    {:status "draft"
+     :interest-rate-bps 500
+     :interest-terms
+     {:basis "relative"
+      :banding "marginal"
+      :steps [{:bands [{:up-to 500000 :rate-bps 500} {:rate-bps 0}]}
+              {:starts-after-months 12 :bands [{:rate-bps 150}]}]
+      :day-count "actual-365"
+      :payment {:frequency "monthly" :day "account"}}
+     :opening-reward {:amount 2500}}}}
+  ;; A later step of a fixed schedule starts on a date.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Fixed Schedule"
+                    :template-id "tpl.00000000000000000000000003"
+                    :currency "GBP"
+                    :interest-terms
+                    {:basis "fixed"
+                     :banding "whole-balance"
+                     :steps [{:bands [{:rate-bps 450}]}
+                             {:starts-on "2027-11-01" :bands [{:rate-bps 100}]}]
+                     :day-count "actual-actual"
+                     :payment {:frequency "annually"
+                               :day "last-of-month"
+                               :month 12}}
+                    :effective-from "2026-11-01"}}
+   :assert {:status 201
+            :body {:interest-terms
+                   {:basis "fixed"
+                    :steps [{:bands [{:rate-bps 450}]}
+                            {:starts-on "2027-11-01"
+                             :bands [{:rate-bps 100}]}]
+                    :payment {:frequency "annually"
+                              :day "last-of-month"
+                              :month 12}}}}}
+  ;; The last band of a step has no upper limit.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Capped"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-terms
+                    {:basis "relative"
+                     :banding "marginal"
+                     :steps [{:bands [{:up-to 500000 :rate-bps 500}]}]
+                     :day-count "actual-365"
+                     :payment {:frequency "daily"}}
+                    :effective-from "2026-11-01"}}
+   :assert {:status 422
+            :problem {:type ":cash-account-product/invalid-interest-terms"
+                      :detail "A step's last band has no upper limit"}}}]
+ :then
+ [{:command :api/request
+   :request
+   {:method :get
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}"
+    :path-params {:product-id [:ref :v1 :product-id]
+                  :version-id [:ref :v1 :version-id]}
+    :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:interest-terms
+                   {:steps [{:bands [{:up-to 500000 :rate-bps 500}
+                                     {:rate-bps 0}]}
+                            {:starts-after-months 12
+                             :bands [{:rate-bps 150}]}]}}}}]}

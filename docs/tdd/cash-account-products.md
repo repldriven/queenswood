@@ -211,14 +211,15 @@ on a given day (see **Effective dating** below).
 
 #### Interest terms
 
-Stored, not yet read beyond its first band. A version states its rate
-as a schedule and says when interest is paid, in one `interest_terms`
-field that replaces `interest_rate_bps` and is absent on a version that
-pays none, such as the own-funds house product. Until the API takes the
-terms, it takes `interest-rate-bps` and stores it as one step of one
-band paid daily, and accrual and the API read that band's rate. How
-the interest pass reads it is
-[interest](interest.md#a-versions-interest-terms).
+Stored and taken by the API, not yet read beyond its first band. A
+version states its rate as a schedule and says when interest is paid,
+in one `interest_terms` field that replaces `interest_rate_bps` and is
+absent on a version that pays none, such as the own-funds house
+product. A request states `interest-terms`, or `interest-rate-bps`,
+which is stored as one step of one band paid daily, and never both.
+Accrual reads the first band's rate and pays daily whatever the terms
+say, until the interest pass reads them as
+[interest](interest.md#a-versions-interest-terms) lays out.
 
 ```proto
 enum InterestScheduleBasis {

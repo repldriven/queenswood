@@ -400,3 +400,106 @@
           (is (error/rejection? r) (pr-str data))
           (is (= :cash-account-product/invalid-limit (error/kind r))))))))
 
+(deftest interest-terms-test
+  (let [draft (fn [data]
+                (SUT/new-version "bnk.1"
+                                 "prd.1"
+                                 []
+                                 template
+                                 (merge (dissoc good-data :interest-rate-bps)
+                                        data)
+                                 permissive-policies))
+        terms {:basis :interest-schedule-basis-relative
+               :banding :interest-banding-marginal
+               :steps [{:bands [{:up-to 500000 :rate-bps 500} {:rate-bps 0}]}
+                       {:starts-after-months 12 :bands [{:rate-bps 150}]}]
+               :day-count :interest-day-count-actual-365
+               :payment {:frequency :interest-payment-frequency-monthly
+                         :day :interest-payment-day-account}}
+        refused (fn [data]
+                  (let [r (draft data)]
+                    (when (and (error/rejection? r)
+                               (= :cash-account-product/invalid-interest-terms
+                                  (error/kind r)))
+                      (:message (error/payload r)))))]
+    (testing "a version keeps the terms it is drafted with"
+      (is (= terms (:interest-terms (draft {:interest-terms terms})))))
+    (testing "a rate alone is still one band paid daily"
+      (is (= [{:bands [{:rate-bps 250}]}]
+             (get-in (draft {:interest-rate-bps 250})
+                     [:interest-terms :steps]))))
+    (testing "terms and a rate together are refused"
+      (is (some? (refused {:interest-terms terms :interest-rate-bps 250}))))
+    (testing "each rule of the schedule is refused with its message"
+      (doseq [[change message]
+              [[[:steps] "Interest terms need at least one step"]
+               [[:steps 0 :starts-after-months] "The first step has no start"]
+               [[:steps 1 :starts-after-months]
+                "Every later step starts as the schedule's basis says"]
+               [[:steps 1 :bands] "Every step needs at least one band"]
+               [[:steps 0 :bands 1 :up-to]
+                "A step's last band has no upper limit"]
+               [[:steps 0 :bands 0 :rate-bps] "A rate cannot be negative"]]]
+        (let [value (case (peek change)
+                      :steps []
+                      :bands []
+                      :starts-after-months (if (= 0 (second change)) 3 nil)
+                      :up-to 900000
+                      :rate-bps -1)
+              changed (if (nil? value)
+                        (update-in terms (pop change) dissoc (peek change))
+                        (assoc-in terms change value))]
+          (is (= message (refused {:interest-terms changed}))
+              (pr-str change)))))
+    (testing "bands rise from zero, and steps start one after another"
+      (is (= "Each band's upper limit is above zero and above the one before"
+             (refused {:interest-terms (assoc-in terms
+                                        [:steps 0 :bands]
+                                        [{:up-to 500000 :rate-bps 500}
+                                         {:up-to 400000 :rate-bps 300}
+                                         {:rate-bps 0}])})))
+      (is (= "Each step starts after the one before"
+             (refused {:interest-terms (update terms
+                                               :steps
+                                               conj
+                                               {:starts-after-months 6
+                                                :bands [{:rate-bps 100}]})}))))
+    (testing "a fixed schedule's later steps start on a date"
+      (let [fixed (assoc terms
+                         :basis :interest-schedule-basis-fixed
+                         :steps [{:bands [{:rate-bps 500}]}
+                                 {:starts-on 20800 :bands [{:rate-bps 150}]}])]
+        (is (= fixed (:interest-terms (draft {:interest-terms fixed}))))
+        (is (= "Every later step starts as the schedule's basis says"
+               (refused
+                {:interest-terms
+                 (assoc fixed :basis :interest-schedule-basis-relative)})))))
+    (testing "a payment names the day its frequency needs, and no more"
+      (doseq [payment [{:frequency :interest-payment-frequency-daily
+                        :day :interest-payment-day-account}
+                       {:frequency :interest-payment-frequency-monthly}
+                       {:frequency :interest-payment-frequency-monthly
+                        :day :interest-payment-day-day-of-month}
+                       {:frequency :interest-payment-frequency-monthly
+                        :day :interest-payment-day-account
+                        :day-of-month 5}
+                       {:frequency :interest-payment-frequency-annually
+                        :day :interest-payment-day-last-of-month}
+                       {:frequency :interest-payment-frequency-monthly
+                        :day :interest-payment-day-last-of-month
+                        :month 3}]]
+        (is (some? (refused {:interest-terms (assoc terms :payment payment)}))
+            (pr-str payment)))
+      (doseq [payment [{:frequency :interest-payment-frequency-daily}
+                       {:frequency :interest-payment-frequency-at-close}
+                       {:frequency :interest-payment-frequency-monthly
+                        :day :interest-payment-day-day-of-month
+                        :day-of-month 28}
+                       {:frequency :interest-payment-frequency-quarterly
+                        :day :interest-payment-day-last-of-month
+                        :month 3}
+                       {:frequency :interest-payment-frequency-annually
+                        :day :interest-payment-day-account}]]
+        (is (nil? (refused {:interest-terms (assoc terms :payment payment)}))
+            (pr-str payment))))))
+

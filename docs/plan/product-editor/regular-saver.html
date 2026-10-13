@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>Regular Saver draft v1</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+@font-face{font-family:'Geist';font-weight:400;font-style:normal;src:url("ds/queenswood/fonts/geist-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:'Geist';font-weight:500;font-style:normal;src:url("ds/queenswood/fonts/geist-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:'Geist Mono';font-weight:400;font-style:normal;src:url("ds/queenswood/fonts/geist-mono-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:'Geist Mono';font-weight:500;font-style:normal;src:url("ds/queenswood/fonts/geist-mono-latin-500-normal.woff2") format("woff2")}
+.qw{--gold:oklch(0.66 0.135 72);--gold-deep:oklch(0.52 0.120 68);--gold-bright:oklch(0.78 0.140 80);--pine-4:oklch(0.52 0.060 142);
+--grotesk:'Geist',ui-sans-serif,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;
+--surface:light-dark(#f4f1ea,#2a2622);--surface-sunk:light-dark(#ebe6dc,#161310);--surface-raised:light-dark(#fbf9f4,#38322c);--surface-translucent:light-dark(rgba(251,249,244,.86),rgba(42,38,34,.82));
+--fg:light-dark(#161310,#f4f1ea);--fg-2:light-dark(#2a2622,#ebe6dc);--fg-muted:light-dark(#6b645b,#a39b8f);
+--rule:light-dark(rgba(20,15,10,.10),rgba(244,241,234,.12));--rule-2:light-dark(rgba(20,15,10,.06),rgba(244,241,234,.06));--rule-strong:light-dark(rgba(20,15,10,.18),rgba(244,241,234,.2));--hover-overlay:light-dark(rgba(20,15,10,.05),rgba(244,241,234,.06));
+--primary:light-dark(oklch(0.42 0.065 145),oklch(0.55 0.075 145));--primary-hover:light-dark(oklch(0.37 0.065 145),oklch(0.60 0.075 145));--primary-fg:#fbf9f4;
+--danger:light-dark(oklch(0.52 0.135 30),oklch(0.68 0.135 30));--brand-action:var(--gold);--brand-action-hover:var(--gold-deep);--brand-action-fg:#161310;
+--live-bg:light-dark(oklch(0.92 0.040 145),oklch(0.30 0.050 145));--live-fg:light-dark(oklch(0.37 0.070 145),oklch(0.84 0.060 145));
+--draft-bg:light-dark(oklch(0.92 0.060 80),oklch(0.32 0.060 78));--draft-fg:light-dark(oklch(0.45 0.110 70),oklch(0.86 0.100 82));
+--band-1:light-dark(oklch(0.52 0.060 142),oklch(0.60 0.065 142));--band-2:light-dark(oklch(0.80 0.040 142),oklch(0.40 0.040 142));--band-3:light-dark(oklch(0.70 0.050 142),oklch(0.50 0.050 142));
+font-family:var(--grotesk);color:var(--fg);background:var(--surface);font-size:14px;line-height:1.45}
+.qw *{box-sizing:border-box}
+.qw a{color:var(--fg-2)}.qw a:hover{color:var(--fg)}
+.kicker{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-deep)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--fg-muted)}
+.panel{background:var(--surface-raised);border:1px solid var(--rule-2);border-radius:8px}
+.panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 20px;border-bottom:1px solid var(--rule-2)}
+.panel-title{margin:0;font-size:15px;font-weight:500;line-height:1.3}
+.panel-sub{margin:3px 0 0;font-size:13px;color:var(--fg-muted);max-width:60ch}
+.panel-body{padding:20px;display:flex;flex-direction:column;gap:18px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.label{font-size:13px;font-weight:500;line-height:1.2;color:var(--fg)}
+.hint{font-size:12px;color:var(--fg-muted);line-height:1.4;margin-top:2px}
+.hint code,.qw p code{font-family:var(--mono);font-size:11px;background:var(--surface-sunk);padding:1px 5px;border-radius:3px;color:var(--fg-2)}
+.input,.select{height:40px;width:100%;padding:0 12px;border-radius:6px;border:1px solid var(--rule);background:var(--surface);color:var(--fg);font:inherit;font-size:14px}
+.input:hover,.select:hover{border-color:var(--rule-strong)}
+.input:focus,.select:focus{outline:2px solid var(--gold);outline-offset:-1px;border-color:var(--gold)}
+.input:disabled,.select:disabled{opacity:.55;cursor:not-allowed}
+.input.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.select{appearance:none;-webkit-appearance:none;padding-right:36px;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%236b645b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M4 6 L8 10 L12 6'/></svg>");background-repeat:no-repeat;background-position:right 12px center;background-size:14px}
+.affix-wrap{position:relative}
+.affix-wrap .input{padding-right:44px}
+.affix-wrap.pre .input{padding-left:26px;padding-right:12px}
+.affix{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:12px;color:var(--fg-muted);pointer-events:none}
+.affix-wrap.pre .affix{left:11px;right:auto}
+.btn{height:36px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:6px;font-family:var(--grotesk);font-size:13px;font-weight:500;letter-spacing:.005em;border:1px solid transparent;background:transparent;color:var(--fg);cursor:pointer;white-space:nowrap}
+.btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.btn svg{width:14px;height:14px}
+.btn.sm{height:28px;padding:0 10px;font-size:12px;gap:5px}
+.btn.sm svg{width:12px;height:12px}
+.btn.primary{background:var(--primary);color:var(--primary-fg)}.btn.primary:hover{background:var(--primary-hover)}
+.btn.brand{background:var(--brand-action);color:var(--brand-action-fg)}.btn.brand:hover{background:var(--brand-action-hover)}
+.btn.line{border-color:var(--rule);color:var(--fg)}.btn.line:hover{background:var(--hover-overlay);border-color:var(--rule-strong)}
+.btn.ghost{color:var(--fg-2)}.btn.ghost:hover{background:var(--hover-overlay);color:var(--fg)}
+.btn.danger{color:var(--danger);border-color:light-dark(rgba(160,50,30,.28),rgba(220,110,80,.32))}
+.btn.icon{width:32px;height:32px;padding:0;color:var(--fg-muted)}.btn.icon:hover{background:var(--hover-overlay);color:var(--fg)}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:500;text-transform:lowercase}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.badge.draft{background:var(--draft-bg);color:var(--draft-fg)}
+.badge.live{background:var(--live-bg);color:var(--live-fg)}
+.chip{display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:4px;font-family:var(--mono);font-size:11px;background:var(--surface-sunk);color:var(--fg-2);border:1px solid var(--rule-2);white-space:nowrap}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);cursor:pointer}
+.opt:hover{border-color:var(--rule-strong)}
+.opt input{margin:2px 0 0;accent-color:var(--primary);width:15px;height:15px;flex:0 0 auto}
+.opt.on{border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary)}
+.opt-title{font-size:13px;font-weight:500;line-height:1.3}
+.opt-sub{font-size:12px;color:var(--fg-muted);line-height:1.4;margin-top:2px}
+.check{display:flex;align-items:flex-start;gap:10px;font-size:13px;cursor:pointer}
+.check input{margin:2px 0 0;accent-color:var(--primary);width:15px;height:15px}
+.step{border:1px solid var(--rule);border-radius:8px;background:var(--surface)}
+.step-head{display:flex;align-items:center;gap:12px;padding:10px 12px 10px 14px;border-bottom:1px solid var(--rule-2);flex-wrap:wrap}
+.step-n{font-family:var(--mono);font-size:11px;color:var(--fg-muted);width:64px}
+.bands{width:100%;border-collapse:collapse;font-size:13px}
+.bands th{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg-muted);font-weight:400;text-align:left;padding:8px 10px;background:var(--surface-sunk);border-bottom:1px solid var(--rule-2)}
+.bands td{padding:8px 10px;border-bottom:1px solid var(--rule-2);vertical-align:middle}
+.bands tr:last-child td{border-bottom:none}
+.bands .input,.bands .select{height:34px;font-size:13px}
+.swatch{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:8px}
+.was{font-family:var(--mono);font-size:11px;color:var(--draft-fg);background:var(--draft-bg);border-radius:4px;padding:1px 6px;white-space:nowrap}
+.seg{display:inline-flex;padding:2px;gap:2px;border:1px solid var(--rule);border-radius:6px;background:var(--surface-sunk)}
+.seg label{position:relative;display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:4px;font-size:13px;font-weight:500;color:var(--fg-muted);cursor:pointer}
+.seg label:hover{color:var(--fg)}
+.seg input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+.seg label.on{background:var(--surface-raised);color:var(--fg);box-shadow:0 0 0 1px var(--rule)}
+.seg label:focus-within{outline:2px solid var(--gold);outline-offset:1px}
+.sep{height:1px;background:var(--rule-2);border:0;margin:0}
+.navitem{display:flex;align-items:center;height:32px;padding:0 10px;border-radius:6px;font-size:13px;color:var(--fg-2);text-decoration:none}
+.navitem:hover{background:var(--hover-overlay)}
+.navitem.on{background:var(--surface-raised);color:var(--fg);font-weight:500;box-shadow:inset 0 0 0 1px var(--rule-2)}
+.navgroup{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-muted);padding:14px 10px 6px}
+.toc a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;border-radius:6px;font-size:13px;color:var(--fg-2);text-decoration:none}
+.toc a:hover{background:var(--hover-overlay);color:var(--fg)}
+.toc a.on{color:var(--fg);font-weight:500;background:var(--hover-overlay)}
+.terms p{margin:0;font-size:13.5px;line-height:1.55;color:var(--fg-2)}
+.terms dt{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-muted);margin:0 0 4px}
+.terms dd{margin:0}
+.code{background:#161310;color:#ebe6dc;border-radius:12px;padding:16px 18px;font-family:var(--mono);font-size:11.5px;line-height:1.6;white-space:pre;overflow-x:auto;margin:0}
+.code .k{color:oklch(0.78 0.140 80)}
+.code .s{color:oklch(0.80 0.070 145)}
+.code .n{color:oklch(0.80 0.060 245)}
+</style>
+</helmet>
+<div class="qw" style="color-scheme: {{scheme}}; min-height: 100vh; display: flex; flex-direction: column">
+
+<header style="position: sticky; top: 0; z-index: 5; height: 57px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 20px; background: var(--surface-translucent); backdrop-filter: blur(14px); border-bottom: 1px solid var(--rule-2)">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="26" height="26" viewBox="0 0 16 16" fill="none" stroke="var(--gold)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6.5 L4.5 3.5 L8 6 L11.5 3.5 L13.5 6.5"></path><path d="M4 13.5 L5.5 9 L7 13.5 M7.5 13.5 L9 8.5 L10.5 13.5 M10 13.5 L11.5 10 L13 13.5" stroke="var(--pine-4)"></path></svg>
+<span style="font-size: 14px; font-weight: 500; letter-spacing: -0.005em">Queenswood</span>
+<span class="chip" style="margin-left: 6px">sandbox</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--fg-2)">
+<span>Sandbox bank</span>
+<span style="width: 28px; height: 28px; border-radius: 50%; background: var(--surface-sunk); border: 1px solid var(--rule); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500">KO</span>
+</div>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; flex: 1">
+
+<nav aria-label="Console" style="flex: 1 1 220px; max-width: 100%; background: var(--surface-sunk); border-right: 1px solid var(--rule-2); padding: 8px 10px 24px">
+<div class="navgroup">Manage</div>
+<a class="navitem on" href="#" aria-current="page">Products</a>
+<a class="navitem" href="#">Parties</a>
+<a class="navitem" href="#">Ledger</a>
+<a class="navitem" href="#">Accounts</a>
+<a class="navitem" href="#">Migrations</a>
+<div class="navgroup">Operations</div>
+<a class="navitem" href="#">Jobs</a>
+<div class="navgroup">Sandbox</div>
+<a class="navitem" href="#">Scenarios</a>
+<div class="navgroup">Organisation</div>
+<a class="navitem" href="#">People</a>
+<a class="navitem" href="#">Policies</a>
+<a class="navitem" href="#">Audit log</a>
+<a class="navitem" href="#">Access log</a>
+<a class="navitem" href="#">Bank</a>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; padding: 28px 36px 80px; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="font-size: 13px; color: var(--fg-muted)"><a href="#" style="text-decoration: none">Products</a> <span aria-hidden="true">/</span> <a href="#" style="text-decoration: none">Regular Saver</a> <span aria-hidden="true">/</span> <span class="mono" style="font-size: 12px">v1</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<span class="kicker">Sandbox bank</span>
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+<h1 style="margin: 0; font-size: 22px; font-weight: 500; letter-spacing: -0.005em; line-height: 1.15">Regular Saver</h1>
+<span class="badge draft">draft</span>
+<span class="mono muted" style="font-size: 12px">prd.01ksr7qe · v1</span>
+</div>
+<p style="margin: 4px 0 0; font-size: 13px; color: var(--fg-muted); max-width: 60ch">Publishing fixes this version's terms. Accounts already open stay on the version they opened on until a migration moves them.</p>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button class="btn danger" type="button">Discard draft</button>
+<button class="btn line" type="button">Save draft</button>
+<button class="btn brand" type="button">Publish v1</button>
+</div>
+</div>
+</div>
+
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 24px">
+
+<section id="product" class="panel" aria-labelledby="h-product">
+<div class="panel-head"><div><h2 id="h-product" class="panel-title">Product</h2><p class="panel-sub">What the product is and what customers call it.</p></div></div>
+<div class="panel-body">
+<div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start">
+<div class="field" style="flex: 1 1 160px"><label class="label" for="f-tpl">Type</label>
+<select id="f-tpl" class="select"><option>Savings</option><option>Current</option><option>Term deposit</option></select></div>
+<div class="field" style="flex: 3 1 260px"><label class="label" for="f-name">Name</label>
+<input id="f-name" class="input" value="Regular Saver"></div>
+<div class="field" style="flex: 0 1 120px"><label class="label" for="f-ccy">Currency</label>
+<select id="f-ccy" class="select"><option>GBP</option></select></div>
+</div>
+<p class="hint" style="margin: -8px 0 0">The type can't change once the first version is published. Savings is offered in GBP only. The name is what end customers see.</p>
+</div>
+</section>
+
+<section id="interest" class="panel" aria-labelledby="h-interest">
+<div class="panel-head"><div><h2 id="h-interest" class="panel-title">Interest</h2><p class="panel-sub">A product pays a flat rate, or rates banded by balance.</p></div>
+<label class="check" style="white-space: nowrap"><input type="checkbox" checked="checked"> Pays interest</label></div>
+<div class="panel-body">
+
+<div class="field" style="gap: 10px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px"><label class="label" for="f-rate">Rate</label><div class="seg" role="radiogroup" aria-label="Rate kind"><label class="on"><input type="radio" name="ratekind" checked="checked">Flat rate</label><label><input type="radio" name="ratekind">Banded rates</label></div></div>
+<div class="grid2">
+<div class="field"><div class="affix-wrap"><input id="f-rate" class="input num" value="6.31"><span class="affix">%</span></div>
+<span class="hint">A year, gross. <code>6.50% AER</code> with interest paid monthly.</span></div>
+</div>
+</div>
+
+
+<hr class="sep">
+
+<div class="field"><span class="label" id="l-paid">Interest paid</span>
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; color: var(--fg-2)">
+<select class="select" aria-labelledby="l-paid" aria-label="How often" style="width: 150px"><option>Daily</option><option selected="selected">Monthly</option><option>Quarterly</option><option>Annually</option><option>When the account closes</option></select>
+<span>on</span>
+<select class="select" aria-label="Payment day" style="width: 250px"><option selected="selected">the day the account opened</option><option>The 1st</option><option>The 2nd</option><option>The 3rd</option><option>The 4th</option><option>The 5th</option><option>The 6th</option><option>The 7th</option><option>The 8th</option><option>The 9th</option><option>The 10th</option><option>The 11th</option><option>The 12th</option><option>The 13th</option><option>The 14th</option><option>The 15th</option><option>The 16th</option><option>The 17th</option><option>The 18th</option><option>The 19th</option><option>The 20th</option><option>The 21st</option><option>The 22nd</option><option>The 23rd</option><option>The 24th</option><option>The 25th</option><option>The 26th</option><option>The 27th</option><option>The 28th</option><option>the last day of the month</option></select>
+</div>
+<span class="hint">Interest is earned for every day money is held. Quarterly or annual payments on a set day also ask which month comes first.</span></div>
+</div>
+</section>
+
+<section id="term" class="panel" aria-labelledby="h-term">
+<div class="panel-head"><div><h2 id="h-term" class="panel-title">Term</h2><p class="panel-sub">How long the product's terms run for each account, and what happens when they end. With no term, the account pays its rate until it is closed.</p></div></div>
+<div class="panel-body">
+<div class="field" style="gap: 10px"><span class="label" id="l-runs">Runs</span>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<div class="seg" role="radiogroup" aria-labelledby="l-runs"><label><input type="radio" name="runs">No term</label><label class="on"><input type="radio" name="runs" checked="checked">Months from opening</label><label><input type="radio" name="runs">Until a fixed date</label></div>
+<div class="affix-wrap" style="width: 150px"><input class="input num" aria-label="Term in months" style="height: 34px; padding-right: 64px" value="12"><span class="affix">months</span></div>
+</div></div>
+
+<div class="field"><span class="label" id="l-ends">When the term ends</span>
+<div class="opts" role="radiogroup" aria-labelledby="l-ends">
+<div class="opt" style="flex-direction: column; gap: 10px; cursor: default">
+<label style="display: flex; gap: 10px; align-items: flex-start; cursor: pointer"><input type="radio" name="ends"><span><span class="opt-title">The rate changes</span><span class="opt-sub" style="display: block">The account stays open, and the whole balance earns the reversion rate.</span></span></label>
+<div class="affix-wrap" style="margin-left: 25px; width: 150px"><input class="input num" aria-label="Reversion rate" style="height: 34px" disabled="disabled" placeholder="0.00"><span class="affix">%</span></div>
+</div>
+<div class="opt on" style="flex-direction: column; gap: 10px; cursor: default">
+<label style="display: flex; gap: 10px; align-items: flex-start; cursor: pointer"><input type="radio" name="ends" checked="checked"><span><span class="opt-title">The account matures</span><span class="opt-sub" style="display: block">The last interest is paid, the balance moves to the account the customer named when opening, and this account closes.</span></span></label>
+</div>
+</div>
+<span class="hint">A migration can't move accounts onto or off a version that matures.</span></div>
+</div>
+</section>
+
+<section id="limits" class="panel" aria-labelledby="h-limits">
+<div class="panel-head"><div><h2 id="h-limits" class="panel-title">Limits</h2><p class="panel-sub">What may be paid into and out of each account, and what it may hold. Interest and rewards are never refused.</p></div></div>
+<div class="panel-body">
+<div class="grid2">
+<div class="field"><label class="label" for="f-min">Lowest balance</label>
+<div class="affix-wrap pre"><span class="affix">£</span><input id="f-min" class="input num" value="0.00"></div>
+<span class="hint">Below zero is an arranged overdraft.</span></div>
+<div class="field"><label class="label" for="f-max">Highest balance</label>
+<div class="affix-wrap pre"><span class="affix">£</span><input id="f-max" class="input num" placeholder="No ceiling"></div>
+<span class="hint">Must be above the lowest balance.</span></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px"><span class="label">Payment limits</span><span class="hint mono" style="margin: 0">1</span></div>
+<div style="overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface)">
+<table class="bands" style="min-width: 760px">
+<thead><tr><th scope="col" style="width: 96px">Direction</th><th scope="col" style="width: 112px">Measure</th><th scope="col" style="width: 140px">At most</th><th scope="col" style="width: 120px">Each</th><th scope="col" style="width: 180px">Counted from</th><th scope="col">Reason</th><th scope="col" style="width: 44px"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Remove</span></th></tr></thead>
+<tbody>
+<tr>
+<td><select class="select" aria-label="Limit 1 direction"><option selected="selected">In</option><option>Out</option></select></td>
+<td><select class="select" aria-label="Limit 1 measure"><option selected="selected">Amount</option><option>Count</option></select></td>
+<td><div class="affix-wrap pre"><span class="affix">£</span><input class="input num" aria-label="Limit 1 maximum" value="300.00"></div></td>
+<td><select class="select" aria-label="Limit 1 period"><option>Payment</option><option>Day</option><option>Week</option><option selected="selected">Month</option><option>Quarter</option><option>Year</option></select></td>
+<td><select class="select" aria-label="Limit 1 anchor"><option selected="selected">Opening</option><option>Date</option></select></td>
+<td><input class="input" aria-label="Limit 1 reason" value="Up to £300 a month"></td>
+<td><button class="btn icon" type="button" aria-label="Remove limit 1"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 4 L12 12 M12 4 L4 12"></path></svg></button></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<button class="btn line sm" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 3 V13 M3 8 H13"></path></svg>Add payment limit</button>
+<span class="hint" style="margin: 0">Counted from each account's opening day, so a month runs 15th to 14th for an account opened on the 15th.</span>
+</div>
+<hr class="sep">
+<label class="check"><input type="checkbox" checked="checked"><span><span style="font-weight: 500">Withdrawals only to the customer's own accounts</span><span class="hint" style="display: block">Money can leave at any time, but only to another account the customer holds at this bank.</span></span></label>
+</div>
+</div>
+</section>
+
+<section id="rewards" class="panel" aria-labelledby="h-rewards">
+<div class="panel-head"><div><h2 id="h-rewards" class="panel-title">Rewards</h2><p class="panel-sub">Paid once to each account opened on this version.</p></div>
+<label class="check" style="white-space: nowrap"><input type="checkbox"> Welcome reward</label></div>
+<div class="panel-body">
+<div class="grid2">
+<div class="field"><label class="label" for="f-reward">Amount</label>
+<div class="affix-wrap pre"><span class="affix">£</span><input id="f-reward" class="input num" disabled="disabled" placeholder="0.00"></div>
+<span class="hint">Paid when the account opens. Must be more than £0.00.</span></div>
+</div>
+</div>
+</section>
+
+<section id="dates" class="panel" aria-labelledby="h-dates">
+<div class="panel-head"><div><h2 id="h-dates" class="panel-title">Availability</h2><p class="panel-sub">When new accounts open on this version. The end date stops openings, not interest on accounts already open.</p></div></div>
+<div class="panel-body">
+<div class="grid2">
+<div class="field"><label class="label" for="f-from">Effective from</label>
+<input id="f-from" class="input" type="date" value="2026-11-01"></div>
+<div class="field"><label class="label" for="f-to">Effective to</label>
+<input id="f-to" class="input" type="date">
+<span class="hint">Optional. Blank for no end date.</span></div>
+</div>
+</div>
+</section>
+
+</div>
+
+<aside aria-label="Terms summary" style="flex: 1 1 340px; min-width: 0; max-width: 100%; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 81px">
+
+<nav class="panel toc" aria-label="Sections" style="padding: 8px">
+<a class="on" href="#product">Product <span class="mono muted" style="font-size: 11px">GBP · savings</span></a>
+<a href="#interest">Interest <span class="mono muted" style="font-size: 11px">6.31% fixed</span></a>
+<a href="#term">Term <span class="mono muted" style="font-size: 11px">12 months · matures</span></a>
+<a href="#limits">Limits <span class="mono muted" style="font-size: 11px">£300 a month</span></a>
+<a href="#rewards">Rewards <span class="mono muted" style="font-size: 11px">none</span></a>
+<a href="#dates">Availability <span class="mono muted" style="font-size: 11px">1 Nov 2026</span></a>
+</nav>
+
+<div class="panel">
+<div class="panel-head" style="padding: 14px 18px"><div><span class="kicker">Customer terms</span><h2 class="panel-title" style="margin-top: 4px">How this version reads</h2></div></div>
+<div style="padding: 16px 18px; display: flex; flex-direction: column; gap: 16px">
+
+<div aria-label="Rate schedule: 6.31% for 12 months, then the account matures" role="img" style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; gap: 3px; height: 56px">
+<div style="flex: 1; background: var(--band-1); border-radius: 4px; padding: 6px 8px; font-size: 11px; color: #fbf9f4; display: flex; justify-content: space-between; align-items: flex-end"><span>whole balance, fixed</span><span class="mono" style="font-weight: 500">6.31%</span></div>
+<div style="width: 64px; border: 1px dashed var(--rule-strong); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--fg-muted)">matures</div>
+</div>
+<div style="display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px; color: var(--fg-muted); padding-right: 67px"><span>opening</span><span>12 months</span></div>
+</div>
+
+<dl class="terms" style="margin: 0; display: flex; flex-direction: column; gap: 12px">
+<div><dt>Account</dt><dd><p>A GBP savings account, on the liability side of the bank's books.</p></dd></div>
+<div><dt>Interest</dt><dd><p>6.31% a year gross (6.50% AER), fixed on the whole balance.</p><p style="margin-top: 6px">Earned daily and paid monthly on the day the account opened.</p></dd></div>
+<div><dt>Term</dt><dd><p>12 months after opening, the balance and interest move to the account the customer named, and this account closes.</p></dd></div>
+<div><dt>Limits</dt><dd><p>Up to £300.00 paid in each month, counted from the opening day. Withdrawals at any time, to the customer's own accounts only. The balance can't go below £0.00.</p></dd></div>
+<div><dt>Rewards</dt><dd><p>None.</p></dd></div>
+<div><dt>Available</dt><dd><p>New accounts open on this version from 1 Nov 2026.</p></dd></div>
+</dl>
+</div>
+</div>
+
+
+</aside>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":2300}}'>
+class Component extends DCLogic {
+renderVals() {
+return { scheme: this.props.theme ?? 'light' };
+}
+}
+</script>
+</body>
+</html>

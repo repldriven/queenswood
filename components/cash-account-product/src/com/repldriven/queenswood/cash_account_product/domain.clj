@@ -192,6 +192,114 @@
                                       currency
                                       " minor units"))))))
 
+;; ---------------------------------------------------------------------------
+;; Interest terms
+;;
+;; interest-terms, when present, is the version's rate as a schedule of
+;; steps, each a set of balance bands, and when interest is paid. The
+;; rules below are the record's own, so a version states whatever it can
+;; hold.
+
+(def ^:private max-steps 12)
+
+(def ^:private max-bands 10)
+
+(defn- bands-problem
+  [bands]
+  (let [capped (vec (butlast bands))]
+    (cond
+     (empty? bands)
+     "Every step needs at least one band"
+
+     (< max-bands (count bands))
+     (str "A step has at most " max-bands " bands")
+
+     (some neg? (map :rate-bps bands))
+     "A rate cannot be negative"
+
+     (some? (:up-to (peek (vec bands))))
+     "A step's last band has no upper limit"
+
+     (some nil? (map :up-to capped))
+     "Every band but a step's last needs an upper limit"
+
+     (not (apply < 0 (map :up-to capped)))
+     "Each band's upper limit is above zero and above the one before"
+
+     :else
+     nil)))
+
+(defn- steps-problem
+  [basis steps]
+  (let [[start other] (if (= :interest-schedule-basis-fixed basis)
+                        [:starts-on :starts-after-months]
+                        [:starts-after-months :starts-on])
+        later (rest steps)]
+    (cond
+     (empty? steps)
+     "Interest terms need at least one step"
+
+     (< max-steps (count steps))
+     (str "Interest terms have at most " max-steps " steps")
+
+     (some (fn [k] (some? (get (first steps) k))) [start other])
+     "The first step has no start"
+
+     (some (fn [step] (or (nil? (get step start)) (some? (get step other))))
+           later)
+     "Every later step starts as the schedule's basis says"
+
+     (not (apply < 0 (map start later)))
+     "Each step starts after the one before"
+
+     :else
+     (some bands-problem (map :bands steps)))))
+
+(defn- payment-problem
+  [payment]
+  (let [{:keys [frequency day day-of-month month]} payment
+        dayless? (contains? #{:interest-payment-frequency-daily
+                              :interest-payment-frequency-at-close}
+                            frequency)
+        set-day? (contains? #{:interest-payment-day-day-of-month
+                              :interest-payment-day-last-of-month}
+                            day)
+        yearly? (contains? #{:interest-payment-frequency-quarterly
+                             :interest-payment-frequency-annually}
+                           frequency)]
+    (cond
+     (and dayless? (or day day-of-month month))
+     "A payment made daily, or when the account closes, names no day"
+
+     (and (not dayless?) (nil? day))
+     "A monthly, quarterly or annual payment names its day"
+
+     (not= (= :interest-payment-day-day-of-month day) (some? day-of-month))
+     "A payment on a day of the month, and no other, names that day"
+
+     (not= (and yearly? set-day?) (some? month))
+     (str "A quarterly or annual payment on a set day, and no other, "
+          "names its first month")
+
+     :else
+     nil)))
+
+(defn- ensure-interest-terms
+  [interest-terms interest-rate-bps]
+  (let [{:keys [basis steps payment]} interest-terms
+        problem (cond
+                 (nil? interest-terms)
+                 nil
+
+                 (some? interest-rate-bps)
+                 "State interest-terms or interest-rate-bps, not both"
+
+                 :else
+                 (or (steps-problem basis steps) (payment-problem payment)))]
+    (when problem
+      (error/reject :cash-account-product/invalid-interest-terms
+                    {:message problem}))))
+
 (defn- flat-interest
   "Interest terms paying `rate-bps` on the whole balance from the start,
   paid daily. Nil at no rate or a zero one, since a version that pays
@@ -207,19 +315,20 @@
 (defn- product-fields
   "Snapshot the derived instrument fields from the resolved `template`
   (product-type, balance-sheet-side, balance buckets, payment-address
-  schemes, iso type) plus the caller's `:interest-rate-bps`, as flat
-  interest terms, `:opening-reward`, as an opening reward's terms, and
+  schemes, iso type) plus the caller's `:interest-terms`, or its
+  `:interest-rate-bps` as flat ones, `:opening-reward`, as an opening reward's terms, and
   `:payment-limits`, as policy limits on the account's payments,
   `:min-balance` and `:max-balance`, as policy limits on its available
   balance, and stamp the originating
   `:template-id` for provenance. Returns the fields or an anomaly when
   the caller's currency isn't allowed."
   [template data]
-  (let [{:keys [currency interest-rate-bps opening-reward payment-limits
-                min-balance max-balance]}
+  (let [{:keys [currency interest-rate-bps interest-terms opening-reward
+                payment-limits min-balance max-balance]}
         data]
     (let-nom>
       [_ (ensure-currency-allowed template currency)
+       _ (ensure-interest-terms interest-terms interest-rate-bps)
        _ (ensure-payment-limits payment-limits)
        _ (ensure-balance-limits min-balance max-balance)]
       (utility/assoc-some
@@ -231,7 +340,7 @@
         (:allowed-payment-address-schemes template)
         :iso-cash-account-type (:iso-cash-account-type template)}
        :interest-terms
-       (flat-interest interest-rate-bps)
+       (or interest-terms (flat-interest interest-rate-bps))
        :reward-terms
        (when opening-reward
          [{:kind :reward-kind-opening :amount (:amount opening-reward)}])

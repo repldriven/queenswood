@@ -24,6 +24,61 @@
     the version is published."}
    [:amount [:ref "MinorUnits"]]])
 
+(def InterestScheduleBasis
+  (coercion/interest-schedule-basis-enum-schema {:json-schema/example
+                                                 "relative"}))
+
+(def InterestBanding
+  (coercion/interest-banding-enum-schema {:json-schema/example "marginal"}))
+
+(def InterestDayCount
+  (coercion/interest-day-count-enum-schema {:json-schema/example "actual-365"}))
+
+(def InterestPaymentFrequency
+  (coercion/interest-payment-frequency-enum-schema {:json-schema/example
+                                                    "monthly"}))
+
+(def InterestPaymentDay
+  (coercion/interest-payment-day-enum-schema {:json-schema/example "account"}))
+
+(def InterestTerms
+  [:map
+   {:closed true
+    :json-schema/example examples/InterestTerms
+    :description
+    "The version's rate as a schedule, and when interest is paid. One
+    step is in force on any day: the first from the start, and each
+    later one from the `starts-on` date of a `fixed` schedule or the
+    `starts-after-months` of a `relative` one, counted from the day the
+    account came onto the version. A step's bands cover the balance from
+    zero up, each to its `up-to` in minor units and the last without
+    one; `marginal` banding pays each band's rate on the part of the
+    balance within it, and `whole-balance` the rate of the band the
+    balance falls in on all of it. A `daily` payment, or one `at-close`,
+    names no `day`; any other names one, a `day-of-month` from 1 to 28
+    with it where the day is one, and a `quarterly` or `annually`
+    payment on a set day the `month` of its first payment. Fixed once
+    the version is published."}
+   [:basis [:ref "InterestScheduleBasis"]]
+   [:banding [:ref "InterestBanding"]]
+   [:steps
+    [:vector
+     [:map {:closed true}
+      [:starts-on {:optional true} [:ref "BusinessDay"]]
+      [:starts-after-months {:optional true} [:int {:min 1 :max 1200}]]
+      [:bands
+       [:vector
+        [:map {:closed true}
+         [:up-to {:optional true} [:ref "MinorUnits"]]
+         [:rate-bps [:ref "SignedBasisPoints"]]]]]]]]
+   [:day-count [:ref "InterestDayCount"]]
+   [:payment
+    [:map {:closed true}
+     [:frequency [:ref "InterestPaymentFrequency"]]
+     [:day {:optional true} [:ref "InterestPaymentDay"]]
+     [:day-of-month {:optional true} [:int {:min 1 :max 28}]]
+     [:month {:optional true} [:int {:min 1 :max 12}]]]]])
+
 (def PaymentDirection
   (coercion/payment-direction-enum-schema {:json-schema/example "in"}))
 
@@ -65,6 +120,7 @@
    [:template-id [:ref "TemplateId"]]
    [:currency [:ref "Currency"]]
    [:interest-rate-bps {:optional true} [:ref "SignedBasisPoints"]]
+   [:interest-terms {:optional true} [:ref "InterestTerms"]]
    [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:payment-limits {:optional true} [:vector [:ref "PaymentLimit"]]]
    [:min-balance {:optional true} [:ref "SignedMinorUnits"]]
@@ -78,6 +134,7 @@
    [:template-id {:optional true} [:ref "TemplateId"]]
    [:currency [:ref "Currency"]]
    [:interest-rate-bps {:optional true} [:ref "SignedBasisPoints"]]
+   [:interest-terms {:optional true} [:ref "InterestTerms"]]
    [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:payment-limits {:optional true} [:vector [:ref "PaymentLimit"]]]
    [:min-balance {:optional true} [:ref "SignedMinorUnits"]]
@@ -101,6 +158,7 @@
    [:allowed-payment-address-schemes
     [:unique-vector-lax {:min 1} [:ref "PaymentAddressScheme"]]]
    [:interest-rate-bps [:ref "SignedBasisPoints"]]
+   [:interest-terms {:optional true} [:ref "InterestTerms"]]
    [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:payment-limits {:optional true} [:vector [:ref "PaymentLimit"]]]
    [:min-balance [:ref "SignedMinorUnits"]]
@@ -203,6 +261,8 @@
 (def registry
   (components-registry
    [#'TemplateId #'BalanceSheetSide #'VersionStatus #'OpeningReward
+    #'InterestScheduleBasis #'InterestBanding #'InterestDayCount
+    #'InterestPaymentFrequency #'InterestPaymentDay #'InterestTerms
     #'PaymentDirection #'PaymentMeasure #'PaymentPeriod #'PaymentPeriodAnchor
     #'PaymentLimit #'CashAccountProductRequest #'CashAccountProductDraftRequest
     #'CashAccountProductVersion #'CashAccountProduct #'CashAccountProductList

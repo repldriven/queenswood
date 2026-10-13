@@ -54,6 +54,13 @@
 (def VersionId (schema/id-examples "VersionId"))
 (def TemplateId "tpl.00000000000000000000000001")
 (def OpeningReward {:amount 1000})
+(def InterestTerms
+  {:basis "relative"
+   :banding "marginal"
+   :steps [{:bands [{:up-to 500000 :rate-bps 500} {:rate-bps 0}]}
+           {:starts-after-months 12 :bands [{:rate-bps 150}]}]
+   :day-count "actual-365"
+   :payment {:frequency "monthly" :day "account"}})
 (def PaymentLimit
   {:direction "in" :measure "amount" :max 30000 :period "month"})
 
