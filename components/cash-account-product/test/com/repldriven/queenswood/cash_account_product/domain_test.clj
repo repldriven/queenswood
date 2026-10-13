@@ -293,3 +293,57 @@
                                 operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r))))))
+
+(deftest payment-limits-test
+  (let [draft (fn [payment-limits]
+                (SUT/new-version
+                 "bnk.1"
+                 "prd.1"
+                 []
+                 template
+                 (assoc good-data :payment-limits payment-limits)
+                 permissive-policies))
+        paid-in {:direction :payment-direction-in
+                 :measure :amount
+                 :max 30000
+                 :period :time-window-monthly}
+        withdrawals {:direction :payment-direction-out
+                     :measure :count
+                     :max 1
+                     :period :time-window-annually
+                     :anchor :window-anchor-calendar
+                     :starts-month 4
+                     :starts-day-of-month 6
+                     :reason "One withdrawal each tax year"}]
+    (testing "each payment limit becomes an account-payment policy limit"
+      (is
+       (= [{:kind {:account-payment {:filters [{:direction
+                                                :payment-direction-in}]}}
+            :bound {:kind {:max {:aggregate
+                                 {:kind {:amount
+                                         {:value {:value 30000 :currency "GBP"}
+                                          :window :time-window-monthly}}}}}}
+            :reason (str "The product allows at most 30000 GBP minor units"
+                         " paid in per month")}
+           {:kind {:account-payment {:filters [{:direction
+                                                :payment-direction-out}]}}
+            :bound {:kind {:max {:aggregate
+                                 {:kind {:count {:value 1
+                                                 :window :time-window-annually
+                                                 :anchor :window-anchor-calendar
+                                                 :starts-month 4
+                                                 :starts-day-of-month 6}}}}}}
+            :reason "One withdrawal each tax year"}]
+          (:limits (draft [paid-in withdrawals])))))
+    (testing "a version stated none carries none"
+      (is (not (contains? (draft nil) :limits)))
+      (is (not (contains? (draft []) :limits))))
+    (testing "a limit that bounds nothing, or twice, is :invalid-limit"
+      (doseq [payment-limits [[(assoc paid-in :max -1)]
+                              [(assoc withdrawals :period :time-window-instant)]
+                              [(assoc paid-in :starts-month 4)]
+                              [paid-in (assoc paid-in :max 50000)]]]
+        (let [r (draft payment-limits)]
+          (is (error/rejection? r) (pr-str payment-limits))
+          (is (= :cash-account-product/invalid-limit (error/kind r))))))))
+

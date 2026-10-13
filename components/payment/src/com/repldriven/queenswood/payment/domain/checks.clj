@@ -71,6 +71,31 @@
     :value (inc (get-in aggregates
                         [kind #{:bank-id :business-day}]))}))
 
+(defn check-account-payment
+  "Check a payment of `amount` in `direction` against the limits
+  `policies` put on one account's payments, each over the period its
+  entry in `aggregates` was read for."
+  [policies account-id direction amount currency aggregates]
+  (reduce
+   (fn [_ [dimensions n]]
+     (when (and (contains? dimensions account-id)
+                (contains? dimensions direction))
+       (let [request (if (contains? dimensions :amount)
+                       {:aggregate :amount
+                        :value {:value (+ n amount) :currency currency}}
+                       {:aggregate :count :value (inc n)})
+             result (policy/check-limit
+                     policies
+                     :account-payment
+                     (assoc request
+                            :direction direction
+                            :period (some (fn [dimension]
+                                            (when (map? dimension) dimension))
+                                          dimensions)))]
+         (when (error/anomaly? result) (reduced result)))))
+   nil
+   (:account-payment aggregates)))
+
 (defn refused?
   [result]
   (or (error/rejection? result) (error/unauthorized? result)))

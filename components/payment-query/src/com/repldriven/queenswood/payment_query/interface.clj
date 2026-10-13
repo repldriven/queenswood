@@ -225,3 +225,38 @@
                                 business-day
                                 product-type
                                 currency))
+
+(defn get-account-aggregates
+  "Count one account's payments in `direction` from `from-day` to
+  `through-day`, both business days and both included, and sum their
+  amounts, as `{:count :sum}`. A payment out is every internal payment
+  the account is debtor of and each outbound payment from its
+  submission until it fails, one returned after it settled among them;
+  a payment in is every internal payment it is creditor of and each
+  inbound payment admitted or settled. One range read per index,
+  serializable unless `opts` says `{:isolation :snapshot}`. A read
+  primitive for the write sibling's checks.
+
+  Args:
+  - txn: FDB handle or open transaction.
+  - bank-id: the account's bank.
+  - account-id: the account.
+  - direction: `:payment-direction-in` or `:payment-direction-out`.
+  - from-day, through-day: epoch days.
+  - opts: optional `{:isolation :snapshot}`."
+  ([txn bank-id account-id direction from-day through-day]
+   (store/get-account-aggregates txn
+                                 bank-id
+                                 account-id
+                                 direction
+                                 from-day
+                                 through-day
+                                 {}))
+  ([txn bank-id account-id direction from-day through-day opts]
+   (store/get-account-aggregates txn
+                                 bank-id
+                                 account-id
+                                 direction
+                                 from-day
+                                 through-day
+                                 opts)))

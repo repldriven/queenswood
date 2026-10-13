@@ -224,3 +224,49 @@
               policies
               :outbound-payment
               (amount-request :time-window-instant 0 "EUR")))))))
+
+(defn- account-payment-policy
+  "One policy bounding the count of payments out of an account by
+  `value` over each of `aggregates`' windows and anchors."
+  [value aggregates]
+  [{:status :policy-status-active
+    :limits (mapv (fn [aggregate]
+                    {:kind {:account-payment
+                            {:filters [{:direction :payment-direction-out}]}}
+                     :bound {:kind {:max {:aggregate
+                                          {:kind {:count (assoc aggregate
+                                                                :value
+                                                                value)}}}}}
+                     :reason "withdrawals"})
+                  aggregates)}])
+
+(deftest periods-test
+  (let [yearly {:window :time-window-annually}
+        tax-year {:window :time-window-annually
+                  :anchor :window-anchor-calendar
+                  :starts-month 4
+                  :starts-day-of-month 6}
+        policies (account-payment-policy 1 [yearly tax-year])
+        out {:aggregate :count :direction :payment-direction-out}]
+    (testing "each matching limit's period, without what it leaves unset"
+      (is (= #{yearly tax-year} (SUT/periods policies :account-payment out))))
+    (testing "a limit on the other direction, or measure, names no period"
+      (is (empty? (SUT/periods policies
+                               :account-payment
+                               (assoc out :direction :payment-direction-in))))
+      (is (empty? (SUT/periods policies
+                               :account-payment
+                               (assoc out :aggregate :amount)))))
+    (testing "a request naming a period is checked against that one alone"
+      (is (true? (SUT/check policies
+                            :account-payment
+                            (assoc out :period yearly :value 1))))
+      (is (error/rejection? (SUT/check policies
+                                       :account-payment
+                                       (assoc out :period tax-year :value 2))))
+      (is (true? (SUT/check policies
+                            :account-payment
+                            (assoc out
+                                   :period {:window :time-window-monthly}
+                                   :value 2)))))))
+

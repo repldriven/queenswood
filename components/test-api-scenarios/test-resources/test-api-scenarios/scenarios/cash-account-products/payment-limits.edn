@@ -1,0 +1,74 @@
+{:name "A product states the limits on its accounts' payments"
+ ;; A version carries each payment limit it is drafted with and returns
+ ;; it as it was stated, with the reason a refused payment is given.
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Payment Limits Product Bank" :status "live"}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Regular Saver"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 600
+                    :payment-limits
+                    [{:direction "in"
+                      :measure "amount"
+                      :max 30000
+                      :period "month"}
+                     {:direction "out"
+                      :measure "count"
+                      :max 1
+                      :period "year"
+                      :anchor "calendar"
+                      :starts-month 4
+                      :starts-day-of-month 6
+                      :reason "One withdrawal each tax year"}]
+                    :effective-from "2026-01-01"}}
+   :as :v1
+   :assert
+   {:status 201
+    :body
+    {:status "draft"
+     :payment-limits
+     [{:direction "in"
+       :measure "amount"
+       :max 30000
+       :period "month"
+       :reason
+       "The product allows at most 30000 GBP minor units paid in per month"}
+      {:direction "out"
+       :measure "count"
+       :max 1
+       :period "year"
+       :anchor "calendar"
+       :starts-month 4
+       :starts-day-of-month 6
+       :reason "One withdrawal each tax year"}]}}}
+  ;; A count of payments in one payment bounds nothing.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Miscounted"
+                    :template-id "tpl.00000000000000000000000003"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :payment-limits
+                    [{:direction "out" :measure "count" :max 1 :period "payment"}]
+                    :effective-from "2026-01-01"}}
+   :assert {:status 422
+            :problem {:type ":cash-account-product/invalid-limit"}}}]
+ :then
+ [{:command :api/request
+   :request
+   {:method :get
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}"
+    :path-params {:product-id [:ref :v1 :product-id]
+                  :version-id [:ref :v1 :version-id]}
+    :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:payment-limits [{:direction "in" :max 30000}
+                                    {:direction "out" :max 1}]}}}]}

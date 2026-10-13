@@ -1,0 +1,88 @@
+{:name "A regular saver refuses the payment in that passes its month's amount"
+ ;; The saver's product allows GBP 300 paid in a month, counted from the
+ ;; day the account was opened. A payment that would pass it is refused
+ ;; and one that reaches it exactly is not. Amounts in pence.
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Regular Saver Bank"}}
+  {:fixture :product
+   :as :current
+   :with {:token [:ref :bank-0 :token] :name "Current"}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :bank-0 :token]
+             :body {:name "Regular Saver"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 600
+                    :payment-limits
+                    [{:direction "in" :measure "amount" :max 30000 :period "month"}]
+                    :effective-from "2026-01-01"}}
+   :as :saver
+   :assert {:status 201}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :saver :product-id]
+                  :version-id [:ref :saver :version-id]}
+    :auth [:ref :bank-0 :token]}
+   :assert {:status 200}}
+  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+  {:fixture :funded-account
+   :as :everyday
+   :with {:bank-id [:ref :bank-0 :bank :bank-id]
+          :token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :current :product :product-id]
+          :amount 100000}}
+  {:fixture :account
+   :as :savings
+   :with {:token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :saver :product-id]
+          :name "Regular Saver"}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth [:ref :bank-0 :token]
+             :body {:debtor-account-id [:ref :everyday :opened :account :account-id]
+                    :creditor-account-id [:ref :savings :account :account-id]
+                    :currency "GBP"
+                    :amount 20000
+                    :reference "First deposit"}}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth [:ref :bank-0 :token]
+             :body {:debtor-account-id [:ref :everyday :opened :account :account-id]
+                    :creditor-account-id [:ref :savings :account :account-id]
+                    :currency "GBP"
+                    :amount 15000
+                    :reference "Too much"}}
+   :assert
+   {:status 429
+    :problem
+    {:type ":policy/limit-exceeded"
+     :detail
+     "The product allows at most 30000 GBP minor units paid in per month"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payments/internal"
+             :auth [:ref :bank-0 :token]
+             :body {:debtor-account-id [:ref :everyday :opened :account :account-id]
+                    :creditor-account-id [:ref :savings :account :account-id]
+                    :currency "GBP"
+                    :amount 10000
+                    :reference "The rest of the month"}}
+   :assert {:status 201}}]
+ :then
+ [{:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :savings :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200
+           :body {:available-balance {:value 30000 :currency "GBP"}}}}]}

@@ -1,8 +1,8 @@
 syntax = "proto2";
 
-package com.repldriven.queenswood.schema.cash_account;
+package com.repldriven.queenswood.schema.account_type;
 
-option java_outer_classname = "CashAccountTypesProto";
+option java_outer_classname = "AccountTypeProto";
 
 enum AccountType {
   ACCOUNT_TYPE_UNKNOWN = 0;

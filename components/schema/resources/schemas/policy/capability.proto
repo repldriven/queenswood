@@ -3,9 +3,9 @@ syntax = "proto2";
 package com.repldriven.queenswood.schema.policy;
 
 import "schemas/account-product-type/account-product-type.proto";
+import "schemas/account-type/account-type.proto";
 import "schemas/balance/types.proto";
 import "schemas/bank/bank.proto";
-import "schemas/cash-account/types.proto";
 import "schemas/party/party.proto";
 import "schemas/policy/types.proto";
 import "schemas/scheme-type/scheme-type.proto";
@@ -54,7 +54,7 @@ enum CashAccountAction {
 }
 
 message CashAccountCapabilityFilter {
-  optional com.repldriven.queenswood.schema.cash_account.AccountType account_type = 1;
+  optional com.repldriven.queenswood.schema.account_type.AccountType account_type = 1;
 }
 
 message CashAccountCapability {

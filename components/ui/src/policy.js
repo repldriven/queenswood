@@ -50,6 +50,7 @@ export const DOMAINS = {
   outbound_payment:     { label: "Outbound Payment",     group: "Payments" },
   inbound_payment:      { label: "Inbound Payment",      group: "Payments" },
   internal_payment:     { label: "Internal Payment",     group: "Payments" },
+  account_payment:      { label: "Account Payment",      group: "Payments" },
   payee_check:          { label: "Payee Check",          group: "Payments" },
   party:                { label: "Party",                group: "Identity" },
   idv:                  { label: "IDV",                  group: "Identity" },

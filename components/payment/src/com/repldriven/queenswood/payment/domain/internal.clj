@@ -13,7 +13,7 @@
                    :account-id debtor-account-id})))
 
 (defn internal-payment->transaction
-  [data debtor-account creditor-account policies aggregates]
+  [data debtor-account creditor-account policies aggregates account-policies]
   (let [{:keys [bank-id idempotency-key debtor-account-id
                 creditor-account-id currency amount
                 reference]}
@@ -27,7 +27,23 @@
        _ (checks/check-capability policies
                                   :internal-payment
                                   :internal-payment-action-submit)
-       _ (checks/check-daily-count policies :internal-payment aggregates)]
+       _ (checks/check-daily-count policies :internal-payment aggregates)
+       _ (checks/check-account-payment (get account-policies
+                                            debtor-account-id
+                                            policies)
+                                       debtor-account-id
+                                       :payment-direction-out
+                                       amount
+                                       currency
+                                       aggregates)
+       _ (checks/check-account-payment (get account-policies
+                                            creditor-account-id
+                                            policies)
+                                       creditor-account-id
+                                       :payment-direction-in
+                                       amount
+                                       currency
+                                       aggregates)]
       (utility/assoc-some
        {:bank-id bank-id
         :idempotency-key idempotency-key

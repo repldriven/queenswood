@@ -4,9 +4,9 @@ package com.repldriven.queenswood.schema.cash_account;
 
 import "record_metadata_options.proto";
 import "schemas/account-product-type/account-product-type.proto";
+import "schemas/account-type/account-type.proto";
 import "schemas/actor/actor.proto";
 import "schemas/cash-account-product/types.proto";
-import "schemas/cash-account/types.proto";
 import "schemas/fideslang/data-category.proto";
 
 option java_outer_classname = "CashAccountProto";
@@ -68,7 +68,7 @@ message CashAccount {
   required CashAccountStatus status = 7;
   required string party_id = 8;
   required com.repldriven.queenswood.schema.account_product_type.AccountProductType product_type = 9;
-  required AccountType account_type = 10;
+  required com.repldriven.queenswood.schema.account_type.AccountType account_type = 10;
   required string currency = 11; // ISO 4217
   repeated PaymentAddress payment_addresses = 12;
   optional string bban = 13 [(fideslang.data_category) = "user.financial.bank_account"]; // sort code and account number

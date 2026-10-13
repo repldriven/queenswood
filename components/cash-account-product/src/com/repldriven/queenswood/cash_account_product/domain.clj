@@ -42,6 +42,93 @@
                      :template-id (:template-id template)
                      :requested-template-id requested}))))
 
+;; ---------------------------------------------------------------------------
+;; Payment limits
+;;
+;; payment-limits, when present, is a vector of {:direction :measure :max
+;; :period}, each bounding the amount or the count of the payments into
+;; or out of an account over a period. A version keeps each as a policy
+;; limit of the account-payment kind, so the policy engine checks it.
+
+(def ^:private period-names
+  {:time-window-instant "payment"
+   :time-window-daily "day"
+   :time-window-weekly "week"
+   :time-window-monthly "month"
+   :time-window-quarterly "quarter"
+   :time-window-annually "year"})
+
+(defn- invalid-limit
+  [message payment-limit]
+  (error/reject :cash-account-product/invalid-limit
+                {:message message :payment-limit payment-limit}))
+
+(defn- ensure-payment-limit
+  [payment-limit]
+  (let [{:keys [measure max period anchor starts-month starts-day-of-month]}
+        payment-limit]
+    (cond
+     (neg? max)
+     (invalid-limit "A payment limit's maximum cannot be negative"
+                    payment-limit)
+
+     (and (= :count measure) (= :time-window-instant period))
+     (invalid-limit "A count of payments needs a period longer than a payment"
+                    payment-limit)
+
+     (and (or starts-month starts-day-of-month)
+          (not= :window-anchor-calendar anchor))
+     (invalid-limit "Only a calendar period names the day it starts on"
+                    payment-limit)
+
+     :else
+     nil)))
+
+(defn- ensure-payment-limits
+  [payment-limits]
+  (let [invalid (some ensure-payment-limit payment-limits)
+        bounded (map (fn [payment-limit] (dissoc payment-limit :max :reason))
+                     payment-limits)]
+    (cond
+     invalid
+     invalid
+
+     (and (seq bounded) (not (apply distinct? bounded)))
+     (error/reject :cash-account-product/invalid-limit
+                   {:message "Two payment limits bound the same thing"})
+
+     :else
+     nil)))
+
+(defn- limit-reason
+  [currency payment-limit]
+  (let [{:keys [direction measure max period]} payment-limit
+        out? (= :payment-direction-out direction)]
+    (str "The product allows at most "
+         (if (= :count measure)
+           (str max
+                (if (= 1 max) " payment " " payments ")
+                (if out? "out" "in"))
+           (str max " " currency " minor units paid " (if out? "out" "in")))
+         " per "
+         (period-names period))))
+
+(defn- payment-limit->limit
+  [currency payment-limit]
+  (let [{:keys [direction measure max period anchor starts-month
+                starts-day-of-month reason]}
+        payment-limit
+        value (if (= :amount measure) {:value max :currency currency} max)]
+    {:kind {:account-payment {:filters [{:direction direction}]}}
+     :bound {:kind {:max {:aggregate
+                          {:kind {measure (utility/assoc-some
+                                           {:value value :window period}
+                                           :anchor anchor
+                                           :starts-month starts-month
+                                           :starts-day-of-month
+                                           starts-day-of-month)}}}}}
+     :reason (or reason (limit-reason currency payment-limit))}))
+
 (defn- flat-interest
   "Interest terms paying `rate-bps` on the whole balance from the start,
   paid daily. Nil at no rate or a zero one, since a version that pays
@@ -58,14 +145,17 @@
   "Snapshot the derived instrument fields from the resolved `template`
   (product-type, balance-sheet-side, balance buckets, payment-address
   schemes, iso type) plus the caller's `:interest-rate-bps`, as flat
-  interest terms, and `:opening-reward`, as an opening reward's terms,
-  and stamp the originating
+  interest terms, `:opening-reward`, as an opening reward's terms, and
+  `:payment-limits`, as policy limits on the account's payments, and
+  stamp the originating
   `:template-id` for provenance. Returns the fields or an anomaly when
   the caller's currency isn't allowed."
   [template data]
-  (let [{:keys [currency interest-rate-bps opening-reward]} data]
+  (let [{:keys [currency interest-rate-bps opening-reward payment-limits]}
+        data]
     (let-nom>
-      [_ (ensure-currency-allowed template currency)]
+      [_ (ensure-currency-allowed template currency)
+       _ (ensure-payment-limits payment-limits)]
       (utility/assoc-some
        {:product-type (:product-type template)
         :template-id (:template-id template)
@@ -78,7 +168,12 @@
        (flat-interest interest-rate-bps)
        :reward-terms
        (when opening-reward
-         [{:kind :reward-kind-opening :amount (:amount opening-reward)}])))))
+         [{:kind :reward-kind-opening :amount (:amount opening-reward)}])
+       :limits
+       (when (seq payment-limits)
+         (mapv (fn [payment-limit]
+                 (payment-limit->limit currency payment-limit))
+               payment-limits))))))
 
 (defn new-template
   "Build a template record from seed data: stamp a stable `tpl.` id when

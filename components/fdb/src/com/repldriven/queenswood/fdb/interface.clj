@@ -239,12 +239,15 @@
   (record/aggregate-many-later store aggregates opts))
 
 (defn sum-groups-later
-  "Starts one scan of a SUM index's groups under `prefix` and returns a
-  function of no arguments that waits on it and returns a map of each
-  group's full grouping key, as a vector, to its sum. A group no record
-  ever reached has no entry. One range read however many groups the
-  prefix holds, so it costs less than an aggregate per group. `opts` is
-  `{:isolation :snapshot}` to read at SNAPSHOT, serializable otherwise."
+  "Starts one scan of a SUM or COUNT index's groups under `prefix`, a
+  vector, and returns a function of no arguments that waits on it and
+  returns a map of each group's full grouping key, as a vector, to its
+  sum or count. A group no record ever reached has no entry. One range
+  read however many groups the prefix holds, so it costs less than an
+  aggregate per group. `opts` is `{:isolation :snapshot}` to read at
+  SNAPSHOT, serializable otherwise, and `{:from [...] :through [...]}`
+  to read only the groups from the one `prefix` and `from` name to the
+  last that `prefix` and `through` begin."
   [store index-name prefix opts]
   (record/sum-groups-later store index-name prefix opts))
 

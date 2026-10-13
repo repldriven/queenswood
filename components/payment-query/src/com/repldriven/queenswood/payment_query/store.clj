@@ -280,3 +280,73 @@
    {:message "Failed to total inbound payments by org/day"
     :bank-id bank-id
     :business-day business-day}))
+
+(def ^:private counted
+  "For each direction, the stores an account's payments are read from:
+  the index stem, whether its key ends in a status, and the statuses
+  whose payments count. A payment out counts from its submission until
+  it fails, and one returned after it settled still counts; a payment in
+  counts once it is admitted or settled, and a held one when it is
+  released, since its release is checked as a new payment is."
+  {:payment-direction-out
+   [{:store internal-payments-store-name
+     :stem "InternalPayment_%s_by_bank_debtor_business_day"}
+    {:store outbound-payments-store-name
+     :stem "OutboundPayment_%s_by_bank_debtor_business_day_status"
+     :statuses (into #{}
+                     (map schema/outbound-payment-status->int)
+                     [:outbound-payment-status-pending
+                      :outbound-payment-status-held
+                      :outbound-payment-status-completed
+                      :outbound-payment-status-returned])}]
+   :payment-direction-in
+   [{:store internal-payments-store-name
+     :stem "InternalPayment_%s_by_bank_creditor_business_day"}
+    {:store inbound-payments-store-name
+     :stem "InboundPayment_%s_by_bank_creditor_business_day_status"
+     :statuses (into #{}
+                     (map schema/inbound-payment-status->int)
+                     [:inbound-payment-status-admitted
+                      :inbound-payment-status-settled])}]})
+
+(defn- total
+  "The sum of `groups`' values, of those whose key ends in one of
+  `statuses` where the index carries a status."
+  [groups statuses]
+  (transduce (comp (filter (fn [[k]]
+                             (or (nil? statuses)
+                                 (contains? statuses (peek k)))))
+                   (map val))
+             +
+             0
+             groups))
+
+(defn get-account-aggregates
+  [txn bank-id account-id direction from-day through-day opts]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [range (assoc opts :from [from-day] :through [through-day])
+           scans (mapv (fn [{:keys [store stem statuses]}]
+                         (let [store (fdb/open txn store)
+                               scan (fn [kind]
+                                      (fdb/sum-groups-later
+                                       store
+                                       (format stem kind)
+                                       [bank-id account-id]
+                                       range))]
+                           {:count (scan "count")
+                            :sum (scan "sum_amount")
+                            :statuses statuses}))
+                       (counted direction))]
+       (reduce (fn [acc {:keys [statuses] :as scan}]
+                 (-> acc
+                     (update :count + (total ((:count scan)) statuses))
+                     (update :sum + (total ((:sum scan)) statuses))))
+               {:count 0 :sum 0}
+               scans)))
+   :payment/get-account-aggregates
+   {:message "Failed to total an account's payments"
+    :bank-id bank-id
+    :account-id account-id
+    :direction direction}))

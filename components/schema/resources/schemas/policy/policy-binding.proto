@@ -3,8 +3,8 @@ syntax = "proto2";
 package com.repldriven.queenswood.schema.policy;
 
 import "record_metadata_options.proto";
+import "schemas/account-type/account-type.proto";
 import "schemas/actor/actor.proto";
-import "schemas/cash-account/types.proto";
 import "schemas/scheme-type/scheme-type.proto";
 
 option java_outer_classname = "PolicyBindingProto";
@@ -12,7 +12,7 @@ option java_outer_classname = "PolicyBindingProto";
 message AccountTarget {
   oneof selector {
     string account_id = 1;
-    com.repldriven.queenswood.schema.cash_account.AccountType account_type = 2;
+    com.repldriven.queenswood.schema.account_type.AccountType account_type = 2;
   }
 }
 

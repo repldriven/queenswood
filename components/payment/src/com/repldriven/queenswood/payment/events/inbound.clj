@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.payment.events.inbound
   (:require
+    [com.repldriven.queenswood.payment.account-limits :as account-limits]
     [com.repldriven.queenswood.payment.domain.checks :as checks]
     [com.repldriven.queenswood.payment.domain.inbound :as inbound]
     [com.repldriven.queenswood.payment.store :as store]
@@ -130,8 +131,20 @@
         #{:bank-id :business-day :product-type :amount}
         (:product-type-sum today)}})))
 
+(defn- get-account-aggregates
+  "The policies in force for a payment into `account`, the bank's and its
+  product version's limits, and what they count of the account's
+  payments in."
+  [config txn policies account business-day]
+  (account-limits/get-aggregates config
+                                 txn
+                                 policies
+                                 account
+                                 :payment-direction-in
+                                 business-day))
+
 (defn- record-inbound-settlement
-  [txn data account business-day policies]
+  [config txn data account business-day policies]
   (let [{:keys [account-id bank-id product-type]} account
         {:keys [currency]} data]
     (let-nom>
@@ -146,13 +159,14 @@
                                   bank-id
                                   :ledger-account-code-cash-at-correspondent
                                   currency))
-       aggregates (get-inbound-aggregates txn account business-day currency)]
+       aggregates (get-inbound-aggregates txn account business-day currency)
+       limits (get-account-aggregates config txn policies account business-day)]
       (let [transaction (inbound/inbound-payment->transaction
                          data
                          account
                          (:ledger-account-id cash)
-                         policies
-                         aggregates)]
+                         (:policies limits)
+                         (merge aggregates (:aggregates limits)))]
         (if (checks/refused? transaction)
           (do (log/infof "Inbound settlement refused, parked in suspense: %s"
                          {:kind (error/kind transaction)
@@ -218,7 +232,7 @@
   today's count excluding the held record itself: post DEBIT 1100 / CREDIT
   creditor and transition the held record to `settled`. A release the checks
   refuse is parked in suspense and the held record becomes `suspended`."
-  [txn data account held business-day policies]
+  [config txn data account held business-day policies]
   (let [{:keys [account-id bank-id]} account
         {:keys [scheme-transaction-id]} data
         {:keys [currency]} held]
@@ -233,13 +247,17 @@
              bank-id
              :ledger-account-code-cash-at-correspondent
              currency)
-       today (get-inbound-aggregates txn account business-day currency)]
-      (let [aggregates (inbound/release-aggregates today held business-day)
+       today (get-inbound-aggregates txn account business-day currency)
+       limits (get-account-aggregates config txn policies account business-day)]
+      (let [aggregates (merge (inbound/release-aggregates today
+                                                          held
+                                                          business-day)
+                              (:aggregates limits))
             transaction (inbound/inbound-release->transaction
                          held
                          account
                          (:ledger-account-id cash)
-                         policies
+                         (:policies limits)
                          aggregates)]
         (if (checks/refused? transaction)
           (do (log/infof "Inbound release refused, parked in suspense: %s"
@@ -320,11 +338,13 @@
     (let-nom>
       [policies (bank-policies config txn bank-id)
        aggregates
-       (get-inbound-aggregates txn account business-day (:currency data))]
-      (let [accepted (inbound/check-inbound-acceptance data
-                                                       account
-                                                       policies
-                                                       aggregates)]
+       (get-inbound-aggregates txn account business-day (:currency data))
+       limits (get-account-aggregates config txn policies account business-day)]
+      (let [accepted (inbound/check-inbound-acceptance
+                      data
+                      account
+                      (:policies limits)
+                      (merge aggregates (:aggregates limits)))]
         (cond
          (checks/refused? accepted)
          (let [refusal (inbound/acceptance-refusal accepted)]
@@ -448,7 +468,13 @@
           ;; Release of a previously-held inbound — settle it to the
           ;; account and flip the held record to settled.
           held
-          (record-inbound-release txn data account held business-day policies)
+          (record-inbound-release config
+                                  txn
+                                  data
+                                  account
+                                  held
+                                  business-day
+                                  policies)
 
           (nil? account)
           (error/fail :payment/unknown-creditor
@@ -456,7 +482,12 @@
                        :bban (:creditor-bban data)})
 
           :else
-          (record-inbound-settlement txn data account business-day policies))))
+          (record-inbound-settlement config
+                                     txn
+                                     data
+                                     account
+                                     business-day
+                                     policies))))
      :payment/settle-inbound
      "Failed to settle inbound payment")))
 

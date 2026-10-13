@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.payment.core
   (:require
+    [com.repldriven.queenswood.payment.account-limits :as account-limits]
     [com.repldriven.queenswood.payment.domain.checks :as checks]
     [com.repldriven.queenswood.payment.domain.inbound :as inbound]
     [com.repldriven.queenswood.payment.domain.internal :as internal]
@@ -102,6 +103,19 @@
                                        [(:product-type debtor-account)
                                         (:product-type creditor-account)])
            aggregates (get-internal-aggregates txn bank-id business-day)
+           debtor-limits (account-limits/get-aggregates config
+                                                        txn
+                                                        policies
+                                                        debtor-account
+                                                        :payment-direction-out
+                                                        business-day)
+           creditor-limits (account-limits/get-aggregates
+                            config
+                            txn
+                            policies
+                            creditor-account
+                            :payment-direction-in
+                            business-day)
            payment-transaction (telemetry/with-span
                                 ["payment-checks"]
                                 (internal/internal-payment->transaction
@@ -109,7 +123,15 @@
                                  debtor-account
                                  creditor-account
                                  policies
-                                 aggregates))
+                                 (merge-with merge
+                                             aggregates
+                                             (:aggregates debtor-limits)
+                                             (:aggregates creditor-limits))
+                                 (assoc {}
+                                        debtor-account-id
+                                        (:policies debtor-limits)
+                                        creditor-account-id
+                                        (:policies creditor-limits))))
            checked-legs (telemetry/with-span ["payment-controls"]
                                              (ledger-accounts/accept-legs
                                               txn
@@ -218,14 +240,21 @@
                     aggregates (get-outbound-aggregates txn
                                                         bank-id
                                                         business-day)
+                    limits (account-limits/get-aggregates
+                            config
+                            txn
+                            policies
+                            debtor-account
+                            :payment-direction-out
+                            business-day)
                     transaction (telemetry/with-span
                                  ["payment-checks"]
                                  (outbound/outbound-payment->transaction
                                   data
                                   debtor-account
                                   (:ledger-account-id pending-outbound)
-                                  policies
-                                  aggregates))
+                                  (:policies limits)
+                                  (merge aggregates (:aggregates limits))))
                     checked-legs (telemetry/with-span
                                   ["payment-controls"]
                                   (ledger-accounts/accept-legs
