@@ -85,7 +85,12 @@ the bank's operations.
 - **Confirmation of Payee.** `payee-check`'s processor handles
   `POST /v1/payee-checks` by calling the adapter's `/cop/outbound`
   over HTTP, with the bank and the account the payment will leave, and
-  persists each check for 24 hours.
+  persists each check for 24 hours. It saves the check first, with the
+  result of a provider that gave no answer, in the transaction that
+  holds it to the check capability and the bank's daily `payee-check`
+  limit, counted from `PayeeCheck_count_by_bank_checked_on` at
+  snapshot, so a check past the limit asks no provider. It saves the
+  check again with the answer, and its audit entry with it.
 - **The adapters.** Three exist, each four bricks: a base,
   `<provider>-adapter`; a `<provider>-relay` component holding its
   outbox and outbound-intents stores and the runner that calls the

@@ -1,0 +1,45 @@
+{:name "A bank that holds its tier's parties is refused another"
+ ;; The `few-customers` tier, which only a test system has, allows a
+ ;; bank three parties. The bank's own party is one of them, so two
+ ;; customers reach the limit, and closing one frees no room: the limit
+ ;; counts every party the bank holds, whatever its status.
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Party Limit Bank" :status "live" :tier "few-customers"}}
+  {:fixture :person
+   :as :party-0
+   :with {:token [:ref :org-0 :token]
+          :display-name "Arthur Dent"
+          :legal-name "Arthur Dent"}}
+  {:fixture :person
+   :as :party-1
+   :with {:token [:ref :org-0 :token]
+          :display-name "Ford Prefect"
+          :legal-name "Ford Prefect"}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth [:ref :org-0 :token]
+             :body {:party-type "person"
+                    :display-name "Tricia McMillan"
+                    :legal-name "Tricia McMillan"}}
+   :assert {:status 429
+            :problem {:type ":policy/limit-exceeded"
+                      :detail
+                      "Few-customers tier - a bank holds at most 3 parties"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties/{party-id}/close"
+             :path-params {:party-id [:ref :party-0 :party :party-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/parties"
+             :auth [:ref :org-0 :token]
+             :body {:party-type "person"
+                    :display-name "Tricia McMillan"
+                    :legal-name "Tricia McMillan"}}
+   :assert {:status 429 :problem {:type ":policy/limit-exceeded"}}}]}

@@ -119,6 +119,11 @@ provider account per bank, which ADR-0045 requires and
   `tier=platform` policy applies to every bank, and the console renders
   each capability's effect, reason and filters. IDV has one action,
   `idv-action-submit`, and a daily count limit per tier.
+- **The party limit.** `party/new-party` holds a create to its tier's
+  `party` count limit in the transaction that saves the party, counting
+  every party the bank holds, its own and the closed among them, from
+  the `Party_count_by_bank` index. One past the limit is refused
+  `:policy/limit-exceeded`.
 - **What the tenant sees.** A tenant reads the party's status and,
   with the routes under [Verification sessions](#verification-sessions),
   the verification. The webhook catalogue lists `party.opened` and

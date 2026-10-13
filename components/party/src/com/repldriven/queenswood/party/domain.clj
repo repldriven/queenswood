@@ -10,25 +10,39 @@
   [actor]
   (select-keys actor [:kind :principal-id]))
 
+(defn- check-limit
+  [aggregates policies]
+  (policy/check-limit policies
+                      :party
+                      {:aggregate :count
+                       :window :time-window-instant
+                       :value (inc (get-in aggregates [:party #{:bank-id}]))}))
+
 (defn new-party
-  [data]
+  [data aggregates policies]
   (let [{:keys [bank-id party-type legal-name actor]} data
         status (if (= :party-type-person party-type)
                  :party-status-pending
                  :party-status-active)]
-    (assoc-some {:bank-id bank-id
-                 :party-id (utility/generate-id "pty")
-                 :legal-name legal-name
-                 :status status
-                 :party-type party-type
-                 :created-at (utility/now)
-                 :created-by (actor-record actor)}
-                :display-name
-                (:display-name data)
-                :idempotency-key
-                (:idempotency-key data)
-                :external-reference
-                (:external-reference data))))
+    (let-nom>
+      [_ (policy/check-capability policies
+                                  :party
+                                  {:action :party-action-create
+                                   :type party-type})
+       _ (check-limit aggregates policies)]
+      (assoc-some {:bank-id bank-id
+                   :party-id (utility/generate-id "pty")
+                   :legal-name legal-name
+                   :status status
+                   :party-type party-type
+                   :created-at (utility/now)
+                   :created-by (actor-record actor)}
+                  :display-name
+                  (:display-name data)
+                  :idempotency-key
+                  (:idempotency-key data)
+                  :external-reference
+                  (:external-reference data)))))
 
 (defn- moved
   [party status]

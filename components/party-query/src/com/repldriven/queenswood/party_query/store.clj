@@ -47,6 +47,17 @@
    :party/find-by-idempotency-key
    "Failed to find party by idempotency key"))
 
+(defn get-aggregates
+  [txn bank-id]
+  (fdb/transact
+   txn
+   (fn [txn]
+     {:count (fdb/count-records (fdb/open txn store-name)
+                                "Party_count_by_bank"
+                                bank-id)})
+   :party/get-aggregates
+   {:message "Failed to count parties" :bank-id bank-id}))
+
 (defn get-parties
   ([txn bank-id]
    (get-parties txn bank-id nil))

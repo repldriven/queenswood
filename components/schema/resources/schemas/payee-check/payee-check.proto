@@ -44,6 +44,7 @@ message PayeeCheck {
 
   required PayeeCheckRequest request = 3;
   required PayeeCheckResult result = 4;
+  required int64 checked_on = 5 [(fideslang.data_category) = "system.operations"]; // epoch day
 
   required int64 created_at = 101;
   required com.repldriven.queenswood.schema.actor.Actor created_by = 102;

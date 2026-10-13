@@ -33,8 +33,11 @@
   their names alone (ADR-0045); internal and organisation parties skip
   it. An `:external-reference`, the customer's own id for the person,
   is unique within the bank: a second party under one is a
-  `:party/external-reference-taken` rejection. Capability is checked
-  against effective policies before the write.
+  `:party/external-reference-taken` rejection. The create capability
+  and the bank's party limit, which counts every party the bank holds
+  whatever its status, are checked against effective policies in the
+  transaction that writes: one past the limit is a
+  `:policy/limit-exceeded` rejection.
 
   A create-party command stamps its `:idempotency-key` onto the party,
   unique per bank, so a retry under that key reads the original party

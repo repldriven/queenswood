@@ -17,6 +17,19 @@
    :payee-check/save
    "Failed to save payee check"))
 
+(defn get-aggregates
+  [txn bank-id checked-on]
+  (fdb/transact
+   txn
+   (fn [txn]
+     {:count (fdb/count-records-snapshot (fdb/open txn store-name)
+                                         "PayeeCheck_count_by_bank_checked_on"
+                                         [bank-id checked-on])})
+   :payee-check/get-aggregates
+   {:message "Failed to count payee checks"
+    :bank-id bank-id
+    :checked-on checked-on}))
+
 (defn get-check
   [txn bank-id check-id]
   (fdb/transact

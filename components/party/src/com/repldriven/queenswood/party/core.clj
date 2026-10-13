@@ -12,26 +12,32 @@
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
+(defn- get-aggregates
+  [txn bank-id]
+  (let-nom> [{:keys [count]} (q/get-aggregates txn bank-id)]
+    {:party {#{:bank-id} count}}))
+
 (defn- create
-  [txn data opts]
+  [txn data policies opts]
   (store/transact
    txn
    (fn [txn]
-     (let [party (domain/new-party data)
-           {:keys [bank-id party-id status]} party]
-       (let-nom> [saved (store/save-party txn
-                                          party
-                                          {:bank-id bank-id
-                                           :party-id party-id
-                                           :status-after status})
-                  _ (when (:audited? opts)
-                      (audit/record txn
-                                    (audit-entries/party
-                                     :audit-kind-party-created
-                                     nil
-                                     party
-                                     data)))]
-         saved)))))
+     (let-nom>
+       [aggregates (get-aggregates txn (:bank-id data))
+        party (domain/new-party data aggregates policies)
+        {:keys [bank-id party-id status]} party
+        saved (store/save-party txn
+                                party
+                                {:bank-id bank-id
+                                 :party-id party-id
+                                 :status-after status})
+        _ (when (:audited? opts)
+            (audit/record txn
+                          (audit-entries/party :audit-kind-party-created
+                                               nil
+                                               party
+                                               data)))]
+       saved))))
 
 (defn- get-policies
   [txn bank-id opts cache]
@@ -67,15 +73,11 @@
    (new-party txn data {}))
   ([txn data opts]
    (let-nom>
-     [policies (get-policies txn (:bank-id data) opts (:policy-cache txn))
-      _ (policy/check-capability policies
-                                 :party
-                                 {:action :party-action-create
-                                  :type (:party-type data)})]
+     [policies (get-policies txn (:bank-id data) opts (:policy-cache txn))]
      (let [result (or-already-created
                    txn
                    data
-                   (create txn data opts))]
+                   (create txn data policies opts))]
        (if (store/uniqueness-violation? result)
          (error/reject :party/external-reference-taken
                        {:message "A party already has this external reference"

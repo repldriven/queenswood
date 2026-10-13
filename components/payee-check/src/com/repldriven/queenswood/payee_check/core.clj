@@ -8,15 +8,12 @@
     [com.repldriven.queenswood.cash-account-query.interface :as cash-accounts]
     [com.repldriven.queenswood.payment-provider.interface :as
      payment-provider]
+    [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.http-client.interface :as http]
-    [com.repldriven.mono.json.interface :as json]))
-
-(def ^:private unavailable
-  {:match-result :match-result-unavailable
-   :reason-code "ACNS"
-   :reason "CoP service unavailable"})
+    [com.repldriven.mono.json.interface :as json]
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- perform-cop-check
   "Invoke the CoP adapter for a single check request. No adapter, a
@@ -42,7 +39,7 @@
                                 account-id
                                 (assoc :account-id account-id)))})))]
     (if (or (nil? res) (error/anomaly? res) (not= 200 (:status res)))
-      unavailable
+      domain/unavailable
       (let [{:keys [match-result actual-name reason-code reason]}
             (http/res->edn res)]
         {:match-result (keyword match-result)
@@ -50,22 +47,47 @@
          :reason-code reason-code
          :reason reason}))))
 
-(defn check-payee
-  [config bank-id request result actor request-id]
-  (let [check (domain/new-check bank-id request result actor)]
+(defn- get-aggregates
+  [txn bank-id checked-on]
+  (let-nom> [{:keys [count]} (store/get-aggregates txn bank-id checked-on)]
+    {:payee-check {#{:bank-id :checked-on} count}}))
+
+(defn- save-unanswered
+  [config bank-id request actor]
+  (store/transact
+   config
+   (fn [txn]
+     (let [checked-on (utility/today)]
+       (let-nom> [policies (policy/get-effective-policies txn
+                                                          {:bank-id bank-id})
+                  aggregates (get-aggregates txn bank-id checked-on)
+                  check (domain/new-check bank-id
+                                          request
+                                          actor
+                                          checked-on
+                                          aggregates
+                                          policies)
+                  _ (store/save-check txn check)]
+         check)))
+   :payee-check/save
+   "Failed to save payee check"))
+
+(defn- save-answered
+  [config check result actor request-id]
+  (let [answered (domain/answered check result)]
     (store/transact
      config
      (fn [txn]
-       (let-nom> [_ (store/save-check txn check)
+       (let-nom> [_ (store/save-check txn answered)
                   _ (audit/record txn
-                                  {:bank-id bank-id
+                                  {:bank-id (:bank-id answered)
                                    :kind :audit-kind-payee-check-made
                                    :subject-kind :audit-subject-kind-payee-check
-                                   :subject-id (:check-id check)
+                                   :subject-id (:check-id answered)
                                    :request-id request-id
-                                   :after check
+                                   :after answered
                                    :performed-by actor})]
-         check))
+         answered))
      :payee-check/save
      "Failed to save payee check")))
 
@@ -80,16 +102,16 @@
                {:keys [provider]} (when payment-providers
                                     (payment-provider/for-bank
                                      payment-providers
-                                     bank))]
-      (check-payee config
-                   bank-id
-                   request
-                   (perform-cop-check
-                    (get adapter-urls (keyword provider))
-                    bank-id
-                    (assoc request :account-id account-id))
-                   actor
-                   request-id))))
+                                     bank))
+               check (save-unanswered config bank-id request actor)]
+      (save-answered config
+                     check
+                     (perform-cop-check
+                      (get adapter-urls (keyword provider))
+                      bank-id
+                      (assoc request :account-id account-id))
+                     actor
+                     request-id))))
 
 (defn get-check
   [txn bank-id check-id]
