@@ -37,17 +37,17 @@
     [clojure.test :refer [is]]))
 
 (defn- tag-leg-product-type
-  "Stamp a customer leg with its cash-account's `:product-type` so
-  `ledger-accounts/ensure-controls` can check the control it rolls into.
-  GL legs (account-id resolves to no cash account) pass through
-  untouched."
+  "Stamp a leg with its cash account's `:product-type`, so
+  `ledger-accounts/accept-legs` can check the control it rolls into, or
+  as a general-ledger leg where its account-id resolves to no cash
+  account."
   [txn bank-id leg]
   (let [account (cash-accounts-query/get-account txn bank-id (:account-id leg))
         product-type (when (and (map? account) (not (error/anomaly? account)))
                        (:product-type account))]
-    (cond-> leg
-            product-type
-            (assoc :product-type product-type))))
+    (assoc leg
+           :product-type
+           (or product-type :account-product-type-general-ledger))))
 
 (defn- record-and-apply
   "Record a transaction directly (bypassing the payment processor)
@@ -58,21 +58,20 @@
    bank
    (fn [txn]
      (let [tagged (mapv #(tag-leg-product-type txn bank-id %) (:legs tx-data))
-           checked (ledger-accounts/ensure-controls txn
-                                                    bank-id
-                                                    (:currency tx-data)
-                                                    tagged)]
+           checked (ledger-accounts/accept-legs txn
+                                                bank-id
+                                                (:currency tx-data)
+                                                tagged)]
        (if (error/anomaly? checked)
          checked
          (error/let-nom>
            [r (transactions/record-transaction
                txn
-               (assoc tx-data :bank-id bank-id :legs checked))
-            stored (ledger-accounts/stored-legs txn
-                                                bank-id
-                                                (:currency tx-data)
-                                                (:legs r))]
-           (balances/apply-legs txn bank-id stored (:transaction-type r))))))))
+               (assoc tx-data :bank-id bank-id :legs checked))]
+           (balances/accept-legs txn
+                                 bank-id
+                                 (:legs r)
+                                 (:transaction-type r))))))))
 
 (defn- fund-at-provider
   "Credit the provider account behind `bban` as the scheme the rig plays

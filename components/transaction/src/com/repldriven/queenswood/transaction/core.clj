@@ -91,10 +91,10 @@
       (fn [txn]
         (let-nom>
           [result (record txn data)
-           _ (balances/apply-legs txn
-                                  bank-id
-                                  (:legs result)
-                                  (:transaction-type result))
+           _ (balances/accept-legs txn
+                                   bank-id
+                                   (:legs result)
+                                   (:transaction-type result))
            _ (audit/record txn
                            {:bank-id bank-id
                             :kind :audit-kind-transaction-simulated

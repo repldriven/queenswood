@@ -36,7 +36,9 @@
 
 // The domains, in display order, each tagged with the section it
 // belongs to in the matrix. "Core Banking" folds the ledger + accounts
-// domains together; Payments / Identity / Platform are their own sections.
+// domains together; Payments / Identity / People / Platform are their
+// own sections. A domain the API names that is not listed here still
+// gets a row, at the end of the last section: see `sectionRows`.
 export const DOMAINS = {
   balance:              { label: "Balance",              group: "Core Banking" },
   transaction:          { label: "Transaction",          group: "Core Banking" },
@@ -51,12 +53,25 @@ export const DOMAINS = {
   payee_check:          { label: "Payee Check",          group: "Payments" },
   party:                { label: "Party",                group: "Identity" },
   idv:                  { label: "IDV",                  group: "Identity" },
+  member:               { label: "Member",               group: "People" },
+  invitation:           { label: "Invitation",           group: "People" },
+  email:                { label: "Email",                group: "People" },
   bank:                 { label: "Bank",                 group: "Platform" },
   policy:               { label: "Policy",               group: "Platform" },
+  webhook_endpoint:     { label: "Webhook Endpoint",     group: "Platform" },
 };
 
 export const DOMAIN_ORDER = Object.keys(DOMAINS);
-export const GROUP_ORDER = ["Core Banking", "Payments", "Identity", "Platform"];
+export const GROUP_ORDER = ["Core Banking", "Payments", "Identity", "People", "Platform"];
+
+// "Webhook Endpoint" for `webhook_endpoint`: the label of a domain the
+// list above does not name.
+function labelOf(domain) {
+  return domain
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 // Category → <Badge> tone. Restricted reads cautionary (amber/gold),
 // emergency reads alarming (red), standard reads settled (pine).
@@ -92,11 +107,18 @@ export function groupByDomain(policy) {
 }
 
 // Rows for one matrix section: the domains in `group`, each with its
-// capabilities + limits and whether the policy governs it at all.
+// capabilities + limits and whether the policy governs it at all. The
+// last section also takes every governed domain the list does not name,
+// so a kind the API gains is shown before this file learns its label.
 export function sectionRows(group, byDomain) {
-  return DOMAIN_ORDER.filter((d) => DOMAINS[d].group === group).map((d) => ({
+  const listed = DOMAIN_ORDER.filter((d) => DOMAINS[d].group === group);
+  const unlisted =
+    group === GROUP_ORDER[GROUP_ORDER.length - 1]
+      ? Object.keys(byDomain).filter((d) => !DOMAINS[d]).sort()
+      : [];
+  return [...listed, ...unlisted].map((d) => ({
     domain: d,
-    label: DOMAINS[d].label,
+    label: DOMAINS[d]?.label ?? labelOf(d),
     data: byDomain[d] ?? null,
     governed: Boolean(byDomain[d]),
   }));

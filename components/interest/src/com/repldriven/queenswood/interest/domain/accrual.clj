@@ -54,14 +54,13 @@
 
 (defn- leg
   [account-id product-type balance-type currency amount]
-  (utility/assoc-some {:account-id account-id
-                       :balance-type balance-type
-                       :balance-status :balance-status-posted
-                       :side (if (neg? amount) :leg-side-debit :leg-side-credit)
-                       :amount (abs amount)
-                       :currency currency}
-                      :product-type
-                      product-type))
+  {:account-id account-id
+   :product-type product-type
+   :balance-type balance-type
+   :balance-status :balance-status-posted
+   :side (if (neg? amount) :leg-side-debit :leg-side-credit)
+   :amount (abs amount)
+   :currency currency})
 
 (defn chunk-transactions
   "The accrual transactions for one chunk of `accruals`, each a pair of
@@ -105,7 +104,7 @@
 
                               (not (zero? total))
                               (conj (leg (expense-id currency)
-                                         nil
+                                         :account-product-type-general-ledger
                                          :balance-type-default
                                          currency
                                          (- total))))})))

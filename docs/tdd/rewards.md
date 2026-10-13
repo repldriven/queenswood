@@ -194,7 +194,7 @@ A reward posts as `TRANSACTION_TYPE_REWARD`, a new value in
 with two posting legs — a debit on the house account for the version's
 currency and a credit on the customer's, both `default` and `posted` —
 which move 3100 and the customer's deposit control, each the sum of
-its sub-ledger, once `ledger-accounts/ensure-controls` has checked
+its sub-ledger, once `ledger-accounts/accept-legs` has checked
 both are open. It is
 recorded and applied with `transactions/record-and-post` inside the
 account's transaction from step 3, under the idempotency key

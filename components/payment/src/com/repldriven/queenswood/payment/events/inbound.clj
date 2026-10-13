@@ -25,15 +25,16 @@
                         {:bank-id bank-id}
                         (:policy-cache config))))
 
-(defn- apply-legs
-  [txn bank-id stored transaction-type policies]
-  (telemetry/with-span ["payment-apply-legs"]
-                       (balances/apply-legs txn
-                                            bank-id
-                                            stored
-                                            transaction-type
-                                            {:policies (policy/platform-policies
-                                                        policies)})))
+(defn- accept-legs
+  [txn bank-id legs transaction-type policies]
+  (telemetry/with-span ["payment-inbound-accept-legs"]
+                       (balances/accept-legs txn
+                                             bank-id
+                                             legs
+                                             transaction-type
+                                             {:policies
+                                              (policy/platform-policies
+                                               policies)})))
 
 (defn- check-debit-credit-code
   [debit-credit-code]
@@ -47,7 +48,12 @@
   [txn data bank-id receiving-account-id policies]
   (let [{:keys [currency]} data]
     (let-nom>
-      [_ (ledger-accounts/prefetch txn bank-id currency [])
+      [_ (ledger-accounts/prefetch txn
+                                   bank-id
+                                   currency
+                                   []
+                                   [:ledger-account-code-cash-at-correspondent
+                                    :ledger-account-code-suspense])
        cash (ledger-accounts/find-by-code
              txn
              bank-id
@@ -66,8 +72,7 @@
                     receiving-account-id)
        recorded (transactions/record-transaction txn transaction)
        {:keys [transaction-type legs]} recorded
-       stored (ledger-accounts/stored-legs txn bank-id currency legs)
-       _ (apply-legs txn bank-id stored transaction-type policies)]
+       _ (accept-legs txn bank-id legs transaction-type policies)]
       recorded)))
 
 (defn- record-suspended
@@ -130,7 +135,11 @@
   (let [{:keys [account-id bank-id product-type]} account
         {:keys [currency]} data]
     (let-nom>
-      [_ (ledger-accounts/prefetch txn bank-id currency [product-type])
+      [_ (ledger-accounts/prefetch txn
+                                   bank-id
+                                   currency
+                                   [product-type]
+                                   [:ledger-account-code-cash-at-correspondent])
        cash (telemetry/with-span ["payment-cash-at-correspondent"]
                                  (ledger-accounts/find-by-code
                                   txn
@@ -157,7 +166,7 @@
           (let-nom>
             [_ transaction
              checked-legs (telemetry/with-span ["payment-controls"]
-                                               (ledger-accounts/ensure-controls
+                                               (ledger-accounts/accept-legs
                                                 txn
                                                 bank-id
                                                 currency
@@ -168,13 +177,7 @@
                                 txn
                                 (assoc transaction :legs checked-legs)))
              {:keys [transaction-id transaction-type legs]} transaction+legs
-             stored (telemetry/with-span ["payment-stored-legs"]
-                                         (ledger-accounts/stored-legs
-                                          txn
-                                          bank-id
-                                          currency
-                                          legs))
-             _ (apply-legs txn bank-id stored transaction-type policies)
+             _ (accept-legs txn bank-id legs transaction-type policies)
              payment (inbound/new-inbound-payment data
                                                   account
                                                   business-day
@@ -223,7 +226,8 @@
       [_ (ledger-accounts/prefetch txn
                                    bank-id
                                    currency
-                                   [(:product-type account)])
+                                   [(:product-type account)]
+                                   [:ledger-account-code-cash-at-correspondent])
        cash (ledger-accounts/find-by-code
              txn
              bank-id
@@ -248,7 +252,7 @@
                             policies))
           (let-nom>
             [_ transaction
-             checked-legs (ledger-accounts/ensure-controls
+             checked-legs (ledger-accounts/accept-legs
                            txn
                            bank-id
                            currency
@@ -257,8 +261,7 @@
                        txn
                        (assoc transaction :legs checked-legs))
              {:keys [transaction-id transaction-type legs]} recorded
-             stored (ledger-accounts/stored-legs txn bank-id currency legs)
-             _ (apply-legs txn bank-id stored transaction-type policies)
+             _ (accept-legs txn bank-id legs transaction-type policies)
              released (inbound/settled-from-held held
                                                  scheme-transaction-id
                                                  transaction-id)
@@ -280,7 +283,8 @@
       [_ (ledger-accounts/prefetch txn
                                    bank-id
                                    currency
-                                   [(:product-type account)])
+                                   [(:product-type account)]
+                                   [:ledger-account-code-cash-at-correspondent])
        cash (ledger-accounts/find-by-code
              txn
              bank-id
@@ -290,7 +294,7 @@
                     admitted
                     account
                     (:ledger-account-id cash))
-       checked-legs (ledger-accounts/ensure-controls
+       checked-legs (ledger-accounts/accept-legs
                      txn
                      bank-id
                      currency
@@ -299,8 +303,7 @@
                  txn
                  (assoc transaction :legs checked-legs))
        {:keys [transaction-id transaction-type legs]} recorded
-       stored (ledger-accounts/stored-legs txn bank-id currency legs)
-       _ (apply-legs txn bank-id stored transaction-type policies)
+       _ (accept-legs txn bank-id legs transaction-type policies)
        settled (inbound/settled-from-held admitted
                                           scheme-transaction-id
                                           transaction-id)
@@ -592,7 +595,13 @@
           (let [{:keys [bank-id currency]} payment]
             (let-nom>
               [policies (bank-policies config txn bank-id)
-               _ (ledger-accounts/prefetch txn bank-id currency [])
+               _ (ledger-accounts/prefetch
+                  txn
+                  bank-id
+                  currency
+                  []
+                  [:ledger-account-code-cash-at-correspondent
+                   :ledger-account-code-suspense])
                cash (ledger-accounts/find-by-code
                      txn
                      bank-id
@@ -610,8 +619,7 @@
                           (:ledger-account-id cash)
                           (:ledger-account-id suspense)))
                {:keys [transaction-type legs]} recorded
-               stored (ledger-accounts/stored-legs txn bank-id currency legs)
-               _ (apply-legs txn bank-id stored transaction-type policies)
+               _ (accept-legs txn bank-id legs transaction-type policies)
                returned (inbound/returned-inbound-payment payment)
                _ (store/save-inbound-payment
                   txn

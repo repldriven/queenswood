@@ -27,6 +27,7 @@
      :account-id account-id
      :transaction-id transaction-id
      :leg-id leg-id
+     :product-type :account-product-type-sub-ledger-current
      :balance-type :balance-type-default
      :balance-status :balance-status-posted
      :side side

@@ -1,0 +1,33 @@
+{:name "A bank's effective policy names the limits on its people and its mail"
+ ;; The console's policies view draws what this returns, a row per kind.
+ ;; A micro bank is held to limits on its members, its invitations, its
+ ;; webhook endpoints and, with every other bank, the installation's
+ ;; email, each of which is a kind of its own.
+ :given [{:fixture :bank :as :bank-0 :with {:name "Effective Policy Bank"}}]
+ :when
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/bank/effective-policy"
+             :auth [:ref :bank-0 :token]
+             :headers {:bank-id [:ref :bank-0 :bank :bank-id]}}
+   :as :effective
+   :assert
+   {:status 200
+    :body
+    {:limits
+     [:m/embeds
+      [{:kind {:member {}}
+        :reason "Micro tier - a bank has at most 3 members"}
+       {:kind {:invitation {}}
+        :reason "Micro tier - a bank has at most 2 pending invitations"}
+       {:kind {:invitation {}}
+        :reason "Micro tier - a bank sends at most 10 invitations per day"}
+       {:kind {:email {}}
+        :reason
+        "Platform-restricted - the installation sends at most 200 emails per day"}
+       {:kind {:webhook-endpoint {}}
+        :reason "Micro tier - max 2 webhook endpoints"}
+       {:kind {:inbound-payment
+               {:filters [{:product-type
+                           "account-product-type-sub-ledger-own-funds"}]}}
+        :reason "Micro tier - max 5 inbound payments to own funds per day"}]]}}}]}

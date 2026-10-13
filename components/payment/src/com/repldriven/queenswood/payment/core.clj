@@ -100,8 +100,7 @@
                                        bank-id
                                        currency
                                        [(:product-type debtor-account)
-                                        (:product-type creditor-account)]
-                                       {:journal? false})
+                                        (:product-type creditor-account)])
            aggregates (get-internal-aggregates txn bank-id business-day)
            payment-transaction (telemetry/with-span
                                 ["payment-checks"]
@@ -112,7 +111,7 @@
                                  policies
                                  aggregates))
            checked-legs (telemetry/with-span ["payment-controls"]
-                                             (ledger-accounts/ensure-controls
+                                             (ledger-accounts/accept-legs
                                               txn
                                               bank-id
                                               currency
@@ -126,13 +125,13 @@
                                 :actor (:actor data))))
            {:keys [transaction-id transaction-type legs]} transaction
            _ (telemetry/with-span
-              ["payment-apply-legs"]
-              (balances/apply-legs txn
-                                   bank-id
-                                   legs
-                                   transaction-type
-                                   {:policies (policy/platform-policies
-                                               policies)}))
+              ["payment-internal-accept-legs"]
+              (balances/accept-legs txn
+                                    bank-id
+                                    legs
+                                    transaction-type
+                                    {:policies (policy/platform-policies
+                                                policies)}))
            payment (internal/new-internal-payment data
                                                   business-day
                                                   transaction-id)
@@ -203,7 +202,12 @@
                                      txn
                                      bank-id
                                      debtor-account-id))
-                    _ (ledger-accounts/prefetch txn bank-id currency [])
+                    _ (ledger-accounts/prefetch
+                       txn
+                       bank-id
+                       currency
+                       []
+                       [:ledger-account-code-pending-outbound])
                     pending-outbound
                     (telemetry/with-span ["payment-pending-outbound"]
                                          (ledger-accounts/find-by-code
@@ -224,7 +228,7 @@
                                   aggregates))
                     checked-legs (telemetry/with-span
                                   ["payment-controls"]
-                                  (ledger-accounts/ensure-controls
+                                  (ledger-accounts/accept-legs
                                    txn
                                    bank-id
                                    currency
@@ -240,20 +244,15 @@
                                               (:actor data))))
                     {:keys [transaction-id transaction-type legs]}
                     transaction+legs
-                    stored (telemetry/with-span ["payment-stored-legs"]
-                                                (ledger-accounts/stored-legs
-                                                 txn
-                                                 bank-id
-                                                 currency
-                                                 legs))
                     _ (telemetry/with-span
-                       ["payment-apply-legs"]
-                       (balances/apply-legs txn
-                                            bank-id
-                                            stored
-                                            transaction-type
-                                            {:policies (policy/platform-policies
-                                                        policies)}))
+                       ["payment-outbound-accept-legs"]
+                       (balances/accept-legs txn
+                                             bank-id
+                                             legs
+                                             transaction-type
+                                             {:policies
+                                              (policy/platform-policies
+                                               policies)}))
                     payment (outbound/new-outbound-payment data
                                                            business-day
                                                            transaction-id)

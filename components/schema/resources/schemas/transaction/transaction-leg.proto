@@ -28,5 +28,5 @@ message TransactionLeg {
   required LegSide side = 7;
   required int64 amount = 8; // minor units
   required string currency = 9; // ISO 4217
-  optional com.repldriven.queenswood.schema.account_product_type.AccountProductType product_type = 10;
+  required com.repldriven.queenswood.schema.account_product_type.AccountProductType product_type = 10;
 }

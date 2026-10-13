@@ -3,14 +3,14 @@
   account's balances (enriched with posted/available totals), and the
   pure `trial-balance` aggregation. This is the only balance brick
   `bank-api` (and other readers) may require — it exposes no writes.
-  Balance mutation (`apply-legs`, `new-balances`, `accrue`) lives in
+  Balance mutation (`accept-legs`, `new-balances`, `accrue`) lives in
   `balance`, which reuses these reads inside its own transactions.
 
-  A cash account's default buckets are the sums of its legs, read from
-  the legs' SUM indexes, so every read here returns them with the
-  `credit` and `debit` its legs add up to rather than what the bucket's
-  row holds. Its other buckets, and every bucket of a general-ledger
-  account, are the rows as stored. ADR-0042.
+  A cash account's buckets are the sums of its legs, read from the legs'
+  SUM indexes, so every read here returns them with the `credit` and
+  `debit` its legs add up to rather than what the bucket's row holds. A
+  general-ledger account keeps no row here: `ledger-account` reads its
+  balance. ADR-0042.
 
   `find-balance` and `list-balances` are read primitives for the write
   sibling's transactions; `get-balance` / `get-balances` are the public
@@ -62,7 +62,7 @@
 
 (defn list-balances
   "List an account's raw balance buckets (a vector, unenriched). A read
-  primitive for the write sibling's apply-legs computation.
+  primitive for the write sibling's accept-legs computation.
 
   Args:
   - txn: FDB transaction or db handle.
@@ -74,30 +74,24 @@
 (defn list-balances-of
   "List several accounts' raw balance buckets: a map of account id to
   that account's vector of buckets, unenriched. A read primitive for the
-  write sibling's apply-legs computation. An account `opts` names in
-  `:stored-ids` keeps its balances in its rows, which are read
-  serializably and summed from no legs, unless one of them turns out to
-  be a derived bucket, when that account's legs are summed after its
-  rows are read. Every other account's rows are
-  read at snapshot, since its derived buckets' rows hold no amount, and
-  its legs are summed serializably, except for the accounts named in
-  `:snapshot-ids`, whose sums join no read-conflict set, so a posting no
-  limit bounds conflicts with nothing else posting to the account.
+  write sibling's accept-legs computation. Each account's rows are read
+  at snapshot, since a bucket's row holds no amount, and its legs are
+  summed serializably, except for the accounts named in `:snapshot-ids`,
+  whose sums join no read-conflict set, so a posting no limit bounds
+  conflicts with nothing else posting to the account.
 
   Args:
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id, which heads the key.
   - account-ids: owning account ids.
-  - opts: optional `{:snapshot-ids #{account-id ...}
-    :stored-ids #{account-id ...}}`."
+  - opts: optional `{:snapshot-ids #{account-id ...}}`."
   ([txn bank-id account-ids]
    (list-balances-of txn bank-id account-ids {}))
   ([txn bank-id account-ids opts]
    (store/list-balances-of txn
                            bank-id
                            account-ids
-                           (set (:snapshot-ids opts))
-                           (set (:stored-ids opts)))))
+                           (set (:snapshot-ids opts)))))
 
 (defn with-leg-sums
   "`balances` with each cash account's default buckets given the
@@ -183,9 +177,8 @@
 
 (defn derived?
   "Whether `balance` is the sum of its legs rather than what its row
-  holds: a cash account's default or interest-accrued bucket, whose rows
-  a posting no longer writes. Every other bucket, and every
-  general-ledger account's, is the row as stored. ADR-0042.
+  holds: every bucket of a cash account, whose rows a posting opens and
+  never rewrites. ADR-0042.
 
   Args:
   - balance: a balance map."

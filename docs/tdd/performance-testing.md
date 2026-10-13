@@ -550,7 +550,7 @@ run at the next:
     other's answer are issued together and waited on once: the internal
     payment's two accounts, each leg's account balances, the records each
     save replaces, the outbound day's count and sum, and the ledger
-    accounts the control check and `stored-legs` look up by code. Each
+    accounts the control check and the posting look up by code. Each
     payment processor keeps a ledger account's id by its code, bank and
     currency for `ledger-cache-ttl-ms`, 30 seconds by default, and reads
     the account by key so a closed one is still refused; a posting starts
@@ -718,12 +718,12 @@ payment costs, ranked by its effect on the serial command path, which is
 2. **The payment's transaction.** A span around each step inside
    `:payment/submit-internal` splits its 18.7 ms: the bank's effective
    policies 4.9 ms, every platform policy among them read through the
-   `Policy_by_label` index and decoded; `apply-legs` 3.3 ms, of which a
-   second read of the platform tier was 0.8 ms; recording the
+   `Policy_by_label` index and decoded; `balance/accept-legs` 3.3 ms, of
+   which a second read of the platform tier was 0.8 ms; recording the
    transaction, its legs and its activity entry 3.1 ms; the control
    check 1.6 ms; the debtor account 1.3 ms; the daily count 1.2 ms; the
    rest under 0.6 ms each and the commit about 2 ms. The payment now
-   passes the platform policies it holds to `apply-legs`, through
+   passes the platform policies it holds to `balance/accept-legs`, through
    `policy/platform-policies`, so the transaction takes 16.7 ms and a
    command 17.4 ms rather than 19.6. The payment processor then keeps a
    bank's effective policies in mono's `cache` for as long as the

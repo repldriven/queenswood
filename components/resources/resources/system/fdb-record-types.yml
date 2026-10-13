@@ -4,8 +4,12 @@
 # changed at, a store added after the first version carries the version
 # its record type arrived on as since, and a store lists the indexes
 # removed from it under former-indexes with the versions they were added
-# and removed at. See docs/recipes/code/schema-evolution.md.
-version: 4
+# and removed at. resets-after names the last release whose stores were
+# emptied before this declaration, at version 1 again, is deployed: the
+# guard evolves from nothing while it is still the last release. See
+# docs/recipes/code/schema-evolution.md.
+version: 1
+resets-after: v0.0.9
 stores:
   account-balances:
     record-type: AccountBalance
@@ -224,14 +228,14 @@ stores:
       # How many banks sit on each tier, and across the tiers how many
       # the installation holds, the counts a create is held to.
       - name: Bank_count_by_tier
-        added: 2
-        modified: 2
+        added: 1
+        modified: 1
         field: tier
         type: count
       # How many banks one actor has created on a tier.
       - name: Bank_count_by_tier_created_by
-        added: 2
-        modified: 2
+        added: 1
+        modified: 1
         fields:
           - tier
           - field: created_by
@@ -284,13 +288,13 @@ stores:
         modified: 1
         fields: [bank_id, status, created_at]
       - name: InboundPayment_count_by_bank_business_day_creditor_product_type
-        added: 4
-        modified: 4
+        added: 1
+        modified: 1
         fields: [bank_id, business_day, creditor_product_type]
         type: count
       - name: InboundPayment_sum_amount_by_bank_business_day_creditor_product_type_currency
-        added: 4
-        modified: 4
+        added: 1
+        modified: 1
         fields: [bank_id, business_day, creditor_product_type, currency, amount]
         type: sum
   outbound-payments:
@@ -514,15 +518,15 @@ stores:
       # How many times a bank's invitations were sent on a day, the
       # count an invite or a resend is held to.
       - name: Invitation_sum_send_count_by_bank_sent_on
-        added: 3
-        modified: 3
+        added: 1
+        modified: 1
         fields: [bank_id, sent_on, send_count]
         type: sum
       # How many times every bank's invitations were sent on a day, the
       # count the installation's email is held to.
       - name: Invitation_sum_send_count_by_sent_on
-        added: 3
-        modified: 3
+        added: 1
+        modified: 1
         fields: [sent_on, send_count]
         type: sum
   email-deliveries:

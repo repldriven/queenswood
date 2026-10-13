@@ -65,21 +65,15 @@
 (defn- new-zero-balance
   "A fresh zero balance for a leg whose bucket doesn't exist yet — posting
   to a (balance-type, balance-status) opens it (e.g. the first time funds
-  are reserved into pending-outgoing). The bucket takes the leg's
-  product-type, else that of the account's existing `balances`, since a
-  control account's balance sums its sub-ledger's buckets by product
-  type; an account with neither is a ledger-account (GL) one, matching
-  how GL balances are seeded.
+  are reserved into pending-outgoing), under the leg's product type.
 
   `bank-id` comes from the caller rather than the leg: it heads the
   balance's primary key, and a leg reaching here need not carry one."
-  [bank-id balances leg]
+  [bank-id leg]
   (let [now (utility/now)]
     {:bank-id bank-id
      :account-id (:account-id leg)
-     :product-type (or (:product-type leg)
-                       (some :product-type balances)
-                       :account-product-type-general-ledger)
+     :product-type (:product-type leg)
      :balance-type (:balance-type leg)
      :balance-status (:balance-status leg)
      :credit 0
@@ -96,12 +90,14 @@
                       (fn [balance] (apply-leg balance leg policies)))
       ;; Open the bucket on demand: a posting to a not-yet-existing
       ;; (balance-type, balance-status) creates it, then applies the leg.
-      (let-nom> [opened (apply-leg (new-zero-balance bank-id balances leg)
+      (let-nom> [opened (apply-leg (new-zero-balance bank-id leg)
                                    leg
                                    policies)]
         (conj balances opened)))))
 
-(defn- apply-legs-to-balances
+(defn- after-legs
+  "`balances` as `legs` leave them, each leg's bucket opened where the
+  account has none, or the first leg's refusal."
   [bank-id balances legs policies]
   (reduce (fn [bs leg]
             (let [result (apply-leg-to-balances bank-id bs leg policies)]
@@ -148,36 +144,33 @@
             b))
         balances))
 
-(defn- changed
-  "Rows to save: balances in `new` that were added or modified versus
-  `old`, matched by (balance-type, balance-status), so a freshly opened
-  bucket is captured. A derived bucket is its legs' sum and its row is
-  never rewritten, so it is saved only when it opens, at zero."
+(defn- opened
+  "The rows to save: each bucket in `new` that `old` lacks, at zero. A
+  bucket is the sum of its legs, so its row marks only that it is open
+  and is never rewritten."
   [old new]
-  (let [old-by (into {} (map (fn [b] [(bucket b) b])) old)]
+  (let [open? (into #{} (map bucket) old)]
     (into []
-          (comp (remove (fn [b] (= b (get old-by (bucket b)))))
-                (keep (fn [b]
-                        (cond (not (q/derived? b))
-                              b
-
-                              (contains? old-by (bucket b))
-                              nil
-
-                              :else
-                              (assoc b :credit 0 :debit 0)))))
+          (comp (remove (fn [b] (open? (bucket b))))
+                (map (fn [b] (assoc b :credit 0 :debit 0))))
           new)))
 
-(defn apply-legs
+(defn cash-account-legs
+  "The legs of a posting on a cash account, which carry its product
+  type. A general-ledger leg is a ledger account's, whose balance is
+  read from the journal and accepts nothing here."
+  [legs]
+  (filterv (fn [leg]
+             (not= :account-product-type-general-ledger (:product-type leg)))
+           legs))
+
+(defn accept-legs
   [bank-id account-balances legs transaction-type policies]
   (reduce
    (fn [acc [account-id account-legs]]
      (let [pre (before-legs (get account-balances account-id) account-legs)
            post (let-nom>
-                  [balances (apply-legs-to-balances bank-id
-                                                    pre
-                                                    account-legs
-                                                    policies)
+                  [balances (after-legs bank-id pre account-legs policies)
                    _ (check-available pre
                                       balances
                                       (:currency (first account-legs))
@@ -186,7 +179,7 @@
                   balances)]
        (if (error/anomaly? post)
          (reduced post)
-         (into acc (changed pre post)))))
+         (into acc (opened pre post)))))
    []
    (group-by :account-id legs)))
 

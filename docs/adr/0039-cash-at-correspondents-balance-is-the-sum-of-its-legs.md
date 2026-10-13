@@ -61,10 +61,10 @@ The parts:
 - Declare 1100 in `ledger-account`'s `derived` as summing its own legs,
   read wherever a ledger account's balance is read, and seed no opening
   row for it.
-- Leave 1100's legs out of `balance/apply-legs` through
-  `ledger-account/stored-legs` at every posting that names it on the
-  payment path: every inbound posting, from suspense to return, and
-  outbound settlement, reversal and return.
+- Tag 1100's legs `general-ledger`, so `balance/accept-legs` passes
+  them over at every posting that names it on the payment path: every
+  inbound posting, from suspense to return, and outbound settlement,
+  reversal and return.
 - The rest of ADR-0037 and ADR-0038 stands.
 
 ## Consequences

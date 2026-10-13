@@ -14,7 +14,7 @@ concurrently, so the payment command topic can take more partitions and
 
 Every posting prevents it today. `add-control-legs` follows each posted
 default leg on a cash account with a same-side leg on its product type's
-control — 2100, 2200, 2300 or 3100 — and `apply-legs` reads that
+control — 2100, 2200, 2300 or 3100 — and `accept-legs` reads that
 control's `default / posted` row at serializable isolation and rewrites
 it, so two internal payments in one bank and currency conflict on one
 row whichever accounts they move. On kind, with the payment command

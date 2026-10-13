@@ -48,17 +48,16 @@
                 product-type]}
         leg
         {:keys [transaction-id bank-id currency]} transaction]
-    (utility/assoc-some {:leg-id (utility/generate-id "leg")
-                         :transaction-id transaction-id
-                         :bank-id bank-id
-                         :account-id account-id
-                         :balance-type balance-type
-                         :balance-status balance-status
-                         :side side
-                         :amount amount
-                         :currency currency}
-                        :product-type
-                        product-type)))
+    {:leg-id (utility/generate-id "leg")
+     :transaction-id transaction-id
+     :bank-id bank-id
+     :account-id account-id
+     :product-type product-type
+     :balance-type balance-type
+     :balance-status balance-status
+     :side side
+     :amount amount
+     :currency currency}))
 
 (defn- ->posted-leg
   [{:keys [account-id balance-type balance-status side amount]}]

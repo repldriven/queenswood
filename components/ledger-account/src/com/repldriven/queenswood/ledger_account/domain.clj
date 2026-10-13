@@ -29,10 +29,10 @@
   same with every customer's `:balance-type` interest-accrued bucket;
   1200 pending-outbound with every customer's pending-outgoing balance,
   and `:mirror?`s it, crediting what they debit; 1100
-  cash-at-correspondent and 5100 interest-expense, whose movements
-  mirror no set of customer balances, sum their own legs from the
-  journal (`:journal?`). A ledger account absent from it keeps a stored
-  balance. See ADR-0037, ADR-0038, ADR-0039 and ADR-0042."
+  cash-at-correspondent, 2500 suspense and 5100 interest-expense, whose
+  movements mirror no set of customer balances, sum their own legs from
+  the journal (`:journal?`). Every account of the chart is in it. See
+  ADR-0037, ADR-0038, ADR-0039, ADR-0042 and ADR-0048."
   (assoc (into {}
                (map (fn [[product-type code]] [code
                                                {:product-types [product-type]
@@ -49,15 +49,21 @@
           :mirror? true}
          :ledger-account-code-cash-at-correspondent
          {:balance-status :balance-status-posted :journal? true}
+         :ledger-account-code-suspense {:balance-status :balance-status-posted
+                                        :journal? true}
          :ledger-account-code-interest-expense
          {:balance-status :balance-status-posted :journal? true}))
 
-(defn posted-to?
-  "Whether postings name a derived account in their legs, which stay in
-  the journal but write no balance row: 1200, 1100 and 5100, where a
-  control is never named."
-  [spec]
-  (boolean (or (:mirror? spec) (:journal? spec))))
+(defn derivation
+  "How `account` reads its balance, from `derived`, or a
+  `:ledger-account/derive-balance` failure for a code not in it."
+  [account]
+  (let [{:keys [code ledger-account-id]} account]
+    (or (derived code)
+        (error/fail :ledger-account/derive-balance
+                    {:message "Ledger account's code has no balance derivation"
+                     :ledger-account-id ledger-account-id
+                     :code code}))))
 
 (defn derived-balance
   "The balance of derived `account`, built by `spec` from the summed
@@ -133,17 +139,6 @@
              :status :ledger-account-status-open
              :created-at now
              :created-by actor))))
-
-(defn opening-balance
-  "The single default-posted balance bucket a ledger account other than
-  a control opens with, tagged `:account-product-type-general-ledger` so read sites can tell the
-  bank's own books from a customer instrument without inferring it from
-  an absent product-type."
-  [ledger-account]
-  {:account-id (:ledger-account-id ledger-account)
-   :product-type :account-product-type-general-ledger
-   :balance-type :balance-type-default
-   :balance-status :balance-status-posted})
 
 (defn control-code
   "The `:code` of the control a posted customer leg rolls up
