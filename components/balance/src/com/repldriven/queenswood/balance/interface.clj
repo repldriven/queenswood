@@ -56,7 +56,9 @@
     `:amount`.
   - transaction-type: transaction-type keyword (e.g.
     `:transaction-type-internal-transfer`).
-  - opts (optional): map; `:policies` overrides policy resolution."
+  - opts (optional): map; `:policies` overrides policy resolution, and
+    `:account-policies`, a map of account id to policies, adds those
+    one account alone is held to, as its product version's limits."
   ([txn bank-id legs transaction-type]
    (core/accept-legs txn bank-id legs transaction-type))
   ([txn bank-id legs transaction-type opts]

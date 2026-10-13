@@ -148,12 +148,18 @@
            {:keys [transaction-id transaction-type legs]} transaction
            _ (telemetry/with-span
               ["payment-internal-accept-legs"]
-              (balances/accept-legs txn
-                                    bank-id
-                                    legs
-                                    transaction-type
-                                    {:policies (policy/platform-policies
-                                                policies)}))
+              (balances/accept-legs
+               txn
+               bank-id
+               legs
+               transaction-type
+               {:policies (policy/platform-policies policies)
+                :account-policies (account-limits/version-policies
+                                   (assoc {}
+                                          debtor-account-id
+                                          debtor-limits
+                                          creditor-account-id
+                                          creditor-limits))}))
            payment (internal/new-internal-payment data
                                                   business-day
                                                   transaction-id)
@@ -275,13 +281,14 @@
                     transaction+legs
                     _ (telemetry/with-span
                        ["payment-outbound-accept-legs"]
-                       (balances/accept-legs txn
-                                             bank-id
-                                             legs
-                                             transaction-type
-                                             {:policies
-                                              (policy/platform-policies
-                                               policies)}))
+                       (balances/accept-legs
+                        txn
+                        bank-id
+                        legs
+                        transaction-type
+                        {:policies (policy/platform-policies policies)
+                         :account-policies (account-limits/version-policies
+                                            {debtor-account-id limits})}))
                     payment (outbound/new-outbound-payment data
                                                            business-day
                                                            transaction-id)

@@ -129,6 +129,69 @@
                                            starts-day-of-month)}}}}}
      :reason (or reason (limit-reason currency payment-limit))}))
 
+;; ---------------------------------------------------------------------------
+;; Balance limits
+;;
+;; min-balance and max-balance, in minor units of the version's currency,
+;; bound an account's available balance: a posting may not take it below
+;; the minimum, zero where none is given, or above the maximum. A version
+;; keeps each as a policy limit of the balance kind, on the transaction
+;; types a customer or the bank drives, so interest is never refused, and
+;; an account already outside a bound may move back towards it.
+
+(def ^:private lowering-types
+  "The transaction types a balance minimum bounds."
+  [:transaction-type-internal-transfer :transaction-type-inbound-transfer
+   :transaction-type-outbound-transfer :transaction-type-reward])
+
+(def ^:private raising-types
+  "The transaction types a balance maximum bounds."
+  [:transaction-type-internal-transfer :transaction-type-inbound-transfer])
+
+(defn- ensure-balance-limits
+  [min-balance max-balance]
+  (when (and max-balance (<= max-balance (or min-balance 0)))
+    (error/reject :cash-account-product/invalid-limit
+                  {:message "max-balance must be above min-balance"
+                   :min-balance (or min-balance 0)
+                   :max-balance max-balance})))
+
+(defn- balance-limit
+  [side value currency transaction-types reason]
+  {:kind {:balance {:filters (mapv (fn [transaction-type]
+                                     {:kind {:computed {:name "available"}}
+                                      :transaction-type transaction-type})
+                                   transaction-types)}}
+   :bound {:kind {side {:aggregate {:kind {:amount
+                                           {:value {:value value
+                                                    :currency currency}
+                                            :window :time-window-instant}}}}}}
+   :reason reason
+   :allow :limit-allow-improving})
+
+(defn- balance-limits
+  [currency min-balance max-balance]
+  (let [minimum (or min-balance 0)]
+    (cond-> [(balance-limit :min
+                            minimum
+                            currency
+                            lowering-types
+                            (str "The product's accounts hold at least "
+                                 minimum
+                                 " "
+                                 currency
+                                 " minor units"))]
+            max-balance
+            (conj (balance-limit :max
+                                 max-balance
+                                 currency
+                                 raising-types
+                                 (str "The product's accounts hold at most "
+                                      max-balance
+                                      " "
+                                      currency
+                                      " minor units"))))))
+
 (defn- flat-interest
   "Interest terms paying `rate-bps` on the whole balance from the start,
   paid daily. Nil at no rate or a zero one, since a version that pays
@@ -146,16 +209,19 @@
   (product-type, balance-sheet-side, balance buckets, payment-address
   schemes, iso type) plus the caller's `:interest-rate-bps`, as flat
   interest terms, `:opening-reward`, as an opening reward's terms, and
-  `:payment-limits`, as policy limits on the account's payments, and
-  stamp the originating
+  `:payment-limits`, as policy limits on the account's payments,
+  `:min-balance` and `:max-balance`, as policy limits on its available
+  balance, and stamp the originating
   `:template-id` for provenance. Returns the fields or an anomaly when
   the caller's currency isn't allowed."
   [template data]
-  (let [{:keys [currency interest-rate-bps opening-reward payment-limits]}
+  (let [{:keys [currency interest-rate-bps opening-reward payment-limits
+                min-balance max-balance]}
         data]
     (let-nom>
       [_ (ensure-currency-allowed template currency)
-       _ (ensure-payment-limits payment-limits)]
+       _ (ensure-payment-limits payment-limits)
+       _ (ensure-balance-limits min-balance max-balance)]
       (utility/assoc-some
        {:product-type (:product-type template)
         :template-id (:template-id template)
@@ -170,10 +236,10 @@
        (when opening-reward
          [{:kind :reward-kind-opening :amount (:amount opening-reward)}])
        :limits
-       (when (seq payment-limits)
-         (mapv (fn [payment-limit]
-                 (payment-limit->limit currency payment-limit))
-               payment-limits))))))
+       (into (balance-limits currency min-balance max-balance)
+             (map (fn [payment-limit]
+                    (payment-limit->limit currency payment-limit)))
+             payment-limits)))))
 
 (defn new-template
   "Build a template record from seed data: stamp a stable `tpl.` id when

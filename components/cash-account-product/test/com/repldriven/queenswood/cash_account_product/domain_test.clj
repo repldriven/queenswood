@@ -334,10 +334,13 @@
                                                  :starts-month 4
                                                  :starts-day-of-month 6}}}}}}
             :reason "One withdrawal each tax year"}]
-          (:limits (draft [paid-in withdrawals])))))
+          (filterv (fn [limit] (get-in limit [:kind :account-payment]))
+                   (:limits (draft [paid-in withdrawals]))))))
     (testing "a version stated none carries none"
-      (is (not (contains? (draft nil) :limits)))
-      (is (not (contains? (draft []) :limits))))
+      (is (not-any? (fn [limit] (get-in limit [:kind :account-payment]))
+                    (:limits (draft nil))))
+      (is (not-any? (fn [limit] (get-in limit [:kind :account-payment]))
+                    (:limits (draft [])))))
     (testing "a limit that bounds nothing, or twice, is :invalid-limit"
       (doseq [payment-limits [[(assoc paid-in :max -1)]
                               [(assoc withdrawals :period :time-window-instant)]
@@ -345,5 +348,55 @@
                               [paid-in (assoc paid-in :max 50000)]]]
         (let [r (draft payment-limits)]
           (is (error/rejection? r) (pr-str payment-limits))
+          (is (= :cash-account-product/invalid-limit (error/kind r))))))))
+
+(deftest balance-limits-test
+  (let [draft (fn [data]
+                (SUT/new-version "bnk.1"
+                                 "prd.1"
+                                 []
+                                 template
+                                 (merge good-data data)
+                                 permissive-policies))
+        bound (fn [version side]
+                (some (fn [limit]
+                        (when (get-in limit [:kind :balance])
+                          (get-in limit
+                                  [:bound :kind side :aggregate :kind :amount
+                                   :value])))
+                      (:limits version)))
+        types (fn [version side]
+                (some (fn [limit]
+                        (when (get-in limit [:bound :kind side])
+                          (mapv :transaction-type
+                                (get-in limit [:kind :balance :filters]))))
+                      (:limits version)))]
+    (testing "a version that states no minimum cannot go below zero"
+      (let [version (draft {})]
+        (is (= {:value 0 :currency "GBP"} (bound version :min)))
+        (is (nil? (bound version :max)))))
+    (testing "a stated minimum and maximum bound the available balance"
+      (let [version (draft {:min-balance -50000 :max-balance 2000000})]
+        (is (= {:value -50000 :currency "GBP"} (bound version :min)))
+        (is (= {:value 2000000 :currency "GBP"} (bound version :max)))
+        (is (every? (fn [limit] (= :limit-allow-improving (:allow limit)))
+                    (filter (fn [limit] (get-in limit [:kind :balance]))
+                            (:limits version))))))
+    (testing
+      "the minimum bounds payments and rewards, the maximum payments in,
+              and neither interest"
+      (let [version (draft {:max-balance 2000000})]
+        (is (= [:transaction-type-internal-transfer
+                :transaction-type-inbound-transfer
+                :transaction-type-outbound-transfer :transaction-type-reward]
+               (types version :min)))
+        (is (= [:transaction-type-internal-transfer
+                :transaction-type-inbound-transfer]
+               (types version :max)))))
+    (testing "a maximum at or below the minimum is :invalid-limit"
+      (doseq [data [{:max-balance 0} {:min-balance 10000 :max-balance 10000}
+                    {:min-balance 10000 :max-balance 5000}]]
+        (let [r (draft data)]
+          (is (error/rejection? r) (pr-str data))
           (is (= :cash-account-product/invalid-limit (error/kind r))))))))
 

@@ -164,11 +164,18 @@
              (not= :account-product-type-general-ledger (:product-type leg)))
            legs))
 
+(defn policies-of
+  "The policies one account's legs are held to: `policies`, and those
+  `account-policies` names for it alone, as its product version's."
+  [policies account-policies account-id]
+  (into (vec policies) (get account-policies account-id)))
+
 (defn accept-legs
-  [bank-id account-balances legs transaction-type policies]
+  [bank-id account-balances legs transaction-type policies account-policies]
   (reduce
    (fn [acc [account-id account-legs]]
-     (let [pre (before-legs (get account-balances account-id) account-legs)
+     (let [policies (policies-of policies account-policies account-id)
+           pre (before-legs (get account-balances account-id) account-legs)
            post (let-nom>
                   [balances (after-legs bank-id pre account-legs policies)
                    _ (check-available pre

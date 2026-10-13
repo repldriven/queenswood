@@ -75,15 +75,18 @@
         (and (pos? delta) (contains? sides :max)))))
 
 (defn- load-account-balances
-  [txn bank-id legs transaction-type policies]
+  [txn bank-id legs transaction-type policies account-policies]
   (let [by-account (group-by :account-id legs)]
     (q/list-balances-of
      txn
      bank-id
      (vec (keys by-account))
      {:snapshot-ids (into #{}
-                          (comp (remove (fn [[_ account-legs]]
-                                          (bounded? policies
+                          (comp (remove (fn [[account-id account-legs]]
+                                          (bounded? (domain/policies-of
+                                                     policies
+                                                     account-policies
+                                                     account-id)
                                                     transaction-type
                                                     account-legs)))
                                 (map key))
@@ -102,17 +105,20 @@
             [policies (telemetry/with-span
                        ["balance-policies"]
                        (get-policies txn (:account-id (first legs)) opts))
+             account-policies (:account-policies opts)
              account-balances (telemetry/with-span
                                ["balance-load"]
                                (load-account-balances txn
                                                       bank-id
                                                       legs
                                                       transaction-type
-                                                      policies))
+                                                      policies
+                                                      account-policies))
              opened (domain/accept-legs bank-id
                                         account-balances
                                         legs
                                         transaction-type
-                                        policies)]
+                                        policies
+                                        account-policies)]
             (telemetry/with-span ["balance-save"]
                                  (store/save-balances txn opened)))))))))

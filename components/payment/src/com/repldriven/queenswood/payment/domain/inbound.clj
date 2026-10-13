@@ -52,7 +52,20 @@
                                        :payment-direction-in
                                        amount
                                        currency
-                                       aggregates)]
+                                       aggregates)
+       _ (when-some [available (get-in aggregates
+                                       [:balance
+                                        #{(:account-id creditor-account)
+                                          :available}])]
+           (policy/check-limit
+            policies
+            :balance
+            {:kind {:computed {:name "available"}}
+             :transaction-type :transaction-type-inbound-transfer
+             :aggregate :amount
+             :window :time-window-instant
+             :pre-value {:value available :currency currency}
+             :value {:value (+ available amount) :currency currency}}))]
       nil)))
 
 (def ^:private

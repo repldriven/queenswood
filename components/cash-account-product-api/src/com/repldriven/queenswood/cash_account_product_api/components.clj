@@ -67,6 +67,8 @@
    [:interest-rate-bps {:optional true} [:ref "SignedBasisPoints"]]
    [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:payment-limits {:optional true} [:vector [:ref "PaymentLimit"]]]
+   [:min-balance {:optional true} [:ref "SignedMinorUnits"]]
+   [:max-balance {:optional true} [:ref "SignedMinorUnits"]]
    [:effective-from [:ref "BusinessDay"]]
    [:effective-to {:optional true} [:maybe [:ref "BusinessDay"]]]])
 
@@ -78,6 +80,8 @@
    [:interest-rate-bps {:optional true} [:ref "SignedBasisPoints"]]
    [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:payment-limits {:optional true} [:vector [:ref "PaymentLimit"]]]
+   [:min-balance {:optional true} [:ref "SignedMinorUnits"]]
+   [:max-balance {:optional true} [:ref "SignedMinorUnits"]]
    [:effective-from [:ref "BusinessDay"]]
    [:effective-to {:optional true} [:maybe [:ref "BusinessDay"]]]])
 
@@ -99,6 +103,8 @@
    [:interest-rate-bps [:ref "SignedBasisPoints"]]
    [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:payment-limits {:optional true} [:vector [:ref "PaymentLimit"]]]
+   [:min-balance [:ref "SignedMinorUnits"]]
+   [:max-balance {:optional true} [:ref "SignedMinorUnits"]]
    [:effective-from [:ref "BusinessDay"]]
    [:effective-to {:optional true} [:ref "BusinessDay"]]
    [:created-at [:ref "Timestamp"]]
@@ -137,22 +143,39 @@
               starts-day-of-month
               (assoc :starts-day-of-month starts-day-of-month)))))
 
+(defn- balance-bound
+  "The amount a version's balance limit bounds its accounts' available
+  balance by on `side`, `:min` or `:max`, or nil where it carries none."
+  [version side]
+  (some (fn [limit]
+          (when (get-in limit [:kind :balance])
+            (get-in limit
+                    [:bound :kind side :aggregate :kind :amount :value
+                     :value])))
+        (:limits version)))
+
 (defn ->version-body
   [version]
   (let [opening (some (fn [{:keys [kind] :as terms}]
                         (when (= :reward-kind-opening kind) terms))
                       (:reward-terms version))
-        payment-limits (into [] (keep ->payment-limit) (:limits version))]
+        payment-limits (into [] (keep ->payment-limit) (:limits version))
+        max-balance (balance-bound version :max)]
     (cond-> (assoc (select-keys version version-keys)
                    :interest-rate-bps
                    (or (get-in version
                                [:interest-terms :steps 0 :bands 0 :rate-bps])
-                       0))
+                       0)
+                   :min-balance
+                   (or (balance-bound version :min) 0))
             opening
             (assoc :opening-reward {:amount (:amount opening)})
 
             (seq payment-limits)
-            (assoc :payment-limits payment-limits))))
+            (assoc :payment-limits payment-limits)
+
+            max-balance
+            (assoc :max-balance max-balance))))
 
 (defn ->product-body
   [product]

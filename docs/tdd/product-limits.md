@@ -153,14 +153,34 @@ it does today.
 
 ### The balance floor and ceiling
 
-`balance/accept-legs` takes, beside the policies, the `balance` limits
-each account's version carries, and checks them on that account alone.
-A minimum bounds a posting that lowers the account's available balance
-and a maximum one that raises it, each allowing an account already
-outside to improve, so a negative minimum is an arranged overdraft and
-interest, whose transaction types no such limit names, is never
-refused. The platform's non-negative limit becomes each customer
-template's minimum of zero.
+A product request states `min-balance` and `max-balance`, and the
+brick turns them into `balance` limits on the computed `available`
+balance, each allowing an account already outside it to improve. Every
+version carries a minimum, zero where none is stated, on internal,
+inbound, outbound and reward postings; a maximum, where one is stated,
+bounds internal and inbound ones. Interest, whose transaction types
+neither names, is never refused, and a negative minimum is an arranged
+overdraft. A maximum at or below the minimum is refused,
+`:cash-account-product/invalid-limit`.
+
+`balance/accept-legs` takes `:account-policies`, a map of account id
+to the policies one account alone is held to, and checks each
+account's legs against them beside the policies it is given. The
+internal payment, the outbound submission and an inbound payment's
+settlement and release pass each account's version's limits, which
+`account-limits/version-policies` builds.
+
+A payment from outside is refused before it is recorded, so a maximum
+is checked at its acceptance too: where a limit caps the creditor's
+balance, `account-limits/get-aggregates` reads its available balance
+serializably and `check-inbound-acceptance` checks the payment against
+the cap, parking one that passes it in suspense.
+
+The platform's non-negative limit stays until the scenario model, which
+reads its floor from that limit, takes an account's from its product.
+Then each version's minimum of zero replaces it, and a reward's
+posting passes the house account's and the customer's limits as a
+payment does.
 
 ### The API
 
@@ -170,15 +190,18 @@ A product request and a version's body carry `payment-limits`, each a
 `year`, and optionally an `anchor` of `account` or `calendar`, a
 `starts-month`, a `starts-day-of-month` and a `reason`. The brick turns
 each into an `account-payment` limit, as it turns `interest-rate-bps`
-into interest terms, and gives one without a reason a default. The
-balance floor and ceiling arrive as `min-balance` and `max-balance`.
+into interest terms, and gives one without a reason a default. They
+carry `min-balance`, which a version's body always returns, and
+`max-balance`, each in minor units of the version's currency.
 
 ### First slice
 
-The `account-payment` kind, the new windows and anchors, a version's
-`limits` stored, validated and returned, the per-account indexes, and
-the checks on the three payment paths. The balance floor and ceiling
-follow.
+Built: the `account-payment` kind, the new windows and anchors, a
+version's limits stored, validated and returned, the per-account
+indexes, the checks on the three payment paths, and the balance
+minimum and maximum beside the platform's limit. Next: the model's
+floor taken from the product, the platform's limit removed, and a
+reward's posting held to its accounts' limits.
 
 ### Tests
 
@@ -190,7 +213,9 @@ follow.
   stated and an unusable one refused; a regular saver refusing the
   internal payment that passes its month's amount; a saver allowing one
   withdrawal a year refusing a second while the first is in flight, and
-  allowing it once the first has failed.
+  allowing it once the first has failed; an account refusing the
+  payment in that passes its product's most and the payment out that
+  leaves less than its least.
 
 ## Alternatives Considered
 
@@ -221,6 +246,12 @@ follow.
 - **A positive minimum cannot be emptied.** A balance minimum above
   zero refuses the payment out that would close the account, and
   nothing makes a customer pay in to reach it.
+- **An overdraft a product allows is still refused.** The platform's
+  limit keeps every account's available balance at zero or above, so a
+  negative minimum takes effect only once that limit is removed.
+- **A reward is held to the platform's limit alone.** Its posting
+  passes no account's limits, so a house account's minimum above zero
+  does not hold a reward back.
 - **A year is read a day at a time.** An annual limit reads a group for
   each day and status the account was paid on.
 - **A limit changes with the version.** A published version's limits
