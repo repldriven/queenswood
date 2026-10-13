@@ -39,6 +39,17 @@
   [txn party-id]
   (store/get-party-by-id txn party-id))
 
+(defn get-aggregates
+  "Count a bank's parties, whatever their status, as `{:count}`. Read
+  serializably, so a create that commits between the read and the write
+  conflicts it. A read primitive for the write sibling's checks.
+
+  Args:
+  - txn: FDB handle or open transaction.
+  - bank-id: bank id."
+  [txn bank-id]
+  (store/get-aggregates txn bank-id))
+
 (defn find-party-by-idempotency-key
   "Return the party previously written under `idempotency-key`, or
   nil. A read primitive for the write sibling's new-party idempotency

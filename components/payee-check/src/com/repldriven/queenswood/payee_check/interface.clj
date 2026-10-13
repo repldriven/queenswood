@@ -2,7 +2,11 @@
   "Confirmation of Payee (CoP) outcomes for a bank. Persists
   each payee check (request + match result), which stands for 24 hours
   from `created-at`, and exposes single-record reads plus paginated
-  listing per bank."
+  listing per bank. A check is saved before its provider is asked, in
+  the transaction that holds it to the check capability and the bank's
+  daily limit, with the result of a provider that gave no answer, and
+  saved again with the answer. One past the limit is a
+  `:policy/limit-exceeded` rejection and asks no provider."
   (:require
     [com.repldriven.queenswood.payee-check.system]
 

@@ -245,11 +245,21 @@ stores:
   payee-checks:
     record-type: PayeeCheck
     primary-key: [bank_id, check_id]
-    indexes: []
+    indexes:
+      - name: PayeeCheck_count_by_bank_checked_on
+        added: 1
+        modified: 1
+        fields: [bank_id, checked_on]
+        type: count
   parties:
     record-type: Party
     primary-key: [bank_id, party_id]
     indexes:
+      - name: Party_count_by_bank
+        added: 1
+        modified: 1
+        field: bank_id
+        type: count
       - name: Party_by_party_id
         added: 1
         modified: 1

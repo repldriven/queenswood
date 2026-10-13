@@ -1,0 +1,48 @@
+{:name "A bank that has made the day's payee checks is refused another"
+ ;; The `few-customers` tier, which only a test system has, allows a
+ ;; bank two payee checks a day. The third is refused before any
+ ;; provider is asked, and leaves no check behind.
+ :given
+ [{:fixture :bank
+   :as :org-0
+   :with {:name "Payee Check Limit Bank" :status "live" :tier "few-customers"}}
+  ;; A check is made from the bank's own funds, so it waits for the
+  ;; provider to open them.
+  {:command :api/poll
+   :request {:method :get :path "/v1/cash-accounts" :auth [:ref :org-0 :token]}
+   :until {:status 200 :body {:items [:m/embeds [{:status "opened"}]]}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payee-checks"
+             :auth [:ref :org-0 :token]
+             :body {:creditor-name "Arthur Dent"
+                    :account {:sort-code "040062" :account-number "12345678"}
+                    :account-type "personal"}}
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/payee-checks"
+             :auth [:ref :org-0 :token]
+             :body {:creditor-name "Ford Prefect"
+                    :account {:sort-code "040062" :account-number "12345678"}
+                    :account-type "personal"}}
+   :assert {:status 201}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/payee-checks"
+             :auth [:ref :org-0 :token]
+             :body {:creditor-name "Tricia McMillan"
+                    :account {:sort-code "040062" :account-number "12345678"}
+                    :account-type "personal"}}
+   :assert {:status 429
+            :problem
+            {:type ":policy/limit-exceeded"
+             :detail
+             "Few-customers tier - a bank makes at most 2 payee checks per day"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get :path "/v1/payee-checks" :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:items [{:request {:creditor-name "Ford Prefect"}}
+                           {:request {:creditor-name "Arthur Dent"}}]}}}]}

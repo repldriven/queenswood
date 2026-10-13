@@ -163,3 +163,42 @@ inbound-capped: !system/component
                       currency: GBP
                     window: !keyword time-window-daily
         reason: "Inbound-capped tier - max GBP 150 inbound value per day to current accounts"
+# A tier whose banks hold three parties, the bank's own among them, and
+# make two payee checks a day, so a scenario can reach either limit with
+# a handful of calls.
+few-customers: !system/component
+  system/component-kind: policies/policy
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  policy:
+    policy-id: pol.00000000000000000000000009
+    name: Few-customers policy
+    description: Few-customers tier - three parties and two payee checks a day
+    status: !keyword policy-status-active
+    labels: !strs
+      tier: few-customers
+    category: !keyword policy-category-restricted
+    capabilities: []
+    limits:
+      - kind:
+          party: {}
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  count:
+                    value: 3
+                    window: !keyword time-window-instant
+        reason: "Few-customers tier - a bank holds at most 3 parties"
+      - kind:
+          payee-check: {}
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  count:
+                    value: 2
+                    window: !keyword time-window-daily
+        reason: "Few-customers tier - a bank makes at most 2 payee checks per day"

@@ -38,6 +38,4 @@ limits: !concat
   - !include policies/platform/restricted/limits/parties.yml
   - !include policies/platform/restricted/limits/payee-checks.yml
   - !include policies/platform/restricted/limits/payments.yml
-  - !include policies/platform/restricted/limits/policies.yml
-  - !include policies/platform/restricted/limits/transactions.yml
   - !include policies/platform/restricted/limits/webhook-endpoints.yml
