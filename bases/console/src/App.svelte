@@ -8,6 +8,7 @@
   import Onboarding from "./lib/Onboarding.svelte";
   import AppShell from "./lib/AppShell.svelte";
   import Products from "./lib/Products.svelte";
+  import ProductVersion from "./lib/ProductVersion.svelte";
   import Accounts from "./lib/Accounts.svelte";
   import Migrations from "./lib/Migrations.svelte";
   import Parties from "./lib/Parties.svelte";
@@ -76,6 +77,10 @@
     authRoutes = {
       "/products": wrap({
         component: Products,
+        props: { user, myMembers },
+      }),
+      "/products/:productId/versions/:versionId": wrap({
+        component: ProductVersion,
         props: { user, myMembers },
       }),
       "/parties": wrap({

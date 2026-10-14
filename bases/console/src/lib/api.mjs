@@ -134,8 +134,8 @@ export function create_bank({ companyNumber, bankName, providers, key, onRetry }
 
 function product_request_body(data) {
   // Mirrors bank-app's `product_request_body` — the bank-api accepts
-  // the same shape regardless of caller. `interest-rate-bps` is
-  // optional (omitted for products with no interest).
+  // the same shape regardless of caller. Each term is optional and
+  // passes through only where the form states it.
   const body = {
     name: data.name,
     "template-id": data["template-id"],
@@ -144,20 +144,26 @@ function product_request_body(data) {
   if (data["interest-rate-bps"]) {
     body["interest-rate-bps"] = data["interest-rate-bps"];
   }
-  if (data["opening-reward"]) {
-    body["opening-reward"] = data["opening-reward"];
-  }
-  if (data["effective-from"]) {
-    body["effective-from"] = data["effective-from"];
-  }
-  if (data["effective-to"]) {
-    body["effective-to"] = data["effective-to"];
+  for (const key of [
+    "interest-terms",
+    "opening-reward",
+    "payment-limits",
+    "min-balance",
+    "max-balance",
+    "effective-from",
+    "effective-to",
+  ]) {
+    if (data[key] != null && data[key] !== "") body[key] = data[key];
   }
   return body;
 }
 
 export function list_cash_account_product_templates() {
   return request("/v1/cash-account-product-templates");
+}
+
+export function get_cash_account_product(product_id) {
+  return request(`/v1/cash-account-products/${product_id}`);
 }
 
 export function list_cash_account_products() {

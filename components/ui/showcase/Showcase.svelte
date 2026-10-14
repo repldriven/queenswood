@@ -21,7 +21,7 @@
     TrialBalance,
     PolicyMatrix, CATEGORY_TONE,
     Field, Input, Select,
-    Panel, PanelHead, Chip, ToastHost, toast,
+    Panel, PanelHead, Chip, Segmented, ToastHost, toast,
     RolePill, Tabs, Tag, Callout, Textarea, TokenBox,
     ProductPicker, VersionList, MigrationStatusBadge,
     Checkbox, RemovableChip, ChangesetTable,
@@ -56,6 +56,7 @@
     { id: "rawcalls",       label: "Raw calls" },
     { id: "panels",         label: "Panels" },
     { id: "chips",          label: "Chips" },
+    { id: "segmented",      label: "Segmented" },
     { id: "toast",          label: "Toast" },
     { id: "access",         label: "People and access" },
     { id: "migrations",     label: "Migration pickers" },
@@ -64,6 +65,8 @@
 
   // Migration primitive demos
   let chipFilter = $state("all");
+  let paysInterest = $state(true);
+  let banding = $state("marginal");
   let auditKinds = $state(["invitation-accepted"]);
   const AUDIT_DEMO_GROUP = ["invitation-created", "invitation-accepted", "member-removed"];
   const toggleAuditKind = (k) =>
@@ -1185,6 +1188,21 @@
         <Chip pressed={chipFilter === "held"} count={549} onclick={() => chipFilter = "held"}>Held back</Chip>
         <Chip pressed={chipFilter === "failed"} count={0} onclick={() => chipFilter = "failed"}>Failed</Chip>
         <Chip disabled count={0}>Disabled</Chip>
+      </div>
+    </section>
+
+    <section id="segmented" class="section">
+      <div class="section-head">
+        <h2>Segmented</h2>
+        <p class="lead"><code>&lt;Segmented&gt;</code> chooses between a few named options, a thumb sliding to the one chosen. Use it in place of a checkbox wherever both sides of the choice have a name. It is a radiogroup, and the arrows move between options.</p>
+      </div>
+      <div class="row">
+        <Segmented label="Interest" bind:value={paysInterest}
+                   options={[{ value: false, label: "No interest" }, { value: true, label: "Accrues interest" }]} />
+        <Segmented label="Banding" bind:value={banding}
+                   options={[{ value: "marginal", label: "Marginal" }, { value: "whole-balance", label: "Whole balance" }]} />
+        <Segmented label="Disabled" value="a" disabled
+                   options={[{ value: "a", label: "Relative" }, { value: "b", label: "Fixed" }]} />
       </div>
     </section>
 

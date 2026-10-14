@@ -20,9 +20,10 @@
      A pending draft stays out of the mainline but is advertised on it,
      because hiding it would hide its publish and discard actions.
 
-     Create / new-version / edit all push the user into ProductDrawer
-     with the appropriate mode. The drawer owns the form; we own the
-     list and refetch when the drawer reports a successful mutation. */
+     Create opens ProductDrawer for the type, currency and name, and
+     lands on the new draft's page. Edit opens a draft's page, and New
+     version opens a draft copied from the published version and lands
+     on its page, where every term is edited. */
 
   import {
     PageHeader,
@@ -37,12 +38,15 @@
     Expander,
     productRows,
   } from "@queenswood/ui";
+  import { push } from "svelte-spa-router";
   import {
     list_cash_account_products,
     list_cash_account_product_templates,
+    open_cash_account_product_draft,
     publish_cash_account_product,
     discard_cash_account_product_draft,
   } from "./api.mjs";
+  import { fromVersion, pct, toRequest, todayIso } from "./product-terms.mjs";
   import { loadPopulation } from "./population.mjs";
   import ProductDrawer from "./ProductDrawer.svelte";
 
@@ -56,11 +60,7 @@
   let open = $state({});
   let templates = $state([]);
 
-  // Drawer state. `mode` decides the form's behaviour; `target`
-  // carries the version being edited when in 'edit-draft' mode.
   let drawerOpen = $state(false);
-  let drawerMode = $state("create");
-  let drawerTarget = $state(null);
 
   // The kicker is the org's name when /v1/me has surfaced it.
   // When absent we leave it undefined; PageHeader hides empty
@@ -149,21 +149,39 @@
     (population?.byProduct?.[row.productId] ?? 0) - versionCount(row.mainline);
 
   function openCreate() {
-    drawerMode = "create";
-    drawerTarget = null;
     drawerOpen = true;
   }
 
-  function openEdit(version) {
-    drawerMode = "edit-draft";
-    drawerTarget = version;
-    drawerOpen = true;
+  function versionPath(version) {
+    return `/products/${version["product-id"]}/versions/${version["version-id"]}`;
   }
 
-  function openNewVersion(version) {
-    drawerMode = "new-version";
-    drawerTarget = version;
-    drawerOpen = true;
+  function openVersion(version) {
+    push(versionPath(version));
+  }
+
+  // A new version starts as a copy of the published one, in force from
+  // today, and is edited on its page.
+  async function openNewVersion(version) {
+    const res = await open_cash_account_product_draft(
+      version["product-id"],
+      toRequest(fromVersion(version), { "effective-from": todayIso() }),
+    );
+    if (res.status >= 200 && res.status < 300) {
+      push(versionPath(res.body));
+    } else {
+      error = res.body?.detail ?? `New version failed (${res.status})`;
+    }
+  }
+
+  // The version's first rate, "from" where its grid holds more than
+  // one, and a dash where it pays none.
+  function rateLabel(v) {
+    const { interest } = fromVersion(v);
+    if (!interest.on) return "—";
+    const rates = interest.periods.flatMap((p) => p.rates);
+    const first = pct(interest.periods[0].rates[0]);
+    return rates.length > 1 ? `from ${first}` : first;
   }
 
   async function publish(version) {
@@ -234,7 +252,7 @@
         <Th>Name</Th>
         <Th>Type</Th>
         <Th>Status</Th>
-        <Th align="right">Rate (bps)</Th>
+        <Th>Interest</Th>
         <Th>Currency</Th>
         <Th align="right">Accounts</Th>
         <Th>Created</Th>
@@ -268,7 +286,7 @@
               {/if}
             </span>
           </Td>
-          <Td align="right" mono tabular>{v["interest-rate-bps"] ?? 0}</Td>
+          <Td mono><span class="rate">{rateLabel(v)}</span></Td>
           <Td>{currenciesLabel(v)}</Td>
           <Td align="right" mono tabular>
             {#if population}
@@ -286,10 +304,13 @@
             <span class="actions">
               {#if v.status === "draft"}
                 <Button size="sm" variant="brand" onclick={stop(() => publish(v))}>Publish</Button>
-                <Button size="sm" variant="ghost" onclick={stop(() => openEdit(v))}>Edit</Button>
+                <Button size="sm" variant="ghost" onclick={stop(() => openVersion(v))}>Edit</Button>
                 <Button size="sm" variant="danger" onclick={stop(() => discard(v))}>Discard</Button>
               {:else if row.canRevise}
+                <Button size="sm" variant="ghost" onclick={stop(() => openVersion(v))}>View</Button>
                 <Button size="sm" variant="ghost" onclick={stop(() => openNewVersion(v))}>New version</Button>
+              {:else}
+                <Button size="sm" variant="ghost" onclick={stop(() => openVersion(v))}>View</Button>
               {/if}
             </span>
           </Td>
@@ -311,7 +332,7 @@
                   {/if}
                 </span>
               </Td>
-              <Td align="right" mono tabular>{h["interest-rate-bps"] ?? 0}</Td>
+              <Td mono><span class="rate">{rateLabel(h)}</span></Td>
               <Td>{currenciesLabel(h)}</Td>
               <Td align="right" mono tabular>
                 {#if population}
@@ -325,8 +346,10 @@
                 <span class="actions">
                   {#if h.status === "draft"}
                     <Button size="sm" variant="brand" onclick={() => publish(h)}>Publish</Button>
-                    <Button size="sm" variant="ghost" onclick={() => openEdit(h)}>Edit</Button>
+                    <Button size="sm" variant="ghost" onclick={() => openVersion(h)}>Edit</Button>
                     <Button size="sm" variant="danger" onclick={() => discard(h)}>Discard</Button>
+                  {:else}
+                    <Button size="sm" variant="ghost" onclick={() => openVersion(h)}>View</Button>
                   {/if}
                 </span>
               </Td>
@@ -340,13 +363,11 @@
 
 <ProductDrawer
   open={drawerOpen}
-  mode={drawerMode}
-  target={drawerTarget}
   {templates}
   onClose={() => (drawerOpen = false)}
-  onSaved={() => {
+  onSaved={(version) => {
     drawerOpen = false;
-    load();
+    openVersion(version);
   }}
 />
 
@@ -409,5 +430,8 @@
   }
   .pending {
     color: var(--fg-muted);
+  }
+  .rate {
+    white-space: nowrap;
   }
 </style>

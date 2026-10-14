@@ -33,6 +33,7 @@ export { default as Drawer } from "./Drawer.svelte";
 export { default as Panel } from "./Panel.svelte";
 export { default as PanelHead } from "./PanelHead.svelte";
 export { default as Chip } from "./Chip.svelte";
+export { default as Segmented } from "./Segmented.svelte";
 export { default as ToastHost } from "./ToastHost.svelte";
 export { toast, dismissToast, toastState } from "./toast.svelte.js";
 
