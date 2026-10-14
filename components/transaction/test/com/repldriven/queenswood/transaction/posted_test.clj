@@ -38,6 +38,7 @@
                     :idempotency-key "k-1"
                     :transaction-type :transaction-type-inbound-transfer
                     :currency "GBP"
+                    :actor {:kind :actor-kind-platform :principal-id "payment"}
                     :scheme-account-id "acc.1"
                     :legs [(leg "gl.1100"
                                 :leg-side-debit 500
@@ -85,6 +86,7 @@
                   :idempotency-key "k-untagged"
                   :transaction-type :transaction-type-inbound-transfer
                   :currency "GBP"
+                  :actor {:kind :actor-kind-platform :principal-id "payment"}
                   :legs [(leg "gl.1100"
                               :leg-side-debit 500
                               :product-type

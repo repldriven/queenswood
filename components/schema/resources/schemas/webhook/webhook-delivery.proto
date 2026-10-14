@@ -28,7 +28,7 @@ message WebhookDelivery {
   required string kind = 6;
 
   required int64 created_at = 101;
-  optional com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
   optional int64 updated_at = 103;
 
   required int32 attempt_count = 201;

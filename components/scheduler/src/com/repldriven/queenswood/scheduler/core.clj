@@ -38,6 +38,11 @@
     :run (fn [config bank-id as-of-date]
            (migrations/run-due-migrations config bank-id as-of-date))}})
 
+(def ^:private platform
+  "The actor of a run the scheduler starts when a job falls due, and of
+  a job it seeds for a bank created before the job existed."
+  {:kind :actor-kind-platform :principal-id "scheduler"})
+
 (defn- task-label
   [task-kind]
   (get-in task-registry [task-kind :label] (name task-kind)))
@@ -332,7 +337,7 @@
   "Seed the bank's default scheduled jobs (FDB only — no triggers).
   Idempotent: re-seeding overwrites by `[bank_id, job_id]`. Runs inside
   the caller's transaction so a failed row rolls bank creation back.
-  `actor`, who creates the bank, creates each job."
+  `actor` creates each job: the platform, as the bank brick."
   [txn bank-id actor]
   (reduce (fn [_ template]
             (let [result (store/save-job txn
@@ -354,7 +359,10 @@
     (reduce (fn [written template]
               (if (present (:job-id template))
                 written
-                (let [job (template->job bank-id template (utility/now) nil)
+                (let [job (template->job bank-id
+                                         template
+                                         (utility/now)
+                                         platform)
                       result (store/save-job config job)]
                   (if (error/anomaly? result)
                     (do (log/error "Scheduler could not seed a job"
@@ -397,7 +405,7 @@
                   bank-id
                   job
                   :scheduler-trigger-source-scheduled
-                  nil
+                  platform
                   nil)))))
 
 (defn- register!

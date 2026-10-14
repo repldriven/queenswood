@@ -49,7 +49,8 @@
    :correlation-id "c0ffee00-0000-4000-8000-000000000001"
    :body (.getBytes "{\"id\":\"acc.1\"}" "UTF-8")
    :idempotency-key idempotency-key
-   :created-at created-at})
+   :created-at created-at
+   :created-by {:kind :actor-kind-platform :principal-id "webhook"}})
 
 (defn- delivery
   "A delivery row. `next-attempt-at` is dropped when absent rather than
@@ -63,6 +64,7 @@
            :status status
            :kind "cash-account.opened"
            :created-at created-at
+           :created-by {:kind :actor-kind-platform :principal-id "webhook"}
            :attempt-count 0}
           next-attempt-at
           (assoc :next-attempt-at next-attempt-at)))

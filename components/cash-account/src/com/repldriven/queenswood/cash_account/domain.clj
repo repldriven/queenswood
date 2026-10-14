@@ -8,6 +8,11 @@
 
     [clojure.string :as str]))
 
+(def ^:private platform
+  "The actor of what the cash-account brick changes on its own, as a
+  provider's event opens, closes or readdresses an account."
+  {:kind :actor-kind-platform :principal-id "cash-account"})
+
 (defn party->account-type
   [party]
   (if (= :party-type-person (:party-type party))
@@ -182,9 +187,10 @@
 
 (defn- moved
   [account status]
-  (-> account
-      (assoc :status status :updated-at (utility/now))
-      (dissoc :updated-by)))
+  (assoc account
+         :status status
+         :updated-at (utility/now)
+         :updated-by platform))
 
 (defn opened-account
   [account]
@@ -308,8 +314,7 @@
               assoc-some
               :status :address-rotation-status-failed
               :failed-reason reason)
-      (assoc :updated-at (utility/now))
-      (dissoc :updated-by)))
+      (assoc :updated-at (utility/now) :updated-by platform)))
 
 (defn reissued-account
   [account {:keys [provider-account-id addresses]}]
@@ -322,8 +327,8 @@
         (with-addresses addresses provider-account-id)
         (assoc :retired-payment-addresses
                (into (vec (:retired-payment-addresses account)) retired)
-               :updated-at now)
-        (dissoc :updated-by))))
+               :updated-at now
+               :updated-by platform))))
 
 (defn migrate-product
   "Repin an opened account to another product version. Direct
@@ -340,8 +345,9 @@
   a currency this account may hold — belongs to whoever assembled the
   cohort, not here. This guards the account's own state and nothing
   else, so a single account can be moved on its own without
-  reconstructing a migration's reasoning."
-  [account target-version as-of policies]
+  reconstructing a migration's reasoning. `actor` moves it, the
+  platform when a migration runs."
+  [account target-version as-of policies actor]
   (let-nom>
     [_ (when-not (= :cash-account-status-opened (:status account))
          (error/reject :cash-account/invalid-status
@@ -356,5 +362,5 @@
         (assoc :product-id (:product-id target-version)
                :version-id (:version-id target-version)
                :version-from-on as-of
-               :updated-at (utility/now))
-        (dissoc :updated-by))))
+               :updated-at (utility/now)
+               :updated-by actor))))

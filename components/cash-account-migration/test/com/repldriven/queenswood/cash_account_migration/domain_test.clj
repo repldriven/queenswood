@@ -323,9 +323,12 @@
     (let [approved
           (assoc approvable :status :cash-account-migration-status-approved)]
       (is (nil? (SUT/ensure-runnable approved)))
-      (let [completed (SUT/complete-migration approved)]
+      (let [platform {:kind :actor-kind-platform
+                      :principal-id "cash-account-migration"}
+            completed (SUT/complete-migration approved platform)]
         (is (= :cash-account-migration-status-completed (:status completed)))
-        (is (number? (:updated-at completed)))))))
+        (is (number? (:updated-at completed)))
+        (is (= platform (:updated-by completed)))))))
 
 (deftest due?-test
   (let [approved

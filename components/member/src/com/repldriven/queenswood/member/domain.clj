@@ -23,6 +23,11 @@
 (def ^:private member :actor-kind-member)
 (def ^:private operator :actor-kind-operator)
 
+(def ^:private email
+  "The actor of an invitation's token, which the email brick records as
+  it sends the invitation."
+  {:kind :actor-kind-platform :principal-id "email"})
+
 (defn effective-role
   [actor]
   (if (= operator (:kind actor))
@@ -340,6 +345,7 @@
                (error/reject :invitation/superseded
                              {:message "The invitation was sent again since"
                               :invitation-id (:invitation-id invitation)}))]
-    (-> invitation
-        (assoc :token-hash token-hash :updated-at now)
-        (dissoc :updated-by))))
+    (assoc invitation
+           :token-hash token-hash
+           :updated-at now
+           :updated-by email)))

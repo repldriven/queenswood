@@ -33,5 +33,5 @@ message Transaction {
 
   required string idempotency_key = 100;
   required int64 created_at = 101;
-  optional com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
 }

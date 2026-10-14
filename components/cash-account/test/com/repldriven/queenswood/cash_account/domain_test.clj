@@ -258,7 +258,8 @@
             result (SUT/close-refused-account closing)]
         (is (= from (:status result)))
         (is (nil? (:close-requested-from result)))
-        (is (nil? (:updated-by result)))))))
+        (is (= {:kind :actor-kind-platform :principal-id "cash-account"}
+               (:updated-by result)))))))
 
 (def ^:private posted-bucket
   {:balance-type :balance-type-default
@@ -405,6 +406,9 @@
 
 (def ^:private migration-target {:product-id "prd.mega" :version-id "prv.4"})
 
+(def ^:private mover
+  {:kind :actor-kind-platform :principal-id "cash-account-migration"})
+
 (deftest migrate-product-source-state-guard-test
   (testing
     "migrating an account not in :cash-account-status-opened is
@@ -417,7 +421,8 @@
                                         migration-target
                                         20500
                                         [(policy-allowing
-                                          :cash-account-action-migrate)])]
+                                          :cash-account-action-migrate)]
+                                        mover)]
         (is (error/rejection? result))
         (is (= :cash-account/invalid-status (error/kind result)))
         (is (= status (:status (error/payload result))))))))
@@ -430,7 +435,8 @@
     (let [result (SUT/migrate-product (account :cash-account-status-opened)
                                       migration-target
                                       20500
-                                      [])]
+                                      []
+                                      mover)]
       (is (error/anomaly? result)))))
 
 (deftest migrate-product-happy-test
@@ -445,7 +451,8 @@
                                       migration-target
                                       20500
                                       [(policy-allowing
-                                        :cash-account-action-migrate)])]
+                                        :cash-account-action-migrate)]
+                                      mover)]
       (is (= "prd.mega" (:product-id result)))
       (is (= "prv.4" (:version-id result)))
       (is (= 20500 (:version-from-on result)))

@@ -18,7 +18,8 @@
    :idempotency-key idempotency-key
    :transaction-type :transaction-type-internal-transfer
    :currency "GBP"
-   :created-at (utility/now)})
+   :created-at (utility/now)
+   :created-by {:kind :actor-kind-platform :principal-id "payment"}})
 
 (defn- leg
   [transaction leg-id account-id side amount]

@@ -12,6 +12,11 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.utility.interface :as utility]))
 
+(def ^:private platform
+  "The actor of a migration's run when it falls due, and of the accounts
+  it moves."
+  {:kind :actor-kind-platform :principal-id "cash-account-migration"})
+
 (defn- source-version
   "Any version of the source product, read for its product type. Every
   version of a product shares one, so which is immaterial — but a
@@ -141,7 +146,8 @@
                 (let [moved (cash-accounts/migrate-account txn
                                                            account
                                                            target
-                                                           policies)]
+                                                           policies
+                                                           platform)]
                   (if (error/anomaly? moved)
                     (domain/failed-verdict moved)
                     domain/moved-verdict)))
@@ -410,8 +416,8 @@
   (let-nom>
     [migration (get-migration txn bank-id migration-id)
      _ (domain/ensure-runnable migration)
-     run (pass txn bank-id migration-id business-day false nil)
-     completed (domain/complete-migration migration)
+     run (pass txn bank-id migration-id business-day false {:actor platform})
+     completed (domain/complete-migration migration platform)
      _ (store/save-migration txn completed)]
     run))
 

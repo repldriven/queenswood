@@ -220,16 +220,17 @@
 (defn complete-migration
   "Close an approved migration once its run has finished. Separate from
   the run's own completion: a run can finish having moved nothing, and
-  it is the migration that is done, not the pass."
-  [migration]
+  it is the migration that is done, not the pass. `actor` is the
+  platform, which runs a migration when it falls due."
+  [migration actor]
   (let-nom>
     [_ (ensure-status migration
                       #{:cash-account-migration-status-approved}
                       "completed")]
-    (-> migration
-        (assoc :status :cash-account-migration-status-completed
-               :updated-at (utility/now))
-        (dissoc :updated-by))))
+    (assoc migration
+           :status :cash-account-migration-status-completed
+           :updated-at (utility/now)
+           :updated-by actor)))
 
 (defn due?
   "Whether an approved migration is work for `business-day`.

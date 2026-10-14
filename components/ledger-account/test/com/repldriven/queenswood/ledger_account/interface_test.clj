@@ -253,6 +253,8 @@
                                     :idempotency-key key
                                     :transaction-type transaction-type
                                     :currency "GBP"
+                                    :actor {:kind :actor-kind-platform
+                                            :principal-id "payment"}
                                     :legs legs}))
 
 (defn- deposit
@@ -404,6 +406,7 @@
     :idempotency-key (str "in-" account-id "-" amount)
     :transaction-type :transaction-type-inbound-transfer
     :currency "GBP"
+    :actor {:kind :actor-kind-platform :principal-id "payment"}
     :legs [{:account-id cash-id
             :product-type :account-product-type-general-ledger
             :balance-type :balance-type-default
@@ -456,13 +459,14 @@
                 :side side
                 :amount amount})
          post (fn [key transaction-type legs]
-                (transactions/record-transaction config
-                                                 {:bank-id bank-id
-                                                  :idempotency-key key
-                                                  :transaction-type
-                                                  transaction-type
-                                                  :currency "GBP"
-                                                  :legs legs}))
+                (transactions/record-transaction
+                 config
+                 {:bank-id bank-id
+                  :idempotency-key key
+                  :transaction-type transaction-type
+                  :currency "GBP"
+                  :actor {:kind :actor-kind-platform :principal-id "payment"}
+                  :legs legs}))
          posted (fn [account]
                   (mapv (fn [b] (select-keys b [:credit :debit]))
                         (:balances (SUT/get-balances config bank-id account))))

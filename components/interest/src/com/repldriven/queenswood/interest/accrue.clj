@@ -9,6 +9,11 @@
     [com.repldriven.queenswood.transaction.interface :as transactions]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
+(def ^:private platform
+  "The actor of what the interest brick records on its own, each day's
+  accrual and capitalisation."
+  {:kind :actor-kind-platform :principal-id "interest"})
+
 (defn- get-product-version
   "The account's pinned product version, memoised for the run.
 
@@ -117,7 +122,10 @@
                      (when (error/anomaly? checked) (reduced checked))))
                  nil
                  recording)
-       _ (transactions/record-transactions txn recording)]
+       _ (transactions/record-transactions
+          txn
+          (mapv (fn [transaction] (assoc transaction :actor platform))
+                recording))]
       (into {}
             (map (fn [[account result]] [(:account-id account) result]))
             accrued))))

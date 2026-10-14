@@ -69,7 +69,8 @@
 (defn record
   [txn entry]
   (let [{:keys [subject-kind before after performed-by]} entry]
-    (when performed-by
+    (when (and performed-by
+               (not= :actor-kind-platform (:kind performed-by)))
       (let-nom> [changes (changeset subject-kind before after)]
         (store/append txn
                       (->

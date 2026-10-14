@@ -163,7 +163,8 @@ and write no `reserved` for a number a record does not use. Give a
 record no field for when or by whom an act happened, which its audit
 entry holds, and never declare `updated_at` or `updated_by` `required`
 or set either on create; a member's, an operator's or the bank's credential's change sets both,
-and a platform change sets `updated_at` and clears `updated_by`.
+and so does a platform change, naming the platform, an actor of kind
+`platform` whose principal is the brick that acted.
 Name a date `_on`, `business_day` excepted, an instant `_at`, an actor
 `_by`, a count `_count`, and the reason a record failed
 `failure_reason`. Name an enum `…Type`
@@ -239,8 +240,8 @@ successful write call that was not a replay left an audit entry under
 its request id, except a retry after a lost reply and a step marked
 `:audited false` because its write changes nothing. Remove a transition's `_at` and `_by` pair once its act
 writes an audit entry, keeping a value the domain reads to decide as the
-record's own field and leaving a platform transition to `status` and
-`updated_at`, clearing `updated_by`; keep the audit block — `created_at` and `created_by`, and
+record's own field and leaving a platform transition to `status`,
+`updated_at` and `updated_by`, which names the platform; keep the audit block — `created_at` and `created_by`, and
 `updated_at` with `updated_by` set together — and publish only it.
 Remove a record kept only to remember an act, such as
 `MemberRoleChange`, and leave the changelog envelope without an actor.

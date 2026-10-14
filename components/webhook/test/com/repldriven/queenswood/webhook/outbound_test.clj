@@ -124,7 +124,9 @@
                                    :body (.getBytes "{\"id\":\"acc.1\"}"
                                                     StandardCharsets/UTF_8)
                                    :idempotency-key (str "cle." suffix)
-                                   :created-at now})
+                                   :created-at now
+                                   :created-by {:kind :actor-kind-platform
+                                                :principal-id "webhook"}})
        _ (store/save-delivery
           config
           (utility/assoc-some
@@ -135,6 +137,7 @@
             :status (or status :webhook-delivery-status-pending)
             :kind "cash-account.opened"
             :created-at now
+            :created-by {:kind :actor-kind-platform :principal-id "webhook"}
             :attempt-count (or attempt-count 0)
             :next-attempt-at (or claim-lapses-at now)}))])
     {:endpoint-id endpoint-id

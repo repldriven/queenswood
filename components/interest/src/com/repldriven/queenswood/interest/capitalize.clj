@@ -9,6 +9,11 @@
     [com.repldriven.queenswood.transaction.interface :as transactions]
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
 
+(def ^:private platform
+  "The actor of what the interest brick records on its own, each day's
+  accrual and capitalisation."
+  {:kind :actor-kind-platform :principal-id "interest"})
+
 (defn- record
   "Records the chunk's capitalisations, after checking each currency's
   controls once, returning their recorded legs."
@@ -23,7 +28,10 @@
                    (when (error/anomaly? checked) (reduced checked))))
                nil
                (group-by :currency transactions))
-     recorded (transactions/record-transactions txn transactions)]
+     recorded (transactions/record-transactions
+               txn
+               (mapv (fn [transaction] (assoc transaction :actor platform))
+                     transactions))]
     (into [] (mapcat :legs) recorded)))
 
 (defn- capitalize-chunk

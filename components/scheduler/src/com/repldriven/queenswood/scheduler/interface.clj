@@ -41,7 +41,8 @@
   Args:
   - txn: an open FDB transaction or a config map.
   - bank-id: the bank to seed jobs for.
-  - actor: who creates the bank, recorded as each job's creator."
+  - actor: recorded as each job's creator, the platform as the bank
+    brick when a bank is created."
   [txn bank-id actor]
   (core/seed-jobs txn bank-id actor))
 
