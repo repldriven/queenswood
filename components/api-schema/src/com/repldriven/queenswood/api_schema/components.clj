@@ -356,7 +356,8 @@
 (def ^:private actor-kind-enum
   (enum-coercion {"member" :actor-kind-member
                   "operator" :actor-kind-operator
-                  "bank" :actor-kind-bank}
+                  "bank" :actor-kind-bank
+                  "platform" :actor-kind-platform}
                  :actor-kind-unknown))
 
 (def ActorKind ((:enum-schema actor-kind-enum) {:json-schema/example "member"}))
@@ -366,8 +367,10 @@
    {:json-schema/example {:kind "member"
                           :principal-id "usr.01kprbmgcj35ptc8npmybhh4s7"}
     :description
-    "Who did something: a member by user id, the bank by its client id, or
-    an operator by user id or client id. The routes about a bank's people
+    "Who did something: a member by user id, the bank by its client id, an
+    operator by user id or client id, or the platform by the part of it
+    that acted, `bank` for what every bank is given when it is created.
+    The routes about a bank's people
     also name them: a member, or an operator signed in as a user, from
     their user record whether or not still a member, by their email when
     the record has no name, and the platform's own client as

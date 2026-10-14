@@ -80,6 +80,13 @@
 
 (def
   ^{:doc
+    "RFC 9457 body for a 404 `:cash-account-product/template-not-found`
+  rejection: Template not found."}
+  TemplateNotFound
+  examples/TemplateNotFound)
+
+(def
+  ^{:doc
     "RFC 9457 body for a 422 `:cash-account-product/template-mismatch`
   rejection: Template does not match the product's template."}
   TemplateMismatch

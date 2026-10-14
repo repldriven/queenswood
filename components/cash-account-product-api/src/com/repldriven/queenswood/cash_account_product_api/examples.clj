@@ -9,6 +9,12 @@
            :status 404
            :detail "Product not found"}})
 
+(def TemplateNotFound
+  {:value {:title "REJECTED"
+           :type ":cash-account-product/template-not-found"
+           :status 404
+           :detail "Template not found"}})
+
 (def VersionNotFound
   {:value {:title "REJECTED"
            :type ":cash-account-product/version-not-found"
@@ -46,8 +52,9 @@
            :detail "The payment provider does not issue scan addresses"}})
 
 (def registry
-  (examples-registry [#'ProductNotFound #'VersionNotFound #'DraftAlreadyExists
-                      #'VersionImmutable #'CurrencyNotAllowed #'TemplateMismatch
+  (examples-registry [#'ProductNotFound #'TemplateNotFound #'VersionNotFound
+                      #'DraftAlreadyExists #'VersionImmutable
+                      #'CurrencyNotAllowed #'TemplateMismatch
                       #'UnsupportedAddressScheme]))
 
 (def ProductId (schema/id-examples "ProductId"))

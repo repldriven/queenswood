@@ -389,6 +389,9 @@ bounds them all. See
   threaded into the live evaluators' anomalies. A future
   enrichment could surface `:policy-id` / `:capability-index`
   at rejection time.
+- **A count includes closed records.** The tier's limits on parties,
+  accounts and products count every record ever made, so a micro bank
+  that closes what it opened still reaches its cap.
 
 ## References
 

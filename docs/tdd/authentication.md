@@ -432,6 +432,10 @@ minted *by* it are admin principals at this API's edge.
 - **A person's request costs two FDB transactions.** Resolving the
   principal upserts the user in one and reads its members in
   another, before the route runs.
+- **Failed client secrets are not counted.** The realm's brute-force
+  protection locks a person's password after repeated failures, not a
+  client's secret, so the token endpoint answers each attempt alike
+  until rate limiting lands.
 
 ## References
 

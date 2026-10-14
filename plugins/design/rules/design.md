@@ -188,7 +188,9 @@ Write one append-only `AuditEntry` for each act a member, an operator
 or the bank's credential performs, naming the record it acts on, through the `audit`
 brick's `record`, in the transaction that saves the change; write none
 for what the platform does by itself, and leave a record the act writes
-as its consequence to its own `created_by`. Append it under the bank and
+as its consequence to its own `created_by`, naming the platform, an
+actor of kind `platform` whose principal is the brick that acted, on
+what it builds for every bank whoever asks. Append it under the bank and
 its commit's versionstamp, outside the Record Layer, with empty keys
 beside it under the bank and subject, the bank and kind, the bank and
 performer's kind, the bank, performer's kind and kind, the bank and

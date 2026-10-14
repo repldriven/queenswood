@@ -957,6 +957,11 @@ stated as unobserved, with what would observe it.
   `bank-tier-changed` are written to the bank store's changelog and
   relayed by no runner, so nothing has ever read one. The bank slice's
   relay runner and topic are what observe them.
+- **Deliveries made by hand have no limit.** `test-notification` and
+  `resend` each add a delivery, and nothing counts them. `resend-window`
+  reads every notification the bank has had in one transaction and
+  resends each in the window, so one call can queue thousands, and a long
+  history makes the read too large to commit.
 
 ## References
 

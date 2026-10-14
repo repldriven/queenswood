@@ -32,7 +32,8 @@
               "symbols": [
                 "ACTOR_KIND_MEMBER",
                 "ACTOR_KIND_OPERATOR",
-                "ACTOR_KIND_BANK"
+                "ACTOR_KIND_BANK",
+                "ACTOR_KIND_PLATFORM"
               ]
             }
           },

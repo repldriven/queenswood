@@ -12,7 +12,8 @@
     [com.repldriven.queenswood.cash-account-product-api.interface :as
      cash-account-product-api :refer
      [CurrencyNotAllowed DraftAlreadyExists ProductNotFound TemplateMismatch
-      UnsupportedAddressScheme VersionImmutable VersionNotFound]]
+      TemplateNotFound UnsupportedAddressScheme VersionImmutable
+      VersionNotFound]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
 
     [com.repldriven.mono.server.interface :as server]))
@@ -58,8 +59,10 @@
              :openapi {:operationId "CreateCashAccountProduct"
                        :description
                        (str "Creates the product with its first version as a "
-                            "draft, and returns that version. A currency the "
-                            "template does not allow is refused with 422.")
+                            "draft, and returns that version. An unknown "
+                            "template returns 404, the own-funds template is "
+                            "refused with 403, and a currency the template "
+                            "does not allow is refused with 422.")
                        :security [{"bearerAuth" ["org:developer"]}]
                        :requestBody {:required true}
                        :parameters ^:replace
@@ -76,6 +79,7 @@
                                                     "draft version")}
                               :links cash-account-product-api/from-draft}}
                403 (ErrorExamples [#'api-schema/PolicyDenied])
+               404 (ErrorResponse [#'TemplateNotFound])
                422 (ErrorResponse [#'CurrencyNotAllowed])
                429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
              :handler handlers/create-product}}]

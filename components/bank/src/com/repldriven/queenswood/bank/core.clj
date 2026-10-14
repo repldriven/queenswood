@@ -44,8 +44,8 @@
   the bootstrap `policies` (the platform tier, which grants it) so
   seeding is allowed even for a tier that denies the capability
   per-bank. Runs inside `new-bank`'s transaction, so a failed row
-  rolls the whole bank creation back. `actor`, who creates the bank,
-  creates each account."
+  rolls the whole bank creation back. `actor` creates each account:
+  the platform, as for all of a bank's scaffolding."
   [txn bank-id currencies policies actor]
   (reduce (fn [_ [currency row]]
             (let [result (ledger-accounts/new-account txn
@@ -59,6 +59,12 @@
           (for [currency currencies
                 row default-ledger-accounts]
             [currency row])))
+
+(def ^:private platform
+  "The actor of what the bank brick builds for every bank whoever asks
+  for it: the bank's party, ledger accounts, own-funds products and
+  accounts, policy bindings and scheduled jobs."
+  {:kind :actor-kind-platform :principal-id "bank"})
 
 (def ^:private own-funds-template-id
   "The internal own-funds template seeded at bootstrap (see
@@ -246,18 +252,18 @@
                             :party-type :party-type-organization
                             :legal-name bank-name
                             :display-name bank-name
-                            :actor actor}
+                            :actor platform}
                            {:policies policies})
-       _ (new-ledger-accounts txn bank-id currencies policies actor)
+       _ (new-ledger-accounts txn bank-id currencies policies platform)
        _ (new-house-accounts txn
                              bank-id
                              party-id
                              currencies
                              policies
                              payment-provider
-                             actor)
-       _ (bind-policies txn bank-id tier-policies actor)
-       _ (scheduler/seed-jobs txn bank-id actor)
+                             platform)
+       _ (bind-policies txn bank-id tier-policies platform)
+       _ (scheduler/seed-jobs txn bank-id platform)
        owner (when member
                (members/new-member txn
                                    {:user-id user-id
