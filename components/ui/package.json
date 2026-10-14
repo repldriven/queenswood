@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.js",
     "./tokens.css": "./src/tokens.css",
+    "./money.js": "./src/money.js",
     "./*.svelte": "./src/*.svelte"
   },
   "scripts": {

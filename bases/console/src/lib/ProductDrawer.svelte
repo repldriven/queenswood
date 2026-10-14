@@ -1,13 +1,8 @@
 <script>
-  /* Drawer-hosted form for creating or editing cash-account-product
-     versions.
-
-     Modes:
-       create       blank form. Calls create_cash_account_product.
-       edit-draft   target is the existing draft version. PUT update.
-       new-version  target is the published version we're revising —
-                    opens a fresh draft via POST .../versions, then
-                    optionally edits.
+  /* Drawer-hosted form for creating a cash-account product: its type,
+     currency, name and the date its first version starts. The draft it
+     creates is handed to `onSaved`, and every other term is set on the
+     version's page.
 
      `templates` flows in from Products.svelte (one fetch shared
      across the page). We pick the chosen template's allowed
@@ -20,20 +15,9 @@
     Select,
     Button,
   } from "@queenswood/ui";
-  import {
-    create_cash_account_product,
-    open_cash_account_product_draft,
-    update_cash_account_product_draft,
-  } from "./api.mjs";
+  import { create_cash_account_product } from "./api.mjs";
 
-  let {
-    open,
-    mode = "create",
-    target = null,
-    templates = [],
-    onClose,
-    onSaved,
-  } = $props();
+  let { open, templates = [], onClose, onSaved } = $props();
 
   // Form state. Reset by the $effect below whenever the drawer opens
   // so re-opening doesn't leak the previous edit's values.
@@ -44,7 +28,6 @@
   let productType = $state("current");
   let currency = $state("GBP");
   let name = $state("");
-  let rateBps = $state(0);
   // Effective window (ISO date strings). effective-from defaults to
   // today; effective-to is optional (blank = open-ended).
   let effectiveFrom = $state(todayISO());
@@ -58,40 +41,18 @@
   $effect(() => {
     if (!open) return;
     formError = null;
-    if (mode === "edit-draft" && target) {
-      productType = target["product-type"] ?? "current";
-      currency = target.currency ?? "GBP";
-      name = target.name ?? "";
-      rateBps = target["interest-rate-bps"] ?? 0;
-      // Keep the draft's own window.
-      effectiveFrom = target["effective-from"] ?? todayISO();
-      effectiveTo = target["effective-to"] ?? "";
-      nameTouched = true;
-    } else if (mode === "new-version" && target) {
-      // Pre-fill from the published version we're revising, but the new
-      // version's terms start today by default.
-      productType = target["product-type"] ?? "current";
-      currency = target.currency ?? "GBP";
-      name = target.name ?? "";
-      rateBps = target["interest-rate-bps"] ?? 0;
-      effectiveFrom = todayISO();
-      effectiveTo = "";
-      nameTouched = true;
-    } else {
-      // Compute from locals, not the productType/currency state we're
-      // assigning — reading that state here would make this effect
-      // depend on it and re-fire (resetting to the default) on every
-      // edit, pinning the form to templates[0].
-      const t = templates[0]?.["product-type"] ?? "current";
-      const allowed = templates[0]?.["allowed-currencies"] ?? ["GBP"];
-      productType = t;
-      currency = allowed[0];
-      rateBps = 0;
-      effectiveFrom = todayISO();
-      effectiveTo = "";
-      nameTouched = false;
-      name = defaultName(t, allowed[0]);
-    }
+    // Compute from locals, not the productType/currency state we're
+    // assigning — reading that state here would make this effect
+    // depend on it and re-fire (resetting to the default) on every
+    // edit, pinning the form to templates[0].
+    const t = templates[0]?.["product-type"] ?? "current";
+    const allowed = templates[0]?.["allowed-currencies"] ?? ["GBP"];
+    productType = t;
+    currency = allowed[0];
+    effectiveFrom = todayISO();
+    effectiveTo = "";
+    nameTouched = false;
+    name = defaultName(t, allowed[0]);
   });
 
   function defaultName(t, c) {
@@ -159,25 +120,13 @@
         "template-id"
       ],
       currency,
-      "interest-rate-bps": Number(rateBps) || 0,
       "effective-from": effectiveFrom,
     };
     if (effectiveTo) data["effective-to"] = effectiveTo;
     try {
-      let res;
-      if (mode === "create") {
-        res = await create_cash_account_product(data);
-      } else if (mode === "edit-draft") {
-        res = await update_cash_account_product_draft(
-          target["product-id"],
-          target["version-id"],
-          data,
-        );
-      } else if (mode === "new-version") {
-        res = await open_cash_account_product_draft(target["product-id"], data);
-      }
+      const res = await create_cash_account_product(data);
       if (res.status >= 200 && res.status < 300) {
-        onSaved?.();
+        onSaved?.(res.body);
       } else {
         formError = res.body?.detail ?? `Save failed (${res.status})`;
       }
@@ -188,29 +137,14 @@
     }
   }
 
-  const titleFor = $derived(
-    mode === "create"
-      ? "New product"
-      : mode === "new-version"
-        ? "New version"
-        : "Edit draft",
-  );
-
-  const ctaFor = $derived(
-    mode === "create"
-      ? "Create product"
-      : mode === "new-version"
-        ? "Open draft"
-        : "Save draft",
-  );
 </script>
 
 <Drawer
   {open}
   {onClose}
   kicker="Define"
-  title={titleFor}
-  sub="Drafts are iterable — save, come back, edit again. Publishing commits a version and releases it."
+  title="New product"
+  sub="Creates the product's first draft. Its interest, limits and rewards are set on the draft's page."
 >
   <form id="product-form" onsubmit={submit}>
     <Field label="Account type" htmlFor="f-type">
@@ -235,13 +169,6 @@
       hint="Defaults to {currency} {productType}. Override if customers should see a different label."
     >
       <Input id="f-name" value={name} oninput={onNameInput} />
-    </Field>
-
-    <Field label="Interest rate" htmlFor="f-rate">
-      <Input id="f-rate" type="number" min="0" affix="bps" bind:value={rateBps} />
-      {#snippet hint()}
-        Basis points. <code>100 bps = 1.00%</code>.
-      {/snippet}
     </Field>
 
     <Field
@@ -274,7 +201,7 @@
       form="product-form"
       disabled={submitting || !name.trim() || !effectiveFrom}
     >
-      {submitting ? "Saving…" : ctaFor}
+      {submitting ? "Creating…" : "Create draft"}
     </Button>
   {/snippet}
 </Drawer>

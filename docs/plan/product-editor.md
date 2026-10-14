@@ -23,10 +23,14 @@ Queenswood design system's tokens.
 
 ## What exists
 
-- **The drawer.** `bases/console/src/lib/ProductDrawer.svelte` takes a
-  type, a currency, a name, `interest-rate-bps` and an effective window,
-  in three modes: `create`, `edit-draft` and `new-version`.
-  `Products.svelte` opens it and refetches when it saves.
+- **The page.** `bases/console/src/lib/ProductVersion.svelte` at
+  `#/products/:product-id/versions/:version-id`, with the accrual grid in
+  `InterestGrid.svelte` and the form's conversions and customer wording
+  in `product-terms.mjs`. `ProductDrawer.svelte` only creates a product
+  (type, currency, name, effective window) and lands on its draft; Edit
+  and View open the page, and New version opens a draft copied from the
+  published version. A yes/no setting is a `Segmented` slider from
+  `@queenswood/ui`, not a checkbox.
 - **The API.** `create_cash_account_product`,
   `open_cash_account_product_draft` and
   `update_cash_account_product_draft` in `lib/api.mjs`. The domain's
@@ -100,7 +104,7 @@ Interest accrues daily on the end-of-day balance." A grid:
 - A flat rate is one cell. For a regular saver the hint under the grid
   shows the AER, worked out from the first cell and the payment
   frequency: 6.31% paid monthly is 6.50% AER.
-- There is no choice of banding. Always send `marginal`.
+- Banding is a slider, Marginal | Whole balance, marginal by default.
 
 **Payment.** "When accrued interest is paid into the account." One row
 that reads as a sentence: `Interest paid [Monthly] on [each monthly
@@ -259,15 +263,13 @@ How the term maps to the record:
    named when an account opens, as the TDD's Term section says. The
    migration refusal `:cash-account-migration/fixed-term-version` comes
    with it.
-3. **The console sends `banding: marginal`** every time.
+3. **Done:** the page above, with the term shown as not available.
 
 ## Open decisions
 
-- **Creating a product.** Keep the drawer for type, currency and name,
-  then land on the page? Or open the page empty?
-- **Whole-balance banding.** The grid shows any schedule the API
-  takes, except whole-balance banding, which the page does not offer.
-  Refuse it in the domain, or show it read-only?
+- **Creating a product.** Settled: the drawer takes type, currency and
+  name, then lands on the draft's page.
+- **Whole-balance banding.** Settled: kept, and offered beside the grid.
 - **A maturity date.** "Until a fixed date" with "The account matures"
   has no field. Offer a fixed date only with "The rate changes", or add
   a maturity date to the record.
