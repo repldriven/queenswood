@@ -99,13 +99,16 @@ The same bank from your customer's side, in the
 - **Test suite.** Generated tests check its answers against a model of how
   a bank should behave, and scenarios drive the live API end to end.
 
-## For product managers
+## For product teams
 
-- **Configurable products.** Change a rate, add a welcome reward or launch a
-  new product line, and move existing customers to the new terms only when you
-  plan and approve it, with no need to ship code.
-- **Interest.** Accounts earn interest daily on their settled balance, paid
-  in on a schedule you set.
+[Read the pitch](docs/pitch/product-teams.pdf).
+
+- **Configurable products.** Set each product's interest, payment limits and
+  welcome reward, publish it as a version with no code to ship, and move
+  existing customers to new terms only when you plan and approve it.
+- **Interest.** Accounts earn interest daily, on terms a version can set by
+  balance band and over time, such as a bonus for the first year or a monthly
+  pay-in limit, paid on a schedule you set.
 - **Customer onboarding.** Every new customer is identity-checked as they sign
   up, and can't open an account until the check clears.
 - **Payments.** Customers pay and are paid by UK Faster Payments in seconds,
