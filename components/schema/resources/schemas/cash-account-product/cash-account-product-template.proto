@@ -8,6 +8,14 @@ import "schemas/cash-account-product/types.proto";
 
 option java_outer_classname = "CashAccountProductTemplateProto";
 
+// A currency a template allows, and the market conventions an account
+// in it is held to.
+message TemplateCurrency {
+  required string currency = 1; // ISO 4217
+  required InterestDayCount day_count = 2;
+  required BusinessDayConvention business_day_convention = 3;
+}
+
 // A platform template a cash account product is created from.
 message CashAccountProductTemplate {
   option (com.apple.foundationdb.record.record).usage = RECORD;
@@ -18,7 +26,7 @@ message CashAccountProductTemplate {
   required com.repldriven.queenswood.schema.account_product_type.AccountProductType product_type = 3;
   required IsoCashAccountType iso_cash_account_type = 4;
   required BalanceSheetSide balance_sheet_side = 5;
-  repeated string allowed_currencies = 6; // ISO 4217
+  repeated TemplateCurrency currencies = 6;
   repeated BalanceProduct balance_products = 7;
   repeated PaymentAddressScheme allowed_payment_address_schemes = 8;
 

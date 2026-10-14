@@ -177,6 +177,34 @@
              (re-seq record-block content))]
         (when (not= content rewritten) (spit f rewritten))))))
 
+(def ^:private repeated-scalar-write
+  "A repeated scalar field's write in a generated `serialize`, which
+  writes each element through the type's writer and so skips a default
+  one."
+  #"\(serdes\.complex/write-repeated (serdes\.core/write-(?!embedded)\S+) (\d+) \((:\S+) this\) os\)")
+
+(defn- write-repeated-elements
+  "Rewrites the generated `serialize` of every message so each element
+  of a repeated scalar field is written, a zero, false or empty string
+  included. protoc-gen-clojure writes each element the proto3 way, so
+  `[0 500000]` would read back as `[500000]`."
+  [clj-out]
+  (doseq [f (->> (file-seq (io/file clj-out))
+                 (filter #(str/ends-with? (.getName %) ".cljc")))]
+    (let [content (slurp f)
+          rewritten (str/replace content
+                                 repeated-scalar-write
+                                 (fn [[_ writer tag k]]
+                                   (str "(serdes.complex/write-repeated "
+                                        "(fn [tag v os] ("
+                                        writer
+                                        " tag {:optimize false} v os)) "
+                                        tag
+                                        " ("
+                                        k
+                                        " this) os)")))]
+      (when (not= content rewritten) (spit f rewritten)))))
+
 (defn gen-proto
   [{:keys [root] :or {root "."}}]
   (let [proto-path (str root "/resources")
@@ -205,6 +233,7 @@
                                       (into protos))})
     (strip-option-requires clj-out)
     (write-required-fields clj-out descriptor-set)
+    (write-repeated-elements clj-out)
     (b/javac {:src-dirs [java-out]
               :class-dir class-out
               :basis (b/create-basis {:project (str root "/deps.edn")})

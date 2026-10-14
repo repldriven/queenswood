@@ -122,6 +122,25 @@
   [version]
   (components/->version-body version))
 
+(defn ->version-data
+  "A product request's body as `cash-account-product` takes it, its
+  `interest-terms` as a version stores them.
+
+  Args:
+  - body: a `CashAccountProductRequest` or `CashAccountProductDraftRequest`
+    body, coerced."
+  [body]
+  (components/->version-data body))
+
+(defn ->template-body
+  "Project a stored template onto `CashAccountProductTemplate`, its
+  currencies as `allowed-currencies`.
+
+  Args:
+  - template: a template as the store hands it back."
+  [template]
+  (components/->template-body template))
+
 (defn ->product-body
   "Project a stored product onto `CashAccountProduct`: its id and each
   version as `->version-body` projects it.

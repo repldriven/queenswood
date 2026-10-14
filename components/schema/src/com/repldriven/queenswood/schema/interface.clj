@@ -254,25 +254,14 @@
              unset))
 
 (defn- plain-interest
-  "A version's interest terms as plain maps, without a step's start, a
-  band's `up-to` or a payment's day, day of month or month where none
-  was given."
+  "A version's interest terms as plain maps, each oneof a map of its one
+  set variant."
   [interest]
-  (-> (into {} interest)
-      (update
-       :steps
-       (fn [steps]
-         (mapv (fn [step]
-                 (-> (without-unset step {:starts-on 0 :starts-after-months 0})
-                     (update :bands
-                             (fn [bands]
-                               (mapv (fn [band]
-                                       (without-unset band {:up-to 0}))
-                                     bands)))))
-               steps)))
-      (update :payment
-              without-unset
-              {:day :interest-payment-day-unknown :day-of-month 0 :month 0})))
+  (walk/postwalk (fn [form]
+                   (if (map? form)
+                     (into {} (remove (fn [[_ v]] (nil? v))) form)
+                     form))
+                 interest))
 
 (defn- plain-limits
   "A version's limits as plain maps, each oneof a map of its one set
@@ -356,13 +345,15 @@
 
 (defn pb->CashAccountProductTemplate
   "Parse CashAccountProductTemplate protobuf bytes into a map, an
-  `updated-at` present only when set.
+  `updated-at` present only when set and each of its currencies a plain
+  map.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (without-unset (cash-account-product/pb->CashAccountProductTemplate input)
-                 {:updated-at 0}))
+  (-> (cash-account-product/pb->CashAccountProductTemplate input)
+      (without-unset {:updated-at 0})
+      (update :currencies (fn [currencies] (mapv #(into {} %) currencies)))))
 
 (defn CashAccountProductTemplate->pb
   "Serialise a CashAccountProductTemplate map to protobuf bytes.

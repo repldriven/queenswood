@@ -49,10 +49,10 @@ interest job fires every day, and operating the bank's settlement account.
 - **Rates that band and step.** A product version can pay
   different rates on different parts of the balance ("5% up
   to £5,000, nothing above") or on the whole balance by the
-  band it reaches, and change its rate on set dates or a
-  number of months after an account opens ("a bonus rate for
-  twelve months"). Every balance on every day has exactly one
-  rate.
+  band it reaches, and change its rates on set dates or a
+  number of days, weeks or months after an account opens ("a
+  bonus rate for twelve months"). Every balance on every day
+  has exactly one rate.
 - **Paid when the product says.** Capitalisation — the
   moment accrued interest becomes part of the spendable
   balance — happens daily, monthly, quarterly, annually or
@@ -84,9 +84,9 @@ interest job fires every day, and operating the bank's settlement account.
 
 - **Floating-point arithmetic.** All interest math is
   integer arithmetic at sub-penny precision.
-- **Other day-count conventions.** Actual/365, and
-  actual/actual dividing by 366 in a leap year, are
-  supported. No actual/360, no 30/360.
+- **Other day-count conventions.** Actual/365, actual/actual
+  dividing by 366 in a leap year, and actual/360 are
+  supported. No 30/360.
 - **Per-currency rates inside one product.** A product
   version carries one rate. Products that earn different
   rates in different currencies aren't expressible as a
@@ -166,14 +166,20 @@ makes compounding emerge from the cadence.
 
 ### Rates that change with the balance and over time
 
-A product version's rate is a schedule. Its steps start on
-calendar dates, or a number of months after each account
-opened, and the first applies from the start. Each step
-splits the balance into bands from zero up, the last with no
-upper limit, and either pays each band's rate on the part of
-the balance within it or pays the rate of the band the
-balance reaches on all of it. A flat rate is one step of one
-band. A balance at or below zero earns nothing.
+A product version's rates are a table. Its columns are bands of
+the balance from zero up, the last with no upper limit, and its
+rows are periods, starting on calendar dates or a number of
+days, weeks or months after each account opened, the first from
+the start. Each cell is the rate a band earns in that period.
+The version either pays each band's rate on the part of the
+balance within it or pays the rate of the band the balance
+reaches on all of it. A flat rate is one band and one period. A
+balance at or below zero earns nothing.
+
+How a day's interest is worked out from a yearly rate, actual/365
+for sterling, comes with the account's currency rather than the
+product, as does what happens to a payment day that is not a
+business day.
 
 ### When interest is paid
 
@@ -183,12 +189,14 @@ consequences:
 
 - **Daily.** The end customer sees interest credited every
   day. Compounding is daily.
-- **Monthly or quarterly.** Paid on the day of the month the
-  account opened, on a fixed day from the 1st to the 28th,
-  or on the month's last day. Compounding is at the same
-  cadence.
-- **Annually.** Paid on the anniversary, or on a fixed date
-  such as 31 March. Compounding only once a year.
+- **Every so many days, weeks or months from opening.** Paid
+  on the same date each month as the account opened, every
+  three months from it, or on each anniversary. Compounding is
+  at the same cadence.
+- **On a date in the calendar.** Paid on a day of the month,
+  or the month's last day, every one, two, three, four, six or
+  twelve months: the 1st of each month, the last day of each
+  quarter, or each 31 March.
 - **At close.** Interest accrues for the life of the account
   and is paid when it closes.
 

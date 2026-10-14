@@ -34,6 +34,14 @@
           (swap! versions assoc k version))
         version))))
 
+(defn- first-rate
+  "The rate of `version`'s first period and first band, or 0 where it
+  pays none."
+  [version]
+  (let [schedule (get-in version [:interest-terms :accrual :schedule])
+        {:keys [periods]} (or (:relative schedule) (:fixed schedule))]
+    (or (first (:rates-bps (first periods))) 0)))
+
 (defn- accruals
   "Each account in `chunk` paired with its day's accrual, opening with
   its carry in `carries`. An account with nothing to accrue is left
@@ -51,11 +59,7 @@
                                              currency
                                              balances
                                              (get carries account-id 0)
-                                             (or (get-in version
-                                                         [:interest-terms :steps
-                                                          0
-                                                          :bands 0 :rate-bps])
-                                                 0)))]
+                                             (first-rate version)))]
                 (cond (error/anomaly? result)
                       (reduced result)
 

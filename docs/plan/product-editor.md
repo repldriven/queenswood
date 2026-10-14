@@ -34,13 +34,15 @@ Queenswood design system's tokens.
   `interest-rate-bps` (stored as flat `interest-terms`),
   `opening-reward`, `payment-limits`, `min-balance`, `max-balance`,
   `effective-from` and `effective-to`.
-- **The record.** `CashAccountProduct` already carries `InterestTerms`
-  (steps of bands, banding, day count, payment), `reward_terms` and
+- **The record.** `CashAccountProduct` carries `InterestTerms` (an
+  accrual grid of bands and periods, and a payment), `reward_terms` and
   `limits`. See [cash-account-products](../tdd/cash-account-products.md#interest-terms)
   and [product-limits](../tdd/product-limits.md).
-- **Not built.** The API does not take `interest-terms`, and
-  `ensure-interest-terms` does not exist. `term_months` and the payout
-  account are only in the TDD. Nothing restricts where withdrawals go.
+- **The API** takes and returns `interest-terms`, validated by the
+  domain's `interest-fields`, and returns the currency's `day-count`
+  and `business-day-convention` beside them.
+- **Not built.** `term_months` and the payout account are only in the
+  TDD. Nothing restricts where withdrawals go.
 
 ## The page
 
@@ -82,30 +84,38 @@ One row: **Type**, **Name** (the widest), **Currency**.
 A "Pays interest" checkbox in the panel head. Off sends no
 `interest-terms`.
 
-**Rate.** A segmented control, **Flat rate | Banded rates**.
+Two parts, each with its one line of explanation.
 
-- Flat: one rate field, `%` affix, two decimals. For a regular saver
-  the hint also shows the AER, worked out from the rate and the payment
+**Accrual.** "The rate each band of the balance earns in each period.
+Interest accrues daily on the end-of-day balance." A grid:
+
+- Each column is a band, headed by its lowest balance: £0.00, then
+  whatever the person types. "Add band" adds a column, up to 10.
+- Each row is a period, headed by its start: "Opening", then "12 months
+  after opening", or a date for a fixed schedule. "Add period" adds a
+  row, up to 12. A unit select (days, weeks, months) beside the grid
+  sets the unit every relative row counts in.
+- Each cell is a rate a year, `%` affix, two decimals, sent in basis
+  points: 5.00% is 500.
+- A flat rate is one cell. For a regular saver the hint under the grid
+  shows the AER, worked out from the first cell and the payment
   frequency: 6.31% paid monthly is 6.50% AER.
-- Banded: a table with the columns Balance from, Up to and Rate a year,
-  and a remove button. Balance from is read-only: £0.00, then the row
-  above's Up to. The last row reads "No upper limit". "Add band" adds a
-  row, up to 10. Hint: "Each band's rate applies to the part of the
-  balance within it."
 - There is no choice of banding. Always send `marginal`.
-- Rates are entered as a percentage and sent in basis points: 5.00% is
-  500.
 
-**Interest paid.** One row that reads as a sentence:
-`Interest paid [Monthly] on [the day the account opened]`.
+**Payment.** "When accrued interest is paid into the account." One row
+that reads as a sentence: `Interest paid [Monthly] on [each monthly
+anniversary of opening]`.
 
-- How often: Daily, Monthly, Quarterly, Annually, When the account
-  closes. Daily and when the account closes hide the day.
-- On: the day the account opened, the 1st to the 28th, or the last day
-  of the month. That is `day` and `day_of_month` in one select.
-- A first-payment month select appears only for a quarterly or annual
-  payment on a set day or the last day.
-- There is no day count field. Always send `actual-365`.
+- How often: Daily, Weekly, Monthly, Every 3 months, Every 6 months,
+  Annually, When the account closes.
+- On: the anniversary of opening, labelled for the frequency ("each
+  monthly anniversary of opening", "each anniversary of opening"), the
+  1st to the 28th, or the last day of the month, sent as 31. Hidden for
+  Daily and When the account closes.
+- Starting in: a month, shown only for a payment less often than
+  monthly on a set day.
+- The day count and business day convention are the currency's, shown
+  as text: "Actual/365 · modified following".
 
 ### Term
 
@@ -179,14 +189,17 @@ reversion rate:
   "template-id": "<the savings template>",
   "currency": "GBP",
   "interest-terms": {
-    "basis": "relative",
-    "banding": "marginal",
-    "steps": [
-      {"bands": [{"up-to": 500000, "rate-bps": 500}, {"rate-bps": 0}]},
-      {"starts-after-months": 12, "bands": [{"rate-bps": 150}]}
-    ],
-    "day-count": "actual-365",
-    "payment": {"frequency": "monthly", "day": "account"}
+    "accrual": {
+      "basis": "relative",
+      "banding": "marginal",
+      "bands": [0, 500000],
+      "unit": "month",
+      "periods": [
+        {"after": 0, "rates-bps": [500, 0]},
+        {"after": 12, "rates-bps": [150, 150]}
+      ]
+    },
+    "payment": {"kind": "account-day", "unit": "month", "every": 1}
   },
   "min-balance": 0,
   "payment-limits": [
@@ -208,11 +221,14 @@ The Regular Saver, which matures after 12 months:
   "template-id": "<the savings template>",
   "currency": "GBP",
   "interest-terms": {
-    "basis": "relative",
-    "banding": "marginal",
-    "steps": [{"bands": [{"rate-bps": 631}]}],
-    "day-count": "actual-365",
-    "payment": {"frequency": "monthly", "day": "account"}
+    "accrual": {
+      "basis": "relative",
+      "banding": "marginal",
+      "bands": [0],
+      "unit": "month",
+      "periods": [{"after": 0, "rates-bps": [631]}]
+    },
+    "payment": {"kind": "account-day", "unit": "month", "every": 1}
   },
   "term-months": 12,
   "min-balance": 0,
@@ -228,36 +244,30 @@ How the term maps to the record:
 
 | The form | `interest-terms` | Other fields |
 |---|---|---|
-| No term | one step | none |
-| Months from opening, the rate changes | `basis: relative`; a second step with `starts-after-months` and one band at the reversion rate | none |
-| Until a fixed date, the rate changes | `basis: fixed`; a second step with `starts-on` | none |
-| Months from opening, the account matures | one step | `term-months` |
-| Until a fixed date, the account matures | one step | no field yet |
-
-The form makes at most two steps, and a second step has one band.
+| No term | the grid as drawn | none |
+| Months from opening, the rate changes | `basis: relative`; a last row `after` the term at the reversion rate in every band | none |
+| Until a fixed date, the rate changes | `basis: fixed`; a last row `from-on` the date | none |
+| Months from opening, the account matures | the grid as drawn | `term-months` |
+| Until a fixed date, the account matures | the grid as drawn | no field yet |
 
 ## Backend work, in order
 
-1. **The API takes `interest-terms`** in place of `interest-rate-bps`,
-   in the shape the TDD gives, and returns it. Add
-   `ensure-interest-terms` with the TDD's rules, refusing
-   `:cash-account-product/invalid-interest-terms`.
+1. **Done:** the API takes and returns `interest-terms` as a grid and a
+   payment, refusing `:cash-account-product/invalid-interest-terms`,
+   with the currency's day count and business day convention.
 2. **`term-months`** on the version, 1 to 120, with the payout account
    named when an account opens, as the TDD's Term section says. The
    migration refusal `:cash-account-migration/fixed-term-version` comes
    with it.
-3. **The console sends `banding: marginal` and `day-count: actual-365`**
-   every time.
+3. **The console sends `banding: marginal`** every time.
 
 ## Open decisions
 
 - **Creating a product.** Keep the drawer for type, currency and name,
   then land on the page? Or open the page empty?
-- **The form's shape in the domain.** Should validation refuse what the
-  form can't show (more than two steps, a banded second step,
-  whole-balance banding) so the API can't create a version the console
-  can't edit? Or drop `InterestBanding` and `InterestDayCount` from the
-  proto while the clean slate allows it?
+- **Whole-balance banding.** The grid shows any schedule the API
+  takes, except whole-balance banding, which the page does not offer.
+  Refuse it in the domain, or show it read-only?
 - **A maturity date.** "Until a fixed date" with "The account matures"
   has no field. Offer a fixed date only with "The rate changes", or add
   a maturity date to the record.
