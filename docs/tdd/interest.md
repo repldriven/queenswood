@@ -568,22 +568,26 @@ run before the day ends go when it lands.
 
 ### A version's interest terms
 
-Not built yet. A version states its rate as a schedule of steps, each
-a set of balance bands, and says when interest is paid, as
+Not built yet beyond the terms on the version. A version states its
+rates as a grid, a rate for each period of an account's life and each
+band of its balance, and says when interest is paid, as
 [cash-account-products](cash-account-products.md#interest-terms) lays
-out. This section is how the passes read the terms, and the order to
-build it in.
+out. Accrual reads the first period's first rate today. This section is
+how the passes read the terms, and the order to build it in.
 
-**A day's rate is a step's bands.** The pass takes the step in force on
-the business day and splits the principal across its bands, summing
-each part times its rate, where a whole-balance step has one part, the
-whole principal at its band's rate:
+**A day's rate is a period's row.** The pass takes the period in force
+on the business day and splits the principal across the bands, summing
+each part times that period's rate for its band, where a whole-balance
+accrual has one part, the whole principal at its band's rate:
 
 ```clojure
-(let [days         (year-days day-count business-day) ; 365, or 366
+(let [days         (year-days day-count business-day) ; 365, 366 or 360
       annual-micro (reduce + (map (fn [{:keys [portion rate-bps]}]
                                     (* portion rate-bps bps-factor))
-                                  (band-portions banding principal bands)))
+                                  (band-portions banding
+                                                 principal
+                                                 bands
+                                                 (:rates-bps period))))
       total-micro  (+ annual-micro (* credit-carry days))
       daily-micro  (quot total-micro days)]
   ...)
@@ -591,8 +595,15 @@ whole principal at its band's rate:
 
 The carry is a day's residue whatever the year's length, so dividing by
 366 on a leap-year day keeps it exact. The remainder is unchanged, and
-a flat rate at actual/365, one step of one band, computes what it does
-today.
+a flat rate at actual/365, one band and one period, computes what it
+does today.
+
+**A payment day moves by its convention.** A payment day that is not a
+business day moves as the version's business day convention says. Each
+payment day is set from the account's day or the calendar, never from
+the payment before it, so the schedule does not drift. Accrual is daily
+on the balance, so moving a payment changes the day the accrued
+interest is paid and not what accrues.
 
 **A principal at or below zero accrues nothing.** The bands start at
 zero, so no band covers an overdrawn balance, and the account is left
@@ -602,8 +613,8 @@ principal accrues today goes with it.
 **The account carries the day it came onto its version.** `version_from_on`,
 an epoch day on `CashAccount`, is written with `version_id`: when the
 account opens and when a migration moves it. A relative step counts
-from it, and so does a payment on the account's own day, so a migration
-starts a relative schedule afresh. Interest accrued before a migration
+from it, and so does an `account_day` payment, so a migration starts a
+relative schedule afresh. Interest accrued before a migration
 stays in the bucket and is paid on the new version's schedule.
 
 **Capitalisation reads only the accounts due.** An `InterestAccount`
@@ -617,9 +628,9 @@ records rather than read them. Capitalisation scans that index for
 `next_payment_on` on or before the business day instead of streaming
 every account, sweeps each, and advances `next_payment_on` in the
 chunk's transaction. A day the job missed is paid by the next run, so
-capitalisation no longer needs a run every day. An account paid daily
-is due every day, and one paid at close, or on a version with no terms,
-has no `next_payment_on` and is never read. The sweep's reference names
+capitalisation no longer needs a run every day. An account paid every
+day is due every day, and one paid at close, or on a version with no
+terms, has no `next_payment_on` and is never read. The sweep's reference names
 the frequency rather than saying monthly whatever the cadence.
 
 **Closing pays what has accrued first.** Closing refuses an account
@@ -677,8 +688,8 @@ state, so it takes the ten points of
 
 First, the terms on the version, with their validation and API, every
 existing caller passing a flat rate paid daily; then `version_from_on`, in
-the cash-accounts pass of the clean-slate schema reset; then steps and
-bands in accrual, with the model's accrual beside it; then the
+the cash-accounts pass of the clean-slate schema reset; then the grid
+and the day count in accrual, with the model's accrual beside it; then the
 `InterestAccount` record, its event processor and capitalisation from
 its index, with the model's payment days; then `pay-accrued` and its
 route; then the term, the payout account and the maturity pass; and
@@ -760,15 +771,22 @@ compares two schedules rather than two rates.
 - **Each chunk reads its balances at its own moment.** A payment
   between accounts in different chunks during a run is earned on twice
   or not at all; see "Reading balances at the cut-off".
-- **Single day-count convention (actual/365).** Other
-  conventions (actual/360, 30/360) aren't supported. A
-  version's interest terms add actual/actual, dividing by
-  366 in a leap year, which some UK providers state; nothing
-  is planned for the others.
-- **One flat rate per version.** A version carries one
-  `:interest-rate-bps`, so a tiered rate, a bonus period or a
-  change on a date is a new version and a migration. See "A
+- **Accrual divides by 365.** A version takes actual/365,
+  actual/actual or actual/360 from its currency's template entry, and
+  the pass divides by 365 whatever it says until it reads the terms.
+  30/360 is not offered.
+- **Accrual reads one rate.** A version's terms carry a grid of bands
+  and periods, and the pass reads its first rate, so a tiered rate, a
+  bonus period or a change on a date is not yet honoured. See "A
   version's interest terms".
+- **A schedule counts in one unit.** A relative schedule's periods are
+  all days, weeks or months, so a seven-day introductory rate before a
+  twelve-month anniversary cannot be stated.
+- **The conventions are the installation's.** A template's entry for a
+  currency gives every bank the same day count and business day
+  convention, and an installation serves one jurisdiction; a bank
+  quoting its own, or an installation serving two, needs the entry to
+  be per bank or per jurisdiction.
 - **Interest is simple, not compounding within a period.**
   The accrued bucket does not itself earn interest — the
   principal is the available balance, which the accrued
@@ -789,10 +807,14 @@ compares two schedules rather than two rates.
 - **Interest is paid into the account itself.** A version's
   terms cannot send it to a nominated account, which fixed-rate
   bonds and monthly-income savings commonly do and some require.
-- **Payment days are calendar days.** Nothing holds a
-  calendar of UK bank holidays, so a payment on the first or
-  last working day, or moved to the next working day, cannot be
-  stated; the scheduler's days are UTC days.
+- **Payment days are calendar days.** A version states its business
+  day convention, and nothing holds a calendar of UK bank holidays or
+  weekends for it to move a day by, so every day is a business day;
+  the scheduler's days are UTC days. A currency's calendars join its
+  template entry when the calendar is built.
+- **Calendar payments are by day of the month.** A payment every Monday
+  or on a weekday of the month cannot be stated; a weekly payment counts
+  from the account's day.
 - **A rate cannot follow a reference rate.** A rate tracking
   Bank Rate, or a bonus as a margin over a variable rate, is a
   new version each time the reference moves, and a migration to

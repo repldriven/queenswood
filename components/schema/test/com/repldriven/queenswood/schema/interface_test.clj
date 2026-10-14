@@ -291,14 +291,31 @@
                  (getRewardTerms 0)
                  getAmount)))))
   (testing "a version's interest terms read back as plain maps"
-    (let [interest {:basis :interest-schedule-basis-relative
-                    :banding :interest-banding-marginal
-                    :steps [{:bands [{:up-to 500000 :rate-bps 500}
-                                     {:rate-bps 0}]}
-                            {:starts-after-months 12 :bands [{:rate-bps 150}]}]
-                    :day-count :interest-day-count-actual-actual
-                    :payment {:frequency :interest-payment-frequency-monthly
-                              :day :interest-payment-day-last-of-month}}
+    (let [interest
+          {:accrual {:banding :interest-banding-marginal
+                     :day-count :interest-day-count-actual-365
+                     :bands [0 500000]
+                     :schedule {:relative {:unit :interest-period-unit-month
+                                           :periods
+                                           [{:after 0 :rates-bps [500 0]}
+                                            {:after 12 :rates-bps [150 150]}]}}}
+           :payment
+           {:business-day-convention :business-day-convention-modified-following
+            :kind {:calendar-day {:every 3 :day-of-month 31 :in-month 3}}}}
+          read (SUT/pb->CashAccountProduct
+                (SUT/CashAccountProduct->pb
+                 (assoc draft-version :interest-terms interest)))]
+      (is (= interest (:interest-terms read)))))
+  (testing "interest paid when the account closes keeps its empty variant"
+    (let [interest {:accrual {:banding :interest-banding-marginal
+                              :day-count :interest-day-count-actual-365
+                              :bands [0]
+                              :schedule {:fixed {:periods [{:from-on 20393
+                                                            :rates-bps
+                                                            [450]}]}}}
+                    :payment {:business-day-convention
+                              :business-day-convention-modified-following
+                              :kind {:at-close {}}}}
           read (SUT/pb->CashAccountProduct
                 (SUT/CashAccountProduct->pb
                  (assoc draft-version :interest-terms interest)))]

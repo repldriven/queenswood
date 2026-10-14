@@ -34,7 +34,13 @@
       ISO 20022 type) are snapshotted from it at creation, so later
       template edits never change an existing product.
     - `:currency` — ISO 4217 string, single currency per product.
-    - `:interest-rate-bps` — optional; defaults to 0.
+    - `:interest-rate-bps` — optional; a flat rate from opening, paid
+      daily. Absent with `:interest-terms`, the version pays none.
+    - `:interest-terms` — optional, in place of the rate;
+      `{:accrual {:banding :bands :schedule} :payment {:kind}}`, a rate
+      for each period of an account's life and each band of its
+      balance, and when it is paid. The template's entry for
+      `:currency` gives its day count and business day convention.
     - `:opening-reward` — optional; `{:amount n}`, the welcome reward
       paid once to an account opened under the version, in minor units
       of `:currency`. `n` is positive, and the reward is fixed once the
@@ -132,7 +138,8 @@
   - config: FDB config (`:record-db` / `:record-store`).
   - data: template fields (`:product-type`, `:balance-sheet-side`,
     `:balance-products`, `:allowed-payment-address-schemes`,
-    `:allowed-currencies`, `:iso-cash-account-type`, optional
+    `:currencies`, each a `:currency` with its `:day-count` and
+    `:business-day-convention`, `:iso-cash-account-type`, optional
     `:name`)."
   [config data]
   (core/new-template config data))

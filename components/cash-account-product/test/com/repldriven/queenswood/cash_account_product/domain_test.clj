@@ -34,7 +34,10 @@
   {:template-id "tpl.00000000000000000000000001"
    :product-type :account-product-type-sub-ledger-current
    :balance-sheet-side :balance-sheet-side-liability
-   :allowed-currencies ["GBP"]
+   :currencies [{:currency "GBP"
+                 :day-count :interest-day-count-actual-365
+                 :business-day-convention
+                 :business-day-convention-modified-following}]
    :balance-products [{:balance-type :balance-type-default
                        :balance-status :balance-status-posted}]
    :allowed-payment-address-schemes [:payment-address-scheme-scan]
@@ -399,4 +402,110 @@
         (let [r (draft data)]
           (is (error/rejection? r) (pr-str data))
           (is (= :cash-account-product/invalid-limit (error/kind r))))))))
+
+(deftest interest-terms-test
+  (let [draft (fn [data]
+                (SUT/new-version "bnk.1"
+                                 "prd.1"
+                                 []
+                                 template
+                                 (merge (dissoc good-data :interest-rate-bps)
+                                        data)
+                                 permissive-policies))
+        terms {:accrual {:banding :interest-banding-marginal
+                         :bands [0 500000]
+                         :schedule {:relative {:unit :interest-period-unit-month
+                                               :periods
+                                               [{:after 0 :rates-bps [500 0]}
+                                                {:after 12
+                                                 :rates-bps [150 150]}]}}}
+               :payment {:kind {:account-day {:unit :interest-period-unit-month
+                                              :every 1}}}}
+        conventions
+        (fn [terms]
+          (-> terms
+              (assoc-in [:accrual :day-count] :interest-day-count-actual-365)
+              (assoc-in [:payment :business-day-convention]
+                        :business-day-convention-modified-following)))
+        refused (fn [data]
+                  (let [r (draft data)]
+                    (when (and (error/rejection? r)
+                               (= :cash-account-product/invalid-interest-terms
+                                  (error/kind r)))
+                      (:message (error/payload r)))))
+        periods [:accrual :schedule :relative :periods]]
+    (testing "a version keeps its terms, with its currency's conventions"
+      (is (= (conventions terms)
+             (:interest-terms (draft {:interest-terms terms})))))
+    (testing "a rate alone is one band from opening, paid daily"
+      (let [read (:interest-terms (draft {:interest-rate-bps 250}))]
+        (is (= {:bands [0]
+                :schedule {:relative {:unit :interest-period-unit-month
+                                      :periods [{:after 0 :rates-bps [250]}]}}}
+               (select-keys (:accrual read) [:bands :schedule])))
+        (is (= {:account-day {:unit :interest-period-unit-day :every 1}}
+               (get-in read [:payment :kind])))))
+    (testing "terms and a rate together are refused"
+      (is (= "State interest-terms or interest-rate-bps, not both"
+             (refused {:interest-terms terms :interest-rate-bps 250}))))
+    (testing "a negative rate is refused however it is stated"
+      (is (= "A rate cannot be negative" (refused {:interest-rate-bps -50})))
+      (is (= "A rate cannot be negative"
+             (refused {:interest-terms (assoc-in terms
+                                        (conj periods 1 :rates-bps)
+                                        [150 -1])}))))
+    (testing "the grid's rules are refused with their messages"
+      (doseq [[path value message]
+              [[[:accrual :bands] [] "Interest accrual needs at least one band"]
+               [[:accrual :bands] [100 500000] "The first band starts at zero"]
+               [[:accrual :bands] [0 500000 500000]
+                "Each band starts above the one before"]
+               [[:accrual :bands] (vec (range 0 11))
+                "Interest accrual has at most 10 bands"]
+               [[:accrual :schedule] {}
+                "Interest accrual needs a relative or a fixed schedule"]
+               [periods [] "Interest accrual needs at least one period"]
+               [(conj periods 0 :after) 1
+                "A relative schedule's first period starts 0 after opening"]
+               [(conj periods 1 :after) 0
+                "Each period starts after the one before"]
+               [(conj periods 1 :rates-bps) [150]
+                "Every period has one rate for each band"]]]
+        (is (= message (refused {:interest-terms (assoc-in terms path value)}))
+            (pr-str path value))))
+    (testing "a fixed schedule starts on the version's effective-from"
+      (let [fixed (assoc-in terms
+                   [:accrual :schedule]
+                   {:fixed {:periods [{:from-on 20089 :rates-bps [500 0]}
+                                      {:from-on 20800 :rates-bps [150 150]}]}})]
+        (is (= (conventions fixed)
+               (:interest-terms (draft {:interest-terms fixed}))))
+        (is
+         (=
+          "A fixed schedule's first period starts on the version's effective-from"
+          (refused {:interest-terms (assoc-in fixed
+                                     [:accrual :schedule :fixed :periods 0
+                                      :from-on]
+                                     20100)})))))
+    (testing "a payment is one of its kinds"
+      (doseq [kind [{:calendar-day {:every 3 :day-of-month 31 :in-month 3}}
+                    {:at-close {}}]]
+        (is (nil? (refused {:interest-terms
+                            (assoc-in terms [:payment :kind] kind)}))
+            (pr-str kind)))
+      (doseq [kind [{}
+                    {:at-close {}
+                     :account-day {:unit :interest-period-unit-day :every 1}}]]
+        (is
+         (=
+          "Interest payment is on the account's day, a calendar day or at close"
+          (refused {:interest-terms (assoc-in terms [:payment :kind] kind)}))
+         (pr-str kind))))
+    (testing "a currency's conventions replace any the caller states"
+      (is (= (conventions terms)
+             (:interest-terms (draft
+                               {:interest-terms
+                                (assoc-in terms
+                                 [:accrual :day-count]
+                                 :interest-day-count-actual-actual)})))))))
 

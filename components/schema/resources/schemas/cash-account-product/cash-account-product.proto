@@ -17,68 +17,90 @@ enum VersionStatus {
   VERSION_STATUS_DISCARDED = 3;
 }
 
-enum InterestScheduleBasis {
-  INTEREST_SCHEDULE_BASIS_UNKNOWN = 0;
-  INTEREST_SCHEDULE_BASIS_FIXED = 1;
-  INTEREST_SCHEDULE_BASIS_RELATIVE = 2;
-}
-
 enum InterestBanding {
   INTEREST_BANDING_UNKNOWN = 0;
   INTEREST_BANDING_MARGINAL = 1;
   INTEREST_BANDING_WHOLE_BALANCE = 2;
 }
 
-enum InterestDayCount {
-  INTEREST_DAY_COUNT_UNKNOWN = 0;
-  INTEREST_DAY_COUNT_ACTUAL_365 = 1;
-  INTEREST_DAY_COUNT_ACTUAL_ACTUAL = 2;
+enum InterestPeriodUnit {
+  INTEREST_PERIOD_UNIT_UNKNOWN = 0;
+  INTEREST_PERIOD_UNIT_DAY = 1;
+  INTEREST_PERIOD_UNIT_WEEK = 2;
+  INTEREST_PERIOD_UNIT_MONTH = 3;
 }
 
-enum InterestPaymentFrequency {
-  INTEREST_PAYMENT_FREQUENCY_UNKNOWN = 0;
-  INTEREST_PAYMENT_FREQUENCY_DAILY = 1;
-  INTEREST_PAYMENT_FREQUENCY_MONTHLY = 2;
-  INTEREST_PAYMENT_FREQUENCY_QUARTERLY = 3;
-  INTEREST_PAYMENT_FREQUENCY_ANNUALLY = 4;
-  INTEREST_PAYMENT_FREQUENCY_AT_CLOSE = 5;
+// The rates in force from `after` of the schedule's units after the
+// account came onto the version until the next period's, one for each
+// band.
+message RelativeInterestPeriod {
+  required int32 after = 1; // units after version_from_on
+  repeated int32 rates_bps = 2; // one for each band
 }
 
-enum InterestPaymentDay {
-  INTEREST_PAYMENT_DAY_UNKNOWN = 0;
-  INTEREST_PAYMENT_DAY_ACCOUNT = 1; // the account's version_from_on
-  INTEREST_PAYMENT_DAY_DAY_OF_MONTH = 2; // day_of_month
-  INTEREST_PAYMENT_DAY_LAST_OF_MONTH = 3;
+// Periods counted from the day the account came onto the version.
+message RelativeInterestSchedule {
+  required InterestPeriodUnit unit = 1;
+  repeated RelativeInterestPeriod periods = 2;
 }
 
-// A rate on the part of a balance within a band.
-message InterestBand {
-  optional int64 up_to = 1; // minor units
-  required int32 rate_bps = 2;
+// The rates in force from a date until the next period's, one for each
+// band.
+message FixedInterestPeriod {
+  required int64 from_on = 1; // epoch day
+  repeated int32 rates_bps = 2; // one for each band
 }
 
-// The bands in force from a step's start until the next step's.
-message InterestStep {
-  optional int64 starts_on = 1; // epoch day
-  optional int32 starts_after_months = 2;
-  repeated InterestBand bands = 3;
+// Periods set by date.
+message FixedInterestSchedule {
+  repeated FixedInterestPeriod periods = 1;
 }
 
-// When accrued interest is paid into the account.
+// How interest is earned: a rate for each period of an account's life
+// and each band of its balance, accrued on each day's end-of-day
+// balance.
+message InterestAccrual {
+  required InterestBanding banding = 1;
+  required InterestDayCount day_count = 2;
+  repeated int64 bands = 3; // each band's lowest balance, minor units
+  oneof schedule {
+    RelativeInterestSchedule relative = 4;
+    FixedInterestSchedule fixed = 5;
+  }
+}
+
+// Interest paid every `every` of `unit`, counted from the day the
+// account came onto the version.
+message AccountDayInterestPayment {
+  required InterestPeriodUnit unit = 1;
+  required int32 every = 2;
+}
+
+// Interest paid on `day_of_month`, or the month's last day where it has
+// fewer, in `in_month` and every `every` months from it.
+message CalendarDayInterestPayment {
+  required int32 every = 1; // months: 1, 2, 3, 4, 6 or 12
+  required int32 day_of_month = 2; // 1 to 31
+  required int32 in_month = 3; // 1 to 12
+}
+
+// Interest paid once, when the account closes.
+message AtCloseInterestPayment {}
+
+// When accrued interest is paid.
 message InterestPayment {
-  required InterestPaymentFrequency frequency = 1;
-  optional InterestPaymentDay day = 2;
-  optional int32 day_of_month = 3; // 1 to 28
-  optional int32 month = 4; // 1 to 12
+  required BusinessDayConvention business_day_convention = 1;
+  oneof kind {
+    AccountDayInterestPayment account_day = 2;
+    CalendarDayInterestPayment calendar_day = 3;
+    AtCloseInterestPayment at_close = 4;
+  }
 }
 
-// A version's interest rate and when it is paid.
+// A version's interest: how it is earned and when it is paid.
 message InterestTerms {
-  required InterestScheduleBasis basis = 1;
-  required InterestBanding banding = 2;
-  repeated InterestStep steps = 3;
-  required InterestDayCount day_count = 4;
-  required InterestPayment payment = 5;
+  required InterestAccrual accrual = 1;
+  required InterestPayment payment = 2;
 }
 
 // A reward a version promises the accounts opened under it.

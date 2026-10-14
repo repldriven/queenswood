@@ -48,7 +48,8 @@ onto a version with other limits, which
 - **A version's terms.** `CashAccountProduct` in
   [cash-account-product.proto](/components/schema/resources/schemas/cash-account-product/cash-account-product.proto)
   carries `interest_terms` and `reward_terms`. An interest band's
-  `up_to` says which rate applies above an amount and refuses nothing.
+  lowest balance says which rate applies above an amount and refuses
+  nothing.
 - **A payment's status.** An outbound payment is `pending`, `held`,
   `completed`, `failed` or `returned`, and an inbound one `admitted`,
   `held`, `settled`, `suspended`, `returned` or `return-failed`. An

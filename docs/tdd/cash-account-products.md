@@ -136,7 +136,10 @@ the `cash-account-product-templates` store, with no `bank-id`. It
 carries the fields a bank does not choose: the product type, the
 balance-sheet side, the balance-bucket layout, the allowed
 payment-address schemes, the ISO cash-account type and the currencies a
-product built from it may use.
+product built from it may use, each with the day count and business day
+convention its interest is held to. A currency's conventions are one
+file under `resources/cash-account-product-templates/currencies`, which
+each template includes, so templates allowing it cannot disagree.
 
 Four are seeded, under the ids fixed in their YAML files:
 
@@ -173,8 +176,9 @@ product type comes from the template.
 
 `product-fields` writes six of the version's fields off the resolved
 template. It snapshots `:product-type`, `:balance-sheet-side`,
-`:balance-products`, `:allowed-payment-address-schemes` and
-`:iso-cash-account-type`, and stamps `:template-id`
+`:balance-products`, `:allowed-payment-address-schemes`,
+`:iso-cash-account-type` and its currency's conventions, and stamps
+`:template-id`
 for provenance. Snapshotting rather than referencing is what makes a
 published version immutable in fact and not only by rule: a re-seeded
 template cannot reach it.
@@ -187,15 +191,14 @@ template cannot reach it.
  :status              :version-status-draft
                       ;; or -published, -discarded
  :name                "Premier Savings"
- :allowed-currencies  ["GBP"]       ;; one currency per
-                                    ;; product, wrapped in a vec
+ :currency            "GBP"         ;; one currency per product
  :template-id         "tpl.<ulid>"  ;; the template snapshotted
  :product-type        :account-product-type-sub-ledger-savings    ;; template
  :balance-sheet-side  :balance-sheet-side-liability       ;; template
  :balance-products    [...]         ;; balance buckets, template
  :allowed-payment-address-schemes [...]                   ;; template
  :iso-cash-account-type :iso-cash-account-type-svgs       ;; template
- :interest-rate-bps   550           ;; 550 bps = 5.5% APR
+ :interest-terms      {...}         ;; absent where it pays none
  :effective-from      20089         ;; epoch-day (required)
  :effective-to        <epoch-day or absent>  ;; open-ended if absent
  :discarded-at        <timestamp>   ;; set by discard-draft only
@@ -211,160 +214,167 @@ on a given day (see **Effective dating** below).
 
 #### Interest terms
 
-Stored, not yet read beyond its first band. A version states its rate
-as a schedule and says when interest is paid, in one `interest_terms`
-field that replaces `interest_rate_bps` and is absent on a version that
-pays none, such as the own-funds house product. Until the API takes the
-terms, it takes `interest-rate-bps` and stores it as one step of one
-band paid daily, and accrual and the API read that band's rate. How
-the interest pass reads it is
-[interest](interest.md#a-versions-interest-terms).
+Stored and taken by the API, not yet read beyond its first rate. A
+version states how interest is earned and when it is paid in one
+`interest_terms` field, absent on a version that pays none, such as the
+own-funds house product. A request states `interest-terms`, or
+`interest-rate-bps`, which is stored as one band and one period paid
+daily, and never both. Accrual reads the first period's first rate and
+pays daily whatever the terms say, until the interest pass reads them
+as [interest](interest.md#a-versions-interest-terms) lays out.
 
 ```proto
-enum InterestScheduleBasis {
-  INTEREST_SCHEDULE_BASIS_UNKNOWN = 0;
-  INTEREST_SCHEDULE_BASIS_FIXED = 1;
-  INTEREST_SCHEDULE_BASIS_RELATIVE = 2;
+enum InterestPeriodUnit {
+  INTEREST_PERIOD_UNIT_UNKNOWN = 0;
+  INTEREST_PERIOD_UNIT_DAY = 1;
+  INTEREST_PERIOD_UNIT_WEEK = 2;
+  INTEREST_PERIOD_UNIT_MONTH = 3;
 }
 
-enum InterestBanding {
-  INTEREST_BANDING_UNKNOWN = 0;
-  INTEREST_BANDING_MARGINAL = 1;
-  INTEREST_BANDING_WHOLE_BALANCE = 2;
+message RelativeInterestPeriod {
+  required int32 after = 1; // units after version_from_on
+  repeated int32 rates_bps = 2; // one for each band
 }
 
-enum InterestDayCount {
-  INTEREST_DAY_COUNT_UNKNOWN = 0;
-  INTEREST_DAY_COUNT_ACTUAL_365 = 1;
-  INTEREST_DAY_COUNT_ACTUAL_ACTUAL = 2;
+message RelativeInterestSchedule {
+  required InterestPeriodUnit unit = 1;
+  repeated RelativeInterestPeriod periods = 2;
 }
 
-enum InterestPaymentFrequency {
-  INTEREST_PAYMENT_FREQUENCY_UNKNOWN = 0;
-  INTEREST_PAYMENT_FREQUENCY_DAILY = 1;
-  INTEREST_PAYMENT_FREQUENCY_MONTHLY = 2;
-  INTEREST_PAYMENT_FREQUENCY_QUARTERLY = 3;
-  INTEREST_PAYMENT_FREQUENCY_ANNUALLY = 4;
-  INTEREST_PAYMENT_FREQUENCY_AT_CLOSE = 5;
+message FixedInterestPeriod {
+  required int64 from_on = 1; // epoch day
+  repeated int32 rates_bps = 2; // one for each band
 }
 
-enum InterestPaymentDay {
-  INTEREST_PAYMENT_DAY_UNKNOWN = 0;
-  INTEREST_PAYMENT_DAY_ACCOUNT = 1;       // the account's version_from_on
-  INTEREST_PAYMENT_DAY_DAY_OF_MONTH = 2;  // day_of_month
-  INTEREST_PAYMENT_DAY_LAST_OF_MONTH = 3;
+message FixedInterestSchedule {
+  repeated FixedInterestPeriod periods = 1;
 }
 
-// A rate on the part of a balance within a band.
-message InterestBand {
-  optional int64 up_to = 1; // minor units
-  required int32 rate_bps = 2;
+message InterestAccrual {
+  required InterestBanding banding = 1;
+  required InterestDayCount day_count = 2;
+  repeated int64 bands = 3; // each band's lowest balance, minor units
+  oneof schedule {
+    RelativeInterestSchedule relative = 4;
+    FixedInterestSchedule fixed = 5;
+  }
 }
 
-// The bands in force from a step's start until the next step's.
-message InterestStep {
-  optional int64 starts_on = 1; // epoch day
-  optional int32 starts_after_months = 2;
-  repeated InterestBand bands = 3;
+message AccountDayInterestPayment {
+  required InterestPeriodUnit unit = 1;
+  required int32 every = 2;
 }
 
-// When accrued interest is paid into the account.
+message CalendarDayInterestPayment {
+  required int32 every = 1; // months: 1, 2, 3, 4, 6 or 12
+  required int32 day_of_month = 2; // 1 to 31
+  required int32 in_month = 3; // 1 to 12
+}
+
+message AtCloseInterestPayment {}
+
 message InterestPayment {
-  required InterestPaymentFrequency frequency = 1;
-  optional InterestPaymentDay day = 2;
-  optional int32 day_of_month = 3; // 1 to 28
-  optional int32 month = 4; // 1 to 12
+  required BusinessDayConvention business_day_convention = 1;
+  oneof kind {
+    AccountDayInterestPayment account_day = 2;
+    CalendarDayInterestPayment calendar_day = 3;
+    AtCloseInterestPayment at_close = 4;
+  }
 }
 
-// A version's interest rate and when it is paid.
 message InterestTerms {
-  required InterestScheduleBasis basis = 1;
-  required InterestBanding banding = 2;
-  repeated InterestStep steps = 3;
-  required InterestDayCount day_count = 4;
-  required InterestPayment payment = 5;
+  required InterestAccrual accrual = 1;
+  required InterestPayment payment = 2;
 }
 ```
 
-`CashAccountProduct` carries it as
-`optional InterestTerms interest_terms = 15`.
+`InterestBanding`, `InterestDayCount` and `BusinessDayConvention` are
+enums, the last two in the folder's `types.proto`, since the template
+names them too. `CashAccountProduct` carries the terms as
+`optional InterestTerms interest_terms = 14`.
 
-**Steps.** One step is in force on any day: the last whose start is on
-or before it. A `FIXED` schedule starts its steps on calendar days, a
-`RELATIVE` one a number of calendar months after the day the account
-came onto the version, a day the month lacks moving to its last. The
-first step has no start, so it is in force from the beginning.
+**Accrual.** The rates are a grid: a column for each band of the
+balance and a row for each period of an account's life, each cell a
+rate a year in basis points. `bands` holds each band's lowest balance,
+the first 0 and the last without a top. A `MARGINAL` accrual pays each
+band's rate on the part of the balance within it: bands `[0 500000]`
+and rates `[500 0]` pay 5% on the first £5,000 and nothing on the rest.
+A `WHOLE_BALANCE` accrual pays the rate of the band the balance falls
+in on all of it. A flat rate is one band and one period.
 
-**Bands.** A step's bands cover the balance from zero up, each from the
-previous band's `up_to` to its own, the last with no `up_to`. A
-`MARGINAL` step pays each band's rate on the part of the balance within
-it: 500 bps up to £5,000 and 0 above pays 5% on the first £5,000 and
-nothing on the rest. A `WHOLE_BALANCE` step pays the rate of the band
-the balance falls in on all of it, a balance equal to an `up_to` falling
-in the band above. A flat rate is one step of one band, and the two
-bandings agree on it.
+One period is in force on any day: the last whose start is on or before
+it. A `relative` schedule starts each period `after` a number of its
+`unit` from the day the account came onto the version, the first after
+0, adding months as `java.time` does, so a day the month lacks moves to
+its last. A `fixed` schedule starts each on a date, the first on the
+version's `effective-from`. Every period of a schedule counts in one
+unit, since a month and a number of days compare differently from one
+opening day to another. A fixed period may start after the version's
+`effective-to`: that date stops accounts opening on the version, and
+accounts already on it keep accruing.
 
-**Day count.** `ACTUAL_365` divides a year's interest by 365 every day.
-`ACTUAL_ACTUAL` divides by 366 on a day in a leap year.
+**Payment.** `account_day` pays every `every` of `unit` from the day
+the account came onto the version, each payment set from that day, so
+an account opened on 31 January and paid monthly is paid on 28 February
+and 31 March. `calendar_day` pays on `day_of_month`, or the month's last
+day where it has fewer, in `in_month` and every `every` months from it:
+quarterly on the 31st from March pays on the last days of March, June,
+September and December. `every` divides twelve, so the months a
+payment falls in are the same each year. `at_close` pays once, as the
+account closes.
 
-**Payment.** `DAILY` pays every day and `AT_CLOSE` only when the
-account's accrued interest is paid as it closes, and neither takes a
-`day`. `MONTHLY`,
-`QUARTERLY` and `ANNUALLY` pay on the `day` named:
+**Conventions.** The template names, for each currency it allows, the
+day count and business day convention an account in it is held to, and
+a version takes those of its currency when it is created or updated.
+The request states neither:
 
-- `ACCOUNT` — the day of the month the account came onto the version,
-  or the month's last where the month is shorter, every one, three or
-  twelve months from it. Each payment is set from the original day, so
-  an account pinned on 31 January is paid on 28 February and 31 March.
-- `DAY_OF_MONTH` — `day_of_month`, 1 to 28, so the day never moves.
-- `LAST_OF_MONTH` — the month's last day.
+```yaml
+# cash-account-product-templates/currencies/gbp.yml
+currency: GBP
+day-count: !keyword interest-day-count-actual-365
+business-day-convention: !keyword business-day-convention-modified-following
+```
 
-A quarterly or annual payment on `DAY_OF_MONTH` or `LAST_OF_MONTH`
-names the `month` of its first payment in the year: quarterly on the
-last day from March pays in March, June, September and December, and
-annually on the last day of December pays on 31 December.
+`ACTUAL_365` divides a year's interest by 365 every day, `ACTUAL_ACTUAL`
+by 366 on a day in a leap year, and `ACTUAL_360` by 360. A business day
+convention is ISDA's: `MODIFIED_FOLLOWING` moves a payment day that is
+not a business day to the next, or to the previous where the next is in
+another month.
 
-The fields are siblings rather than a `oneof`, because protojure nests
-a `oneof` under its name and the version's Avro event would no longer
-match the record, as `PaymentAddress` found.
+**Validation.** `interest-fields` in `domain.clj` runs on create and
+update, and refuses `:cash-account-product/invalid-interest-terms`, a
+422 whose message names the rule broken:
 
-**Validation.** `ensure-interest-terms` in `domain.clj` runs on create
-and update beside `ensure-effective-window`, and refuses
-`:cash-account-product/invalid-interest-terms`, a 422 whose message
-names the rule broken:
+- the bands start at zero and are strictly increasing, at most 10;
+- the periods are strictly increasing by start, at most 12, the first
+  0 after opening or on `effective-from`;
+- every period has one rate for each band, and no rate is negative,
+  whether stated in the terms or as `interest-rate-bps`;
+- a payment is one of its three kinds.
 
-- the first step has no start, and every later one has the start its
-  basis names, strictly after the one before;
-- every step has at least one band, every band but the last an `up_to`
-  above zero and above the one before, and the last none;
-- every `rate_bps` is zero or more;
-- a `DAILY` or `AT_CLOSE` payment names no `day`, and any other names
-  one;
-  `DAY_OF_MONTH` names a `day_of_month` from 1 to 28; a quarterly or
-  annual payment on a fixed day names a `month`, and no other does;
-- at most 12 steps and 10 bands a step.
-
-A fixed step may start after the version's `effective-to`: that date
-stops accounts opening on the version, and accounts already on it keep
-accruing.
-
-The API takes and returns the terms as one object:
+The API takes and returns the terms as one object, the schedule's
+variant as `basis` and the payment's as `kind`, each a discriminator,
+and returns the version's `day-count` and `business-day-convention`
+beside them:
 
 ```json
 "interest-terms": {
-  "basis": "relative",
-  "banding": "marginal",
-  "steps": [
-    {"bands": [{"up-to": 500000, "rate-bps": 500}, {"rate-bps": 0}]},
-    {"starts-after-months": 12, "bands": [{"rate-bps": 150}]}
-  ],
-  "day-count": "actual-365",
-  "payment": {"frequency": "monthly", "day": "account"}
+  "accrual": {
+    "basis": "relative",
+    "banding": "marginal",
+    "bands": [0, 500000],
+    "unit": "month",
+    "periods": [
+      {"after": 0, "rates-bps": [500, 0]},
+      {"after": 12, "rates-bps": [150, 150]}
+    ]
+  },
+  "payment": {"kind": "account-day", "unit": "month", "every": 1}
 }
 ```
 
 That reads: 5% on the first £5,000 and nothing above it for twelve
-months, then 1.5% on the whole balance, paid monthly on the day the
+months, then 1.5% on the whole balance, paid monthly on the date the
 account opened.
 
 #### Term
@@ -533,7 +543,7 @@ Cash accounts hold a `:product-id` + `:version-id` reference. Interest
 accrual reads the account's version to find the rate; available-balance
 derivation uses the product-type from the version per
 [transactions-and-balances.md](transactions-and-balances.md);
-allowed-currencies is read off the version when validating deposits.
+the currency is read off the version when validating deposits.
 
 If a published version were mutable, those reads would silently change
 behaviour for existing accounts — a customer who signed up for 5.5%

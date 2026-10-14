@@ -1,0 +1,143 @@
+{:name "A product states its rates as a grid and when interest is paid"
+ ;; A version takes its interest terms in full and returns them as they
+ ;; were stated: a rate for each period and band, and the day interest
+ ;; is paid, with its currency's day count and business day convention
+ ;; beside them. A grid that breaks one of its rules is refused with the
+ ;; rule, and a request cannot state a convention.
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Interest Terms Product Bank" :status "live"}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Easy Saver"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-terms
+                    {:accrual {:basis "relative"
+                               :banding "marginal"
+                               :bands [0 500000]
+                               :unit "month"
+                               :periods [{:after 0 :rates-bps [500 0]}
+                                         {:after 12 :rates-bps [150 150]}]}
+                     :payment {:kind "account-day" :unit "month" :every 1}}
+                    :min-balance 0
+                    :payment-limits
+                    [{:direction "out"
+                      :measure "count"
+                      :max 3
+                      :period "year"
+                      :anchor "calendar"
+                      :starts-month 4
+                      :starts-day-of-month 6
+                      :reason "Three withdrawals a tax year"}
+                     {:direction "in"
+                      :measure "amount"
+                      :max 5000000
+                      :period "day"}]
+                    :opening-reward {:amount 2500}
+                    :effective-from "2026-11-01"}}
+   :as :v1
+   :assert
+   {:status 201
+    :body
+    {:status "draft"
+     :interest-rate-bps 500
+     :interest-terms
+     {:accrual {:basis "relative"
+                :banding "marginal"
+                :bands [0 500000]
+                :unit "month"
+                :periods [{:after 0 :rates-bps [500 0]}
+                          {:after 12 :rates-bps [150 150]}]}
+      :payment {:kind "account-day" :unit "month" :every 1}}
+     :day-count "actual-365"
+     :business-day-convention "modified-following"
+     :opening-reward {:amount 2500}}}}
+  ;; A fixed schedule's periods start on dates, the first on the
+  ;; version's effective-from.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Fixed Schedule"
+                    :template-id "tpl.00000000000000000000000003"
+                    :currency "GBP"
+                    :interest-terms
+                    {:accrual {:basis "fixed"
+                               :banding "whole-balance"
+                               :bands [0]
+                               :periods [{:from-on "2026-11-01"
+                                          :rates-bps [450]}
+                                         {:from-on "2027-11-01"
+                                          :rates-bps [100]}]}
+                     :payment {:kind "calendar-day"
+                               :every 3
+                               :day-of-month 31
+                               :in-month 3}}
+                    :effective-from "2026-11-01"}}
+   :assert {:status 201
+            :body {:interest-terms
+                   {:accrual {:basis "fixed"
+                              :bands [0]
+                              :periods [{:from-on "2026-11-01"
+                                         :rates-bps [450]}
+                                        {:from-on "2027-11-01"
+                                         :rates-bps [100]}]}
+                    :payment {:kind "calendar-day"
+                              :every 3
+                              :day-of-month 31
+                              :in-month 3}}}}}
+  ;; Bands start above one another.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Out Of Order"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-terms
+                    {:accrual {:basis "relative"
+                               :banding "marginal"
+                               :bands [0 500000 400000]
+                               :unit "month"
+                               :periods [{:after 0 :rates-bps [500 300 0]}]}
+                     :payment {:kind "at-close"}}
+                    :effective-from "2026-11-01"}}
+   :assert {:status 422
+            :problem {:type ":cash-account-product/invalid-interest-terms"
+                      :detail "Each band starts above the one before"}}}
+  ;; The day count is the currency's, not the request's.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Own Day Count"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-terms
+                    {:accrual {:basis "relative"
+                               :banding "marginal"
+                               :day-count "actual-actual"
+                               :bands [0]
+                               :unit "month"
+                               :periods [{:after 0 :rates-bps [100]}]}
+                     :payment {:kind "at-close"}}
+                    :effective-from "2026-11-01"}}
+   :assert {:status 400}}]
+ :then
+ [{:command :api/request
+   :request
+   {:method :get
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}"
+    :path-params {:product-id [:ref :v1 :product-id]
+                  :version-id [:ref :v1 :version-id]}
+    :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:interest-terms
+                   {:accrual {:bands [0 500000]
+                              :periods [{:after 0 :rates-bps [500 0]}
+                                        {:after 12 :rates-bps [150 150]}]}}
+                   :day-count "actual-365"}}}]}

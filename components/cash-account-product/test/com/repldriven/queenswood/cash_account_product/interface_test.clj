@@ -241,7 +241,10 @@
           :product-type :account-product-type-sub-ledger-current
           :balance-sheet-side :balance-sheet-side-liability
           :iso-cash-account-type :iso-cash-account-type-cacc
-          :allowed-currencies ["GBP"]
+          :currencies [{:currency "GBP"
+                        :day-count :interest-day-count-actual-365
+                        :business-day-convention
+                        :business-day-convention-modified-following}]
           :allowed-payment-address-schemes [:payment-address-scheme-scan]
           :balance-products [{:balance-type :balance-type-default
                               :balance-status :balance-status-posted}]}]
@@ -252,7 +255,7 @@
                      (is (= "Round Trip Current" (:name loaded)))
                      (is (= :account-product-type-sub-ledger-current
                             (:product-type loaded)))
-                     (is (= ["GBP"] (:allowed-currencies loaded)))
+                     (is (= (:currencies template) (:currencies loaded)))
                      (is (= (:created-at seeded) (:created-at loaded))))
                  _ (Thread/sleep 5)
                  re-seeded (SUT/new-template config

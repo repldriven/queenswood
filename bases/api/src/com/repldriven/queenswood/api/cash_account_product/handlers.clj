@@ -77,7 +77,10 @@
         {:keys [body]} parameters]
     (respond (products/new-product (config request)
                                    bank-id
-                                   (with-idempotency-key body request)
+                                   (with-idempotency-key
+                                    (cash-account-product-api/->version-data
+                                     body)
+                                    request)
                                    (actor/act request))
              created)))
 
@@ -90,7 +93,8 @@
     (respond (products/open-draft (config request)
                                   bank-id
                                   product-id
-                                  body
+                                  (cash-account-product-api/->version-data
+                                   body)
                                   (actor/act request))
              created)))
 
@@ -104,7 +108,8 @@
                                     bank-id
                                     product-id
                                     version-id
-                                    body
+                                    (cash-account-product-api/->version-data
+                                     body)
                                     (actor/act request))
              ok)))
 

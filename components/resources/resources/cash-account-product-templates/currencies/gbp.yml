@@ -1,0 +1,3 @@
+currency: GBP
+day-count: !keyword interest-day-count-actual-365
+business-day-convention: !keyword business-day-convention-modified-following

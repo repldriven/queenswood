@@ -10,7 +10,10 @@ iso-cash-account-type: !keyword iso-cash-account-type-cacc
 # bases/api/src/com/repldriven/queenswood/api/shared/components.clj --
 # a create names its currencies from that enum and every one of them
 # opens an own-funds house account from this template.
-allowed-currencies: [EUR, GBP, USD]
+currencies:
+  - !include cash-account-product-templates/currencies/eur.yml
+  - !include cash-account-product-templates/currencies/gbp.yml
+  - !include cash-account-product-templates/currencies/usd.yml
 allowed-payment-address-schemes:
   - !keyword payment-address-scheme-scan
 balance-products: !keywords

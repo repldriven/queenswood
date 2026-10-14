@@ -69,4 +69,5 @@
                 {:record-db record-db :record-store record-store})]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
-      {:status 200 :body {:items result}})))
+      {:status 200
+       :body {:items (mapv cash-account-product-api/->template-body result)}})))
