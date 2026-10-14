@@ -121,6 +121,6 @@ test("a refused save shows the problem the API answered", async ({ page }) => {
   await page.getByRole("button", { name: "Save draft" }).click();
 
   const refusal = page.getByRole("alert").filter({ hasText: "The draft was not saved" });
-  await expect(refusal).toContainText("Each band starts above the one before");
+  await expect(refusal).toContainText("Bands start at zero, each above the one before");
   await expect(refusal).toContainText("422 · :cash-account-product/invalid-interest-terms");
 });
