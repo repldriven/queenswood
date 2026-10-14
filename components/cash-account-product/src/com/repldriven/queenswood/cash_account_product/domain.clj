@@ -206,16 +206,18 @@
 ;; one for each period of an account's life and each band of its
 ;; balance, and when the accrued interest is paid. The template's entry
 ;; for the version's currency gives its day count and business day
-;; convention.
-
-(def ^:private max-periods 12)
-
-(def ^:private max-bands 10)
+;; convention. Counts, presence and a rate's sign are the API schema's;
+;; the rules here are the ones no field can state.
 
 (defn- strictly-increasing?
   "True where each of `xs` is above the one before."
   [xs]
   (or (empty? xs) (apply < xs)))
+
+(defn- ascending-from?
+  "True where `xs` starts at `origin` and each is above the one before."
+  [origin xs]
+  (and (= origin (first xs)) (strictly-increasing? xs)))
 
 (defn- rate-for-every-band?
   "True where each of `periods` carries one rate for each of `bands`."
@@ -223,68 +225,34 @@
   (every? (fn [period] (= (count bands) (count (:rates-bps period))))
           periods))
 
-(defn- schedule-periods
-  "A schedule's periods, and the key each starts at."
-  [schedule]
-  (let [{:keys [relative fixed]} schedule]
-    (cond
-     relative
-     [(:periods relative) :after]
-
-     fixed
-     [(:periods fixed) :from-on]
-
-     :else
-     nil)))
+(defn- period-starts
+  "Each period's start in `schedule`, and where the first must start: 0
+  after opening for a relative schedule, `effective-from` for a fixed
+  one."
+  [schedule effective-from]
+  (if-some [relative (:relative schedule)]
+    [(map :after (:periods relative)) 0]
+    [(map :from-on (get-in schedule [:fixed :periods])) effective-from]))
 
 (defn- accrual-problem
   [accrual effective-from]
   (let [{:keys [bands schedule]} accrual
-        [periods start] (schedule-periods schedule)]
+        [starts origin] (period-starts schedule effective-from)
+        periods (:periods (or (:relative schedule) (:fixed schedule)))]
     (cond
-     (empty? bands)
-     "Interest accrual needs at least one band"
+     (not (ascending-from? 0 bands))
+     "Bands start at zero, each above the one before"
 
-     (< max-bands (count bands))
-     (str "Interest accrual has at most " max-bands " bands")
-
-     (not (zero? (first bands)))
-     "The first band starts at zero"
-
-     (not (strictly-increasing? bands))
-     "Each band starts above the one before"
-
-     (nil? start)
-     "Interest accrual needs a relative or a fixed schedule"
-
-     (empty? periods)
-     "Interest accrual needs at least one period"
-
-     (< max-periods (count periods))
-     (str "Interest accrual has at most " max-periods " periods")
-
-     (and (= :after start) (not (zero? (:after (first periods)))))
-     "A relative schedule's first period starts 0 after opening"
-
-     (and (= :from-on start) (not= effective-from (:from-on (first periods))))
-     "A fixed schedule's first period starts on the version's effective-from"
-
-     (not (strictly-increasing? (map start periods)))
-     "Each period starts after the one before"
+     (not (ascending-from? origin starts))
+     (if (:relative schedule)
+       "Periods start 0 after opening, each after the one before"
+       "Periods start on the version's effective-from, each after the one before")
 
      (not (rate-for-every-band? bands periods))
      "Every period has one rate for each band"
 
-     (some neg? (mapcat :rates-bps periods))
-     "A rate cannot be negative"
-
      :else
      nil)))
-
-(defn- payment-problem
-  [payment]
-  (when-not (= 1 (count (:kind payment)))
-    "Interest payment is on the account's day, a calendar day or at close"))
 
 (defn- flat-interest
   "Interest terms paying `rate-bps` on the whole balance from opening,
@@ -316,8 +284,7 @@
                  nil
 
                  :else
-                 (or (accrual-problem (:accrual terms) effective-from)
-                     (payment-problem (:payment terms))))]
+                 (accrual-problem (:accrual terms) effective-from))]
     (cond
      problem
      (error/reject :cash-account-product/invalid-interest-terms

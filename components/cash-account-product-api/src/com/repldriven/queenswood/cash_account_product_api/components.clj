@@ -37,9 +37,30 @@
   (coercion/business-day-convention-enum-schema {:json-schema/example
                                                  "modified-following"}))
 
+(def InterestRate
+  [:int
+   {:min 0
+    :max 1000000
+    :json-schema/format "int32"
+    :json-schema/example 500
+    :description
+    "A rate a year in basis points, 500 for 5.00%. Not negative."}])
+
+(def ^:private band-starts
+  [:vector
+   {:min 1
+    :max 10
+    :description
+    "Each band's lowest balance in minor units, the first 0 and each above
+    the one before."}
+   [:ref "MinorUnits"]])
+
 (def ^:private rates
-  [:vector {:description "One rate a year for each band, in basis points."}
-   [:ref "SignedBasisPoints"]])
+  [:vector
+   {:min 1
+    :max 10
+    :description "One rate a year for each band, in basis points."}
+   [:ref "InterestRate"]])
 
 (def RelativeInterestAccrual
   [:map
@@ -51,10 +72,10 @@
     month's last day where it has fewer."}
    [:basis [:enum "relative"]]
    [:banding [:ref "InterestBanding"]]
-   [:bands [:vector [:ref "MinorUnits"]]]
+   [:bands band-starts]
    [:unit [:ref "InterestPeriodUnit"]]
    [:periods
-    [:vector
+    [:vector {:min 1 :max 12}
      [:map {:closed true}
       [:after [:int {:min 0 :max 36600}]]
       [:rates-bps rates]]]]])
@@ -67,9 +88,9 @@
     version's `effective-from`."}
    [:basis [:enum "fixed"]]
    [:banding [:ref "InterestBanding"]]
-   [:bands [:vector [:ref "MinorUnits"]]]
+   [:bands band-starts]
    [:periods
-    [:vector
+    [:vector {:min 1 :max 12}
      [:map {:closed true}
       [:from-on [:ref "BusinessDay"]]
       [:rates-bps rates]]]]])
@@ -187,7 +208,7 @@
    [:name [:ref "Name"]]
    [:template-id [:ref "TemplateId"]]
    [:currency [:ref "Currency"]]
-   [:interest-rate-bps {:optional true} [:ref "SignedBasisPoints"]]
+   [:interest-rate-bps {:optional true} [:ref "InterestRate"]]
    [:interest-terms {:optional true} [:ref "InterestTerms"]]
    [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:payment-limits {:optional true} [:vector [:ref "PaymentLimit"]]]
@@ -201,7 +222,7 @@
    [:name [:ref "Name"]]
    [:template-id {:optional true} [:ref "TemplateId"]]
    [:currency [:ref "Currency"]]
-   [:interest-rate-bps {:optional true} [:ref "SignedBasisPoints"]]
+   [:interest-rate-bps {:optional true} [:ref "InterestRate"]]
    [:interest-terms {:optional true} [:ref "InterestTerms"]]
    [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:payment-limits {:optional true} [:vector [:ref "PaymentLimit"]]]
@@ -225,7 +246,7 @@
    [:balance-products [:unique-vector-lax {:min 1} [:ref "BalanceProduct"]]]
    [:allowed-payment-address-schemes
     [:unique-vector-lax {:min 1} [:ref "PaymentAddressScheme"]]]
-   [:interest-rate-bps [:ref "SignedBasisPoints"]]
+   [:interest-rate-bps [:ref "InterestRate"]]
    [:interest-terms {:optional true} [:ref "InterestTerms"]]
    [:day-count {:optional true} [:ref "InterestDayCount"]]
    [:business-day-convention {:optional true} [:ref "BusinessDayConvention"]]
@@ -396,7 +417,7 @@
 (def registry
   (components-registry
    [#'TemplateId #'BalanceSheetSide #'VersionStatus #'OpeningReward
-    #'InterestBanding #'InterestPeriodUnit #'InterestDayCount
+    #'InterestRate #'InterestBanding #'InterestPeriodUnit #'InterestDayCount
     #'BusinessDayConvention #'RelativeInterestAccrual #'FixedInterestAccrual
     #'InterestAccrual #'AccountDayInterestPayment #'CalendarDayInterestPayment
     #'AtCloseInterestPayment #'InterestPayment #'InterestTerms

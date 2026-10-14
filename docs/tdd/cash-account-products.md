@@ -341,16 +341,21 @@ convention is ISDA's: `MODIFIED_FOLLOWING` moves a payment day that is
 not a business day to the next, or to the previous where the next is in
 another month.
 
-**Validation.** `interest-fields` in `domain.clj` runs on create and
-update, and refuses `:cash-account-product/invalid-interest-terms`, a
-422 whose message names the rule broken:
+**Validation.** The API schema holds the field rules: 1 to 10 bands, 1
+to 12 periods, one rate for each, every rate in basis points and not
+negative, and one schedule and one payment kind, each its `oneOf`.
+`interest-fields` in `domain.clj` runs on create and update and holds
+the three rules no field can state, refusing
+`:cash-account-product/invalid-interest-terms`, a 422 whose message
+names the rule broken:
 
-- the bands start at zero and are strictly increasing, at most 10;
-- the periods are strictly increasing by start, at most 12, the first
-  0 after opening or on `effective-from`;
-- every period has one rate for each band, and no rate is negative,
-  whether stated in the terms or as `interest-rate-bps`;
-- a payment is one of its three kinds.
+- the bands start at zero, each above the one before;
+- the periods start 0 after opening, or on `effective-from` for a fixed
+  schedule, each after the one before;
+- every period has one rate for each band.
+
+The first two are one predicate, `ascending-from?`: a sequence that
+starts at its origin and is strictly increasing.
 
 The API takes and returns the terms as one object, the schedule's
 variant as `basis` and the payment's as `kind`, each a discriminator,

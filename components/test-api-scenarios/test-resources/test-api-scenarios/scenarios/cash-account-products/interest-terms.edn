@@ -3,7 +3,8 @@
  ;; were stated: a rate for each period and band, and the day interest
  ;; is paid, with its currency's day count and business day convention
  ;; beside them. A grid that breaks one of its rules is refused with the
- ;; rule, and a request cannot state a convention.
+ ;; rule, a negative rate as a field, and a request cannot state a
+ ;; convention.
  :given [{:fixture :bank
           :as :org-0
           :with {:name "Interest Terms Product Bank" :status "live"}}]
@@ -108,7 +109,34 @@
                     :effective-from "2026-11-01"}}
    :assert {:status 422
             :problem {:type ":cash-account-product/invalid-interest-terms"
-                      :detail "Each band starts above the one before"}}}
+                      :detail "Bands start at zero, each above the one before"}}}
+  ;; A negative rate is refused as a field, in the grid or as a rate.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Negative Cell"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-terms
+                    {:accrual {:basis "relative"
+                               :banding "marginal"
+                               :bands [0]
+                               :unit "month"
+                               :periods [{:after 0 :rates-bps [-50]}]}
+                     :payment {:kind "at-close"}}
+                    :effective-from "2026-11-01"}}
+   :assert {:status 400}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Negative Rate"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps -50
+                    :effective-from "2026-11-01"}}
+   :assert {:status 400}}
   ;; The day count is the currency's, not the request's.
   {:command :api/request
    :request {:method :post

@@ -448,27 +448,20 @@
     (testing "terms and a rate together are refused"
       (is (= "State interest-terms or interest-rate-bps, not both"
              (refused {:interest-terms terms :interest-rate-bps 250}))))
-    (testing "a negative rate is refused however it is stated"
-      (is (= "A rate cannot be negative" (refused {:interest-rate-bps -50})))
-      (is (= "A rate cannot be negative"
-             (refused {:interest-terms (assoc-in terms
-                                        (conj periods 1 :rates-bps)
-                                        [150 -1])}))))
-    (testing "the grid's rules are refused with their messages"
+    (testing "the grid's three rules are refused with their messages"
       (doseq [[path value message]
-              [[[:accrual :bands] [] "Interest accrual needs at least one band"]
-               [[:accrual :bands] [100 500000] "The first band starts at zero"]
+              [[[:accrual :bands] []
+                "Bands start at zero, each above the one before"]
+               [[:accrual :bands] [100 500000]
+                "Bands start at zero, each above the one before"]
                [[:accrual :bands] [0 500000 500000]
-                "Each band starts above the one before"]
-               [[:accrual :bands] (vec (range 0 11))
-                "Interest accrual has at most 10 bands"]
-               [[:accrual :schedule] {}
-                "Interest accrual needs a relative or a fixed schedule"]
-               [periods [] "Interest accrual needs at least one period"]
+                "Bands start at zero, each above the one before"]
+               [periods []
+                "Periods start 0 after opening, each after the one before"]
                [(conj periods 0 :after) 1
-                "A relative schedule's first period starts 0 after opening"]
+                "Periods start 0 after opening, each after the one before"]
                [(conj periods 1 :after) 0
-                "Each period starts after the one before"]
+                "Periods start 0 after opening, each after the one before"]
                [(conj periods 1 :rates-bps) [150]
                 "Every period has one rate for each band"]]]
         (is (= message (refused {:interest-terms (assoc-in terms path value)}))
@@ -482,25 +475,19 @@
                (:interest-terms (draft {:interest-terms fixed}))))
         (is
          (=
-          "A fixed schedule's first period starts on the version's effective-from"
+          "Periods start on the version's effective-from, each after the one before"
           (refused {:interest-terms (assoc-in fixed
                                      [:accrual :schedule :fixed :periods 0
                                       :from-on]
                                      20100)})))))
-    (testing "a payment is one of its kinds"
+    (testing "each kind of payment is kept"
       (doseq [kind [{:calendar-day {:every 3 :day-of-month 31 :in-month 3}}
                     {:at-close {}}]]
-        (is (nil? (refused {:interest-terms
-                            (assoc-in terms [:payment :kind] kind)}))
-            (pr-str kind)))
-      (doseq [kind [{}
-                    {:at-close {}
-                     :account-day {:unit :interest-period-unit-day :every 1}}]]
-        (is
-         (=
-          "Interest payment is on the account's day, a calendar day or at close"
-          (refused {:interest-terms (assoc-in terms [:payment :kind] kind)}))
-         (pr-str kind))))
+        (is (= kind
+               (get-in (draft {:interest-terms
+                               (assoc-in terms [:payment :kind] kind)})
+                       [:interest-terms :payment :kind]))
+            (pr-str kind))))
     (testing "a currency's conventions replace any the caller states"
       (is (= (conventions terms)
              (:interest-terms (draft
