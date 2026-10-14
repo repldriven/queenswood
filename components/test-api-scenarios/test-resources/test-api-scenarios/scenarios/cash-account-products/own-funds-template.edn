@@ -1,0 +1,21 @@
+{:name "Only the platform creates an own-funds product"
+ ;; The own-funds template is the bank's own money, which the platform
+ ;; builds for every bank and hides from the template list. Its id is
+ ;; fixed, so the platform's policy denies drafting from it to a
+ ;; member, an operator and a bank's credential alike.
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Own Funds Template Org" :status "live"}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Not my own funds"
+                    :template-id "tpl.00000000000000000000000004"
+                    :currency "GBP"
+                    :effective-from "2026-01-01"}}
+   :assert {:status 403
+            :problem {:type ":policy/denied"
+                      :detail "Platform-restricted - only the platform creates own-funds products"}}}]
+ :then []}

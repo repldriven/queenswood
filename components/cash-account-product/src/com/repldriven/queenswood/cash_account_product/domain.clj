@@ -352,10 +352,16 @@
 ;; Capability + limit checks
 
 (defn- check-capability
-  [action product-type policies]
+  "Checks `action` on a product of `product-type` by `actor`, whose kind
+  a capability's filter may name, as the platform's denial of an
+  own-funds product to anyone but the platform does."
+  [action product-type actor policies]
   (policy/check-capability policies
                            :cash-account-product
-                           {:action action :product-type product-type}))
+                           (utility/assoc-some {:action action
+                                                :product-type product-type}
+                                               :created-by-kind
+                                               (:kind actor))))
 
 (defn- check-limit
   [aggregate window dimensions aggregates policies]
@@ -433,6 +439,7 @@
        _ (ensure-reward opening-reward)
        _ (check-capability :cash-account-product-action-draft
                            (:product-type template)
+                           (:created-by data)
                            policies)
        _ (when (some draft? versions)
            (error/reject :cash-account-product/draft-already-exists
@@ -490,6 +497,7 @@
        _ (ensure-reward opening-reward)
        _ (check-capability :cash-account-product-action-draft
                            (:product-type template)
+                           actor
                            policies)]
       (utility/assoc-some
        (merge {:bank-id bank-id
@@ -539,6 +547,7 @@
     [_ (ensure-draft existing)
      _ (check-capability :cash-account-product-action-publish
                          (:product-type existing)
+                         actor
                          policies)
      _ (check-address-schemes existing payment-provider)]
     (let [now (utility/now)]
@@ -553,6 +562,7 @@
     [_ (ensure-draft existing)
      _ (check-capability :cash-account-product-action-draft
                          (:product-type existing)
+                         actor
                          policies)]
     (let [now (utility/now)]
       (assoc existing

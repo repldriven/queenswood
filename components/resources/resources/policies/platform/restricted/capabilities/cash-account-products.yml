@@ -8,3 +8,15 @@
   kind:
     cash-account-product:
       action: !keyword cash-account-product-action-publish
+- effect: !keyword effect-deny
+  reason: "Platform-restricted - only the platform creates own-funds products"
+  kind:
+    cash-account-product:
+      action: !keyword cash-account-product-action-draft
+      filters:
+        - product-type: !keyword account-product-type-sub-ledger-own-funds
+          created-by-kind: !keyword actor-kind-member
+        - product-type: !keyword account-product-type-sub-ledger-own-funds
+          created-by-kind: !keyword actor-kind-operator
+        - product-type: !keyword account-product-type-sub-ledger-own-funds
+          created-by-kind: !keyword actor-kind-bank

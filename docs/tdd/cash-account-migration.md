@@ -337,6 +337,8 @@ guess.
   along" option when publishing a version could mint a migration with a
   default notice period. That is sugar over the resource rather than an
   alternative to it, and nothing offers it.
+- **Migrations have no count.** The limits bound the accounts one moves
+  and the previews a day, not how many migrations a bank creates.
 
 ## References
 

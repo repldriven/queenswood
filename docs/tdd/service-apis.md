@@ -705,6 +705,10 @@ auth boundaries — is pinned here, never in a brick's
   `idempotency/cache-response`). Forgetting to add both
   to a write endpoint means the endpoint accepts retries
   blindly. See [idempotency.md](idempotency.md).
+- **A request body has no size limit.** `max-in-flight` bounds the calls
+  in progress, not their size, and a few free-text fields, such as a
+  payment limit's `reason`, have no maximum length. The limit to set is
+  1 MB, the default Envoy buffers a request to (`max_request_bytes`).
 
 ## References
 

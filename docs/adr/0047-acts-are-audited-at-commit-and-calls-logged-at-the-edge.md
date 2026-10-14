@@ -95,7 +95,11 @@ The decision has these parts:
   that saves the change with the record as it was and as the act left
   it; an act that changes no record already there names the record it
   creates, and a record the act writes as its consequence keeps only
-  its own `created_by`.
+  its own `created_by`. What the platform builds for every bank,
+  whoever asks, such as a bank's party, ledger accounts, own-funds
+  products and accounts, policy bindings and scheduled jobs, names the
+  platform as its `created_by`: an actor of kind `platform` whose
+  principal is the brick that acted, `bank` for these.
 - Keep on its record anything an act carries that a reader of the log
   needs, such as the reason for a member's role, so the changeset
   carries it.

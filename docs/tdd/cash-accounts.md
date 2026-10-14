@@ -702,6 +702,9 @@ What follows is what the model does not reach.
   dead-lettered, and the account stays opening with nothing to say why.
   A provider that issues each number once never does this; the Modulr
   simulator did, after restarts, before it issued numbers in turn.
+- **Status changes and address rotations have no limit.** A suspend,
+  resume, close or `rotate-address` each sends the bank's payment
+  provider a command, and nothing counts how many a bank makes in a day.
 
 ## References
 

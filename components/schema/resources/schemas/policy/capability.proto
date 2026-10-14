@@ -4,6 +4,7 @@ package com.repldriven.queenswood.schema.policy;
 
 import "schemas/account-product-type/account-product-type.proto";
 import "schemas/account-type/account-type.proto";
+import "schemas/actor/actor.proto";
 import "schemas/balance/types.proto";
 import "schemas/bank/bank.proto";
 import "schemas/party/party.proto";
@@ -70,6 +71,7 @@ enum CashAccountProductAction {
 
 message CashAccountProductCapabilityFilter {
   optional com.repldriven.queenswood.schema.account_product_type.AccountProductType product_type = 1;
+  optional com.repldriven.queenswood.schema.actor.ActorKind created_by_kind = 2;
 }
 
 message CashAccountProductCapability {

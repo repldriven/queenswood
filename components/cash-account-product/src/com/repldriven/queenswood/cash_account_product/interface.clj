@@ -51,7 +51,10 @@
     - `:effective-to` — optional epoch-day; open-ended when absent.
     - `:idempotency-key` — optional; unique per bank, so a retried
       create reads the original product back.
-  - opts (optional): map; `:policies` overrides policy resolution."
+  - opts (optional): map; `:policies` overrides policy resolution, and
+    `:actor` creates it, recorded as its `:created-by` and checked by
+    kind: the platform's policy refuses an own-funds product to any
+    actor but the platform."
   ([txn bank-id data]
    (core/new-product txn bank-id data))
   ([txn bank-id data opts]

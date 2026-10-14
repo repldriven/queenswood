@@ -496,3 +496,44 @@
                                  [:accrual :day-count]
                                  :interest-day-count-actual-actual)})))))))
 
+(deftest own-funds-product-test
+  (let [own-funds (assoc template
+                         :template-id "tpl.00000000000000000000000004"
+                         :product-type
+                         :account-product-type-sub-ledger-own-funds)
+        deny-own-funds
+        {:status :policy-status-active
+         :capabilities
+         [{:kind {:cash-account-product
+                  {:action :cash-account-product-action-draft
+                   :filters (mapv (fn [kind]
+                                    {:product-type
+                                     :account-product-type-sub-ledger-own-funds
+                                     :created-by-kind kind})
+                                  [:actor-kind-member
+                                   :actor-kind-operator
+                                   :actor-kind-bank])}}
+           :effect :effect-deny}]}
+        policies (conj permissive-policies deny-own-funds)
+        aggregates {:cash-account-product {#{:bank-id} 0
+                                           #{:bank-id :product-type} 0}}
+        create (fn [tpl actor]
+                 (SUT/new-product "bnk.1"
+                                  tpl
+                                  (assoc good-data :created-by actor)
+                                  aggregates
+                                  policies))]
+    (testing "a member, an operator or a bank's credential is denied one"
+      (doseq [actor [{:kind :actor-kind-member :principal-id "usr.1"} operator
+                     {:kind :actor-kind-bank :principal-id "bnk.1"}]]
+        (let [r (create own-funds actor)]
+          (is (error/unauthorized? r) (pr-str actor))
+          (is (= :policy/denied (error/kind r)) (pr-str actor)))))
+    (testing "the platform creates it"
+      (is (= :account-product-type-sub-ledger-own-funds
+             (:product-type (create own-funds
+                                    {:kind :actor-kind-platform
+                                     :principal-id "bank"})))))
+    (testing "the deny names own funds alone"
+      (is (= :account-product-type-sub-ledger-current
+             (:product-type (create template operator)))))))

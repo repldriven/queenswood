@@ -161,7 +161,12 @@ a pile of rows.
 `new-template` is on the write interface; `get-template` and
 `list-templates` are on the query one. `list-templates` drops the
 own-funds template, so the shape the bank's house accounts are built
-from never appears in the customer-facing menu.
+from never appears in the customer-facing menu. Its id is fixed, so the
+platform's policy denies drafting an own-funds product to a member, an
+operator and a bank's credential, `:policy/denied`, a 403: the draft
+capability's filter names the product type and the actor's
+`created_by_kind`, and only the platform, which the bank brick acts as
+when it builds a bank, drafts one.
 
 #### Versions
 
@@ -810,6 +815,8 @@ truncated.
   date (once it passes, `active-version` returns nil) — but there is
   no product-level `retired` flag. Retirement is per-version and
   date-driven, not an immediate status toggle.
+- **Versions have no count.** The product limit counts products, so a
+  draft opened and published again and again adds versions without end.
 
 ## References
 
