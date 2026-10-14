@@ -67,7 +67,11 @@
          (error/let-nom>
            [r (transactions/record-transaction
                txn
-               (assoc tx-data :bank-id bank-id :legs checked))]
+               (assoc tx-data
+                      :bank-id bank-id
+                      :legs checked
+                      :actor {:kind :actor-kind-platform
+                              :principal-id "test-scenarios"}))]
            (balances/accept-legs txn
                                  bank-id
                                  (:legs r)

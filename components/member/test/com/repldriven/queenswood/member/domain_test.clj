@@ -454,7 +454,11 @@
   (let [expires-at (+ now day-ms)
         pending (invitation :invitation-status-pending expires-at)]
     (testing "a pending invitation takes the hash, replacing the earlier one"
-      (is (= (assoc pending :token-hash "hash-2" :updated-at now)
+      (is (= (assoc pending
+                    :token-hash "hash-2"
+                    :updated-at now
+                    :updated-by {:kind :actor-kind-platform
+                                 :principal-id "email"})
              (SUT/record-invitation-token pending expires-at "hash-2" now))))
     (testing "an invitation sent again since is superseded"
       (let [result

@@ -20,6 +20,11 @@
   to the end rather than assuming one page reaches it."
   100)
 
+(def ^:private platform
+  "The actor of a notification the webhook brick makes from an event, and
+  of the deliveries it sends."
+  {:kind :actor-kind-platform :principal-id "webhook"})
+
 (defn- enabled-endpoints
   "Every enabled endpoint of `bank-id` that has chosen `kind`. An
   endpoint that chose no kinds has chosen all of them."
@@ -65,7 +70,8 @@
       :resource-id (get data (:resource-id-key entry))
       :correlation-id (correlation-id envelope)
       :idempotency-key (:id envelope)
-      :created-at now}
+      :created-at now
+      :created-by platform}
      :status-before (status-name (:status-before data))
      :status-after (status-name (:status-after data))
      :resource-idempotency-key (:idempotency-key record))))
@@ -77,7 +83,7 @@
                                            (domain/new-delivery notification
                                                                 endpoint
                                                                 now
-                                                                nil))]
+                                                                platform))]
               (if (error/anomaly? res) (reduced res) nil)))
           nil
           endpoints))

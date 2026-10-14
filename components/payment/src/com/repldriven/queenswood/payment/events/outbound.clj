@@ -14,6 +14,15 @@
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.telemetry.interface :as telemetry]))
 
+
+(def ^:private platform
+  "The actor of what the payment brick records on its own, as a
+  provider's event settles, returns or holds a payment."
+  {:kind :actor-kind-platform :principal-id "payment"})
+
+(defn- record-transaction
+  [txn transaction]
+  (transactions/record-transaction txn (assoc transaction :actor platform)))
 (defn- bank-policies
   [config txn bank-id]
   (telemetry/with-span ["payment-policies"]
@@ -66,7 +75,7 @@
                                           currency
                                           (:legs tx)))
        recorded (telemetry/with-span ["payment-record-transaction"]
-                                     (transactions/record-transaction
+                                     (record-transaction
                                       txn
                                       (assoc tx :legs checked-legs)))
        {:keys [transaction-type legs]} recorded
@@ -198,7 +207,7 @@
                                           currency
                                           (:legs tx)))
        recorded (telemetry/with-span ["payment-record-transaction"]
-                                     (transactions/record-transaction
+                                     (record-transaction
                                       txn
                                       (assoc tx :legs checked-legs)))
        {:keys [transaction-type legs]} recorded
@@ -295,7 +304,7 @@
                                           currency
                                           (:legs tx)))
        recorded (telemetry/with-span ["payment-record-transaction"]
-                                     (transactions/record-transaction
+                                     (record-transaction
                                       txn
                                       (assoc tx :legs checked-legs)))
        {:keys [transaction-type legs]} recorded

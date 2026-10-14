@@ -462,12 +462,13 @@
   the same status on both sides. It is still written: the account record
   changed, and a reader tailing the changelog needs to see that as much
   as it needs to see a status flip."
-  [txn account target-version policies]
+  [txn account target-version policies actor]
   (let-nom>
     [updated (domain/migrate-product account
                                      target-version
                                      (utility/today)
-                                     policies)
+                                     policies
+                                     actor)
      _ (store/save-account txn
                            updated
                            {:account-id (:account-id account)
@@ -496,6 +497,10 @@
                                                 bank-id
                                                 target-product-id
                                                 target-version-id)]
-          (migrate-account txn account target-version policies))))
+          (migrate-account txn
+                           account
+                           target-version
+                           policies
+                           (:actor opts)))))
     :cash-account/migrate-product
     "Failed to migrate account product")))

@@ -157,9 +157,10 @@
     together.
   - account: the account map, as streamed.
   - target-version: the product version to repin onto.
-  - policies: effective policies for the run."
-  [txn account target-version policies]
-  (core/migrate-account txn account target-version policies))
+  - policies: effective policies for the run.
+  - actor: who moves it, the platform when a migration runs."
+  [txn account target-version policies actor]
+  (core/migrate-account txn account target-version policies actor))
 
 (defn seed-opened-account
   "Test/admin shortcut: flip an account from

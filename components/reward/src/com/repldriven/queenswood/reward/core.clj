@@ -14,6 +14,11 @@
 
     [clojure.tools.logging :as log]))
 
+(def ^:private platform
+  "The actor of what the reward brick pays on its own, as an account
+  opens."
+  {:kind :actor-kind-platform :principal-id "reward"})
+
 (defn- existing-row
   [txn account]
   (store/find-by-account txn
@@ -80,8 +85,8 @@
             posted (transactions/record-and-post txn
                                                  bank-id
                                                  (assoc transaction
-                                                        :legs
-                                                        legs))]
+                                                        :legs legs
+                                                        :actor platform))]
            (store/save-reward txn
                               (domain/paid reward (:transaction-id posted))
                               {:change-kind :reward-change-kind-pay

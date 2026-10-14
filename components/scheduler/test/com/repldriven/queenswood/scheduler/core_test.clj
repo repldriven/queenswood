@@ -79,7 +79,9 @@
                                       :schedule "0 0 0 * * ?"
                                       :status :scheduler-job-status-active
                                       :kind :scheduler-job-kind-system
-                                      :created-at now})
+                                      :created-at now
+                                      :created-by {:kind :actor-kind-platform
+                                                   :principal-id "bank"}})
                    _ (SUT/reconcile! config)
                    seeded (store/get-job config bank-id "daily-interest")
                    _ (is (= "0 0 17 * * ?" (:schedule seeded)))

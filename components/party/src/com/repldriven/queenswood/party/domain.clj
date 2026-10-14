@@ -6,6 +6,11 @@
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
     [com.repldriven.mono.utility.interface :as utility :refer [assoc-some]]))
 
+(def ^:private platform
+  "The actor of what the party brick changes on its own, as a party's
+  identity verification decides its status."
+  {:kind :actor-kind-platform :principal-id "party"})
+
 (defn- actor-record
   [actor]
   (select-keys actor [:kind :principal-id]))
@@ -46,9 +51,10 @@
 
 (defn- moved
   [party status]
-  (-> party
-      (assoc :status status :updated-at (utility/now))
-      (dissoc :updated-by)))
+  (assoc party
+         :status status
+         :updated-at (utility/now)
+         :updated-by platform))
 
 (defn activate-party
   [party]

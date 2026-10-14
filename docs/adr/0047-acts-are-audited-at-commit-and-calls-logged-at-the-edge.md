@@ -105,7 +105,7 @@ The decision has these parts:
   carries it.
 - Write no entry for what the platform does by itself, such as the
   scheduler completing a run, a provider settling a payment or a relay
-  reacting to an event.
+  reacting to an event: `record` writes none for a platform performer.
 - Keep the log append-only: a versionstamped key exists only from its
   commit, so nothing can write one twice, and the `audit` brick
   exposes `record` and reads and nothing else and is the only brick
@@ -159,7 +159,8 @@ The decision has these parts:
 - Remove a transition's `_at` and `_by` pair from its record once
   its act writes an audit entry, keeping among the record's own fields
   a value the domain reads to decide, and leaving a platform transition
-  to the record's `status` and `updated_at`, clearing `updated_by`.
+  to the record's `status`, `updated_at` and `updated_by`, which names
+  the platform.
 - Keep the audit block on every record: `created_at` and `created_by`,
   and `updated_at` with `updated_by` where the record has an actor
   for its changes, the pair set together; publish only that block

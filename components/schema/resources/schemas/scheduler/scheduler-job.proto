@@ -43,7 +43,7 @@ message SchedulerJob {
   optional int64 next_run_at = 9 [(fideslang.data_category) = "system.operations"];
 
   required int64 created_at = 101;
-  optional com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
   optional int64 updated_at = 103;
   optional com.repldriven.queenswood.schema.actor.Actor updated_by = 104;
 }

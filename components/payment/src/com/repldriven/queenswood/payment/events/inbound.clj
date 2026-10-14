@@ -18,6 +18,15 @@
     [com.repldriven.mono.telemetry.interface :as telemetry]
     [com.repldriven.mono.utility.interface :as utility]))
 
+
+(def ^:private platform
+  "The actor of what the payment brick records on its own, as a
+  provider's event settles, returns or holds a payment."
+  {:kind :actor-kind-platform :principal-id "payment"})
+
+(defn- record-transaction
+  [txn transaction]
+  (transactions/record-transaction txn (assoc transaction :actor platform)))
 (defn- bank-policies
   [config txn bank-id]
   (telemetry/with-span ["payment-policies"]
@@ -73,7 +82,7 @@
                     (:ledger-account-id cash)
                     (:ledger-account-id suspense)
                     receiving-account-id)
-       recorded (transactions/record-transaction txn transaction)
+       recorded (record-transaction txn transaction)
        {:keys [transaction-type legs]} recorded
        _ (accept-legs txn bank-id legs transaction-type policies)]
       recorded)))
@@ -189,7 +198,7 @@
                                                 (:legs transaction)))
              transaction+legs (telemetry/with-span
                                ["payment-record-transaction"]
-                               (transactions/record-transaction
+                               (record-transaction
                                 txn
                                 (assoc transaction :legs checked-legs)))
              {:keys [transaction-id transaction-type legs]} transaction+legs
@@ -283,7 +292,7 @@
                            bank-id
                            currency
                            (:legs transaction))
-             recorded (transactions/record-transaction
+             recorded (record-transaction
                        txn
                        (assoc transaction :legs checked-legs))
              {:keys [transaction-id transaction-type legs]} recorded
@@ -331,7 +340,7 @@
                      bank-id
                      currency
                      (:legs transaction))
-       recorded (transactions/record-transaction
+       recorded (record-transaction
                  txn
                  (assoc transaction :legs checked-legs))
        {:keys [transaction-id transaction-type legs]} recorded
@@ -657,7 +666,7 @@
                          bank-id
                          :ledger-account-code-suspense
                          currency)
-               recorded (transactions/record-transaction
+               recorded (record-transaction
                          txn
                          (inbound/inbound-return->transaction
                           payment

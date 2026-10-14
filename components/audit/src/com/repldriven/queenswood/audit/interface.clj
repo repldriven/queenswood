@@ -14,8 +14,8 @@
   of its subject, its kind, its performer's kind, its performer and its
   request beside it, with the changeset of the subject's fields
   `:before` and `:after` hold differently. Records nothing when the
-  entry has no `:performed-by`, which is an act the platform performed
-  by itself. Returns nil, or an anomaly.
+  entry has no `:performed-by`, or the platform performed it, which is
+  an act the platform performed by itself. Returns nil, or an anomaly.
 
   Args:
   - txn: the transaction that makes the change the entry records.

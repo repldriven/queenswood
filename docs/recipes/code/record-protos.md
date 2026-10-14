@@ -60,9 +60,10 @@ message CashAccountMigration {
   key. `updated_at` and `updated_by` are never required: a record
   nobody has changed has neither, so its create leaves them unset. A
   change a member, an operator or the bank's credential makes sets
-  both, and one the platform makes sets `updated_at` and clears
-  `updated_by`. The idempotency key is the key a repeat of the request
-  that created the
+  both, and so does one the platform makes, naming the platform, an
+  actor of kind `platform` whose principal is the brick that acted.
+  `created_by` is required: what the platform makes names it too. The
+  idempotency key is the key a repeat of the request that created the
   record is recognised by, whether the request is an API call carrying
   an `Idempotency-Key` or a changelog event a consumer may be handed
   twice.
@@ -204,8 +205,9 @@ Clojure one would disagree about the same record.
 Who did what, and when, is an audit entry committed with the act, so a
 record keeps only its latest change's time and actor: see
 [ADR-0047](../../adr/0047-acts-are-audited-at-commit-and-calls-logged-at-the-edge.md).
-A platform change clears `updated_by` so that a person is never named
-for what the platform did after them. The entry's changeset copies the
+A platform change names the platform in `updated_by`, so that a person
+is never named for what the platform did after them and every record
+says who last changed it. The entry's changeset copies the
 fields an act changed into a log nothing can take back, so a field's
 data category is what keeps a person's details, a credential and the
 platform's workings out of it. The category is Fideslang's rather than
