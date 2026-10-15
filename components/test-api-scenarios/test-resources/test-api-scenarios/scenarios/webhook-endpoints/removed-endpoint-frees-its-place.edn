@@ -1,0 +1,37 @@
+{:name "Removing a webhook endpoint frees its place under the micro tier's cap"
+ ;; The cap counts enabled and disabled endpoints. A bank at its two
+ ;; registers a third once it removes one, as it would after a client
+ ;; that crashed registered again under a fresh key.
+ :given
+ [{:fixture :bank :as :org-0 :with {:name "Webhook Freed Org" :status "live"}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth [:ref :org-0 :token]
+             :body {:address "https://93.184.216.34/hooks-1"
+                    :kinds ["payment.outbound-completed"]}}
+   :as :endpoint-0
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth [:ref :org-0 :token]
+             :body {:address "https://93.184.216.34/hooks-2"
+                    :kinds ["payment.outbound-completed"]}}
+   :as :endpoint-1
+   :assert {:status 201}}
+  {:command :api/request
+   :request {:method :delete
+             :path "/v1/webhook-endpoints/{endpoint-id}"
+             :path-params {:endpoint-id [:ref :endpoint-1 :endpoint
+                                         :endpoint-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 204}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints"
+             :auth [:ref :org-0 :token]
+             :body {:address "https://93.184.216.34/hooks-3"
+                    :kinds ["payment.outbound-completed"]}}
+   :assert {:status 201}}]}

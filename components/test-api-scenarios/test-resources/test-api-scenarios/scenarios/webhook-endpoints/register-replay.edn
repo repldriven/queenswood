@@ -26,7 +26,7 @@
    :request {:method :post
              :path "/v1/webhook-endpoints"
              :auth [:ref :org-0 :token]
-             :body {:address "https://93.184.216.34/hooks"
+             :body {:address "https://93.184.216.34/hooks-2"
                     :kinds ["payment.outbound-completed"]}}
    :assert {:status 201}}]
  :then

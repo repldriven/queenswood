@@ -64,8 +64,8 @@
    "Source-state guard. Only a disabled or paused endpoint may be
     enabled; a retry finds it enabled and is refused 409
     `webhook-endpoint/invalid-status`. The optional `since` backfills
-    only what has never been delivered, so a retry inside the same
-    window adds nothing."
+    only notifications the endpoint has no delivery of, so a retry
+    inside the same window adds nothing."
    [:post "/v1/webhook-endpoints/{endpoint-id}/disable"]
    "Source-state guard. Only an enabled or paused endpoint may be
     disabled; a retry finds it disabled and is refused 409

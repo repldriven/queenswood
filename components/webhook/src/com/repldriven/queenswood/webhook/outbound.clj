@@ -202,35 +202,44 @@
 
 (defn drain-once
   "Claim the deliveries that are due, as many of each endpoint's as its
-  breaker allows, and send them. Each claim commits before its call is
+  breaker allows, reading the pending ones from the endpoint after
+  `cursor` on, and send them. Each claim commits before its call is
   made, so a second replica draining at the same moment finds the rows
   claimed and sends nothing; the batch's calls run alongside each other
-  and the pass ends when they have all recorded an outcome."
-  [config]
-  (let [now (utility/now)
-        claimed (store/claim-due-deliveries
-                 config
-                 {:now now
-                  :lease-ms (:claim-lease-ms config)
-                  :limit (:batch-size config)
-                  :per-endpoint-limit (:max-in-flight-per-endpoint config)
-                  :endpoint-allowance (endpoint-allowance config now)})]
-    (if (error/anomaly? claimed)
-      (log/error "Failed to claim due webhook deliveries" {:anomaly claimed})
-      (run! deref (mapv #(future (deliver-claimed config %)) claimed)))))
+  and the pass ends when they have all recorded an outcome. Returns the
+  cursor the next pass starts from."
+  ([config]
+   (drain-once config nil))
+  ([config cursor]
+   (let [now (utility/now)
+         res (store/claim-due-deliveries
+              config
+              {:now now
+               :lease-ms (:claim-lease-ms config)
+               :limit (:batch-size config)
+               :per-endpoint-limit (:max-in-flight-per-endpoint config)
+               :endpoint-allowance (endpoint-allowance config now)
+               :cursor cursor})]
+     (if (error/anomaly? res)
+       (log/error "Failed to claim due webhook deliveries" {:anomaly res})
+       (do (run! deref
+                 (mapv #(future (deliver-claimed config %)) (:claimed res)))
+           (:cursor res))))))
 
 (defn start-runner
-  "Start the daemon poll loop that drains due deliveries. Returns
-  `{:stop fn}`."
+  "Start the daemon poll loop that drains due deliveries, each pass
+  starting where the last one's read ended. Returns `{:stop fn}`."
   [config]
   (let [running (atom true)
+        cursor (volatile! nil)
         poll-ms (:poll-ms config)
         t (doto
             (Thread.
              (fn []
                (while @running
-                 (try (drain-once config)
+                 (try (vreset! cursor (drain-once config @cursor))
                       (catch Exception e
+                        (vreset! cursor nil)
                         (log/error e "Webhook drain threw; continuing")))
                  (try (when @running (Thread/sleep poll-ms))
                       (catch InterruptedException _ (reset! running false))))))

@@ -39,3 +39,4 @@ limits: !concat
   - !include policies/platform/restricted/limits/payee-checks.yml
   - !include policies/platform/restricted/limits/payments.yml
   - !include policies/platform/restricted/limits/webhook-endpoints.yml
+  - !include policies/platform/restricted/limits/webhook-test-notifications.yml

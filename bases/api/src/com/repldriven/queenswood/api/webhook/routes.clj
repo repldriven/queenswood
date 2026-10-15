@@ -48,7 +48,12 @@
                                    "address or to a private, loopback or "
                                    "link-local range is refused with 422. An "
                                    "endpoint that chooses no kinds receives "
-                                   "every kind.")
+                                   "every kind. An address the bank already "
+                                   "has an enabled or disabled endpoint at "
+                                   "returns 200 with that endpoint and its "
+                                   "current secret, unchanged; register with "
+                                   "an idempotency key derived from the "
+                                   "address, so replicas share one endpoint.")
                  :security [{"bearerAuth" ["org:developer"]}]
                  :requestBody {:required true}
                  :parameters ^:replace
@@ -58,7 +63,10 @@
                       bank-idempotency/cache-response]
        :parameters {:body [:ref "WebhookEndpointRequest"]}
        :responses (shared.idempotency/with-responses
-                   {201 {:description (str "The registered endpoint and its "
+                   {200 {:description (str "The endpoint already at the "
+                                           "address and its signing secret.")
+                         :body [:ref "WebhookEndpointRegistration"]}
+                    201 {:description (str "The registered endpoint and its "
                                            "signing secret.")
                          :body [:ref "WebhookEndpointRegistration"]
                          :openapi {:headers {"Location" (shared.headers/location
@@ -126,7 +134,7 @@
                (str "Only a disabled or paused endpoint can be enabled; any "
                     "other is refused with 409. With `since`, every "
                     "notification from that instant that the endpoint has "
-                    "chosen and never received is queued as a new delivery.")
+                    "chosen and never had a delivery of is queued as one.")
                :requestBody {:required true}}
               :parameters {:body [:ref "WebhookEndpointEnableRequest"]}
               :responses {200 {:description "The enabled endpoint."
@@ -187,7 +195,9 @@
                     "the endpoint as its data, whatever kinds the endpoint "
                     "has chosen, and returns the delivery it created. The "
                     "endpoint must be enabled; otherwise the request is "
-                    "refused with 409.")
+                    "refused with 409. A bank that has sent as many test "
+                    "notifications today as its policies allow is refused "
+                    "with 429.")
                :parameters ^:replace
                            [shared.parameters/ref-endpoint-id
                             shared.parameters/ref-bank-id-header
@@ -202,36 +212,37 @@
                                                      "delivery")}}}
                 403 (ErrorExamples [#'api-schema/PolicyDenied])
                 404 (ErrorResponse [#'WebhookEndpointNotFound])
-                409 (ErrorResponse [#'WebhookEndpointInvalidStatus])})
+                409 (ErrorResponse [#'WebhookEndpointInvalidStatus])
+                429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
               :handler handlers/test-notification}}]
      ["/resend"
       {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
-       :post {:summary "Resend a webhook endpoint's notifications"
-              :openapi
-              {:operationId "ResendWebhookNotifications"
-               :description
-               (str "Queues every notification the endpoint has chosen that "
-                    "the bank created between `from` and `to` as a new "
-                    "delivery, whether or not it was delivered before. "
-                    "Without `to`, the window runs to now. The endpoint must"
-                    " be enabled; otherwise the request is refused with 409.")
-               :requestBody {:required true}
-               :parameters ^:replace
-                           [shared.parameters/ref-endpoint-id
-                            shared.parameters/ref-bank-id-header
-                            shared.parameters/ref-idempotency-key]}
-              :interceptors [server/require-idempotency-key
-                             bank-idempotency/cache-response]
-              :parameters {:body [:ref "WebhookResendWindowRequest"]}
-              :responses
-              (shared.idempotency/with-responses
-               {200 {:description (str "One new delivery per notification "
-                                       "in the window.")
-                     :body [:ref "WebhookDeliveryList"]}
-                403 (ErrorExamples [#'api-schema/PolicyDenied])
-                404 (ErrorResponse [#'WebhookEndpointNotFound])
-                409 (ErrorResponse [#'WebhookEndpointInvalidStatus])})
-              :handler handlers/resend-window}}]
+       :post
+       {:summary "Resend a webhook endpoint's notifications"
+        :openapi {:operationId "ResendWebhookNotifications"
+                  :description
+                  (str "Queues again every delivery to the endpoint created "
+                       "between `from` and `to` that failed, due now and "
+                       "tried on the whole retry schedule. A pending or "
+                       "delivered one is left as it is, so asking twice sends "
+                       "nothing twice. Without `to`, the window runs to now. "
+                       "The endpoint must be enabled; otherwise the request "
+                       "is refused with 409.")
+                  :requestBody {:required true}
+                  :parameters ^:replace
+                              [shared.parameters/ref-endpoint-id
+                               shared.parameters/ref-bank-id-header
+                               shared.parameters/ref-idempotency-key]}
+        :interceptors [server/require-idempotency-key
+                       bank-idempotency/cache-response]
+        :parameters {:body [:ref "WebhookResendWindowRequest"]}
+        :responses (shared.idempotency/with-responses
+                    {200 {:description "How many deliveries were queued again."
+                          :body [:ref "WebhookResend"]}
+                     403 (ErrorExamples [#'api-schema/PolicyDenied])
+                     404 (ErrorResponse [#'WebhookEndpointNotFound])
+                     409 (ErrorResponse [#'WebhookEndpointInvalidStatus])})
+        :handler handlers/resend-window}}]
      ["/deliveries"
       {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
        :get {:summary "List a webhook endpoint's deliveries"

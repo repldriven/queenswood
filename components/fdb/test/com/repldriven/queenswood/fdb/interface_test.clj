@@ -338,7 +338,27 @@
          _
          (is (= ["pet-90" "pet-91" "pet-92"]
                 (mapv (comp :pet-id test-schema/pb->Pet) scanned))
-             "the oldest three, by primary key, and no more")]))))
+             "the oldest three, by primary key, and no more")
+         ranged (SUT/transact config
+                              (fn [txn]
+                                (let [store (SUT/open txn "pets")
+                                      scan (fn [opts]
+                                             (mapv :key
+                                                   (SUT/scan-index-entries
+                                                    store
+                                                    "species_idx"
+                                                    ["ferret"]
+                                                    (assoc opts :limit 10))))]
+                                  {:from (scan {:from ["pet-91"]})
+                                   :after (scan {:after ["pet-91"]})
+                                   :between (scan {:from ["pet-91"]
+                                                   :through ["pet-92"]
+                                                   :isolation :snapshot})})))
+         _ (is (= {:from [["pet-91"] ["pet-92"] ["pet-93"]]
+                   :after [["pet-92"] ["pet-93"]]
+                   :between [["pet-91"] ["pet-92"]]}
+                  ranged)
+               "from takes its own entry, after starts past it")]))))
 
 (deftest kv-test
   (with-test-system [sys "classpath:fdb/application-test.yml"]

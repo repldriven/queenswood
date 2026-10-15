@@ -90,6 +90,8 @@
 (def WebhookResendWindowRequest
   {:from "2026-05-17T00:00:00Z" :to "2026-05-18T00:00:00Z"})
 
+(def WebhookResend {:resent-count 3})
+
 (def WebhookNotification {:value notification})
 
 (def WebhookEndpointNotFound

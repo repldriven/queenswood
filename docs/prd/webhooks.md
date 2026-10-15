@@ -104,8 +104,12 @@ The customer supplies:
 - A description, for the customer's own reference.
 
 The call returns the endpoint with its identifier, its status
-(enabled), and its signing secret — handed over once, at registration.
-The customer must store it: the platform will not show it again.
+(enabled), and its signing secret. The customer must store it: no read
+shows it again. Registering an address the customer already has an
+endpoint at returns that endpoint and the same secret, so a customer's
+system that restarts and registers again keeps the endpoint it had,
+and everything waiting to be delivered to it, rather than starting a
+second one or losing the secret it verifies with.
 
 At any time the customer can ask the platform to send a test
 notification to an endpoint and see whether it was acknowledged, and
@@ -213,9 +217,15 @@ each with its notification, every attempt, when each was made, and
 what the endpoint answered — and filter by kind, outcome, and time.
 
 The customer can ask for one notification to be sent again, or for
-everything in a time window to be sent again, to one endpoint. A
-re-send is a fresh delivery of the same notification, carrying the
-same identifier, and is recorded alongside the original attempts.
+every delivery in a time window that the platform gave up on to be
+tried again, to one endpoint. A re-send of one notification is a fresh
+delivery of it, carrying the same identifier, and is recorded alongside
+the original attempts. A window's are tried again on the whole retry
+schedule, and asking twice sends nothing twice, so a customer's system
+can ask each time it starts.
+
+The customer can send an endpoint a test notification at any time, up
+to a daily limit.
 
 ### Endpoint lifecycle
 

@@ -105,10 +105,21 @@
                  _ (testing "the bank list holds this bank's rows alone"
                      (is (= ["whe.1" "whe.2"]
                             (mapv :endpoint-id (:endpoints listed)))))
-                 counted (SUT/count-endpoints config bank-id)
+                 counted (SUT/count-live-endpoints config bank-id)
                  _ (testing "the count index counts them"
                      (is (= 2 counted))
-                     (is (= 1 (SUT/count-endpoints config other-bank))))
+                     (is (= 1 (SUT/count-live-endpoints config other-bank))))
+                 _ (SUT/save-endpoint config
+                                      (assoc (endpoint bank-id "whe.1" "ik-1")
+                                             :status
+                                             :webhook-endpoint-status-disabled))
+                 _ (SUT/save-endpoint config
+                                      (assoc (endpoint bank-id "whe.2" "ik-2")
+                                             :status
+                                             :webhook-endpoint-status-removed))
+                 live (SUT/count-live-endpoints config bank-id)
+                 _ (testing "a disabled one still counts, a removed one not"
+                     (is (= 1 live)))
                  by-key
                  (SUT/find-endpoint-by-idempotency-key config bank-id "ik-1")
                  _ (testing "the unique key index finds the right bank's row"
@@ -130,7 +141,7 @@
                                   (endpoint bank-id "whe.2" "ik-taken"))]
                      (testing "the unique index refuses it, distinguishably"
                        (is (true? (SUT/uniqueness-violation? refused)))))
-                 counted (SUT/count-endpoints config bank-id)
+                 counted (SUT/count-live-endpoints config bank-id)
                  _ (testing "and the second row is not there"
                      (is (= 1 counted)))]))))
 
@@ -156,10 +167,36 @@
                                                                     "evt-2")
                  _ (testing "the unique idempotency-key index finds it"
                      (is (= "whn.2" (:notification-id by-event))))
-                 by-bank (SUT/find-notifications-by-bank config bank-id)
-                 _ (testing "the bank-and-created index lists them in order"
+                 first-page (SUT/find-notifications-since config
+                                                          bank-id
+                                                          1700000000000
+                                                          nil
+                                                          1)
+                 next-page (SUT/find-notifications-since config
+                                                         bank-id
+                                                         1700000000000
+                                                         (:key (peek
+                                                                first-page))
+                                                         1)
+                 _ (testing "the bank-and-created index pages them in order"
                      (is (= ["whn.1" "whn.2"]
-                            (mapv :notification-id by-bank))))]))))
+                            (mapv (comp :notification-id :notification)
+                                  (into first-page next-page)))))
+                 later (SUT/find-notifications-since config
+                                                     bank-id
+                                                     1700000000001
+                                                     nil
+                                                     10)
+                 _ (testing "and starts at the instant asked for"
+                     (is (= ["whn.2"]
+                            (mapv (comp :notification-id :notification)
+                                  later))))
+                 counted (SUT/count-notifications-since config
+                                                        bank-id
+                                                        "cash-account.opened"
+                                                        1700000000001)
+                 _ (testing "the kind-and-created index counts from an instant"
+                     (is (= 1 counted)))]))))
 
 (deftest a-taken-idempotency-key-refuses-the-second-write-test
   (with-test-system
@@ -223,6 +260,29 @@
                  (SUT/find-deliveries-by-endpoint config bank-id "whe.1")
                  _ (testing "the endpoint-and-time index answers the history"
                      (is (= ["whd.1" "whd.2"] (mapv :delivery-id by-endpoint))))
+                 _ (SUT/save-delivery config
+                                      (delivery bank-id
+                                                "whd.4"
+                                                "whe.1"
+                                                :webhook-delivery-status-failed
+                                                nil
+                                                1700000000003))
+                 failed (SUT/find-failed-deliveries config
+                                                    bank-id
+                                                    "whe.1" 1700000000000
+                                                    1700000000003 10)
+                 _ (testing "the endpoint-and-status index finds the failed"
+                     (is (= ["whd.4"] (mapv :delivery-id failed))))
+                 outside (SUT/find-failed-deliveries config
+                                                     bank-id
+                                                     "whe.1" 1700000000000
+                                                     1700000000002 10)
+                 _ (testing "inside the window only" (is (empty? outside)))
+                 held (SUT/holds-delivery? config bank-id "whe.2" "whn.1")
+                 none (SUT/holds-delivery? config bank-id "whe.3" "whn.1")
+                 _ (testing "the endpoint-and-notification index answers"
+                     (is (true? held))
+                     (is (false? none)))
                  _ (SUT/save-attempt
                     config
                     (attempt bank-id "wha.1" "whd.1" 1700000000000))
@@ -266,7 +326,7 @@
                                                 "whe.2"
                                                 :webhook-delivery-status-pending
                                                 1700000000002 1700000000002))
-                 claimed
+                 {:keys [claimed]}
                  (SUT/claim-due-deliveries
                   config
                   {:now now :lease-ms 60000 :limit 2 :per-endpoint-limit 1})
@@ -275,3 +335,47 @@
                  _ (testing "still carries the row whose claim lapsed"
                      (is (contains? (set (mapv :delivery-id claimed))
                                     "whd.stranded")))]))))
+
+(deftest a-held-endpoints-backlog-does-not-starve-another-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.store.held"
+         now 1700000001000
+         opts {:now now
+               :lease-ms 60000
+               :limit 1
+               :per-endpoint-limit 1
+               :endpoint-allowance (fn [_ _ endpoint-id]
+                                     (if (= "whe.a.held" endpoint-id) 0 1))}]
+     (nom-test> [_ (reduce (fn [_ n]
+                             (SUT/save-delivery
+                              config
+                              (delivery bank-id
+                                        (str "whd.held." n)
+                                        "whe.a.held"
+                                        :webhook-delivery-status-pending
+                                        (+ 1700000000000 n)
+                                        1700000000000)))
+                           nil
+                           (range 12))
+                 _ (SUT/save-delivery config
+                                      (delivery bank-id
+                                                "whd.waiting"
+                                                "whe.b.waiting"
+                                                :webhook-delivery-status-pending
+                                                1700000000500 1700000000500))
+                 first-pass (SUT/claim-due-deliveries config opts)
+                 _ (testing
+                     "a pass whose read the held backlog fills claims nothing"
+                     (is (empty? (:claimed first-pass)))
+                     (is (= [bank-id "whe.a.held"] (:cursor first-pass))))
+                 next-pass (SUT/claim-due-deliveries
+                            config
+                            (assoc opts :cursor (:cursor first-pass)))
+                 _ (testing
+                     "and the next starts past it, to the endpoint waiting"
+                     (is (= ["whd.waiting"]
+                            (mapv :delivery-id (:claimed next-pass)))))
+                 _ (testing "wrapping round to the start once the index ends"
+                     (is (= [bank-id "whe.a.held"] (:cursor next-pass))))]))))

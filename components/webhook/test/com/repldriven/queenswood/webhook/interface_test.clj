@@ -57,9 +57,15 @@
 
 (def ^:private actor {:kind :actor-kind-member :principal-id "usr.1"})
 
-(defn- register
+(defn- registration
   [config bank-id data policies]
   (SUT/register config bank-id data actor {:policies policies}))
+
+(defn- register
+  "The endpoint a registration returns, or its anomaly."
+  [config bank-id data policies]
+  (let [res (registration config bank-id data policies)]
+    (if (error/anomaly? res) res (:endpoint res))))
 
 (deftest registration-mints-an-endpoint-test
   (with-test-system
@@ -103,6 +109,69 @@
                  listed (SUT/get-endpoints config bank-id)
                  _ (testing "and leaves one endpoint behind, not two"
                      (is (= 1 (count (:endpoints listed)))))]))))
+
+(deftest registering-a-live-address-returns-its-endpoint-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         bank-id "bnk.register.adopt"
+         one-endpoint
+         (conj allow-manage
+               {:status :policy-status-active
+                :limits [{:kind {:webhook-endpoint {}}
+                          :bound
+                          {:kind {:max {:aggregate
+                                        {:kind {:count
+                                                {:value 1
+                                                 :window
+                                                 :time-window-instant}}}}}}}]})]
+     (nom-test> [first-endpoint (register config
+                                          bank-id
+                                          (endpoint-data "ik-adopt-1")
+                                          one-endpoint)
+                 adopted (registration config
+                                       bank-id
+                                       (assoc (endpoint-data "ik-adopt-2")
+                                              :description
+                                              "After a crash")
+                                       one-endpoint)
+                 _ (testing "a second key at the same address adopts the first"
+                     (is (true? (:adopted? adopted)))
+                     (is (= (:endpoint-id first-endpoint)
+                            (:endpoint-id (:endpoint adopted)))))
+                 _ (testing "its secret unrotated and its fields as they were"
+                     (is (= (:secret first-endpoint)
+                            (:secret (:endpoint adopted))))
+                     (is (= "Tenant hooks" (:description (:endpoint adopted)))))
+                 _ (testing "and counts nothing against a limit already met"
+                     (is (= 1
+                            (count (:endpoints (SUT/get-endpoints config
+                                                                  bank-id))))))
+                 _ (SUT/disable config
+                                bank-id
+                                (:endpoint-id first-endpoint)
+                                actor
+                                {:policies allow-manage})
+                 disabled (registration config
+                                        bank-id
+                                        (endpoint-data "ik-adopt-3")
+                                        one-endpoint)
+                 _ (testing "a disabled endpoint is adopted as it is"
+                     (is (= :webhook-endpoint-status-disabled
+                            (:status (:endpoint disabled)))))
+                 _ (SUT/remove-endpoint config
+                                        bank-id
+                                        (:endpoint-id first-endpoint)
+                                        actor
+                                        {:policies allow-manage})
+                 fresh (registration config
+                                     bank-id
+                                     (endpoint-data "ik-adopt-4")
+                                     one-endpoint)
+                 _ (testing "a removed one's address registers a new endpoint"
+                     (is (false? (:adopted? fresh)))
+                     (is (not= (:endpoint-id first-endpoint)
+                               (:endpoint-id (:endpoint fresh)))))]))))
 
 (deftest a-missing-endpoint-is-not-found-test
   (with-test-system
@@ -219,7 +288,9 @@
                                           allow-manage)
                  second-endpoint (register config
                                            bank-id
-                                           (endpoint-data "ik-scope-2")
+                                           (assoc (endpoint-data "ik-scope-2")
+                                                  :address
+                                                  (str tenant-address "-2"))
                                            allow-manage)
                  delivery (SUT/test-notification config
                                                  bank-id

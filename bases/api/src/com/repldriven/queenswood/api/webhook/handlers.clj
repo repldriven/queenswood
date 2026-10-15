@@ -49,11 +49,15 @@
 (defn- registered
   "The one response that carries the secret, beside the endpoint as
   every read route returns it. `->body` declares no secret, so the
-  secret reaches the caller only because this names it."
-  [endpoint]
-  {:status 201
-   :headers {"Location" (endpoint-uri endpoint)}
-   :body {:endpoint (webhook/->body endpoint) :secret (:secret endpoint)}})
+  secret reaches the caller only because this names it. An endpoint
+  already live at the address answers 200, one just created 201."
+  [{:keys [endpoint adopted?]}]
+  (cond-> {:status (if adopted? 200 201)
+           :body {:endpoint (webhook/->body endpoint)
+                  :secret (:secret endpoint)}}
+
+          (not adopted?)
+          (assoc :headers {"Location" (endpoint-uri endpoint)})))
 
 (defn- rotated
   [endpoint]
@@ -73,8 +77,8 @@
    :body (webhook/->delivery-body delivery)})
 
 (defn- resent
-  [{:keys [deliveries]}]
-  {:status 200 :body {:items (mapv webhook/->delivery-body deliveries)}})
+  [result]
+  {:status 200 :body result})
 
 (defn- with-idempotency-key
   "The client's key when it sent one. Every route that reads it

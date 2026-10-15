@@ -159,7 +159,8 @@
 
 (defn- notifications
   [config bank-id]
-  (store/find-notifications-by-bank config bank-id))
+  (let [found (store/find-notifications-since config bank-id 0 nil 1000)]
+    (if (error/anomaly? found) found (mapv :notification found))))
 
 (defn- deliveries
   [config bank-id endpoint-id]

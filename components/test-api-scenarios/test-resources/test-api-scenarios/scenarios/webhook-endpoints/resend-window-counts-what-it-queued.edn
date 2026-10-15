@@ -1,0 +1,15 @@
+{:name "Resending a window with nothing failed in it queues nothing"
+ ;; The resend answers how many deliveries it queued again, and only a
+ ;; failed one is queued: an endpoint with none answers a count of 0.
+ :given [{:fixture :bank :as :org-0 :with {:name "Webhook Resend Window Org"}}
+         {:fixture :webhook-endpoint :as :hook :with {:token [:ref :org-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/webhook-endpoints/{endpoint-id}/resend"
+             :path-params {:endpoint-id [:ref :hook :registered :endpoint
+                                         :endpoint-id]}
+             :auth [:ref :org-0 :token]
+             :body {:from "2026-01-01T00:00:00Z"}}
+   :audited false
+   :assert {:status 200 :body {:resent-count 0}}}]}

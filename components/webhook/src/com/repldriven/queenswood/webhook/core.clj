@@ -65,8 +65,9 @@
 (defn- or-already-registered
   "On a uniqueness violation — a retried registration carrying an
   already-seen idempotency-key — read the existing endpoint back and
-  return it, so the caller gets the endpoint it already created rather
-  than a second one. Any other value passes through unchanged."
+  return it as created, so the caller gets the answer the first request
+  had rather than a second endpoint. Any other value passes through
+  unchanged."
   [txn bank-id data result]
   (if (and (store/uniqueness-violation? result)
            (:idempotency-key data))
@@ -74,7 +75,7 @@
                          txn
                          bank-id
                          (:idempotency-key data))]
-      (or existing result))
+      (if existing {:endpoint existing :adopted? false} result))
     result))
 
 (defn- load-endpoint
@@ -96,23 +97,32 @@
                  :after after
                  :performed-by actor}))
 
+(def ^:private batch-size
+  "How many deliveries one transaction of a re-send or a backfill
+  writes, so a long window commits in many transactions rather than
+  failing as one too large to."
+  500)
+
 (defn- deliveries-audited
-  "Records the delivery of each of `deliveries` an act by `actor` asked
-  for in the bank's audit log, naming the request `opts` carries."
-  [txn kind deliveries actor opts]
-  (reduce (fn [_ delivery]
+  "Records each delivery an act by `actor` asked for in the bank's audit
+  log, naming the request `opts` carries. `changes` holds a
+  `[before after]` pair per delivery, `before` nil for one the act
+  created."
+  [txn kind changes actor opts]
+  (reduce (fn [_ [before after]]
             (let [res (audit/record txn
-                                    {:bank-id (:bank-id delivery)
+                                    {:bank-id (:bank-id after)
                                      :kind kind
                                      :subject-kind
                                      :audit-subject-kind-webhook-delivery
-                                     :subject-id (:delivery-id delivery)
+                                     :subject-id (:delivery-id after)
                                      :request-id (:request-id opts)
-                                     :after delivery
+                                     :before before
+                                     :after after
                                      :performed-by actor})]
               (when (error/anomaly? res) (reduced res))))
           nil
-          deliveries))
+          changes))
 
 (defn- transition
   "Load, apply `f` to the loaded endpoint, save, and record the act as
@@ -128,6 +138,28 @@
         _ (audited txn kind existing updated actor opts)]
        updated))))
 
+(defn- register-new
+  [txn bank-id data actor addresses policies opts]
+  (let-nom>
+    [existing-count (store/count-live-endpoints txn bank-id)
+     endpoint (domain/new-endpoint bank-id
+                                   data
+                                   (mint-secret)
+                                   actor
+                                   addresses
+                                   (:platform-hosts opts)
+                                   (:address-rule opts)
+                                   existing-count
+                                   policies)
+     _ (store/save-endpoint txn endpoint)
+     _ (audited txn
+                :audit-kind-webhook-endpoint-registered
+                nil
+                endpoint
+                actor
+                opts)]
+    endpoint))
+
 (defn register
   ([txn bank-id data actor]
    (register txn bank-id data actor {}))
@@ -142,24 +174,28 @@
        (fn [txn]
          (let-nom>
            [policies (get-policies txn bank-id opts)
-            existing-count (store/count-endpoints txn bank-id)
-            endpoint (domain/new-endpoint bank-id
-                                          data
-                                          (mint-secret)
-                                          actor
-                                          addresses
-                                          (:platform-hosts opts)
-                                          (:address-rule opts)
-                                          existing-count
-                                          policies)
-            _ (store/save-endpoint txn endpoint)
-            _ (audited txn
-                       :audit-kind-webhook-endpoint-registered
-                       nil
-                       endpoint
-                       actor
-                       opts)]
-           endpoint)))))))
+            replayed (when-let [k (:idempotency-key data)]
+                       (store/find-endpoint-by-idempotency-key txn bank-id k))
+            live (when-not replayed
+                   (store/find-live-endpoint-by-address txn
+                                                        bank-id
+                                                        (:address data)))
+            endpoint (cond
+                      replayed
+                      replayed
+
+                      live
+                      (domain/adopt-endpoint live policies)
+
+                      :else
+                      (register-new txn
+                                    bank-id
+                                    data
+                                    actor
+                                    addresses
+                                    policies
+                                    opts))]
+           {:endpoint endpoint :adopted? (some? live)})))))))
 
 (defn get-endpoint
   [txn bank-id endpoint-id]
@@ -192,71 +228,98 @@
                  actor
                  opts))))
 
-(defn- save-deliveries
-  "One pending delivery of each notification to `endpoint`, asked for
-  by `actor`, saved in the caller's transaction. Returns the rows
-  written."
-  [txn notifications endpoint now actor]
-  (reduce (fn [saved notification]
-            (let [row (domain/new-delivery notification endpoint now actor)
-                  res (store/save-delivery txn row)]
-              (if (error/anomaly? res) (reduced res) (conj saved row))))
-          []
-          notifications))
+(defn- backfill-page
+  "Those of `notifications` a backfill queues to `endpoint`: of a kind it
+  has chosen, and with no delivery to it already."
+  [txn endpoint notifications]
+  (let [{:keys [bank-id endpoint-id]} endpoint]
+    (reduce (fn [missing notification]
+              (if-not (domain/backfilled? endpoint notification)
+                missing
+                (let [held (store/holds-delivery? txn
+                                                  bank-id
+                                                  endpoint-id
+                                                  (:notification-id
+                                                   notification))]
+                  (cond
+                   (error/anomaly? held)
+                   (reduced held)
 
-(defn- delivered-notification-ids
-  [txn bank-id endpoint-id]
-  (let-nom> [deliveries (store/find-deliveries-by-endpoint txn
-                                                           bank-id
-                                                           endpoint-id)]
-    (into #{}
-          (comp (filter domain/delivered-delivery?) (map :notification-id))
-          deliveries)))
+                   held
+                   missing
+
+                   :else
+                   (conj missing notification)))))
+            []
+            notifications)))
+
+(defn- backfill-batch
+  "Queue a delivery to `endpoint`, asked for by `actor`, of each of the
+  next `batch-size` of the bank's notifications from `since` on, past
+  `after`, that it has chosen and never had one of, in one transaction.
+  Returns `{:after key}`, the key the next batch starts after, nil once
+  there are no more."
+  [txn endpoint since after actor]
+  (store/transact
+   txn
+   (fn [txn]
+     (let [now (utility/now)]
+       (let-nom>
+         [entries (store/find-notifications-since txn
+                                                  (:bank-id endpoint)
+                                                  since
+                                                  after
+                                                  batch-size)
+          missing (backfill-page txn endpoint (mapv :notification entries))
+          _ (reduce (fn [_ notification]
+                      (let [res (store/save-delivery
+                                 txn
+                                 (domain/new-delivery notification
+                                                      endpoint
+                                                      now
+                                                      actor))]
+                        (when (error/anomaly? res) (reduced res))))
+                    nil
+                    missing)]
+         {:after (when (= batch-size (count entries))
+                   (:key (peek entries)))})))))
 
 (defn- backfill
-  "One pending delivery for every notification from `since` on that the
-  endpoint has chosen and has never had delivered. Runs in the
-  transaction the enable committed in, so resuming and asking for the
-  gap land together or not at all."
-  [txn endpoint since now actor]
-  (let-nom>
-    [notifications (store/find-notifications-by-bank txn (:bank-id endpoint))
-     delivered (delivered-notification-ids txn
-                                           (:bank-id endpoint)
-                                           (:endpoint-id endpoint))]
-    (save-deliveries
-     txn
-     (filterv (fn [notification]
-                (and (domain/within-window? notification since nil)
-                     (domain/chosen? endpoint (:kind notification))
-                     (not (contains? delivered
-                                     (:notification-id notification)))))
-              notifications)
-     endpoint
-     now
-     actor)))
+  "Queue a delivery to `endpoint` of every notification from `since` on
+  that it has chosen and never had one of, a batch to a transaction."
+  [txn endpoint since actor]
+  (loop [after nil]
+    (let [res (backfill-batch txn endpoint since after actor)]
+      (cond
+       (error/anomaly? res)
+       res
+
+       (:after res)
+       (recur (:after res))))))
 
 (defn enable
   ([txn bank-id endpoint-id actor]
    (enable txn bank-id endpoint-id actor {}))
   ([txn bank-id endpoint-id actor opts]
-   (store/transact
-    txn
-    (fn [txn]
-      (let-nom>
-        [existing (load-endpoint txn bank-id endpoint-id)
-         policies (get-policies txn bank-id opts)
-         updated (domain/enable existing actor policies)
-         _ (store/save-endpoint txn updated)
-         _ (when-let [since (:since opts)]
-             (backfill txn updated since (utility/now) actor))
-         _ (audited txn
-                    :audit-kind-webhook-endpoint-enabled
-                    existing
-                    updated
-                    actor
-                    opts)]
-        updated)))))
+   (let-nom>
+     [updated (store/transact
+               txn
+               (fn [txn]
+                 (let-nom>
+                   [existing (load-endpoint txn bank-id endpoint-id)
+                    policies (get-policies txn bank-id opts)
+                    updated (domain/enable existing actor policies)
+                    _ (store/save-endpoint txn updated)
+                    _ (audited txn
+                               :audit-kind-webhook-endpoint-enabled
+                               existing
+                               updated
+                               actor
+                               opts)]
+                   updated)))
+      _ (when-let [since (:since opts)]
+          (backfill txn updated since actor))]
+     updated)))
 
 (defn disable
   ([txn bank-id endpoint-id actor]
@@ -330,17 +393,25 @@
       (let [now (utility/now)]
         (let-nom>
           [endpoint (load-deliverable txn bank-id endpoint-id opts)
+           policies (get-policies txn bank-id opts)
+           sent (store/count-notifications-since txn
+                                                 bank-id
+                                                 domain/test-notification-kind
+                                                 (domain/day-start now))
            notification (domain/test-notification
                          endpoint
                          (components/->wire-endpoint-body endpoint)
                          now
-                         actor)
+                         actor
+                         {:webhook-test-notification
+                          {#{:bank-id :kind :created-on} sent}}
+                         policies)
            _ (store/save-notification txn notification)
            delivery (domain/new-delivery notification endpoint now actor)
            _ (store/save-delivery txn delivery)
            _ (deliveries-audited txn
                                  :audit-kind-webhook-test-sent
-                                 [delivery]
+                                 [[nil delivery]]
                                  actor
                                  opts)]
           delivery))))))
@@ -372,41 +443,60 @@
            _ (store/save-delivery txn delivery)
            _ (deliveries-audited txn
                                  :audit-kind-webhook-delivery-resent
-                                 [delivery]
+                                 [[nil delivery]]
                                  actor
                                  opts)]
           delivery))))))
+
+(defn- requeue-batch
+  "Pend again up to `batch-size` of the endpoint's failed deliveries
+  created inside `[from, to]`, as `actor` asked, in one transaction.
+  Returns how many it pended."
+  [txn bank-id endpoint-id from to actor opts]
+  (store/transact
+   txn
+   (fn [txn]
+     (let [now (utility/now)]
+       (let-nom>
+         [_ (load-deliverable txn bank-id endpoint-id opts)
+          failed (store/find-failed-deliveries txn
+                                               bank-id
+                                               endpoint-id
+                                               from
+                                               to
+                                               batch-size)
+          changes (reduce (fn [changes delivery]
+                            (let [pending (domain/requeue delivery now)
+                                  res (store/save-delivery txn pending)]
+                              (if (error/anomaly? res)
+                                (reduced res)
+                                (conj changes [delivery pending]))))
+                          []
+                          failed)
+          _ (deliveries-audited txn
+                                :audit-kind-webhook-delivery-resent
+                                changes
+                                actor
+                                opts)]
+         (count changes))))))
 
 (defn resend-window
   ([txn bank-id endpoint-id data actor]
    (resend-window txn bank-id endpoint-id data actor {}))
   ([txn bank-id endpoint-id data actor opts]
-   (let [{:keys [from to]} data]
-     (store/transact
-      txn
-      (fn [txn]
-        (let [now (utility/now)]
-          (let-nom>
-            [endpoint (load-deliverable txn bank-id endpoint-id opts)
-             notifications (store/find-notifications-by-bank txn bank-id)
-             resent (save-deliveries
-                     txn
-                     (filterv (fn [notification]
-                                (and (domain/within-window? notification
-                                                            from
-                                                            to)
-                                     (domain/chosen? endpoint
-                                                     (:kind notification))))
-                              notifications)
-                     endpoint
-                     now
-                     actor)
-             _ (deliveries-audited txn
-                                   :audit-kind-webhook-delivery-resent
-                                   resent
-                                   actor
-                                   opts)]
-            {:deliveries resent})))))))
+   (let [{:keys [from to]} data
+         to (or to (utility/now))]
+     (loop [resent 0]
+       (let [n (requeue-batch txn bank-id endpoint-id from to actor opts)]
+         (cond
+          (error/anomaly? n)
+          n
+
+          (< n batch-size)
+          {:resent-count (+ resent n)}
+
+          :else
+          (recur (+ resent n))))))))
 
 (defn get-deliveries
   ([txn bank-id endpoint-id]
