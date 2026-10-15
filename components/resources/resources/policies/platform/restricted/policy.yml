@@ -32,6 +32,7 @@ limits: !concat
   - !include policies/platform/restricted/limits/emails.yml
   - !include policies/platform/restricted/limits/cash-account-products.yml
   - !include policies/platform/restricted/limits/cash-account-migrations.yml
+  - !include policies/platform/restricted/limits/cash-account-operations.yml
   - !include policies/platform/restricted/limits/cash-accounts.yml
   - !include policies/platform/restricted/limits/idvs.yml
   - !include policies/platform/restricted/limits/interest.yml

@@ -37,6 +37,11 @@
      {#{:bank-id} total
       #{:bank-id :product-type :account-type :currency} subtotal}}))
 
+(defn- get-operation-aggregates
+  [txn bank-id account-id today]
+  (let-nom> [n (q/count-operations txn bank-id account-id today)]
+    {:cash-account-operation {#{:bank-id :account-id :requested-on} n}}))
+
 (defn- product-type-of
   [product-version]
   (:product-type product-version))
@@ -299,6 +304,7 @@
               updated
               (domain/new-operation updated
                                     :cash-account-operation-kind-suspend
+                                    (utility/today)
                                     (:actor data)))
            _ (audit/record txn
                            (audit-entry :audit-kind-cash-account-suspended
@@ -316,11 +322,16 @@
    (store/transact
     txn
     (fn [txn]
-      (let [{:keys [bank-id account-id]} data]
+      (let [{:keys [bank-id account-id]} data
+            today (utility/today)]
         (let-nom>
           [policies (get-policies txn bank-id account-id opts)
            account (q/get-account txn bank-id account-id)
-           updated (domain/resume-account account (:actor data) policies)
+           aggregates (get-operation-aggregates txn bank-id account-id today)
+           updated (domain/resume-account account
+                                          (:actor data)
+                                          aggregates
+                                          policies)
            _ (store/save-account txn
                                  updated
                                  {:account-id account-id
@@ -333,6 +344,7 @@
               updated
               (domain/new-operation updated
                                     :cash-account-operation-kind-resume
+                                    today
                                     (:actor data)))
            _ (audit/record txn
                            (audit-entry :audit-kind-cash-account-resumed

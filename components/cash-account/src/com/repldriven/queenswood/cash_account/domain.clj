@@ -35,6 +35,17 @@
     :window :time-window-instant
     :value (inc (get-in aggregates [:cash-account #{:bank-id}]))}))
 
+(defn- check-operation-limit
+  [aggregates policies]
+  (policy/check-limit
+   policies
+   :cash-account-operation
+   {:aggregate :count
+    :window :time-window-daily
+    :value (inc (get-in aggregates
+                        [:cash-account-operation
+                         #{:bank-id :account-id :requested-on}]))}))
+
 (defn- non-zero-balances
   "Balance buckets whose net (credit - debit) isn't zero, across all
   balance-statuses (pending holds included, not just posted)."
@@ -269,7 +280,7 @@
              :updated-at now))))
 
 (defn resume-account
-  [account actor policies]
+  [account actor aggregates policies]
   (let-nom>
     [_ (when-not (= :cash-account-status-suspended (:status account))
          (error/reject :cash-account/invalid-status
@@ -279,7 +290,8 @@
                         :allowed #{:cash-account-status-suspended}}))
      _ (check-capability :cash-account-action-resume
                          (:account-type account)
-                         policies)]
+                         policies)
+     _ (check-operation-limit aggregates policies)]
     (let [now (utility/now)]
       (assoc account
              :status :cash-account-status-opened
@@ -292,7 +304,7 @@
   "An operation of `kind` asked of `account` by `actor`: pending until its
   provider answers, or completed where the account has no account at its
   provider to carry it out."
-  [account kind actor]
+  [account kind today actor]
   (let [now (utility/now)]
     {:bank-id (:bank-id account)
      :account-id (:account-id account)
@@ -301,7 +313,7 @@
      :status (if (:provider-account-id account)
                operation-pending
                :cash-account-operation-status-completed)
-     :requested-on (utility/today)
+     :requested-on today
      :created-at now
      :created-by actor}))
 

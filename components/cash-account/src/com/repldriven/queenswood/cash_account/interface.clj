@@ -71,9 +71,10 @@
    (core/close-account txn data opts)))
 
 (defn suspend-account
-  "Suspend an opened account. Direct single-phase flip, no second
-  leg. Returns the updated account (`:cash-account-status-suspended`)
-  or an anomaly.
+  "Suspend an opened account, and record the operation that blocks it at
+  its payment provider. Counted towards the account's daily operations
+  but never refused for them. Returns the updated account
+  (`:cash-account-status-suspended`) or an anomaly.
 
   Args:
   - txn: FDB transaction or db handle.
@@ -85,9 +86,10 @@
    (core/suspend-account txn data opts)))
 
 (defn resume-account
-  "Resume a suspended account. Direct single-phase flip, no second
-  leg. Returns the updated account (`:cash-account-status-opened`)
-  or an anomaly.
+  "Resume a suspended account, and record the operation that unblocks
+  it at its payment provider. Refused with `:policy/limit-exceeded` once
+  the account has taken its daily operations. Returns the updated
+  account (`:cash-account-status-opened`) or an anomaly.
 
   Args:
   - txn: FDB transaction or db handle.

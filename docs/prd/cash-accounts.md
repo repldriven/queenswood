@@ -224,7 +224,10 @@ platform asks the payment provider to block the account
 too where the provider can. Each freeze and unfreeze is
 kept with the account, with who asked for it and whether
 the provider carried it out, so the customer can see what
-was done to an account and when.
+was done to an account and when. An account takes a few
+freezes and unfreezes a day, set by the platform's policy;
+past that an unfreeze is refused until the next day, but a
+freeze never is.
 
 A closed account's payment address is never reissued to
 anyone else, and money sent to it never lands on an

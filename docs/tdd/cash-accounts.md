@@ -404,6 +404,16 @@ carries its latest page, so a customer sees what was asked of the
 account and whether the provider carried it out. Rotation and close
 keep their own state on the account for now.
 
+An account takes at most the platform-restricted policy's
+`cash-account-operation` limit of operations a day, counted by the
+`CashAccountOperation_count_by_account_requested_on` count index over
+`[bank_id, account_id, requested_on]` and read at snapshot in the
+transaction that records the next one; the account's own write conflicts
+two operations on it. A resume past the limit is refused with
+`:policy/limit-exceeded` (429). A suspend is counted but never refused,
+so an account can always be frozen, and since only a resume reopens it,
+the limit bounds suspends too.
+
 ### Event transitions
 
 Every `save-account` co-commits a changelog entry, on every
@@ -725,12 +735,11 @@ What follows is what the model does not reach.
   dead-lettered, and the account stays opening with nothing to say why.
   A provider that issues each number once never does this; the Modulr
   simulator did, after restarts, before it issued numbers in turn.
-- **Account operations have no limit.** A suspend, resume, close or
-  `rotate-address` each sends the bank's payment provider a command,
-  and nothing counts how many an account has in a day.
 - **Rotation and close are not operations yet.** Their state stays on
   the account, in `rotation`, `close_requested_from` and
-  `refused_reason`, and neither appears among the account's operations.
+  `refused_reason`; neither appears among the account's operations, and
+  neither counts towards its daily limit, though each sends the provider
+  a command.
 - **Retired addresses accumulate.** Each rotation appends the old
   addresses to `retired_payment_addresses`, and nothing trims them.
 

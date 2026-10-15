@@ -209,6 +209,19 @@
    {:message "Failed to count accounts"
     :bank-id bank-id}))
 
+(defn count-operations
+  [txn bank-id account-id requested-on]
+  (fdb/transact txn
+                (fn [txn]
+                  (fdb/count-records-snapshot
+                   (fdb/open txn operations-store-name)
+                   "CashAccountOperation_count_by_account_requested_on"
+                   [bank-id account-id requested-on]))
+                :cash-account/count-operations
+                {:message "Failed to count account operations"
+                 :bank-id bank-id
+                 :account-id account-id}))
+
 (defn count-by-version
   [txn bank-id version-id]
   (fdb/transact txn

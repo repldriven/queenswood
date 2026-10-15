@@ -195,8 +195,10 @@
               :openapi {:operationId "ResumeCashAccount"
                         :description
                         (str "The account returns to opened. An account that "
-                             "is not suspended is refused with 409. A `cash-"
-                             "account.resumed` webhook notification follows.")
+                             "is not suspended is refused with 409, and one "
+                             "that has taken its operations for the day with "
+                             "429. A `cash-account.resumed` webhook "
+                             "notification follows.")
                         :parameters ^:replace
                                     [shared.parameters/ref-account-id
                                      shared.parameters/ref-bank-id-header
@@ -209,7 +211,9 @@
                                 :openapi {:links cash-account-api/from-account}}
                            403 (ErrorExamples [#'api-schema/PolicyDenied])
                            404 (ErrorResponse [#'CashAccountNotFound])
-                           409 (ErrorResponse [#'CashAccountInvalidStatus])})
+                           409 (ErrorResponse [#'CashAccountInvalidStatus])
+                           429 (ErrorResponse
+                                [#'api-schema/PolicyLimitExceeded])})
               :handler commands/resume-cash-account}}]
      ["/rotate-address"
       {:openapi {:security [{"bearerAuth" ["org:developer"]}]}

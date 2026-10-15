@@ -211,6 +211,19 @@
   [txn bank-id product-type account-type currency]
   (store/get-aggregates txn bank-id product-type account-type currency))
 
+(defn count-operations
+  "Count the operations asked of an account on one day, read at
+  snapshot. A read primitive for the write sibling's daily limit, whose
+  transaction also writes the account, so two operations on it conflict.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - account-id: account id.
+  - requested-on: the day, as an epoch day."
+  [txn bank-id account-id requested-on]
+  (store/count-operations txn bank-id account-id requested-on))
+
 (defn find-accounts-by-party
   "Return every CashAccount held by a party, regardless of status. A
   read primitive for the write sibling's transactions (e.g. the

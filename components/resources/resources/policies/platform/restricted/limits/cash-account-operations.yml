@@ -1,0 +1,11 @@
+- kind:
+    cash-account-operation: {}
+  bound:
+    kind:
+      max:
+        aggregate:
+          kind:
+            count:
+              value: 5
+              window: !keyword time-window-daily
+  reason: "Platform-restricted - an account takes at most 5 operations per day, past which it can still be suspended"

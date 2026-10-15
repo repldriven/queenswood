@@ -158,6 +158,8 @@ message CashAccountMigrationLimit {
   repeated CashAccountMigrationLimitFilter filters = 1;
 }
 
+message CashAccountOperationLimit {}
+
 message CashAccountProductLimitFilter {
   optional com.repldriven.queenswood.schema.account_product_type.AccountProductType product_type = 1;
 }
@@ -254,5 +256,6 @@ message Limit {
     EmailLimit email = 28;
     AccountPaymentLimit account_payment = 29;
     WebhookTestNotificationLimit webhook_test_notification = 30;
+    CashAccountOperationLimit cash_account_operation = 31;
   }
 }
