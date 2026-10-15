@@ -130,6 +130,9 @@ system:
       system/component-kind: server/jetty-adapter
       handler: !system/ref server.handler
       interceptors: !system/ref server.interceptors
+      # The most bytes a request body may hold; a larger one is refused
+      # with 413 before it is read whole.
+      max-request-bytes: 1048576
       options:
         port: 8080
   modulr-simulator-server: !include system/modulr-simulator-server.yml

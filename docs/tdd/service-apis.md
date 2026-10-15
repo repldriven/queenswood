@@ -564,6 +564,12 @@ failures the same way:
   bug is on our side.
 - Catch-all `::exception/default` → 500, logs the stack trace.
 
+A body larger than the server's `max-request-bytes`, 1 MB on the API
+and on each provider adapter's server, is a 413 of type
+`server/request-too-large` carrying the limit: refused by Jetty before
+any route runs where `Content-Length` declares it, and where the read
+fails for a body sent without one.
+
 Default 404 / 405 / 406 also emit RFC 9457 bodies, with `Allow`
 populated for 405.
 
@@ -705,10 +711,8 @@ auth boundaries — is pinned here, never in a brick's
   `idempotency/cache-response`). Forgetting to add both
   to a write endpoint means the endpoint accepts retries
   blindly. See [idempotency.md](idempotency.md).
-- **A request body has no size limit.** `max-in-flight` bounds the calls
-  in progress, not their size, and a few free-text fields, such as a
-  payment limit's `reason`, have no maximum length. The limit to set is
-  1 MB, the default Envoy buffers a request to (`max_request_bytes`).
+- **Free-text fields have no maximum length.** A few, such as a payment
+  limit's `reason`, are bounded only by the 1 MB body cap.
 
 ## References
 

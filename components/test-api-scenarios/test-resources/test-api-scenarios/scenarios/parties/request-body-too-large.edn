@@ -1,0 +1,22 @@
+{:name "A request body over a megabyte is refused before it is read"
+ ;; The server's max-request-bytes refuses the body by its Content-Length,
+ ;; before any route or authentication runs, as a 413 problem naming the
+ ;; limit. One a byte under it reaches the route, which refuses its
+ ;; content instead.
+ :given [{:fixture :bank :as :bank-0 :with {:name "Body Limit"}}]
+ :when [{:command :api/request
+         :request {:method :post
+                   :path "/v1/parties"
+                   :auth [:ref :bank-0 :token]
+                   :headers {:idempotency-key "ik-body-too-large-0001"}
+                   :body-bytes 1048577}
+         :assert {:status 413
+                  :body {:type "server/request-too-large"
+                         :max-request-bytes 1048576}}}
+        {:command :api/request
+         :request {:method :post
+                   :path "/v1/parties"
+                   :auth [:ref :bank-0 :token]
+                   :headers {:idempotency-key "ik-body-at-limit-0001"}
+                   :body-bytes 1048576}
+         :assert {:status 400}}]}
