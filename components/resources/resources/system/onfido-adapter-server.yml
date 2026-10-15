@@ -26,6 +26,9 @@ jetty-adapter: !system/component
   system/component-kind: server/jetty-adapter
   handler: !system/ref onfido-adapter-server.handler
   interceptors: !system/ref onfido-adapter-server.interceptors
+  # The most bytes a request body may hold; a larger one is refused
+  # with 413 before it is read whole.
+  max-request-bytes: 1048576
   ready-fn: !system/ref onfido-adapter.readiness
   options: !profile
     dev:
