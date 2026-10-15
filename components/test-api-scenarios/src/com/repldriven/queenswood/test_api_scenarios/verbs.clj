@@ -168,14 +168,23 @@
                                    [k v])))
                           headers)))))
 
+(defn- padded-body
+  "A JSON object of one string field, `n` bytes long once encoded."
+  [n]
+  (let [prefix "{\"padding\":\""
+        suffix "\"}"]
+    (str prefix
+         (apply str (repeat (- n (count prefix) (count suffix)) "x"))
+         suffix)))
+
 (defn- build-request
   [ctx request]
-  (let [{:keys [base method url path path-params query-params body form auth
-                headers]}
+  (let [{:keys [base method url path path-params query-params body body-bytes
+                form auth headers]}
         (for-run ctx request)
         token (resolve-auth ctx auth)
         base-headers (cond-> {}
-                             body
+                             (or body body-bytes)
                              (assoc "Content-Type" "application/json")
 
                              form
@@ -192,6 +201,9 @@
 
             body
             (assoc :body (json/write-str body))
+
+            body-bytes
+            (assoc :body (padded-body body-bytes))
 
             form
             (assoc :body (form-urlencode form)))))

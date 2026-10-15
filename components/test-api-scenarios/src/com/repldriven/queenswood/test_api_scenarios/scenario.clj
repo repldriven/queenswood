@@ -25,6 +25,7 @@
    [:query-params {:optional true} map?]
    [:headers {:optional true} map?]
    [:body {:optional true} any?]
+   [:body-bytes {:optional true} pos-int?]
    [:form {:optional true} map?]
    [:auth {:optional true} any?]])
 

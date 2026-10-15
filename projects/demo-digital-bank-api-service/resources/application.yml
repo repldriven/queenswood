@@ -59,6 +59,9 @@ system:
       system/component-kind: server/jetty-adapter
       handler: !system/local-ref handler
       interceptors: !system/local-ref interceptors
+      # The most bytes a request body may hold; a larger one is refused
+      # with 413 before it is read whole.
+      max-request-bytes: 1048576
       # A submission carries the key the app minted, which a preflight
       # refuses unless it is named here beside the defaults.
       cors:

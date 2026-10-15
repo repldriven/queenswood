@@ -281,6 +281,9 @@ system:
       system/component-kind: server/jetty-adapter
       handler: !system/ref server.handler
       interceptors: !system/ref server.interceptors
+      # The most bytes a request body may hold; a larger one is refused
+      # with 413 before it is read whole.
+      max-request-bytes: 1048576
       # The most requests the API handles at once, any beyond answered
       # 503 at once rather than held until the heap runs out. 200 is the
       # limit measured to serve the most, and the limiter moves it no more
