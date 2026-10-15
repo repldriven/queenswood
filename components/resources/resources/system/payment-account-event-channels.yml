@@ -6,3 +6,5 @@ payment-account-closed: !keyword schemes-account-event
 payment-address-reissued: !keyword schemes-account-event
 payment-account-close-refused: !keyword schemes-account-event
 payment-address-reissue-failed: !keyword schemes-account-event
+payment-account-operation-completed: !keyword schemes-account-event
+payment-account-operation-refused: !keyword schemes-account-event

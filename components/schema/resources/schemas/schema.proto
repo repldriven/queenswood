@@ -11,6 +11,7 @@ import "schemas/cash-account-migration/cash-account-migration-run.proto";
 import "schemas/cash-account-product/cash-account-product-template.proto";
 import "schemas/cash-account-product/cash-account-product.proto";
 import "schemas/cash-account/cash-account.proto";
+import "schemas/cash-account/cash-account-operation.proto";
 import "schemas/company/company.proto";
 import "schemas/email/email-delivery.proto";
 import "schemas/idempotency/idempotency.proto";
@@ -111,4 +112,5 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schema.form3.Form3OutboxEvent _Form3OutboxEvent = 53;
   optional com.repldriven.queenswood.schema.form3.Form3OutboundIntent _Form3OutboundIntent = 54;
   optional com.repldriven.queenswood.schema.circuit_breaker.CircuitBreaker _CircuitBreaker = 55;
+  optional com.repldriven.queenswood.schema.cash_account.CashAccountOperation _CashAccountOperation = 56;
 }

@@ -93,6 +93,18 @@
                                   :account-id account-id
                                   :provider-account-id provider-account-id})}))
 
+(defn- operation-intent
+  "A block or an unblock of the account, which Form3 has no call for:
+  held behind the account's earlier calls, then answered."
+  [data]
+  (let [{:keys [bank-id account-id operation-id]} data]
+    {:idempotency-key (str "operation:" operation-id)
+     :kind :form3-outbound-intent-kind-account-operation
+     :request "{}"
+     :context (transit/write-str {:bank-id bank-id
+                                  :account-id account-id
+                                  :operation-id operation-id})}))
+
 (defn- reissue-intent
   [data]
   (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
@@ -152,6 +164,11 @@
           "reissue-payment-address"
           (save-intent config
                        (assoc (reissue-intent data) :subjects (subjects data)))
+          ("block-payment-account" "unblock-payment-account")
+          (save-intent config
+                       (assoc (operation-intent data)
+                              :subjects
+                              (subjects data)))
           (do (log/warnf "Unsupported command: %s" command) nil))))))
 
 (defrecord Form3CommandProcessor [config]

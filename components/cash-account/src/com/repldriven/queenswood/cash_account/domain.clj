@@ -286,6 +286,48 @@
              :updated-by actor
              :updated-at now))))
 
+(def ^:private operation-pending :cash-account-operation-status-pending)
+
+(defn new-operation
+  "An operation of `kind` asked of `account` by `actor`: pending until its
+  provider answers, or completed where the account has no account at its
+  provider to carry it out."
+  [account kind actor]
+  (let [now (utility/now)]
+    {:bank-id (:bank-id account)
+     :account-id (:account-id account)
+     :operation-id (utility/generate-id "cao")
+     :kind kind
+     :status (if (:provider-account-id account)
+               operation-pending
+               :cash-account-operation-status-completed)
+     :requested-on (utility/today)
+     :created-at now
+     :created-by actor}))
+
+(defn pending-operation?
+  [operation]
+  (= operation-pending (:status operation)))
+
+(defn completed-operation
+  "The operation as its provider's carrying it out leaves it."
+  [operation]
+  (assoc operation
+         :status :cash-account-operation-status-completed
+         :updated-at (utility/now)
+         :updated-by platform))
+
+(defn refused-operation
+  "The operation as its provider's refusal leaves it, with the reason it
+  gave."
+  [operation reason]
+  (utility/assoc-some (assoc operation
+                             :status :cash-account-operation-status-refused
+                             :updated-at (utility/now)
+                             :updated-by platform)
+                      :refused-reason
+                      reason))
+
 (defn request-rotation
   [account data policies]
   (let-nom>

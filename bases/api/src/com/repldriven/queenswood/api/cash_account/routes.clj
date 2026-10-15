@@ -35,8 +35,9 @@
                       :description
                       (str "The cash accounts of the bank the `Bank-Id` "
                            "header names, a page at a time. Set "
-                           "`embed[balances]` or `embed[transactions]` to "
-                           "include each account's balances or transactions.")
+                           "`embed[balances]`, `embed[transactions]` or "
+                           "`embed[operations]` to include each account's "
+                           "balances, transactions or latest operations.")
                       :security [{"bearerAuth" ["org:viewer"]}]
                       :parameters ^:replace
                                   [shared.parameters/ref-page
@@ -84,9 +85,9 @@
        :get {:summary "Retrieve a cash account"
              :openapi {:operationId "RetrieveCashAccount"
                        :description
-                       (str "Set `embed[balances]` or `embed[transactions]` "
-                            "to include the account's balances or "
-                            "transactions.")
+                       (str "Set `embed[balances]`, `embed[transactions]` or "
+                            "`embed[operations]` to include the account's "
+                            "balances, transactions or latest operations.")
                        :parameters ^:replace
                                    [shared.parameters/ref-account-id
                                     shared.parameters/ref-embed
@@ -115,6 +116,25 @@
                          :body [:ref "TransactionList"]}
                     404 (ErrorResponse [#'CashAccountNotFound])}
         :handler queries/list-transactions}}]
+     ["/operations"
+      {:openapi {:security [{"bearerAuth" ["org:viewer"]}]}
+       :get {:summary "List a cash account's operations"
+             :openapi {:operationId "ListCashAccountOperations"
+                       :description
+                       (str "Each suspend or resume asked of the account, "
+                            "newest first, a page at a time, with whether "
+                            "its payment provider carried it out.")
+                       :parameters ^:replace
+                                   [shared.parameters/ref-account-id
+                                    shared.parameters/ref-page
+                                    shared.parameters/ref-bank-id-header]}
+             :parameters {:query shared.parameters/page-query}
+             :responses {200
+                         {:description
+                          "A page of the account's operations, newest first."
+                          :body [:ref "CashAccountOperationList"]}
+                         404 (ErrorResponse [#'CashAccountNotFound])}
+             :handler queries/list-operations}}]
      ["/close"
       {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
        :post

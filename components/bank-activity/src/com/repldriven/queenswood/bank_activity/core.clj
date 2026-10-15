@@ -31,6 +31,8 @@
    "schemas/cash-account/cash-account-close-requested.avsc.json"
    "cash-account-address-rotation-requested"
    "schemas/cash-account/cash-account-address-rotation-requested.avsc.json"
+   "cash-account-operation-requested"
+   "schemas/cash-account/cash-account-operation-requested.avsc.json"
    "outbound-payment-submitted"
    "schemas/payment/outbound-payment-submitted.avsc.json"
    "inbound-payment-suspended"

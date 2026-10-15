@@ -24,12 +24,26 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - account-id: account id.
-  - opts (optional): map; `:embed-balances` and
-    `:embed-transactions` enrich the result."
+  - opts (optional): map; `:embed-balances`, `:embed-transactions`
+    and `:embed-operations`, its latest operations newest first,
+    enrich the result."
   ([txn bank-id account-id]
    (core/get-account txn bank-id account-id))
   ([txn bank-id account-id opts]
    (core/get-account txn bank-id account-id opts)))
+
+(defn get-operations
+  "A page of an account's operations, newest first unless `:order` says
+  otherwise: `{:operations [...] :before :after}`, or a
+  `:cash-account/not-found` rejection anomaly.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - account-id: account id.
+  - opts: map; `:after`, `:before`, `:limit` and `:order`."
+  [txn bank-id account-id opts]
+  (core/get-operations txn bank-id account-id opts))
 
 (defn get-account-balances
   "Read an account's balances, with the posted and available totals
@@ -93,7 +107,7 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - opts (optional): map; `:after`, `:before`, `:limit`,
-    `:embed-balances`, `:embed-transactions`."
+    `:embed-balances`, `:embed-transactions`, `:embed-operations`."
   ([txn bank-id]
    (core/get-accounts txn bank-id))
   ([txn bank-id opts]

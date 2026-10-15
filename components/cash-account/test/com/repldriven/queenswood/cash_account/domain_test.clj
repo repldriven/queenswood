@@ -461,3 +461,29 @@
       (is (= (:payment-addresses acct) (:payment-addresses result)))
       (is (= (:account-id acct) (:account-id result)))
       (is (int? (:updated-at result))))))
+
+(def ^:private member {:kind :actor-kind-member :principal-id "usr.1"})
+
+(deftest an-operation-waits-on-its-provider-test
+  (let [held (assoc (account :cash-account-status-suspended)
+                    :bank-id "bnk.test"
+                    :provider-account-id "prv-1")
+        pending
+        (SUT/new-operation held :cash-account-operation-kind-suspend member)]
+    (testing "an account its provider holds waits on the provider"
+      (is (SUT/pending-operation? pending))
+      (is (= :cash-account-operation-kind-suspend (:kind pending)))
+      (is (= member (:created-by pending)))
+      (is (re-find #"^cao\." (:operation-id pending))))
+    (testing "one with no account at its provider has nothing to wait on"
+      (is (= :cash-account-operation-status-completed
+             (:status (SUT/new-operation (dissoc held :provider-account-id)
+                                         :cash-account-operation-kind-resume
+                                         member)))))
+    (testing "the provider's answer settles it, by the platform"
+      (is (= :cash-account-operation-status-completed
+             (:status (SUT/completed-operation pending))))
+      (let [refused (SUT/refused-operation pending "blocked by provider")]
+        (is (= :cash-account-operation-status-refused (:status refused)))
+        (is (= "blocked by provider" (:refused-reason refused)))
+        (is (= :actor-kind-platform (get-in refused [:updated-by :kind])))))))

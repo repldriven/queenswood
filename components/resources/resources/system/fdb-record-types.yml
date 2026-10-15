@@ -89,6 +89,10 @@ stores:
         modified: 1
         fields: [bank_id, run_id, outcome]
         type: count
+  cash-account-operations:
+    record-type: CashAccountOperation
+    primary-key: [bank_id, account_id, operation_id]
+    indexes: []
   cash-accounts:
     record-type: CashAccount
     primary-key: [bank_id, account_id]

@@ -146,6 +146,35 @@
                                    :reason (shared/undelivered failure
                                                                reason)})}))
 
+(defn- operate
+  "A block or an unblock, which Form3 has no state for: the platform
+  refuses an inbound payment to a suspended account when it admits it,
+  and submits none from one, so there is nothing to call."
+  [_config _now _intent]
+  [:answered nil])
+
+(defn- operated
+  [_config _now intent _result]
+  (let [{:keys! [bank-id account-id operation-id]} (shared/context intent)]
+    {:status :outbound-intent-status-settled
+     :event (shared/account-event intent
+                                  "payment-account-operation-completed"
+                                  {:bank-id bank-id
+                                   :account-id account-id
+                                   :operation-id operation-id})}))
+
+(defn- operation-failed
+  [_config _now intent failure reason]
+  (let [{:keys! [bank-id account-id operation-id]} (shared/context intent)]
+    {:status :outbound-intent-status-failed
+     :event (shared/account-event intent
+                                  "payment-account-operation-refused"
+                                  {:bank-id bank-id
+                                   :account-id account-id
+                                   :operation-id operation-id
+                                   :reason (shared/undelivered failure
+                                                               reason)})}))
+
 (defn- reissue-step
   "Read the old registration for its holder, register a new number, close
   the old registration."
@@ -255,4 +284,6 @@
   :form3-outbound-intent-kind-close-account
   {:call close :answered closed :failed close-failed}
   :form3-outbound-intent-kind-reissue-address
-  {:call reissue :answered reissue-advanced :failed reissue-stopped}})
+  {:call reissue :answered reissue-advanced :failed reissue-stopped}
+  :form3-outbound-intent-kind-account-operation
+  {:call operate :answered operated :failed operation-failed}})

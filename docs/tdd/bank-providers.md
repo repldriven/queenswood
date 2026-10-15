@@ -127,7 +127,8 @@ takes its provider of the kind from `for-bank`, and sends on the
 entry's `command-channel`, keyed by bank:
 
 - **`payment`.** `open-payment-account`, `close-payment-account`,
-  `reissue-payment-address`, `submit-payment`, `return-payment`,
+  `reissue-payment-address`, `block-payment-account`,
+  `unblock-payment-account`, `submit-payment`, `return-payment`,
   `simulate-provider-payment` and, where the provider holds each
   account's money, `transfer-between-provider-accounts`.
 - **`idv`.** `submit-idv-check`.

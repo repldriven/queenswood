@@ -71,6 +71,21 @@
                                                :provider-account-id
                                                provider-account-id})})))
 
+(defn- account-operation-intent
+  "A block or an unblock of the account, which a virtual account has no
+  reversible state for: held behind the account's earlier calls, then
+  answered."
+  [config data]
+  (let [{:keys [bank-id account-id operation-id]} data]
+    (save-intent config
+                 {:idempotency-key (str "operation:" operation-id)
+                  :kind :clearbank-outbound-intent-kind-account-operation
+                  :subjects [account-id]
+                  :request "{}"
+                  :context (transit/write-str {:bank-id bank-id
+                                               :account-id account-id
+                                               :operation-id operation-id})})))
+
 (defn- reissue-address-intent
   [config data]
   (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
@@ -132,6 +147,9 @@
 
           "close-payment-account"
           (close-account-intent config data)
+
+          ("block-payment-account" "unblock-payment-account")
+          (account-operation-intent config data)
 
           "reissue-payment-address"
           (reissue-address-intent config data)

@@ -121,6 +121,20 @@
                                   :account-id account-id
                                   :provider-account-id provider-account-id})}))
 
+(defn- operation-intent
+  "A block or an unblock of the account at Modulr, held behind the
+  account's earlier calls as every call for it is."
+  [kind data]
+  (let [{:keys [bank-id account-id operation-id provider-account-id]} data]
+    {:idempotency-key (str "operation:" operation-id)
+     :kind kind
+     :subjects [account-id]
+     :request "{}"
+     :context (transit/write-str {:bank-id bank-id
+                                  :account-id account-id
+                                  :operation-id operation-id
+                                  :provider-account-id provider-account-id})}))
+
 (defn- reissue-intent
   [config data]
   (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
@@ -153,6 +167,16 @@
                                                    (simulation-intent data))
           "open-payment-account" (save-intent config (open-intent config data))
           "close-payment-account" (save-intent config (close-intent data))
+          "block-payment-account"
+          (save-intent config
+                       (operation-intent
+                        :modulr-outbound-intent-kind-block-account
+                        data))
+          "unblock-payment-account"
+          (save-intent config
+                       (operation-intent
+                        :modulr-outbound-intent-kind-unblock-account
+                        data))
           "reissue-payment-address" (save-intent config
                                                  (reissue-intent config data))
           (do (log/warnf "Unknown command: %s" command) nil))))))

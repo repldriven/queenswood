@@ -34,3 +34,28 @@
          nil)))
    :cash-account/save
    "Failed to save account"))
+
+;; must match cash-account-query.store/operations-store-name — same FDB store
+(def ^:private operations-store-name "cash-account-operations")
+
+(defn save-operation
+  [txn operation]
+  (fdb/transact txn
+                (fn [txn]
+                  (fdb/save-record (fdb/open txn operations-store-name)
+                                   (schema/CashAccountOperation->java
+                                    operation)))
+                :cash-account-operation/save
+                "Failed to save account operation"))
+
+(defn find-operation
+  [txn bank-id account-id operation-id]
+  (fdb/transact txn
+                (fn [txn]
+                  (some-> (fdb/load-record (fdb/open txn operations-store-name)
+                                           bank-id
+                                           account-id
+                                           operation-id)
+                          schema/pb->CashAccountOperation))
+                :cash-account-operation/find
+                "Failed to load account operation"))

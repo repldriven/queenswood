@@ -63,6 +63,36 @@
                                    :reason (shared/undelivered failure
                                                                reason)})}))
 
+(defn- operate
+  "A block or an unblock, which a ClearBank virtual account has no
+  reversible state for: the platform holds an inbound payment to a
+  suspended account and submits none from one, so there is nothing to
+  call."
+  [_config _now _intent]
+  [:answered nil])
+
+(defn- operated
+  [_config _now intent _body]
+  (let [{:keys! [bank-id account-id operation-id]} (shared/context intent)]
+    {:status :outbound-intent-status-settled
+     :event (shared/account-event intent
+                                  "payment-account-operation-completed"
+                                  {:bank-id bank-id
+                                   :account-id account-id
+                                   :operation-id operation-id})}))
+
+(defn- operation-failed
+  [_config _now intent failure reason]
+  (let [{:keys! [bank-id account-id operation-id]} (shared/context intent)]
+    {:status :outbound-intent-status-failed
+     :event (shared/account-event intent
+                                  "payment-account-operation-refused"
+                                  {:bank-id bank-id
+                                   :account-id account-id
+                                   :operation-id operation-id
+                                   :reason (shared/undelivered failure
+                                                               reason)})}))
+
 (defn- reissue
   [config _now intent]
   ;; nosemgrep: unchecked-intent-data — optional in a reissue's context
@@ -103,4 +133,6 @@
   :clearbank-outbound-intent-kind-close-account
   {:call close :answered closed :failed close-failed}
   :clearbank-outbound-intent-kind-reissue-address
-  {:call reissue :answered reissued :failed reissue-failed}})
+  {:call reissue :answered reissued :failed reissue-failed}
+  :clearbank-outbound-intent-kind-account-operation
+  {:call operate :answered operated :failed operation-failed}})

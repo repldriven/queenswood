@@ -39,6 +39,43 @@
    [:status [:ref "AddressRotationStatus"]]
    [:failed-reason {:optional true} string?]])
 
+(def CashAccountOperationId
+  (schema/id-schema "CashAccountOperationId"
+                    "cao"
+                    (:operation-id examples/CashAccountOperation)))
+
+(def CashAccountOperationKind
+  (coercion/operation-kind-enum-schema {:json-schema/example "suspend"}))
+
+(def CashAccountOperationStatus
+  (coercion/operation-status-enum-schema {:json-schema/example "completed"}))
+
+(def CashAccountOperation
+  "An operation asked of the account, and whether its payment provider
+  carried it out."
+  [:map {:json-schema/example examples/CashAccountOperation}
+   [:bank-id [:ref "BankId"]]
+   [:account-id [:ref "CashAccountId"]]
+   [:operation-id [:ref "CashAccountOperationId"]]
+   [:kind [:ref "CashAccountOperationKind"]]
+   [:status [:ref "CashAccountOperationStatus"]]
+   [:requested-on [:ref "BusinessDay"]]
+   [:refused-reason {:optional true} string?]
+   [:created-at [:ref "Timestamp"]]
+   [:created-by [:ref "Actor"]]
+   [:updated-at {:optional true} [:ref "Timestamp"]]
+   [:updated-by {:optional true} [:ref "Actor"]]])
+
+(def ^:private operation-keys
+  (into [] (comp (filter vector?) (map first)) CashAccountOperation))
+
+(defn ->operation-body
+  [operation]
+  (select-keys operation operation-keys))
+
+(def CashAccountOperationList
+  (schema/list-schema "CashAccountOperation" examples/CashAccountOperationList))
+
 (def AccountType
   (coercion/account-type-enum-schema {:json-schema/example "personal"}))
 
@@ -64,6 +101,7 @@
    [:posted-balance {:optional true} [:ref "SignedAmount"]]
    [:available-balance {:optional true} [:ref "SignedAmount"]]
    [:transactions {:optional true} [:vector [:ref "Transaction"]]]
+   [:operations {:optional true} [:vector [:ref "CashAccountOperation"]]]
    [:created-at [:ref "Timestamp"]]
    [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]
@@ -85,7 +123,10 @@
 
                        (:transactions account)
                        (update :transactions
-                               (partial mapv transaction-api/->body)))
+                               (partial mapv transaction-api/->body))
+
+                       (:operations account)
+                       (update :operations (partial mapv ->operation-body)))
                cash-account-keys))
 
 (def CreateCashAccountRequest
@@ -115,14 +156,16 @@
     #'RetiredPaymentAddress #'CreateCashAccountRequest
     #'CreateCashAccountResponse #'CashAccountList #'CloseCashAccountResponse
     #'SuspendCashAccountResponse #'ResumeCashAccountResponse
-    #'RotateCashAccountAddressResponse]))
+    #'RotateCashAccountAddressResponse #'CashAccountOperationId
+    #'CashAccountOperationKind #'CashAccountOperationStatus
+    #'CashAccountOperation #'CashAccountOperationList]))
 
 (def ^:private embedded-keys
   "The `CashAccount` keys a read route fills only when the caller asks
   for them with `embed`. A notification carries the account as a read
   route returns it without one: `->wire-body` carries neither, and a
   consumer wanting either follows the account's links."
-  #{:balances :transactions})
+  #{:balances :transactions :operations})
 
 (def ^:private CashAccountWire
   (into []

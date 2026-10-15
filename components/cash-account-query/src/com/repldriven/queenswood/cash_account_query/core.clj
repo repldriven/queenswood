@@ -16,14 +16,19 @@
       [balances (when (:embed-balances opts)
                   (balances/get-balances txn bank-id account-id currency))
        transactions (when (:embed-transactions opts)
-                      (transactions/get-transactions txn bank-id account-id))]
+                      (transactions/get-transactions txn bank-id account-id))
+       operations (when (:embed-operations opts)
+                    (store/get-operations txn bank-id account-id))]
       (cond-> account
 
               balances
               (merge balances)
 
               transactions
-              (assoc :transactions transactions)))))
+              (assoc :transactions transactions)
+
+              operations
+              (assoc :operations (:operations operations))))))
 
 (defn get-account
   ([txn bank-id account-id]
@@ -142,3 +147,17 @@
                                                       opts)))
                   :cash-account/page-transactions
                   "Failed to page the account's transactions"))
+
+(defn get-operations
+  [txn bank-id account-id opts]
+  (store/transact
+   txn
+   (fn [txn]
+     (let-nom>
+       [account (store/find-account txn bank-id account-id)
+        _ (or account
+              (error/reject :cash-account/not-found
+                            {:message "Account not found"
+                             :bank-id bank-id
+                             :account-id account-id}))]
+       (store/get-operations txn bank-id account-id opts)))))
