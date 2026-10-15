@@ -43,7 +43,7 @@
             :openapi {:operationId "ListCashAccountProducts"
                       :description
                       (str "The bank's products, each with every version it "
-                           "has had, drafts and discarded versions included. "
+                           "has published and its open draft. "
                            "The bank's internal products, such as the one "
                            "behind its own-funds accounts, are not listed.")
                       :security [{"bearerAuth" ["org:viewer"]}]
@@ -128,9 +128,9 @@
       [""
        {:get {:summary "Retrieve a product version"
               :openapi {:operationId "RetrieveCashAccountProductVersion"
-                        :description
-                        (str "One version of the product, whether draft, "
-                             "published or discarded.")
+                        :description (str
+                                      "One version of the product, draft or "
+                                      "published.")
                         :security [{"bearerAuth" ["org:viewer"]}]
                         :parameters [shared.parameters/ref-bank-id-header]}
               :responses {200 {:description "The version."
@@ -160,10 +160,10 @@
         :delete {:summary "Discard a draft product version"
                  :openapi {:operationId "DiscardCashAccountProductDraft"
                            :description
-                           (str "Marks the draft discarded, keeping it in the "
-                                "product's history, so that another draft "
-                                "can be opened. A version that is not a "
-                                "draft is refused with 409.")
+                           (str "Deletes the draft, so that another can be "
+                                "opened; the bank's audit log keeps what it "
+                                "held. A version that is not a draft is "
+                                "refused with 409.")
                            :security [{"bearerAuth" ["org:developer"]}]
                            :parameters [shared.parameters/ref-bank-id-header]}
                  :responses {204 {:description
@@ -184,9 +184,10 @@
                               "opening day, and an existing account keeps "
                               "its version until a migration moves it. A "
                               "version that is not a draft is refused with "
-                              "409, and one allowing a payment address scheme "
+                              "409, one allowing a payment address scheme "
                               "the payment provider does not issue is refused "
-                              "with 422.")}
+                              "with 422, and one past the product's publishes "
+                              "for the calendar month with 429.")}
                :responses
                {200 {:description "The published version."
                      :body [:ref "CashAccountProductVersion"]
@@ -194,5 +195,6 @@
                 403 (ErrorExamples [#'api-schema/PolicyDenied])
                 404 (ErrorResponse [#'VersionNotFound])
                 409 (ErrorResponse [#'VersionImmutable])
-                422 (ErrorResponse [#'UnsupportedAddressScheme])}
+                422 (ErrorResponse [#'UnsupportedAddressScheme])
+                429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])}
                :handler handlers/publish-draft}}]]]]])

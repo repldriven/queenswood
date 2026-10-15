@@ -42,8 +42,7 @@
                    :version-number 2
                    :status "draft"}}}
   ;; The same key on a create still mints a new product rather than
-  ;; replaying the draft above. Savings, because the micro per-type cap
-  ;; allows one current product per bank.
+  ;; replaying the draft above.
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-products"

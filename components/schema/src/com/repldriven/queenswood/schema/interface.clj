@@ -287,10 +287,9 @@
 
 (defn pb->CashAccountProduct
   "Parse CashAccountProduct protobuf bytes into a Clojure map, without the
-  optional fields the version was never given: a zero `effective_to`,
-  `published_at` or `discarded_at`, an empty idempotency key, no interest
-  terms, no limits, or no publishing, discarding or updating actor. An
-  embedded message is a plain map.
+  optional fields the version was never given: a zero `effective_to` or
+  `published_on`, an empty idempotency key, no interest terms, no limits,
+  or no updating actor. An embedded message is a plain map.
 
   Args:
   - input: protobuf bytes."
@@ -322,6 +321,9 @@
 
      (zero? (:effective-to version 0))
      (dissoc :effective-to)
+
+     (zero? (:published-on version 0))
+     (dissoc :published-on)
 
      (= "" (:idempotency-key version))
      (dissoc :idempotency-key))))

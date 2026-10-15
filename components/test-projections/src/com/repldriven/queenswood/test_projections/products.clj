@@ -7,8 +7,7 @@
   [status]
   (case status
     :version-status-draft :draft
-    :version-status-published :published
-    :version-status-discarded :discarded))
+    :version-status-published :published))
 
 (defn- versions-from-aggregate
   [aggregate]
@@ -33,11 +32,11 @@
                          items-by-id (into {}
                                            (map (juxt :product-id identity))
                                            items)]
-                     (map (fn [[model-id {:keys [real-id]}]]
-                            [model-id
-                             (versions-from-aggregate
-                              (get items-by-id real-id))])
-                          entries))))
+                     (keep (fn [[model-id {:keys [real-id]}]]
+                             (when-let [aggregate (get items-by-id real-id)]
+                               [model-id
+                                (versions-from-aggregate aggregate)]))
+                           entries))))
          (into {}))))
 
 (defn project-model-products

@@ -48,9 +48,9 @@
                     :interest-rate-bps 0
                     :effective-from "2026-07-01"}}
    :as :next
-   :assert {:status 201 :body {:version-number 3 :status "draft"}}}]
+   :assert {:status 201 :body {:version-number 2 :status "draft"}}}]
  :then
- ;; The discarded draft is kept as history.
+ ;; The discarded draft is gone, and the audit log keeps what it held.
  [{:command :api/request
    :request {:method :get
              :path
@@ -58,8 +58,16 @@
              :path-params {:product-id [:ref :v1 :product :product-id]
                            :version-id [:ref :draft :version-id]}
              :auth [:ref :bank-0 :token]}
-   :assert {:status 200
-            :body {:version-id [:ref :draft :version-id] :status "discarded"}}}
+   :assert {:status 404}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/bank/audit-log"
+             :query-params {"kind" "product-version-discarded"}
+             :auth [:ref :bank-0 :token]}
+   :assert
+   {:status 200
+    :body {:items [{:subject-id [:ref :draft :version-id]
+                    :changeset {:before {:name "Current Account Plus"}}}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-account-products/{product-id}"
@@ -70,5 +78,4 @@
             {:versions
              [:m/in-any-order
               [{:version-id [:ref :v1 :product :version-id] :status "published"}
-               {:version-id [:ref :draft :version-id] :status "discarded"}
                {:version-id [:ref :next :version-id] :status "draft"}]]}}}]}

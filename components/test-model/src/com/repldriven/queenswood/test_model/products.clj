@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.test-model.products
   (:require
+    [com.repldriven.queenswood.test-model.policies :as policies]
     [com.repldriven.queenswood.test-model.state :as state]
 
     [clojure.test.check.generators :as gen]))
@@ -56,21 +57,49 @@
              (fn [versions]
                (conj (pop versions) (f (peek versions))))))
 
+(defn- within-publishes?
+  "Whether the bank's policies allow `prod-id` one more publish this
+  month: every publish in a run falls in the month it runs in, so each
+  published version counts."
+  [state prod-id]
+  (policies/within-count?
+   state
+   (get-in state [:products prod-id :bank])
+   :cash-account-product
+   :cash-account-product-action-publish
+   :time-window-monthly
+   (count (filter (fn [v] (= :published (:status v)))
+                  (get-in state [:products prod-id :versions])))))
+
 (def publish-product
   {:run? (fn [state] (seq (state/drafts state)))
    :args (fn [state] (gen/tuple (gen/elements (state/drafts state))))
    :next-state
    (fn [state {[prod-id] :args}]
-     (flip-latest state prod-id (fn [v] (assoc v :status :published))))
+     (if (within-publishes? state prod-id)
+       (flip-latest state prod-id (fn [v] (assoc v :status :published)))
+       state))
    :valid? (fn [state {[prod-id] :args}]
              (= :draft (:status (state/latest-version state prod-id))))})
+
+(defn- remove-product
+  [state prod-id]
+  (let [bank-id (get-in state [:products prod-id :bank])]
+    (-> state
+        (update :products dissoc prod-id)
+        (update-in [:banks bank-id :products]
+                   (fn [prod-ids]
+                     (filterv (fn [id] (not= prod-id id)) prod-ids))))))
 
 (def discard-draft
   {:run? (fn [state] (seq (state/drafts state)))
    :args (fn [state] (gen/tuple (gen/elements (state/drafts state))))
-   :next-state
-   (fn [state {[prod-id] :args}]
-     (flip-latest state prod-id (fn [v] (assoc v :status :discarded))))
+   :next-state (fn [state {[prod-id] :args}]
+                 (let [state
+                       (update-in state [:products prod-id :versions] pop)]
+                   (cond-> state
+                           (empty? (get-in state [:products prod-id :versions]))
+                           (remove-product prod-id))))
    :valid? (fn [state {[prod-id] :args}]
              (= :draft (:status (state/latest-version state prod-id))))})
 

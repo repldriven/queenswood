@@ -28,8 +28,9 @@
   names the state it wants rather than a delta, so replaying it lands
   on the same value. A source-state guard refuses: the second attempt
   finds the entity has left the state the transition starts from and
-  is rejected with a 409, which is the same answer a replayed cache
-  entry would have given."
+  is rejected with a 409, the answer a replayed cache entry would have
+  given, or, where the transition deletes it, finds it gone and is
+  rejected with a 404."
   {[:post "/v1/bank/change-tier"]
    "Absolute set. The body names the tier, so a retry converges."
    [:put "/v1/jobs/{job-id}/schedule"]
@@ -44,8 +45,8 @@
     converges, and a draft that has since published is refused 409
     `product/version-immutable`."
    [:delete "/v1/cash-account-products/{product-id}/versions/{version-id}"]
-   "Source-state guard. Only a draft may be discarded; a retry finds
-    no draft and is refused 409 `product/version-immutable`."
+   "Source-state guard. A discarded draft is deleted, so a retry finds
+    no version and is refused 404 `product/version-not-found`."
    [:post
     "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"]
    "Source-state guard. Only a draft may be published; a retry finds

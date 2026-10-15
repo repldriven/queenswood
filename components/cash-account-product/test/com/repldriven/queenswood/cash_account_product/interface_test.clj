@@ -77,6 +77,19 @@
 (def ^:private operator
   {:kind :actor-kind-operator :principal-id "queenswood-admin"})
 
+(def ^:private one-current-product
+  "A policy holding a bank to one current account product."
+  {:name "Test: one current account product"
+   :category :policy-category-restricted
+   :limits [{:kind {:cash-account-product
+                    {:filters [{:product-type
+                                :account-product-type-sub-ledger-current}]}}
+             :bound {:kind {:max {:aggregate {:kind {:count
+                                                     {:value 1
+                                                      :window
+                                                      :time-window-instant}}}}}}
+             :reason "Test - one current account product"}]})
+
 (deftest retried-create-reads-the-original-back-test
   (with-test-system
    [sys config-file]
@@ -285,17 +298,14 @@
                                     (product-data name current-template-id)
                                     {:actor operator}))))]
      (nom-test>
-       ;; The micro tier caps each customer product type at one, so a
-       ;; bank with no current product is one below the cap. Binding
-       ;; the tier rather than passing :policies puts the policy read
-       ;; inside new-product's transaction, where production has it.
-       [micro (policy/get-policies-by-tier config "micro")
-        _ (is (= 1 (count micro)))
+       ;; A bank with no current product is one below the bound policy's
+       ;; cap. Binding it rather than passing :policies puts the policy
+       ;; read inside new-product's transaction, where production has it.
+       [bound (policy/new-policy config one-current-product)
         _ (policy/new-binding config
-                              {:policy-id (:policy-id (first micro))
+                              {:policy-id (:policy-id bound)
                                :target {:kind {:bank {:bank-id bank-id}}}
-                               :actor {:kind :actor-kind-operator
-                                       :principal-id "queenswood-admin"}})
+                               :actor operator})
         results (with-redefs [q/count-by-org-product-type
                               gated-count-by-org-product-type]
                   (let [left (racing-create "Current A")

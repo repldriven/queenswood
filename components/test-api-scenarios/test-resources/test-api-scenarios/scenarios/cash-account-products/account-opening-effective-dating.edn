@@ -1,6 +1,5 @@
 {:name "Account opening pins to the version effective today"
- ;; Three products, one per type because the micro tier caps products
- ;; at one per type, each carrying two published versions that put the
+ ;; Three products, each carrying two published versions that put the
  ;; window resolver under a different case. One party serves all three
  ;; — the IDV cascade is the expensive part of the setup.
  :given

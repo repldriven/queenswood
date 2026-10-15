@@ -1,9 +1,9 @@
 (ns com.repldriven.queenswood.cash-account-product.interface
   "Cash-account product write side: the per-bank product lifecycle —
   create a product (initial draft), open/update/discard a draft version,
-  and publish it. A product is versioned through draft, published and
-  discarded states; the published version effective today backs
-  newly-opened accounts. `new-template` seeds the platform templates
+  and publish it. A product is versioned through draft and published
+  states, a discarded draft deleted; the published version effective
+  today backs newly-opened accounts. `new-template` seeds the platform templates
   products are created from.
 
   Reads live in `cash-account-product-query`; this brick reuses them
@@ -95,9 +95,9 @@
    (core/update-draft txn bank-id product-id version-id data opts)))
 
 (defn discard-draft
-  "Discard an existing draft version. Returns the discarded
-  version or an anomaly. Rejects if the version is not in draft
-  state.
+  "Discard an existing draft version, deleting it; its audit entry keeps
+  what it held. Returns the draft as it was, or an anomaly. Rejects if
+  the version is not in draft state.
 
   Args:
   - txn: FDB transaction or db handle.
@@ -111,11 +111,13 @@
    (core/discard-draft txn bank-id product-id version-id opts)))
 
 (defn publish
-  "Publish an existing draft version. Returns the published
-  version or an anomaly. Rejects if the version is not in draft
-  state, and with `:cash-account-product/unsupported-address-scheme`
-  when it allows a payment address scheme the payment provider does not
-  issue.
+  "Publish an existing draft version, stamping the day as its
+  `published-on`. Returns the published version or an anomaly. Rejects
+  if the version is not in draft state, with
+  `:cash-account-product/unsupported-address-scheme` when it allows a
+  payment address scheme the payment provider does not issue, and with
+  `:policy/limit-exceeded` once the product has had its publishes for
+  the calendar month.
 
   Args:
   - txn: FDB transaction or db handle.

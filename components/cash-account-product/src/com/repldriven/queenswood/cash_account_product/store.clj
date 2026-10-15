@@ -20,6 +20,19 @@
    :cash-account-product/save-template
    "Failed to save template"))
 
+(defn delete-version
+  [txn version]
+  (let [{:keys [bank-id product-id version-id]} version]
+    (fdb/transact txn
+                  (fn [txn]
+                    (fdb/delete-record (fdb/open txn store-name)
+                                       bank-id
+                                       product-id
+                                       version-id)
+                    nil)
+                  :cash-account-product/delete-version
+                  "Failed to delete product version")))
+
 (defn save-version
   [txn version]
   (fdb/transact

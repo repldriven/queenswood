@@ -117,6 +117,27 @@
     :bank-id bank-id
     :product-type product-type}))
 
+(def ^:private most-publishes-counted
+  "Where counting a product's publishes stops: past any monthly limit a
+  policy sets."
+  1000)
+
+(defn count-published-since
+  [txn bank-id product-id since]
+  (fdb/transact txn
+                (fn [txn]
+                  (count (fdb/scan-index-records
+                          (fdb/open txn store-name)
+                          "CashAccountProduct_by_product_published_on"
+                          [bank-id product-id]
+                          {:from [since]
+                           :limit most-publishes-counted
+                           :isolation :snapshot})))
+                :cash-account-product/count-published
+                {:message "Failed to count published versions"
+                 :bank-id bank-id
+                 :product-id product-id}))
+
 (defn get-versions
   ([txn bank-id]
    (get-versions txn bank-id nil))

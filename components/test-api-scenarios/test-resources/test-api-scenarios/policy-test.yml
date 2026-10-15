@@ -202,3 +202,129 @@ few-customers: !system/component
                     value: 2
                     window: !keyword time-window-daily
         reason: "Few-customers tier - a bank makes at most 2 payee checks per day"
+# A tier whose banks hold one current account product and publish one
+# version of a product a month, so a scenario can reach either with the
+# product fixture and one call.
+few-products: !system/component
+  system/component-kind: policies/policy
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  policy:
+    policy-id: pol.00000000000000000000000010
+    name: Few-products policy
+    description: Few-products tier - one current account product and one publish a month
+    status: !keyword policy-status-active
+    labels: !strs
+      tier: few-products
+    category: !keyword policy-category-restricted
+    capabilities: []
+    limits:
+      - kind:
+          cash-account-product:
+            filters:
+              - product-type: !keyword account-product-type-sub-ledger-current
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  count:
+                    value: 1
+                    window: !keyword time-window-instant
+        reason: "Few-products tier - a bank holds at most 1 current account product"
+      - kind:
+          cash-account-product:
+            filters:
+              - action: !keyword cash-account-product-action-publish
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  count:
+                    value: 1
+                    window: !keyword time-window-monthly
+        reason: "Few-products tier - a product publishes at most 1 version per calendar month"
+# A tier whose banks hold two pending invitations, so a scenario can
+# reach the limit with two calls.
+few-invitations: !system/component
+  system/component-kind: policies/policy
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  policy:
+    policy-id: pol.00000000000000000000000011
+    name: Few-invitations policy
+    description: Few-invitations tier - two pending invitations
+    status: !keyword policy-status-active
+    labels: !strs
+      tier: few-invitations
+    category: !keyword policy-category-restricted
+    capabilities: []
+    limits:
+      - kind:
+          invitation: {}
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  count:
+                    value: 2
+                    window: !keyword time-window-instant
+        reason: "Few-invitations tier - a bank has at most 2 pending invitations"
+# A tier whose banks preview two migrations a day, so a scenario can
+# reach the limit with two calls.
+few-previews: !system/component
+  system/component-kind: policies/policy
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  policy:
+    policy-id: pol.00000000000000000000000012
+    name: Few-previews policy
+    description: Few-previews tier - two migration previews a day
+    status: !keyword policy-status-active
+    labels: !strs
+      tier: few-previews
+    category: !keyword policy-category-restricted
+    capabilities: []
+    limits:
+      - kind:
+          cash-account-migration:
+            filters:
+              - action: !keyword cash-account-migration-action-preview
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  count:
+                    value: 2
+                    window: !keyword time-window-daily
+        reason: "Few-previews tier - at most 2 migration previews per day"
+# A tier whose banks register one webhook endpoint, so a scenario can
+# reach the limit with one call.
+few-webhooks: !system/component
+  system/component-kind: policies/policy
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  policy:
+    policy-id: pol.00000000000000000000000013
+    name: Few-webhooks policy
+    description: Few-webhooks tier - one webhook endpoint
+    status: !keyword policy-status-active
+    labels: !strs
+      tier: few-webhooks
+    category: !keyword policy-category-restricted
+    capabilities: []
+    limits:
+      - kind:
+          webhook-endpoint: {}
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  count:
+                    value: 1
+                    window: !keyword time-window-instant
+        reason: "Few-webhooks tier - a bank has at most 1 webhook endpoint"

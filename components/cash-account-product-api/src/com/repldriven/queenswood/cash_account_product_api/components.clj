@@ -256,6 +256,7 @@
    [:max-balance {:optional true} [:ref "SignedMinorUnits"]]
    [:effective-from [:ref "BusinessDay"]]
    [:effective-to {:optional true} [:ref "BusinessDay"]]
+   [:published-on {:optional true} [:ref "BusinessDay"]]
    [:created-at [:ref "Timestamp"]]
    [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]

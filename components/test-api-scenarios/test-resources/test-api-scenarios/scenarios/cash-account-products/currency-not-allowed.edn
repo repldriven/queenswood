@@ -18,11 +18,8 @@
                     :effective-from "2026-01-01"}}
    :assert {:status 422
             :problem {:type ":cash-account-product/currency-not-allowed"}}}
-  ;; The control, and the reason it runs second: the rejection above
-  ;; created no product, so this one is still the bank's first savings
-  ;; product and clears the micro per-type cap. Run first, it would
-  ;; take that slot and the EUR request would trip the cap — which is
-  ;; checked before the currency — instead.
+  ;; The control: the rejection above created no product, so this one
+  ;; is the bank's first savings product.
   {:command :api/request
    :request {:method :post
              :path "/v1/cash-account-products"
@@ -33,6 +30,4 @@
                     :interest-rate-bps 250
                     :effective-from "2026-01-01"}}
    :assert {:status 201
-            :body {:status "draft"
-                   :product-type "savings"
-                   :currency "GBP"}}}]}
+            :body {:status "draft" :product-type "savings" :currency "GBP"}}}]}

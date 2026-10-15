@@ -194,7 +194,7 @@ template cannot reach it.
  :version-id          "prv.<ulid>"
  :version-number      1             ;; 1, 2, 3, ...
  :status              :version-status-draft
-                      ;; or -published, -discarded
+                      ;; or -published
  :name                "Premier Savings"
  :currency            "GBP"         ;; one currency per product
  :template-id         "tpl.<ulid>"  ;; the template snapshotted
@@ -206,7 +206,7 @@ template cannot reach it.
  :interest-terms      {...}         ;; absent where it pays none
  :effective-from      20089         ;; epoch-day (required)
  :effective-to        <epoch-day or absent>  ;; open-ended if absent
- :discarded-at        <timestamp>   ;; set by discard-draft only
+ :published-on        <epoch-day>   ;; set by publish only
  :idempotency-key     <string>      ;; stamped by new-product only
  :created-at
  :updated-at}
@@ -456,11 +456,10 @@ stateDiagram-v2
     [*] --> Draft : new-product / open-draft
 
     Draft --> Draft : update-draft
-    Draft --> Discarded : discard-draft
+    Draft --> [*] : discard-draft
     Draft --> Published : publish
 
     Published --> [*]
-    Discarded --> [*]
 
     Published --> Draft : open-draft<br/>(new version_number)
 ```
@@ -469,10 +468,10 @@ stateDiagram-v2
   one draft per product at a time.
 - **Published.** Immutable. Any attempt to update returns
   `:cash-account-product/version-immutable`.
-- **Discarded.** Terminal — a draft that was abandoned; preserved as
-  history rather than deleted, with `:discarded-at` stamped.
-  Re-opening a draft after discard creates a new version, not a new
-  attempt at the discarded one.
+- **Discarded.** Not a status: `discard-draft` deletes the draft, and
+  its audit entry keeps what it held. The next draft takes its version
+  number, since the number is one more than the versions the product
+  holds.
 
 The `Published → Draft` transition (with a fresh `:version-number`) is
 `open-draft` on a product that already has a published version.
@@ -514,10 +513,14 @@ update can reach.
 - **`update-draft`** — replaces the draft's mutable fields with new
   data. Capability checked. Refuses if the version is not in draft
   state (the immutability gate).
-- **`discard-draft`** — flips a draft to discarded. Capability
-  checked. Terminal; the slot is freed for a new draft.
-- **`publish`** — flips a draft to published. Capability checked.
-  After this, immutability holds.
+- **`discard-draft`** — deletes a draft. Capability checked. The slot
+  is freed for a new draft.
+- **`publish`** — flips a draft to published and stamps today as its
+  `:published-on`. Capability checked, and the product held to the
+  `cash-account-product` limit filtered on the publish action, counted
+  over the calendar month by `CashAccountProduct_by_product_published_on`
+  over `[bank_id, product_id, published_on]`, read at snapshot. After
+  this, immutability holds.
 
 Every one of the five runs its reads, its guards and its write inside
 one `store/transact`, so a guard is decided against the state the
@@ -533,8 +536,8 @@ The create's read-back sits outside that transaction, and has to.
 key into the original version, and the violation only surfaces when
 the transaction commits.
 
-Only `new-product` stamps `:idempotency-key`. `publish` and
-`discard-draft` `assoc` onto the loaded record, and `update-draft`
+Only `new-product` stamps `:idempotency-key`. `publish` `assoc`s onto
+the loaded record, and `update-draft`
 rebuilds it carrying the existing key forward, so the unique-index
 entry a create took survives every later operation on that product —
 which is what makes a replayed create return the original product
@@ -604,8 +607,10 @@ the version-scoped operations and `{:bank-id}` for the create, which
 is which policies are in scope rather than a dimension of either
 limit.
 
-The seeds set both per tier: micro allows 25 products and one of each
-customer product type; platform-restricted allows 1,000 and 100.
+The seeds set them per tier: micro allows 10 products of each customer
+product type, which bounds its total at 30 with no total of its own, and
+2 publishes per product per calendar month; platform-restricted allows
+1,000 products, 100 of each type and 10 publishes a month.
 
 The total is counted off the `CashAccountProduct_count_by_bank` index,
 which groups `[bank_id, product_id]` with no filter. The bank's
@@ -764,13 +769,13 @@ truncated.
 
 ## Known Limitations
 
-- **Discarded drafts accumulate.** No cleanup. They're kept as
-  history, but if a bank rapid-iterates and discards many drafts, the
-  version list grows without bound. Past the read caps the effect is
-  not just untidy: `get-product` stops at 100 versions of a product
-  and `get-products` at 1,000 rows for a bank, so versions — or, once
-  one product's versions fill the scan, whole products — drop out of
-  reads with no error and nothing to signal the truncation.
+- **Published versions accumulate.** The monthly publish limit bounds
+  how fast, not how many: at the platform policy's 10 a month a product
+  passes `get-product`'s 100 versions in ten months, and at micro's 2 in
+  four years. Past the read caps, `get-product` and `get-products`,
+  which stops at 1,000 rows for a bank, drop versions, or whole
+  products once one product's versions fill the scan, with no error
+  and nothing to signal the truncation.
 - **No version-comparison helper.** "What changed between v2 and v3?"
   is left to callers (or to UIs reading the versions and diffing
   fields).
