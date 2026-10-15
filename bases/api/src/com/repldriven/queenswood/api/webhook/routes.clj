@@ -48,7 +48,12 @@
                                    "address or to a private, loopback or "
                                    "link-local range is refused with 422. An "
                                    "endpoint that chooses no kinds receives "
-                                   "every kind.")
+                                   "every kind. An address the bank already "
+                                   "has an enabled or disabled endpoint at "
+                                   "returns 200 with that endpoint and its "
+                                   "current secret, unchanged; register with "
+                                   "an idempotency key derived from the "
+                                   "address, so replicas share one endpoint.")
                  :security [{"bearerAuth" ["org:developer"]}]
                  :requestBody {:required true}
                  :parameters ^:replace
@@ -58,7 +63,10 @@
                       bank-idempotency/cache-response]
        :parameters {:body [:ref "WebhookEndpointRequest"]}
        :responses (shared.idempotency/with-responses
-                   {201 {:description (str "The registered endpoint and its "
+                   {200 {:description (str "The endpoint already at the "
+                                           "address and its signing secret.")
+                         :body [:ref "WebhookEndpointRegistration"]}
+                    201 {:description (str "The registered endpoint and its "
                                            "signing secret.")
                          :body [:ref "WebhookEndpointRegistration"]
                          :openapi {:headers {"Location" (shared.headers/location

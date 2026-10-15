@@ -65,8 +65,9 @@
 (defn- or-already-registered
   "On a uniqueness violation — a retried registration carrying an
   already-seen idempotency-key — read the existing endpoint back and
-  return it, so the caller gets the endpoint it already created rather
-  than a second one. Any other value passes through unchanged."
+  return it as created, so the caller gets the answer the first request
+  had rather than a second endpoint. Any other value passes through
+  unchanged."
   [txn bank-id data result]
   (if (and (store/uniqueness-violation? result)
            (:idempotency-key data))
@@ -74,7 +75,7 @@
                          txn
                          bank-id
                          (:idempotency-key data))]
-      (or existing result))
+      (if existing {:endpoint existing :adopted? false} result))
     result))
 
 (defn- load-endpoint
@@ -137,6 +138,28 @@
         _ (audited txn kind existing updated actor opts)]
        updated))))
 
+(defn- register-new
+  [txn bank-id data actor addresses policies opts]
+  (let-nom>
+    [existing-count (store/count-live-endpoints txn bank-id)
+     endpoint (domain/new-endpoint bank-id
+                                   data
+                                   (mint-secret)
+                                   actor
+                                   addresses
+                                   (:platform-hosts opts)
+                                   (:address-rule opts)
+                                   existing-count
+                                   policies)
+     _ (store/save-endpoint txn endpoint)
+     _ (audited txn
+                :audit-kind-webhook-endpoint-registered
+                nil
+                endpoint
+                actor
+                opts)]
+    endpoint))
+
 (defn register
   ([txn bank-id data actor]
    (register txn bank-id data actor {}))
@@ -151,24 +174,28 @@
        (fn [txn]
          (let-nom>
            [policies (get-policies txn bank-id opts)
-            existing-count (store/count-live-endpoints txn bank-id)
-            endpoint (domain/new-endpoint bank-id
-                                          data
-                                          (mint-secret)
-                                          actor
-                                          addresses
-                                          (:platform-hosts opts)
-                                          (:address-rule opts)
-                                          existing-count
-                                          policies)
-            _ (store/save-endpoint txn endpoint)
-            _ (audited txn
-                       :audit-kind-webhook-endpoint-registered
-                       nil
-                       endpoint
-                       actor
-                       opts)]
-           endpoint)))))))
+            replayed (when-let [k (:idempotency-key data)]
+                       (store/find-endpoint-by-idempotency-key txn bank-id k))
+            live (when-not replayed
+                   (store/find-live-endpoint-by-address txn
+                                                        bank-id
+                                                        (:address data)))
+            endpoint (cond
+                      replayed
+                      replayed
+
+                      live
+                      (domain/adopt-endpoint live policies)
+
+                      :else
+                      (register-new txn
+                                    bank-id
+                                    data
+                                    actor
+                                    addresses
+                                    policies
+                                    opts))]
+           {:endpoint endpoint :adopted? (some? live)})))))))
 
 (defn get-endpoint
   [txn bank-id endpoint-id]

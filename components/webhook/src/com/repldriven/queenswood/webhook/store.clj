@@ -56,6 +56,24 @@
    :webhook-endpoint/find-by-idempotency-key
    "Failed to find webhook endpoint by idempotency key"))
 
+(defn find-live-endpoint-by-address
+  "The bank's endpoint at `address` that is enabled or disabled, or nil.
+  A removed endpoint's address is free to register again."
+  [txn bank-id address]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (->> (fdb/query-records-compound (fdb/open txn endpoints-store-name)
+                                      "WebhookEndpoint"
+                                      [["bank_id" bank-id] ["address" address]]
+                                      {:index "WebhookEndpoint_by_address"})
+          (map schema/pb->WebhookEndpoint)
+          (remove (fn [{:keys [status]}]
+                    (= :webhook-endpoint-status-removed status)))
+          first))
+   :webhook-endpoint/find-by-address
+   "Failed to find webhook endpoint by address"))
+
 (defn get-endpoints
   ([txn bank-id]
    (get-endpoints txn bank-id nil))

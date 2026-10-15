@@ -524,6 +524,10 @@ stores:
         modified: 1
         fields: [bank_id, status]
         type: count
+      - name: WebhookEndpoint_by_address
+        added: 1
+        modified: 1
+        fields: [bank_id, address]
       - name: WebhookEndpoint_by_idempotency_key
         added: 1
         modified: 1

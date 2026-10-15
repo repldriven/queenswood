@@ -251,6 +251,15 @@
 ;; ---------------------------------------------------------------------------
 ;; Public domain operations
 
+(defn adopt-endpoint
+  "The endpoint already live at the address a registration names,
+  returned as it is, refused only on the capability: a registration of
+  an address the bank has an endpoint at adds nothing to the count and
+  rotates no secret."
+  [endpoint policies]
+  (let-nom> [_ (check-capability :webhook-endpoint-action-register policies)]
+    endpoint))
+
 (defn new-endpoint
   "Build a registered endpoint from `data`, refusing first on the
   address, then on the capability, then on the count limit — all

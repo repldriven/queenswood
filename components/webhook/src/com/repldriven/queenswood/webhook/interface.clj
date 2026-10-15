@@ -41,13 +41,17 @@
 (defn register
   "Register a webhook endpoint for a bank. Mints the endpoint's id and
   its signing secret, refuses the address, the capability and the
-  count limit before writing, and returns the endpoint map — secret
-  included — or an anomaly.
+  count limit before writing, and returns `{:endpoint e :adopted?
+  false}`, the endpoint's secret included, or an anomaly.
 
-  A retried registration carrying an idempotency-key already used by
-  this bank reads the first endpoint back rather than minting a
-  second. Without a key there is nothing to read back on, so each
-  request registers its own endpoint.
+  A registration of an address the bank already has an enabled or
+  disabled endpoint at returns that endpoint as it is, its secret
+  unrotated and the request's other fields ignored, as
+  `{:endpoint e :adopted? true}`, writing nothing: a client that lost
+  its endpoint gets it back, deliveries queued for it included, and
+  two of its replicas registering at once share one secret. A retried
+  registration carrying an idempotency-key already used by this bank
+  reads the first endpoint back as created.
 
   Args:
   - txn: FDB transaction or config map.

@@ -104,8 +104,12 @@ The customer supplies:
 - A description, for the customer's own reference.
 
 The call returns the endpoint with its identifier, its status
-(enabled), and its signing secret — handed over once, at registration.
-The customer must store it: the platform will not show it again.
+(enabled), and its signing secret. The customer must store it: no read
+shows it again. Registering an address the customer already has an
+endpoint at returns that endpoint and the same secret, so a customer's
+system that restarts and registers again keeps the endpoint it had,
+and everything waiting to be delivered to it, rather than starting a
+second one or losing the secret it verifies with.
 
 At any time the customer can ask the platform to send a test
 notification to an endpoint and see whether it was acknowledged, and

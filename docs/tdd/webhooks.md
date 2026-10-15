@@ -666,6 +666,21 @@ that lands.
   again only the failed deliveries in its window, so a repeat past the
   cache window finds them pending or delivered and queues nothing.
 
+`POST /v1/webhook-endpoints` at an address the bank already has an
+enabled or disabled endpoint at returns that endpoint with 200, its
+current secret unrotated and the request's other fields ignored, and
+writes nothing; a retry under a key already used still returns its
+endpoint with 201, the key read first. A client that crashed and
+registers again under a fresh key gets back its endpoint and the
+deliveries queued for it, and two replicas registering at once share
+one secret: the second's transaction conflicts on the
+`[bank_id, address]` index the first wrote, and its retry adopts what
+the first made. A rotation is only ever `rotate-secret`, so no
+registration takes a secret from a consumer still verifying with it.
+Clients register with an idempotency key derived from the address, so
+every replica's request is the same request. A removed endpoint's
+address registers a new endpoint.
+
 Reads take no key: get and list endpoints, list an endpoint's
 deliveries with filters on kind, outcome and time, and list a
 delivery's attempts at `GET .../deliveries/{delivery-id}/attempts`.
@@ -752,7 +767,9 @@ type in the `schema` brick's `interface.clj`.
   rotated its secret, and when. Indexed by bank, with an FDB
   `count` index over `[bank_id, status]` for the limit check, which
   counts the enabled and disabled endpoints so that removing one frees
-  its place, and a unique index on `[bank_id, idempotency_key]`. That
+  its place, an index on `[bank_id, address]` that a registration of an
+  address already live reads, and a unique index on
+  `[bank_id, idempotency_key]`. That
   unique index is what makes registration retry-safe: a retried request
   reads back the endpoint it already created instead of minting a second
   endpoint, a second secret and a second count against the limit. The
@@ -996,6 +1013,11 @@ stated as unobserved, with what would observe it.
   `bank-tier-changed` are written to the bank store's changelog and
   relayed by no runner, so nothing has ever read one. The bank slice's
   relay runner and topic are what observe them.
+- **A registration discloses the secret of the endpoint at its
+  address.** Anyone the bank lets register endpoints reads an
+  endpoint's current secret by registering its address.
+- **Addresses match as written.** `/hooks` and `/hooks/` are two
+  endpoints.
 - **Registering and removing endpoints has no rate.** A removed
   endpoint frees its place under the count limit, so a bank can register
   and remove endpoints without end; how often is the edge's rate limit

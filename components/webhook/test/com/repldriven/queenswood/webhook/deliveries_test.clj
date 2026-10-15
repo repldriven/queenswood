@@ -45,6 +45,12 @@
   [idempotency-key]
   {:address tenant-address :idempotency-key idempotency-key})
 
+(defn- register
+  "The endpoint a registration returns, or its anomaly."
+  [config bank-id data actor opts]
+  (let [res (SUT/register config bank-id data actor opts)]
+    (if (error/anomaly? res) res (:endpoint res))))
+
 (defn- deliveries-of
   "Every delivery of `notification-id` the endpoint holds."
   [config bank-id endpoint-id notification-id]
@@ -93,17 +99,16 @@
          held (notification bank-id "whn.held" 1700000000000)
          missed (notification bank-id "whn.missed" 1700000000001)
          before (notification bank-id "whn.before" 1699999999999)]
-     (nom-test> [registered (SUT/register config
-                                          bank-id
-                                          (endpoint-data "ik-bf")
-                                          actor
-                                          opts)
+     (nom-test> [registered
+                 (register config bank-id (endpoint-data "ik-bf") actor opts)
                  id (:endpoint-id registered)
-                 other (SUT/register config
-                                     bank-id
-                                     (endpoint-data "ik-bf-other")
-                                     actor
-                                     opts)
+                 other (register config
+                                 bank-id
+                                 (assoc (endpoint-data "ik-bf-other")
+                                        :address
+                                        (str tenant-address "-other"))
+                                 actor
+                                 opts)
                  tested (SUT/test-notification config
                                                bank-id
                                                (:endpoint-id other)
@@ -151,11 +156,8 @@
    [sys config-file]
    (let [config (fdb-config sys)
          bank-id "bnk.no.backfill"]
-     (nom-test> [registered (SUT/register config
-                                          bank-id
-                                          (endpoint-data "ik-no-bf")
-                                          actor
-                                          opts)
+     (nom-test> [registered
+                 (register config bank-id (endpoint-data "ik-no-bf") actor opts)
                  id (:endpoint-id registered)
                  _ (SUT/disable config bank-id id actor opts)
                  _ (store/save-notification
@@ -171,11 +173,11 @@
    [sys config-file]
    (let [config (fdb-config sys)
          bank-id "bnk.resend.window"]
-     (nom-test> [registered (SUT/register config
-                                          bank-id
-                                          (endpoint-data "ik-window")
-                                          actor
-                                          opts)
+     (nom-test> [registered (register config
+                                      bank-id
+                                      (endpoint-data "ik-window")
+                                      actor
+                                      opts)
                  id (:endpoint-id registered)
                  delivered (SUT/test-notification config bank-id id actor opts)
                  failed (SUT/test-notification config bank-id id actor opts)
@@ -237,11 +239,11 @@
    (let [config (fdb-config sys)
          bank-id "bnk.test.limit"
          limited {:policies one-test-a-day}]
-     (nom-test> [registered (SUT/register config
-                                          bank-id
-                                          (endpoint-data "ik-test-limit")
-                                          actor
-                                          limited)
+     (nom-test> [registered (register config
+                                      bank-id
+                                      (endpoint-data "ik-test-limit")
+                                      actor
+                                      limited)
                  id (:endpoint-id registered)
                  _ (SUT/test-notification config bank-id id actor limited)
                  _
