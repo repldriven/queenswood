@@ -78,6 +78,7 @@
    :kind :suspend
    :status :completed
    :requested-on "2026-05-18"
+   :account-status :opened
    :created-at "2026-05-18T09:20:00Z"
    :created-by actor-example
    :updated-at "2026-05-18T09:20:02Z"})

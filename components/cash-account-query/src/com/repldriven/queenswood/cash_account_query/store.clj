@@ -209,6 +209,38 @@
    {:message "Failed to count accounts"
     :bank-id bank-id}))
 
+(defn find-operation
+  [txn bank-id operation-id]
+  (fdb/transact txn
+                (fn [txn]
+                  (some-> (fdb/query-record-compound
+                           (fdb/open txn operations-store-name)
+                           "CashAccountOperation"
+                           [["bank_id" bank-id] ["operation_id" operation-id]]
+                           {:index "CashAccountOperation_by_operation_id"})
+                          schema/pb->CashAccountOperation))
+                :cash-account-operation/find
+                {:message "Failed to find account operation"
+                 :bank-id bank-id
+                 :operation-id operation-id}))
+
+(defn find-operation-by-idempotency-key
+  [txn bank-id account-id idempotency-key]
+  (fdb/transact txn
+                (fn [txn]
+                  (some-> (fdb/query-record-compound
+                           (fdb/open txn operations-store-name)
+                           "CashAccountOperation"
+                           [["bank_id" bank-id]
+                            ["account_id" account-id]
+                            ["idempotency_key" idempotency-key]]
+                           {:index "CashAccountOperation_by_idempotency_key"})
+                          schema/pb->CashAccountOperation))
+                :cash-account-operation/find-by-idempotency-key
+                {:message "Failed to find account operation by idempotency key"
+                 :bank-id bank-id
+                 :account-id account-id}))
+
 (defn count-operations
   [txn bank-id account-id requested-on]
   (fdb/transact txn

@@ -182,7 +182,8 @@ suspected compromise, for example — trading the sort code
 and account number for a fresh pair the provider issues.
 The account keeps its old address until the new one is
 issued; the old address is then retired permanently and
-kept on the account's history.
+kept on the account's history. Where the provider refuses,
+the account keeps its address, and the customer is told why.
 
 ### Closing an account
 
@@ -206,7 +207,9 @@ explicitly; no tier carries it by default.
 
 If allowed, the platform sets the status to **closing**.
 A moment later the transition completes and the account
-becomes **closed** — its terminal state.
+becomes **closed** — its terminal state. Where the payment
+provider refuses the close, the account goes back to open
+or frozen, as it was, and the customer is told why.
 
 ### Freezing and unfreezing an account
 
@@ -221,13 +224,16 @@ reconciliation rather than credited.
 
 A freeze takes effect on the platform at once, and the
 platform asks the payment provider to block the account
-too where the provider can. Each freeze and unfreeze is
+too where the provider can.
+
+Each freeze, unfreeze, close and new payment address is
 kept with the account, with who asked for it and whether
 the provider carried it out, so the customer can see what
-was done to an account and when. An account takes a few
-freezes and unfreezes a day, set by the platform's policy;
-past that an unfreeze is refused until the next day, but a
-freeze never is.
+was done to an account and when, and is told when the
+provider answers. An account takes a few of these a day,
+set by the platform's policy; past that an unfreeze or a
+new payment address is refused until the next day, but a
+freeze or a close never is.
 
 A closed account's payment address is never reissued to
 anyone else, and money sent to it never lands on an
@@ -259,9 +265,10 @@ The customer can:
 - List the accounts the bank holds, a page at a time, with
   balances included on request.
 - Read an account's transactions.
-- Read the freezes and unfreezes asked of an account, and
-  whether the payment provider carried each out — alone, or
-  with the account on request.
+- Read the freezes, unfreezes, closes and new payment
+  addresses asked of an account, and whether the payment
+  provider carried each out — alone, or with the account on
+  request.
 
 ### Multi-tenant isolation
 

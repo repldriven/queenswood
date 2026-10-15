@@ -60,18 +60,6 @@
                              :causation-id account-id
                              :dedup-key account-id}))))
 
-(defn- record-closing
-  [txn account]
-  (let [{:keys [bank-id account-id provider-account-id]} account]
-    (when provider-account-id
-      (bank-activity/record txn
-                            {:bank-id bank-id
-                             :event-name "cash-account-close-requested"
-                             :data {:account-id account-id
-                                    :provider-account-id provider-account-id}
-                             :causation-id account-id
-                             :dedup-key account-id}))))
-
 (defn- record-operation
   "Save `operation` and, while it is pending, the activity entry that asks
   the account's provider to carry it out."
@@ -79,7 +67,7 @@
   (let [{:keys [bank-id account-id provider-account-id]} account
         {:keys [operation-id kind]} operation]
     (let-nom>
-      [_ (store/save-operation txn operation)]
+      [_ (store/save-operation txn operation nil)]
       (when (domain/pending-operation? operation)
         (bank-activity/record txn
                               {:bank-id bank-id
@@ -90,23 +78,6 @@
                                       :provider-account-id provider-account-id}
                                :causation-id account-id
                                :dedup-key operation-id})))))
-
-(defn- record-rotation
-  [txn account]
-  (let [{:keys [bank-id account-id provider-account-id rotation]} account
-        rotation-key (:idempotency-key rotation)]
-    (bank-activity/record txn
-                          {:bank-id bank-id
-                           :event-name "cash-account-address-rotation-requested"
-                           :data (utility/assoc-some
-                                  {:account-id account-id
-                                   :rotation-key rotation-key}
-                                  :provider-account-id
-                                  provider-account-id)
-                           :causation-id account-id
-                           :dedup-key (str account-id
-                                           ":"
-                                           rotation-key)})))
 
 (defn- or-already-opened
   "On a uniqueness violation — a redelivered or retried
@@ -207,6 +178,43 @@
        :cash-account/open
        "Failed to open account")))))
 
+(defn- operate
+  "Carry out an operation of `kind` on the account the command in `data`
+  names. `transition` takes the transaction, the account, its operations
+  for the day and the policies, and returns the account the operation
+  leaves, saved under `change-kind` where there is one. A command whose
+  idempotency key already asked for an operation of the account is a
+  retry after a lost reply, and gets back the account as it is: no
+  operation, no save, no changelog entry."
+  [txn data opts {:keys [kind transition change-kind audit-kind]}]
+  (let [{:keys [bank-id account-id idempotency-key]} data
+        today (utility/today)]
+    (let-nom>
+      [policies (get-policies txn bank-id account-id opts)
+       account (q/get-account txn bank-id account-id)
+       asked (when idempotency-key
+               (q/find-operation-by-idempotency-key txn
+                                                    bank-id
+                                                    account-id
+                                                    idempotency-key))]
+      (if asked
+        account
+        (let-nom>
+          [aggregates (get-operation-aggregates txn bank-id account-id today)
+           updated (transition txn account aggregates policies)
+           _ (when change-kind
+               (store/save-account txn
+                                   updated
+                                   {:account-id account-id
+                                    :status-before (:status account)
+                                    :status-after (:status updated)
+                                    :change-kind change-kind}))
+           _ (record-operation txn
+                               account
+                               (domain/new-operation account kind today data))
+           _ (audit/record txn (audit-entry audit-kind account updated data))]
+          updated)))))
+
 (defn close-account
   ([txn data]
    (close-account txn data {}))
@@ -214,30 +222,21 @@
    (store/transact
     txn
     (fn [txn]
-      (let [{:keys [bank-id account-id]} data]
-        (let-nom>
-          [policies (get-policies txn bank-id account-id opts)
-           account (q/get-account txn bank-id account-id)
-           balances (balances-q/list-balances txn bank-id account-id)
-           updated (domain/close-account account
-                                         balances
-                                         (:actor data)
-                                         policies)
-           _ (store/save-account txn
-                                 updated
-                                 {:account-id account-id
-                                  :status-before (:status account)
-                                  :status-after (:status updated)
-                                  :change-kind
-                                  :cash-account-change-kind-close})
-           _ (record-closing txn updated)
-           _ (audit/record txn
-                           (audit-entry
-                            :audit-kind-cash-account-close-requested
-                            account
-                            updated
-                            data))]
-          updated)))
+      (operate txn
+               data
+               opts
+               {:kind :cash-account-operation-kind-close
+                :transition (fn [txn account _ policies]
+                              (let-nom> [balances (balances-q/list-balances
+                                                   txn
+                                                   (:bank-id account)
+                                                   (:account-id account))]
+                                (domain/close-account account
+                                                      balances
+                                                      (:actor data)
+                                                      policies)))
+                :change-kind :cash-account-change-kind-close
+                :audit-kind :audit-kind-cash-account-close-requested}))
     :cash-account/close
     "Failed to close account")))
 
@@ -287,31 +286,16 @@
    (store/transact
     txn
     (fn [txn]
-      (let [{:keys [bank-id account-id]} data]
-        (let-nom>
-          [policies (get-policies txn bank-id account-id opts)
-           account (q/get-account txn bank-id account-id)
-           updated (domain/suspend-account account (:actor data) policies)
-           _ (store/save-account txn
-                                 updated
-                                 {:account-id account-id
-                                  :status-before (:status account)
-                                  :status-after (:status updated)
-                                  :change-kind
-                                  :cash-account-change-kind-suspend})
-           _ (record-operation
-              txn
-              updated
-              (domain/new-operation updated
-                                    :cash-account-operation-kind-suspend
-                                    (utility/today)
-                                    (:actor data)))
-           _ (audit/record txn
-                           (audit-entry :audit-kind-cash-account-suspended
-                                        account
-                                        updated
-                                        data))]
-          updated)))
+      (operate txn
+               data
+               opts
+               {:kind :cash-account-operation-kind-suspend
+                :transition (fn [_ account _ policies]
+                              (domain/suspend-account account
+                                                      (:actor data)
+                                                      policies))
+                :change-kind :cash-account-change-kind-suspend
+                :audit-kind :audit-kind-cash-account-suspended}))
     :cash-account/suspend
     "Failed to suspend account")))
 
@@ -322,48 +306,19 @@
    (store/transact
     txn
     (fn [txn]
-      (let [{:keys [bank-id account-id]} data
-            today (utility/today)]
-        (let-nom>
-          [policies (get-policies txn bank-id account-id opts)
-           account (q/get-account txn bank-id account-id)
-           aggregates (get-operation-aggregates txn bank-id account-id today)
-           updated (domain/resume-account account
-                                          (:actor data)
-                                          aggregates
-                                          policies)
-           _ (store/save-account txn
-                                 updated
-                                 {:account-id account-id
-                                  :status-before (:status account)
-                                  :status-after (:status updated)
-                                  :change-kind
-                                  :cash-account-change-kind-resume})
-           _ (record-operation
-              txn
-              updated
-              (domain/new-operation updated
-                                    :cash-account-operation-kind-resume
-                                    today
-                                    (:actor data)))
-           _ (audit/record txn
-                           (audit-entry :audit-kind-cash-account-resumed
-                                        account
-                                        updated
-                                        data))]
-          updated)))
+      (operate txn
+               data
+               opts
+               {:kind :cash-account-operation-kind-resume
+                :transition (fn [_ account aggregates policies]
+                              (domain/resume-account account
+                                                     (:actor data)
+                                                     aggregates
+                                                     policies))
+                :change-kind :cash-account-change-kind-resume
+                :audit-kind :audit-kind-cash-account-resumed}))
     :cash-account/resume
     "Failed to resume account")))
-
-(defn- rotated-under-key?
-  "True when the account's last rotation is the one this command is
-  asking for — a retry after a lost reply. It gets back the account as
-  the first attempt left it: no request, no save, no changelog entry. A
-  read-derived skip, not a rejection."
-  [account idempotency-key]
-  (boolean (and idempotency-key
-                (= idempotency-key
-                   (get-in account [:rotation :idempotency-key])))))
 
 (defn rotate-address
   ([txn data]
@@ -372,30 +327,15 @@
    (store/transact
     txn
     (fn [txn]
-      (let [{:keys [bank-id account-id idempotency-key]} data]
-        (let-nom>
-          [policies (get-policies txn bank-id account-id opts)
-           account (q/get-account txn bank-id account-id)]
-          (if (rotated-under-key? account idempotency-key)
-            account
-            (let-nom>
-              [updated (domain/request-rotation account data policies)
-               _ (store/save-account
-                  txn
-                  updated
-                  {:account-id account-id
-                   :status-before (:status account)
-                   :status-after (:status updated)
-                   :change-kind
-                   :cash-account-change-kind-rotate-requested})
-               _ (record-rotation txn updated)
-               _ (audit/record
-                  txn
-                  (audit-entry :audit-kind-cash-account-rotation-requested
-                               account
-                               updated
-                               data))]
-              updated)))))
+      (operate txn
+               data
+               opts
+               {:kind :cash-account-operation-kind-rotate-address
+                :transition (fn [_ account aggregates policies]
+                              (domain/request-rotation account
+                                                       aggregates
+                                                       policies))
+                :audit-kind :audit-kind-cash-account-rotation-requested}))
     :cash-account/rotate-address
     "Failed to rotate account address")))
 
@@ -424,27 +364,51 @@
   (fn [account] (= status (:status account))))
 
 (defn- settle-operation
-  [txn {:keys [bank-id account-id operation-id]} settle]
-  (store/transact
-   txn
-   (fn [txn]
-     (let-nom>
-       [operation (store/find-operation txn bank-id account-id operation-id)]
-       (when (and operation (domain/pending-operation? operation))
-         (store/save-operation txn (settle operation)))))
-   :cash-account-operation/settle
-   "Failed to settle account operation"))
+  "Settle the pending operation a provider's event answers with `settle`,
+  and, where `transition` is given, apply it to the operation's account,
+  saved under `change-kind`. Returns the account so changed, or else the
+  settled operation; an operation already settled is a redelivery, left
+  as it is, and returns nil."
+  ([txn event settle]
+   (settle-operation txn event settle nil nil))
+  ([txn event settle transition change-kind]
+   (let [{:keys [bank-id account-id operation-id]} event]
+     (store/transact
+      txn
+      (fn [txn]
+        (let-nom>
+          [operation (store/find-operation txn bank-id account-id operation-id)]
+          (when (and operation (domain/pending-operation? operation))
+            (let-nom>
+              [settled (settle operation)
+               _ (store/save-operation txn settled (:status operation))
+               account (when transition
+                         (q/find-account txn bank-id account-id))]
+              (if-not account
+                settled
+                (let-nom> [updated (transition account operation)
+                           _ (store/save-account
+                              txn
+                              updated
+                              {:account-id account-id
+                               :status-before (:status account)
+                               :status-after (:status updated)
+                               :change-kind change-kind})]
+                  updated))))))
+      :cash-account-operation/settle
+      "Failed to settle account operation"))))
+
+(defn- refused
+  [reason]
+  (fn [operation] (domain/refused-operation operation reason)))
 
 (defn provider-operation-completed
   [txn event]
   (settle-operation txn event domain/completed-operation))
 
 (defn provider-operation-refused
-  [txn {:keys [reason] :as event}]
-  (settle-operation txn
-                    event
-                    (fn [operation]
-                      (domain/refused-operation operation reason))))
+  [txn event]
+  (settle-operation txn event (refused (:reason event))))
 
 (defn provider-opened
   [txn {:keys [bank-id account-id] :as event}]
@@ -466,51 +430,32 @@
                        :cash-account-change-kind-open))
 
 (defn provider-closed
-  [txn {:keys [bank-id account-id]}]
-  (provider-transition txn
-                       bank-id
-                       account-id
-                       (status? :cash-account-status-closing)
-                       domain/closed-account
-                       :cash-account-change-kind-close))
+  [txn event]
+  (settle-operation txn
+                    event
+                    domain/completed-operation
+                    (fn [account _] (domain/closed-account account))
+                    :cash-account-change-kind-close))
 
 (defn provider-close-refused
-  [txn {:keys [bank-id account-id]}]
-  (provider-transition txn
-                       bank-id
-                       account-id
-                       (status? :cash-account-status-closing)
-                       domain/close-refused-account
-                       :cash-account-change-kind-close-refused))
-
-(defn provider-reissue-failed
-  [txn {:keys [bank-id account-id rotation-key reason]}]
-  (provider-transition txn
-                       bank-id
-                       account-id
-                       (fn [account]
-                         (and (= :address-rotation-status-pending
-                                 (get-in account [:rotation :status]))
-                              (= rotation-key
-                                 (get-in account
-                                         [:rotation :idempotency-key]))))
-                       (fn [account]
-                         (domain/reissue-failed-account account reason))
-                       :cash-account-change-kind-rotate-failed))
+  [txn event]
+  (settle-operation txn
+                    event
+                    (refused (:reason event))
+                    domain/close-refused-account
+                    :cash-account-change-kind-close-refused))
 
 (defn provider-reissued
-  [txn {:keys [bank-id account-id rotation-key] :as event}]
-  (provider-transition txn
-                       bank-id
-                       account-id
-                       (fn [account]
-                         (and (= :address-rotation-status-pending
-                                 (get-in account [:rotation :status]))
-                              (= rotation-key
-                                 (get-in account
-                                         [:rotation :idempotency-key]))))
-                       (fn [account] (domain/reissued-account account event))
-                       :cash-account-change-kind-rotate-address))
+  [txn event]
+  (settle-operation txn
+                    event
+                    domain/completed-operation
+                    (fn [account _] (domain/reissued-account account event))
+                    :cash-account-change-kind-rotate-address))
+
+(defn provider-reissue-failed
+  [txn event]
+  (settle-operation txn event (refused (:reason event))))
 
 (defn migrate-account
   "Repin an account the caller already holds, writing into the caller's

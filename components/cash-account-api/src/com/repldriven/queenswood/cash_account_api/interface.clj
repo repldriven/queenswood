@@ -35,8 +35,8 @@
 (defn ->body
   "Project a stored account onto the keys `CashAccount` declares, in
   the shape a read route returns. A record field the component does not
-  declare — `:idempotency-key`, `:rotation` —
-  cannot reach a body through it.
+  declare — `:idempotency-key`, `:provider-account-id` — cannot reach a
+  body through it.
 
   Args:
   - account: a cash account as the query brick hands it back."
@@ -68,6 +68,16 @@
   [operation]
   (components/->operation-body operation))
 
+(defn ->operation-wire-body
+  "Project a stored account operation and encode it as a read route
+  would: enums as their wire strings, timestamps as ISO-8601. The bytes a
+  webhook notification of the operation's settling carries.
+
+  Args:
+  - operation: an account operation as the query brick hands it back."
+  [operation]
+  (components/->operation-wire-body operation))
+
 ;; ---
 ;; coercion
 ;; ---
@@ -82,6 +92,17 @@
     enum's own, for a `:json-schema/example` and the like."
   ([] (coercion/cash-account-status-enum-schema))
   ([extra-props] (coercion/cash-account-status-enum-schema extra-props)))
+
+(defn operation-status-enum-schema
+  "The `CashAccountOperationStatus` `:enum` schema, coercing between the
+  wire strings (`pending`, `completed`, `refused`) and the record's
+  prefixed keywords.
+
+  Args:
+  - extra-props (optional): map of schema properties merged over the
+    enum's own, for a `:json-schema/example` and the like."
+  ([] (coercion/operation-status-enum-schema))
+  ([extra-props] (coercion/operation-status-enum-schema extra-props)))
 
 (defn account-type-enum-schema
   "The `AccountType` `:enum` schema, coercing between the wire strings

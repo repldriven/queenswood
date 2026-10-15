@@ -37,6 +37,7 @@
       (let-nom> [data (avro/deserialize-same schema payload)]
         (case event
           "cash-account-status-changed" (handle-status-changed config data)
+          "cash-account-operation-changed" nil
           (do (log/warnf "Unknown cash-account event: %s" event) nil))))))
 
 (defrecord CashAccountEventProcessor [config]

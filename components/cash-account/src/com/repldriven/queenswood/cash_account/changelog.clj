@@ -11,6 +11,8 @@
 
 (def ^:private event-name "cash-account-status-changed")
 
+(def ^:private operation-event-name "cash-account-operation-changed")
+
 ;; Loaded from the classpath rather than the injected `avro/serde`: the
 ;; payload schema is a property of this brick, and `store.clj` only ever
 ;; receives a Txn, never the system config the serde arrives in.
@@ -19,6 +21,29 @@
           (slurp
            (io/resource
             "schemas/cash-account/cash-account-status-changed.avsc.json")))))
+
+(def ^:private operation-schema
+  (delay (avro/json->schema
+          (slurp
+           (io/resource
+            "schemas/cash-account/cash-account-operation-changed.avsc.json")))))
+
+(defn- envelope
+  [event payload dedup-key causation-id]
+  (schema/ChangelogEvent->pb
+   (utility/assoc-some
+    {:event-id (str (utility/uuidv7))
+     :dedup-key dedup-key
+     :event-name event
+     :payload payload
+     :causation-id causation-id
+     :ordering-key causation-id
+     :created-at (utility/now)}
+    ;; Written inside the command's transaction, so this is the
+    ;; `process-command` span — which is itself under the request. The
+    ;; relay republishes it and the consumer's span joins that trace.
+    :traceparent
+    (telemetry/inject-traceparent))))
 
 (defn account-changed
   "Build the shared-envelope changelog bytes for a cash-account write.
@@ -43,17 +68,26 @@
                                         :status-before status-before
                                         :status-after status-after
                                         :change-kind change-kind})]
-      (schema/ChangelogEvent->pb
-       (utility/assoc-some
-        {:event-id (str (utility/uuidv7))
-         :dedup-key (str account-id ":" (name change-kind) ":" updated-at)
-         :event-name event-name
-         :payload payload
-         :causation-id account-id
-         :ordering-key account-id
-         :created-at (utility/now)}
-        ;; Written inside the command's transaction, so this is the
-        ;; `process-command` span — which is itself under the request. The
-        ;; relay republishes it and the consumer's span joins that trace.
-        :traceparent
-        (telemetry/inject-traceparent))))))
+      (envelope event-name
+                payload
+                (str account-id ":" (name change-kind) ":" updated-at)
+                account-id))))
+
+(defn operation-changed
+  "Build the shared-envelope changelog bytes for an account operation's
+  write, from the operation as saved and its status before, nil when it
+  is new. Ordered by its account, so an account's operations reach a
+  consumer in the order they changed."
+  [operation status-before]
+  (let [{:keys [bank-id account-id operation-id kind status]} operation]
+    (let-nom> [payload (avro/serialize @operation-schema
+                                       {:bank-id bank-id
+                                        :account-id account-id
+                                        :operation-id operation-id
+                                        :kind kind
+                                        :status-before status-before
+                                        :status-after status})]
+      (envelope operation-event-name
+                payload
+                (str operation-id ":" (name status))
+                account-id))))

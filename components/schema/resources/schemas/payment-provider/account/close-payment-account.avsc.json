@@ -12,6 +12,10 @@
       "type": "string"
     },
     {
+      "name": "operation_id",
+      "type": "string"
+    },
+    {
       "name": "provider_account_id",
       "type": "string"
     }

@@ -1,0 +1,55 @@
+{
+  "type": "record",
+  "name": "CashAccountOperationChanged",
+  "namespace": "com.repldriven.queenswood.schema.cash_account",
+  "doc": "An operation on a cash account, recorded or settled.",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "operation_id",
+      "type": "string"
+    },
+    {
+      "name": "kind",
+      "type": {
+        "type": "enum",
+        "name": "CashAccountOperationKind",
+        "symbols": [
+          "CASH_ACCOUNT_OPERATION_KIND_UNKNOWN",
+          "CASH_ACCOUNT_OPERATION_KIND_SUSPEND",
+          "CASH_ACCOUNT_OPERATION_KIND_RESUME",
+          "CASH_ACCOUNT_OPERATION_KIND_CLOSE",
+          "CASH_ACCOUNT_OPERATION_KIND_ROTATE_ADDRESS"
+        ]
+      }
+    },
+    {
+      "name": "status_before",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "CashAccountOperationStatus",
+          "symbols": [
+            "CASH_ACCOUNT_OPERATION_STATUS_UNKNOWN",
+            "CASH_ACCOUNT_OPERATION_STATUS_PENDING",
+            "CASH_ACCOUNT_OPERATION_STATUS_COMPLETED",
+            "CASH_ACCOUNT_OPERATION_STATUS_REFUSED"
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "status_after",
+      "type": "com.repldriven.queenswood.schema.cash_account.CashAccountOperationStatus"
+    }
+  ]
+}

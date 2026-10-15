@@ -41,7 +41,7 @@
 
 (def ^:private opened-account
   "An account as `cash-account/domain` builds it at open: a BBAN, and
-  no rotation history key at all."
+  no retired addresses."
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
    :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
    :party-id "pty.01kprbmgcj35ptc8npmybhh4s9"
@@ -62,10 +62,8 @@
 
 (def ^:private rotated-account
   (assoc opened-account
-         :retired-payment-addresses [{:address payment-address
-                                      :retired-at 1700000000500}]
-         :rotation {:idempotency-key "01kprbmgcj35ptc8npmybhh4sh"
-                    :status :address-rotation-status-completed}))
+         :retired-payment-addresses
+         [{:address payment-address :retired-at 1700000000500}]))
 
 (def ^:private opened-balance
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
@@ -98,16 +96,11 @@
       (is (= 1700000000500 (:retired-at retired)))
       (is (= :payment-address-scheme-scan (:scheme (:address retired))))
       (is (= {:sort-code "040004" :account-number "12345678"}
-             (into {} (:scan (:address retired)))))
-      (is (= {:idempotency-key "01kprbmgcj35ptc8npmybhh4sh"
-              :status :address-rotation-status-completed}
-             (:rotation account)))))
+             (into {} (:scan (:address retired)))))))
   (testing "a field an account was never given reads back absent"
     (let [account (SUT/pb->CashAccount (SUT/CashAccount->pb opened-account))]
-      (is (not (contains? account :rotation))
-          "an account that has never been rotated has no rotation")
+      (is (not (contains? account :refused-reason)))
       (is (not (contains? account :updated-by)))
-      (is (not (contains? account :close-requested-from)))
       (is (= {:kind :actor-kind-operator :principal-id "test"}
              (:created-by account))))))
 

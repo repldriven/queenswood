@@ -40,20 +40,6 @@ message RetiredPaymentAddress {
   required int64 retired_at = 2;
 }
 
-enum AddressRotationStatus {
-  ADDRESS_ROTATION_STATUS_UNKNOWN = 0;
-  ADDRESS_ROTATION_STATUS_PENDING = 1;
-  ADDRESS_ROTATION_STATUS_COMPLETED = 2;
-  ADDRESS_ROTATION_STATUS_FAILED = 3;
-}
-
-// The latest change of an account's payment addresses.
-message AddressRotation {
-  required string idempotency_key = 1 [(fideslang.data_category) = "system.operations"];
-  required AddressRotationStatus status = 2;
-  optional string failed_reason = 3;
-}
-
 // A bank's account held by a party under a product version.
 message CashAccount {
   option (com.apple.foundationdb.record.record).usage = RECORD;
@@ -74,9 +60,7 @@ message CashAccount {
   optional string bban = 13 [(fideslang.data_category) = "user.financial.bank_account"]; // sort code and account number
   repeated RetiredPaymentAddress retired_payment_addresses = 14;
   optional string provider_account_id = 15 [(fideslang.data_category) = "system.operations"];
-  optional AddressRotation rotation = 16;
-  optional string refused_reason = 17;
-  optional CashAccountStatus close_requested_from = 18;
+  optional string refused_reason = 16;
 
   optional string idempotency_key = 100;
   required int64 created_at = 101;

@@ -244,20 +244,25 @@
                                     [(policy-allowing
                                       :cash-account-action-close)])]
       (is (= :cash-account-status-closing (:status result)))
-      (is (= operator (:updated-by result)))
-      (is (= :cash-account-status-suspended (:close-requested-from result))))))
+      (is (= operator (:updated-by result))))))
 
 (deftest close-refused-account-test
-  (testing "a refused close returns the account to the status it left"
+  (testing
+    "a refused close returns the account to the status its
+           operation was asked from"
     (doseq [from [:cash-account-status-opened :cash-account-status-suspended]]
       (let [closing (SUT/close-account (account from)
                                        []
                                        operator
                                        [(policy-allowing
                                          :cash-account-action-close)])
-            result (SUT/close-refused-account closing)]
+            operation (SUT/new-operation (account from)
+                                         :cash-account-operation-kind-close
+                                         20500
+                                         {:actor operator})
+            result (SUT/close-refused-account closing operation)]
+        (is (= from (:account-status operation)))
         (is (= from (:status result)))
-        (is (nil? (:close-requested-from result)))
         (is (= {:kind :actor-kind-platform :principal-id "cash-account"}
                (:updated-by result)))))))
 
@@ -369,25 +374,32 @@
         (is (= :cash-account/invalid-status (error/kind result)))
         (is (= status (:status (error/payload result))))))))
 
+(defn- operations-today
+  [n]
+  {:cash-account-operation {#{:bank-id :account-id :requested-on} n}})
+
+(def ^:private five-operations-a-day
+  {:status :policy-status-active
+   :limits [{:kind {:cash-account-operation {}}
+             :bound {:kind {:max {:aggregate
+                                  {:kind {:count {:value 5
+                                                  :window
+                                                  :time-window-daily}}}}}}}]})
+
 (deftest rotate-address-happy-test
-  (testing "a rotation is asked of the provider, and the addresses stay"
-    (let [acct (opened-account-with-address)
-          result (SUT/request-rotation acct
-                                       {:idempotency-key "ik-rotate-0000000001"}
-                                       [(policy-allowing
-                                         :cash-account-action-rotate-address)])]
-      (is (= :cash-account-status-opened (:status result)))
-      (is (= (:payment-addresses acct) (:payment-addresses result)))
-      (is (= {:idempotency-key "ik-rotate-0000000001"
-              :status :address-rotation-status-pending}
-             (:rotation result)))))
+  (testing
+    "a rotation leaves the account as it is until the provider
+           answers"
+    (let [acct (opened-account-with-address)]
+      (is (= acct
+             (SUT/request-rotation acct
+                                   (operations-today 0)
+                                   [(policy-allowing
+                                     :cash-account-action-rotate-address)])))))
   (testing
     "the provider's new address replaces the old, which is retired
            on-record"
-    (let [acct (assoc (opened-account-with-address)
-                      :rotation
-                      {:idempotency-key "ik-rotate-0000000001"
-                       :status :address-rotation-status-pending})
+    (let [acct (opened-account-with-address)
           result (SUT/reissued-account acct
                                        {:provider-account-id "va-1"
                                         :addresses [{:scheme "scan"
@@ -400,9 +412,8 @@
              (:payment-addresses result)))
       (is (= (:payment-addresses acct)
              (mapv :address (:retired-payment-addresses result))))
-      (is (every? int? (map :retired-at (:retired-payment-addresses result))))
-      (is (= :address-rotation-status-completed
-             (get-in result [:rotation :status]))))))
+      (is (every? int?
+                  (map :retired-at (:retired-payment-addresses result)))))))
 
 (def ^:private migration-target {:product-id "prd.mega" :version-id "prv.4"})
 
@@ -471,18 +482,20 @@
         pending (SUT/new-operation held
                                    :cash-account-operation-kind-suspend
                                    20500
-                                   member)]
+                                   {:actor member :idempotency-key "ik-1"})]
     (testing "an account its provider holds waits on the provider"
       (is (SUT/pending-operation? pending))
       (is (= :cash-account-operation-kind-suspend (:kind pending)))
       (is (= member (:created-by pending)))
+      (is (= :cash-account-status-suspended (:account-status pending)))
+      (is (= "ik-1" (:idempotency-key pending)))
       (is (re-find #"^cao\." (:operation-id pending))))
     (testing "one with no account at its provider has nothing to wait on"
       (is (= :cash-account-operation-status-completed
              (:status (SUT/new-operation (dissoc held :provider-account-id)
                                          :cash-account-operation-kind-resume
                                          20500
-                                         member)))))
+                                         {:actor member})))))
     (testing "the provider's answer settles it, by the platform"
       (is (= :cash-account-operation-status-completed
              (:status (SUT/completed-operation pending))))
@@ -490,18 +503,6 @@
         (is (= :cash-account-operation-status-refused (:status refused)))
         (is (= "blocked by provider" (:refused-reason refused)))
         (is (= :actor-kind-platform (get-in refused [:updated-by :kind])))))))
-
-(defn- operations-today
-  [n]
-  {:cash-account-operation {#{:bank-id :account-id :requested-on} n}})
-
-(def ^:private five-operations-a-day
-  {:status :policy-status-active
-   :limits [{:kind {:cash-account-operation {}}
-             :bound {:kind {:max {:aggregate
-                                  {:kind {:count {:value 5
-                                                  :window
-                                                  :time-window-daily}}}}}}}]})
 
 (deftest an-account-takes-its-daily-operations-test
   (let [policies [(policy-allowing :cash-account-action-suspend
@@ -525,3 +526,17 @@
              (:status (SUT/suspend-account (account :cash-account-status-opened)
                                            operator
                                            policies)))))))
+
+(deftest a-rotation-is-held-to-the-daily-operations-test
+  (let [policies [(policy-allowing :cash-account-action-rotate-address)
+                  five-operations-a-day]]
+    (testing "a rotation within the day's operations is allowed"
+      (is (= :cash-account-status-opened
+             (:status (SUT/request-rotation (opened-account-with-address)
+                                            (operations-today 4)
+                                            policies)))))
+    (testing "one past them is refused"
+      (is (= :policy/limit-exceeded
+             (error/kind (SUT/request-rotation (opened-account-with-address)
+                                               (operations-today 5)
+                                               policies)))))))

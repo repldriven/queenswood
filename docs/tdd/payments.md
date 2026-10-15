@@ -264,22 +264,25 @@ provider account behind it:
   `opening → refused`, a terminal status taken through the
   checklist in
   [lifecycle-transitions](../recipes/code/lifecycle-transitions.md).
-- **Closing.** The `closing` handler sends `close-payment-account` for
-  an account with a provider account, and `payment-account-closed`
-  flips `closing → closed`. A close the provider refuses, or the
-  adapter gives up on, reports `payment-account-close-refused` with a
-  reason, and the account returns to the status it closed from,
-  `opened` or `suspended`.
-- **Rotating.** `rotate-cash-account-address` sends
-  `reissue-payment-address`, and the account keeps its address until
-  the adapter reports `payment-address-reissued` with the new one and,
-  where it changed, the new provider account id. A provider that
+- **Closing.** A close of an account with a provider account records
+  a pending `CashAccountOperation`, from whose activity entry the
+  activity processor sends `close-payment-account`, and
+  `payment-account-closed` completes the operation and flips
+  `closing → closed`. A close the provider refuses, or the adapter
+  gives up on, reports `payment-account-close-refused` with a reason,
+  which refuses the operation and returns the account to the status the
+  operation was asked from, `opened` or `suspended`.
+- **Rotating.** `rotate-cash-account-address` records a pending
+  `CashAccountOperation`, from which `reissue-payment-address` is sent,
+  and the account keeps its address until the adapter reports
+  `payment-address-reissued` with the new one and, where it changed,
+  the new provider account id, which completes the operation. A provider that
   issues an address only with an account blocks the old provider
   account, opens a new one, moves the balance across and closes the
   old one. A reissue the provider refuses, or the adapter gives up on,
   reports `payment-address-reissue-failed`: the account keeps its
-  addresses, and its `rotation` fails with the reason as its
-  `failed_reason`. An adapter that
+  addresses, and the operation is refused with the reason as its
+  `refused_reason`. An adapter that
   blocked the old provider account unblocks it first; one whose
   balance has moved and whose only failure is the old account's close
   reports the reissue, leaving the old account blocked and logged.

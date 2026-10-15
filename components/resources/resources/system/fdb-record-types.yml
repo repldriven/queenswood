@@ -98,6 +98,16 @@ stores:
         modified: 1
         fields: [bank_id, account_id, requested_on]
         type: count
+      - name: CashAccountOperation_by_operation_id
+        added: 1
+        modified: 1
+        fields: [bank_id, operation_id]
+        unique: true
+      - name: CashAccountOperation_by_idempotency_key
+        added: 1
+        modified: 1
+        fields: [bank_id, account_id, idempotency_key]
+        unique: true
   cash-accounts:
     record-type: CashAccount
     primary-key: [bank_id, account_id]

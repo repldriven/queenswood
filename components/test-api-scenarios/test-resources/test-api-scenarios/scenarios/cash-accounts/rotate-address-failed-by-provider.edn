@@ -1,9 +1,9 @@
 {:name "A reissue the provider refuses leaves the account its addresses"
  :runs-on {:payment :every}
  :tags #{:serial}
- ;; The simulator refuses the next reissue it is asked for. The rotation
- ;; ends, the account keeps the addresses it had, carrying the provider's
- ;; reason, and still sends payments; the customer is told.
+ ;; The simulator refuses the next reissue it is asked for. The rotation's
+ ;; operation is refused with the provider's reason, the account keeps the
+ ;; addresses it had and still sends payments, and the customer is told.
  :given
  [{:fixture :bank :as :bank-0 :with {:name "Reissue Refused"}}
   {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
@@ -29,15 +29,16 @@
    :assert {:status 200}}
   {:command :api/poll
    :request {:method :get
-             :path "/v1/cash-accounts/{account-id}"
+             :path "/v1/cash-accounts/{account-id}/operations"
              :path-params {:account-id [:ref :funded :opened :account
                                         :account-id]}
              :auth [:ref :bank-0 :token]}
-   :until {:status 200
-           :body {:status "opened"
-                  :rotation {:status "failed" :failed-reason [:m/regex ".+"]}
-                  :payment-addresses [:ref :funded :opened :account
-                                      :payment-addresses]}}
+   :until
+   {:status 200
+    :body {:items [{:kind "rotate-address"
+                    :status "refused"
+                    :refused-reason [:m/regex ".+"]}]}}
+   :as :operations
    :timeout-ms 45000}
   {:command :api/request
    :request {:method :post
@@ -66,14 +67,16 @@
              :path-params {:account-id [:ref :funded :opened :account
                                         :account-id]}
              :auth [:ref :bank-0 :token]}
-   :as :read
-   :assert {:status 200}}
+   :assert {:status 200
+            :body {:status "opened"
+                   :payment-addresses [:ref :funded :opened :account
+                                       :payment-addresses]}}}
   {:command :webhook/await-delivery
    :address [:ref :hook :receiver :address]
-   :where {:kind "cash-account.address-rotation-failed"
-           :resource-id [:ref :funded :opened :account :account-id]}
+   :where {:kind "cash-account.operation-refused"
+           :resource-id [:ref :operations :items 0 :operation-id]}
    :secret [:ref :hook :registered :secret]
    :as :notified}
   {:command :assert/equals
    :actual [:ref :notified 0 :body :data]
-   :expected [:ref :read]}]}
+   :expected [:ref :operations :items 0]}]}

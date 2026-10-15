@@ -23,7 +23,9 @@
         "name": "CashAccountOperationKind",
         "symbols": [
           "CASH_ACCOUNT_OPERATION_KIND_SUSPEND",
-          "CASH_ACCOUNT_OPERATION_KIND_RESUME"
+          "CASH_ACCOUNT_OPERATION_KIND_RESUME",
+          "CASH_ACCOUNT_OPERATION_KIND_CLOSE",
+          "CASH_ACCOUNT_OPERATION_KIND_ROTATE_ADDRESS"
         ]
       }
     },

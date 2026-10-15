@@ -17,8 +17,11 @@
 (defn- closing
   [bank-id account-id]
   {:bank-id bank-id
-   :event-name "cash-account-close-requested"
-   :data {:account-id account-id :provider-account-id (str "p." account-id)}
+   :event-name "cash-account-operation-requested"
+   :data {:account-id account-id
+          :operation-id (str "cao." account-id)
+          :kind :cash-account-operation-kind-close
+          :provider-account-id (str "p." account-id)}
    :causation-id account-id
    :dedup-key account-id})
 
@@ -73,7 +76,8 @@
                accounts)
          (is (wait-for (fn [] (= (* 3 8) (count @seen))) 10000))
          (run! (fn [bank-id]
-                 (is (= (map (fn [a] (str "cash-account-close-requested:" a))
+                 (is (= (map (fn [a]
+                               (str "cash-account-operation-requested:" a))
                              accounts)
                         (keep (fn [{:keys [ordering-key dedup-key]}]
                                 (when (= bank-id ordering-key) dedup-key))

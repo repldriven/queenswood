@@ -12,6 +12,10 @@
       "type": "string"
     },
     {
+      "name": "operation_id",
+      "type": "string"
+    },
+    {
       "name": "reason",
       "type": [
         "null",

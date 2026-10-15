@@ -28,17 +28,6 @@
 (def CashAccountStatus
   (coercion/cash-account-status-enum-schema {:json-schema/example "opened"}))
 
-(def AddressRotationStatus
-  (coercion/address-rotation-status-enum-schema {:json-schema/example
-                                                 "completed"}))
-
-(def AddressRotation
-  "The latest change of the account's payment addresses, and the
-  provider's reason where it refused one."
-  [:map {:closed true}
-   [:status [:ref "AddressRotationStatus"]]
-   [:failed-reason {:optional true} string?]])
-
 (def CashAccountOperationId
   (schema/id-schema "CashAccountOperationId"
                     "cao"
@@ -60,6 +49,7 @@
    [:kind [:ref "CashAccountOperationKind"]]
    [:status [:ref "CashAccountOperationStatus"]]
    [:requested-on [:ref "BusinessDay"]]
+   [:account-status [:ref "CashAccountStatus"]]
    [:refused-reason {:optional true} string?]
    [:created-at [:ref "Timestamp"]]
    [:created-by [:ref "Actor"]]
@@ -96,7 +86,6 @@
     [:vector [:ref "RetiredPaymentAddress"]]]
    [:bban {:optional true} [:ref "Bban"]]
    [:refused-reason {:optional true} string?]
-   [:rotation {:optional true} [:ref "AddressRotation"]]
    [:balances {:optional true} [:vector [:ref "Balance"]]]
    [:posted-balance {:optional true} [:ref "SignedAmount"]]
    [:available-balance {:optional true} [:ref "SignedAmount"]]
@@ -118,9 +107,6 @@
 (defn ->body
   [account]
   (select-keys (cond-> account
-                       (:rotation account)
-                       (update :rotation select-keys [:status :failed-reason])
-
                        (:transactions account)
                        (update :transactions
                                (partial mapv transaction-api/->body))
@@ -152,13 +138,13 @@
 (def registry
   (components-registry
    [#'CashAccountId #'ScanAddress #'PaymentAddress #'CashAccountStatus
-    #'AddressRotationStatus #'AddressRotation #'AccountType #'CashAccount
-    #'RetiredPaymentAddress #'CreateCashAccountRequest
-    #'CreateCashAccountResponse #'CashAccountList #'CloseCashAccountResponse
-    #'SuspendCashAccountResponse #'ResumeCashAccountResponse
-    #'RotateCashAccountAddressResponse #'CashAccountOperationId
-    #'CashAccountOperationKind #'CashAccountOperationStatus
-    #'CashAccountOperation #'CashAccountOperationList]))
+    #'AccountType #'CashAccount #'RetiredPaymentAddress
+    #'CreateCashAccountRequest #'CreateCashAccountResponse #'CashAccountList
+    #'CloseCashAccountResponse #'SuspendCashAccountResponse
+    #'ResumeCashAccountResponse #'RotateCashAccountAddressResponse
+    #'CashAccountOperationId #'CashAccountOperationKind
+    #'CashAccountOperationStatus #'CashAccountOperation
+    #'CashAccountOperationList]))
 
 (def ^:private embedded-keys
   "The `CashAccount` keys a read route fills only when the caller asks
@@ -179,3 +165,10 @@
 (defn ->wire-body
   [account]
   (encode-account (apply dissoc (->body account) embedded-keys)))
+
+(def ^:private encode-operation
+  (schema/api-encoder CashAccountOperation (merge schema/registry registry)))
+
+(defn ->operation-wire-body
+  [operation]
+  (encode-operation (->operation-body operation)))

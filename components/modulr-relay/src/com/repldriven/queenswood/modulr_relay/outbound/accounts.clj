@@ -84,10 +84,13 @@
 
 (defn- close-refused
   [intent reason]
-  (let [{:keys! [bank-id account-id]} (shared/context intent)]
+  (let [{:keys! [bank-id account-id operation-id]} (shared/context intent)]
     (account-event intent
                    "payment-account-close-refused"
-                   {:bank-id bank-id :account-id account-id :reason reason})))
+                   {:bank-id bank-id
+                    :account-id account-id
+                    :operation-id operation-id
+                    :reason reason})))
 
 (defn- close
   [config _now intent]
@@ -103,11 +106,13 @@
 
 (defn- closed
   [_config _now intent _result]
-  (let [{:keys! [bank-id account-id]} (shared/context intent)]
+  (let [{:keys! [bank-id account-id operation-id]} (shared/context intent)]
     {:status :outbound-intent-status-settled
      :event (account-event intent
                            "payment-account-closed"
-                           {:bank-id bank-id :account-id account-id})}))
+                           {:bank-id bank-id
+                            :account-id account-id
+                            :operation-id operation-id})}))
 
 (defn- close-failed
   [_config _now intent failure reason]
@@ -203,23 +208,23 @@
 
 (defn- reissued
   [intent ctx]
-  (let [{:keys! [bank-id account-id rotation-key new-account]} ctx]
+  (let [{:keys! [bank-id account-id operation-id new-account]} ctx]
     (account-event intent
                    "payment-address-reissued"
                    {:bank-id bank-id
                     :account-id account-id
                     :provider-account-id (:id new-account)
-                    :rotation-key rotation-key
+                    :operation-id operation-id
                     :addresses (:addresses new-account)})))
 
 (defn- reissue-failed
   [intent ctx]
-  (let [{:keys! [bank-id account-id rotation-key failure]} ctx]
+  (let [{:keys! [bank-id account-id operation-id failure]} ctx]
     (account-event intent
                    "payment-address-reissue-failed"
                    {:bank-id bank-id
                     :account-id account-id
-                    :rotation-key rotation-key
+                    :operation-id operation-id
                     :reason failure})))
 
 (defn- reissue-context

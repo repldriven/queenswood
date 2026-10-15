@@ -341,12 +341,13 @@
                       config
                       (account-intent
                        "int.22" :clearbank-outbound-intent-kind-close-account
-                       "close:acc.1"
-                       (assoc context :provider-account-id "va-1")))])
+                       "close:acc.1" (assoc context
+                                            :operation-id "cao.1"
+                                            :provider-account-id "va-1")))])
        (outbound/drain-once (relay (json-response 200 "{\"id\":\"va-1\"}")) now)
        (is (= "http://scheme.invalid/v1/virtual-accounts/va-1/close"
               (last @urls)))
-       (is (= {:bank-id "bnk.1" :account-id "acc.1"}
+       (is (= {:bank-id "bnk.1" :account-id "acc.1" :operation-id "cao.1"}
               (decoded config
                        (outbox-event config
                                      "close:acc.1:payment-account-closed")))))
@@ -357,19 +358,20 @@
                        "int.23" :clearbank-outbound-intent-kind-close-account
                        "close:acc.3" (assoc context
                                             :account-id "acc.3"
+                                            :operation-id "cao.3"
                                             :provider-account-id "va-3")))])
        (outbound/drain-once (relay (json-response 409 "{}")) now)
        (is (= :outbound-intent-status-failed
               (:status (load-intent config "int.23"))))
        (is (nil? (outbox-event config "close:acc.3:payment-account-closed"))))
-     (testing "a reissued address is reported under its rotation"
+     (testing "a reissued address is reported under its operation"
        (nom-test> [_ (SUT/save-intent
                       config
                       (account-intent
                        "int.24" :clearbank-outbound-intent-kind-reissue-address
                        "reissue:acc.1:rot-1" (assoc context
                                                     :provider-account-id "va-1"
-                                                    :rotation-key "rot-1")))])
+                                                    :operation-id "cao.4")))])
        (outbound/drain-once
         (relay
          (json-response
@@ -378,8 +380,8 @@
         now)
        (is (= "http://scheme.invalid/v1/virtual-accounts/va-1/reissue"
               (last @urls)))
-       (is (= "rot-1"
-              (:rotation-key
+       (is (= "cao.4"
+              (:operation-id
                (decoded config
                         (outbox-event
                          config

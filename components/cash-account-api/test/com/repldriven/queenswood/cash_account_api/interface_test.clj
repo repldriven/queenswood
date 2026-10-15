@@ -49,9 +49,7 @@
    :updated-by {:kind :actor-kind-member
                 :principal-id "usr.01kprbmgcj35ptc8npmybhh4sg"}
    :idempotency-key "5b2f0f6e-open"
-   :provider-account-id "va-01943b6e-7a2c-7f3d-9c1e-5b2a4d6e8f10"
-   :rotation {:idempotency-key "5b2f0f6e-rotate"
-              :status :address-rotation-status-pending}})
+   :provider-account-id "va-01943b6e-7a2c-7f3d-9c1e-5b2a4d6e8f10"})
 
 (deftest declared-keys-cover-the-fixture-test
   (testing
@@ -64,9 +62,8 @@
   (let [body (SUT/->body stored-account)]
     (testing "the stored idempotency key does not reach a body"
       (is (not (contains? body :idempotency-key))))
-    (testing "nor do the provider's account id and the rotation's key"
-      (is (not (contains? body :provider-account-id)))
-      (is (= {:status :address-rotation-status-pending} (:rotation body))))
+    (testing "nor does the provider's account id"
+      (is (not (contains? body :provider-account-id))))
     (testing "nor does any other key CashAccount does not declare"
       (is (empty? (remove (set declared-keys) (keys body)))))))
 
@@ -75,10 +72,7 @@
     (testing
       "every declared key present on the record survives, value
              and all — the BBAN among them"
-      (is (= (-> stored-account
-                 (select-keys declared-keys)
-                 (update :rotation dissoc :idempotency-key))
-             body)))
+      (is (= (select-keys stored-account declared-keys) body)))
     (is (= "04000412345678" (:bban body)))))
 
 (deftest ->body-omits-a-declared-key-the-record-lacks-test
@@ -98,9 +92,29 @@
     (testing "and every timestamp as ISO-8601"
       (is (= "2023-11-14T22:13:20Z" (:created-at body)))
       (is (= "2023-11-14T22:13:20.001Z" (:updated-at body))))
-    (testing "the stored idempotency keys still do not reach a body"
-      (is (not (contains? body :idempotency-key)))
-      (is (not (contains? (:rotation body) :idempotency-key))))
+    (testing "the stored idempotency key still does not reach a body"
+      (is (not (contains? body :idempotency-key))))
     (testing "and the embedded collections are not carried"
       (is (not (contains? body :balances)))
       (is (not (contains? body :transactions))))))
+
+(deftest ->operation-wire-body-spells-the-operation-as-the-route-does-test
+  (let [body (SUT/->operation-wire-body
+              {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
+               :account-id "acc.01kprbmgcj35ptc8npmybhh4s8"
+               :operation-id "cao.01kprbmgcj35ptc8npmybhh4s9"
+               :kind :cash-account-operation-kind-rotate-address
+               :status :cash-account-operation-status-refused
+               :requested-on 19675
+               :account-status :cash-account-status-opened
+               :refused-reason "not reissued"
+               :idempotency-key "5b2f0f6e-rotate"
+               :created-at 1700000000000
+               :created-by {:kind :actor-kind-bank
+                            :principal-id "bnk.01kprbmgcj35ptc8npmybhh4s7"}})]
+    (testing "its enums reach the wire as their strings"
+      (is (= "rotate-address" (name (:kind body))))
+      (is (= "refused" (name (:status body))))
+      (is (= "opened" (name (:account-status body)))))
+    (testing "and the stored idempotency key does not"
+      (is (not (contains? body :idempotency-key))))))

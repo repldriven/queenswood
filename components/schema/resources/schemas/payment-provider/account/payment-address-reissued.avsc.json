@@ -12,11 +12,11 @@
       "type": "string"
     },
     {
-      "name": "provider_account_id",
+      "name": "operation_id",
       "type": "string"
     },
     {
-      "name": "rotation_key",
+      "name": "provider_account_id",
       "type": "string"
     },
     {

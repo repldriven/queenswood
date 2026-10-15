@@ -6,8 +6,7 @@
     [com.repldriven.queenswood.payment.provider :as provider]
 
     [com.repldriven.mono.avro.interface :as avro]
-    [com.repldriven.mono.error.interface :refer [let-nom>]]
-    [com.repldriven.mono.utility.interface :as utility]))
+    [com.repldriven.mono.error.interface :refer [let-nom>]]))
 
 (defn- open-account
   [config data]
@@ -20,20 +19,11 @@
                                         [:bank-id :account-id :holder-name
                                          :currency :address-schemes]))))
 
-(defn- close-account
-  [config data]
-  (let [{:keys [bank-id account-id]} data]
-    (provider/send-command config
-                           bank-id
-                           "close-payment-account"
-                           account-id
-                           (select-keys data
-                                        [:bank-id :account-id
-                                         :provider-account-id]))))
-
 (def ^:private operation-commands
   {:cash-account-operation-kind-suspend "block-payment-account"
-   :cash-account-operation-kind-resume "unblock-payment-account"})
+   :cash-account-operation-kind-resume "unblock-payment-account"
+   :cash-account-operation-kind-close "close-payment-account"
+   :cash-account-operation-kind-rotate-address "reissue-payment-address"})
 
 (defn- operate-account
   [config data]
@@ -45,19 +35,6 @@
                            (select-keys data
                                         [:bank-id :account-id :operation-id
                                          :provider-account-id]))))
-
-(defn- reissue-address
-  [config data]
-  (let [{:keys [bank-id account-id provider-account-id]} data]
-    (provider/send-command config
-                           bank-id
-                           "reissue-payment-address"
-                           account-id
-                           (utility/assoc-some
-                            (select-keys data
-                                         [:bank-id :account-id :rotation-key])
-                            :provider-account-id
-                            provider-account-id))))
 
 (defn- submit-payment
   [config data]
@@ -92,9 +69,7 @@
 
 (def ^:private handlers
   {"cash-account-open-requested" open-account
-   "cash-account-close-requested" close-account
    "cash-account-operation-requested" operate-account
-   "cash-account-address-rotation-requested" reissue-address
    "transaction-posted" provider-transfer/mirror-posted
    "outbound-payment-submitted" submit-payment
    "inbound-payment-suspended" return-payment

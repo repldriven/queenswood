@@ -60,14 +60,15 @@
 
 (defn- close-account-intent
   [config data]
-  (let [{:keys [bank-id account-id provider-account-id]} data]
+  (let [{:keys [bank-id account-id operation-id provider-account-id]} data]
     (save-intent config
-                 {:idempotency-key (str "close:" account-id)
+                 {:idempotency-key (str "close:" operation-id)
                   :kind :clearbank-outbound-intent-kind-close-account
                   :subjects [account-id]
                   :request "{}"
                   :context (transit/write-str {:bank-id bank-id
                                                :account-id account-id
+                                               :operation-id operation-id
                                                :provider-account-id
                                                provider-account-id})})))
 
@@ -88,11 +89,10 @@
 
 (defn- reissue-address-intent
   [config data]
-  (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
+  (let [{:keys [bank-id account-id provider-account-id operation-id]} data]
     (let-nom> [account-number (relay/allocate-account-number (fdb config))]
       (save-intent config
-                   {:idempotency-key (str "reissue:" account-id
-                                          ":" rotation-key)
+                   {:idempotency-key (str "reissue:" operation-id)
                     :kind :clearbank-outbound-intent-kind-reissue-address
                     :subjects [account-id]
                     :request (clearbank/->virtual-account-body
@@ -104,7 +104,7 @@
                     :context (transit/write-str (utility/assoc-some
                                                  {:bank-id bank-id
                                                   :account-id account-id
-                                                  :rotation-key rotation-key}
+                                                  :operation-id operation-id}
                                                  :provider-account-id
                                                  provider-account-id))}))))
 
