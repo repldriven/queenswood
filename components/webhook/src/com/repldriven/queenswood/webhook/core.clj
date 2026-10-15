@@ -151,7 +151,7 @@
        (fn [txn]
          (let-nom>
            [policies (get-policies txn bank-id opts)
-            existing-count (store/count-endpoints txn bank-id)
+            existing-count (store/count-live-endpoints txn bank-id)
             endpoint (domain/new-endpoint bank-id
                                           data
                                           (mint-secret)

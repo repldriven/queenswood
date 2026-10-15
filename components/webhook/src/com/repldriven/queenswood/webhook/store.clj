@@ -81,16 +81,22 @@
         :before before
         :after after}))))
 
-(defn count-endpoints
+(defn count-live-endpoints
+  "How many of the bank's endpoints are enabled or disabled: a removed
+  one no longer counts."
   [txn bank-id]
   (fdb/transact
    txn
    (fn [txn]
-     ;; Group key is [bank_id, endpoint_id], so counting groups under the
-     ;; [bank_id] prefix yields the bank's endpoints.
-     (fdb/count-groups (fdb/open txn endpoints-store-name)
-                       "WebhookEndpoint_count_by_bank"
-                       [bank-id]))
+     (let [group (fn [status]
+                   [:count
+                    "WebhookEndpoint_count_by_bank_status"
+                    [bank-id (schema/webhook-endpoint-status->int status)]])]
+       (reduce +
+               (fdb/aggregate-records
+                (fdb/open txn endpoints-store-name)
+                [(group :webhook-endpoint-status-enabled)
+                 (group :webhook-endpoint-status-disabled)]))))
    :webhook-endpoint/count
    {:message "Failed to count webhook endpoints"
     :bank-id bank-id}))

@@ -105,10 +105,21 @@
                  _ (testing "the bank list holds this bank's rows alone"
                      (is (= ["whe.1" "whe.2"]
                             (mapv :endpoint-id (:endpoints listed)))))
-                 counted (SUT/count-endpoints config bank-id)
+                 counted (SUT/count-live-endpoints config bank-id)
                  _ (testing "the count index counts them"
                      (is (= 2 counted))
-                     (is (= 1 (SUT/count-endpoints config other-bank))))
+                     (is (= 1 (SUT/count-live-endpoints config other-bank))))
+                 _ (SUT/save-endpoint config
+                                      (assoc (endpoint bank-id "whe.1" "ik-1")
+                                             :status
+                                             :webhook-endpoint-status-disabled))
+                 _ (SUT/save-endpoint config
+                                      (assoc (endpoint bank-id "whe.2" "ik-2")
+                                             :status
+                                             :webhook-endpoint-status-removed))
+                 live (SUT/count-live-endpoints config bank-id)
+                 _ (testing "a disabled one still counts, a removed one not"
+                     (is (= 1 live)))
                  by-key
                  (SUT/find-endpoint-by-idempotency-key config bank-id "ik-1")
                  _ (testing "the unique key index finds the right bank's row"
@@ -130,7 +141,7 @@
                                   (endpoint bank-id "whe.2" "ik-taken"))]
                      (testing "the unique index refuses it, distinguishably"
                        (is (true? (SUT/uniqueness-violation? refused)))))
-                 counted (SUT/count-endpoints config bank-id)
+                 counted (SUT/count-live-endpoints config bank-id)
                  _ (testing "and the second row is not there"
                      (is (= 1 counted)))]))))
 

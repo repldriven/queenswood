@@ -519,10 +519,10 @@ stores:
     record-type: WebhookEndpoint
     primary-key: [bank_id, endpoint_id]
     indexes:
-      - name: WebhookEndpoint_count_by_bank
+      - name: WebhookEndpoint_count_by_bank_status
         added: 1
         modified: 1
-        fields: [bank_id, endpoint_id]
+        fields: [bank_id, status]
         type: count
       - name: WebhookEndpoint_by_idempotency_key
         added: 1

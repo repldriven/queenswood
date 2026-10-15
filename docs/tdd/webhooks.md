@@ -750,13 +750,14 @@ type in the `schema` brick's `interface.clj`.
   that created it, the idempotency key of its last secret rotation,
   and who registered, edited, disabled, enabled, removed it and
   rotated its secret, and when. Indexed by bank, with an FDB
-  `count` index over `[bank_id, endpoint_id]` for the limit check and
-  a unique index on `[bank_id, idempotency_key]`. That unique index is
-  what makes registration retry-safe: a retried request reads back the
-  endpoint it already created instead of minting a second endpoint, a
-  second secret and a second count against the limit. The store writes
-  the changelog envelope on a status change, and a relay runner for it
-  is configuration.
+  `count` index over `[bank_id, status]` for the limit check, which
+  counts the enabled and disabled endpoints so that removing one frees
+  its place, and a unique index on `[bank_id, idempotency_key]`. That
+  unique index is what makes registration retry-safe: a retried request
+  reads back the endpoint it already created instead of minting a second
+  endpoint, a second secret and a second count against the limit. The
+  store writes the changelog envelope on a status change, and a relay
+  runner for it is configuration.
 - `WebhookNotification` — notification id, bank id, kind, resource
   type and id, the envelope fields above, the rendered body, and the
   relayed changelog event's id as its idempotency key, unique per bank.
@@ -995,6 +996,10 @@ stated as unobserved, with what would observe it.
   `bank-tier-changed` are written to the bank store's changelog and
   relayed by no runner, so nothing has ever read one. The bank slice's
   relay runner and topic are what observe them.
+- **Registering and removing endpoints has no rate.** A removed
+  endpoint frees its place under the count limit, so a bank can register
+  and remove endpoints without end; how often is the edge's rate limit
+  to bound.
 - **A single resend has no limit.** Each
   `POST .../deliveries/{delivery-id}/resend` adds a delivery, and
   nothing counts them.
