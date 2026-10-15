@@ -71,6 +71,19 @@
 
 (def CashAccountId (:account-id CashAccount))
 
+(def CashAccountOperation
+  {:bank-id (:bank-id CashAccount)
+   :account-id (:account-id CashAccount)
+   :operation-id "cao.01kprbmgcj35ptc8npmybhh4sg"
+   :kind :suspend
+   :status :completed
+   :requested-on "2026-05-18"
+   :created-at "2026-05-18T09:20:00Z"
+   :created-by actor-example
+   :updated-at "2026-05-18T09:20:02Z"})
+
+(def CashAccountOperationList {:items [CashAccountOperation]})
+
 (def CashAccountList {:items [CashAccount]})
 
 (def CreateCashAccountRequest

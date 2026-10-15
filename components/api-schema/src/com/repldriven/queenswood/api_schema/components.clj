@@ -185,6 +185,9 @@
     boolean?]
    [:transactions
     {:optional true :json-schema/description "Embed transactions"}
+    boolean?]
+   [:operations
+    {:optional true :json-schema/description "Embed recent operations"}
     boolean?]])
 
 (def IdempotencyKey

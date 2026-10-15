@@ -49,7 +49,9 @@
    "payment-account-closed" core/provider-closed
    "payment-address-reissued" core/provider-reissued
    "payment-account-close-refused" core/provider-close-refused
-   "payment-address-reissue-failed" core/provider-reissue-failed})
+   "payment-address-reissue-failed" core/provider-reissue-failed
+   "payment-account-operation-completed" core/provider-operation-completed
+   "payment-account-operation-refused" core/provider-operation-refused})
 
 (defn- dispatch-provider-event
   [config message]

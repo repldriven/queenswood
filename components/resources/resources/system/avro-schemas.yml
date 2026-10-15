@@ -65,12 +65,16 @@ account-reward-status-changed: schemas/reward/account-reward-status-changed.avsc
 open-payment-account: schemas/payment-provider/account/open-payment-account.avsc.json
 close-payment-account: schemas/payment-provider/account/close-payment-account.avsc.json
 reissue-payment-address: schemas/payment-provider/account/reissue-payment-address.avsc.json
+block-payment-account: schemas/payment-provider/account/block-payment-account.avsc.json
+unblock-payment-account: schemas/payment-provider/account/unblock-payment-account.avsc.json
 payment-account-opened: schemas/payment-provider/account/payment-account-opened.avsc.json
 payment-account-open-refused: schemas/payment-provider/account/payment-account-open-refused.avsc.json
 payment-account-closed: schemas/payment-provider/account/payment-account-closed.avsc.json
 payment-address-reissued: schemas/payment-provider/account/payment-address-reissued.avsc.json
 payment-account-close-refused: schemas/payment-provider/account/payment-account-close-refused.avsc.json
 payment-address-reissue-failed: schemas/payment-provider/account/payment-address-reissue-failed.avsc.json
+payment-account-operation-completed: schemas/payment-provider/account/payment-account-operation-completed.avsc.json
+payment-account-operation-refused: schemas/payment-provider/account/payment-account-operation-refused.avsc.json
 submit-payment: schemas/payment-provider/payment/submit-payment.avsc.json
 provider-payment-settled: schemas/payment-provider/payment/provider-payment-settled.avsc.json
 provider-payment-rejected: schemas/payment-provider/payment/provider-payment-rejected.avsc.json
@@ -89,6 +93,7 @@ lookup-company: schemas/company/lookup-company.avsc.json
 
 cash-account-open-requested: schemas/cash-account/cash-account-open-requested.avsc.json
 cash-account-close-requested: schemas/cash-account/cash-account-close-requested.avsc.json
+cash-account-operation-requested: schemas/cash-account/cash-account-operation-requested.avsc.json
 cash-account-address-rotation-requested: schemas/cash-account/cash-account-address-rotation-requested.avsc.json
 outbound-payment-submitted: schemas/payment/outbound-payment-submitted.avsc.json
 inbound-payment-suspended: schemas/payment/inbound-payment-suspended.avsc.json

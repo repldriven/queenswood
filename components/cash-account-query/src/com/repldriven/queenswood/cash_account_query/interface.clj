@@ -24,12 +24,26 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - account-id: account id.
-  - opts (optional): map; `:embed-balances` and
-    `:embed-transactions` enrich the result."
+  - opts (optional): map; `:embed-balances`, `:embed-transactions`
+    and `:embed-operations`, its latest operations newest first,
+    enrich the result."
   ([txn bank-id account-id]
    (core/get-account txn bank-id account-id))
   ([txn bank-id account-id opts]
    (core/get-account txn bank-id account-id opts)))
+
+(defn get-operations
+  "A page of an account's operations, newest first unless `:order` says
+  otherwise: `{:operations [...] :before :after}`, or a
+  `:cash-account/not-found` rejection anomaly.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - account-id: account id.
+  - opts: map; `:after`, `:before`, `:limit` and `:order`."
+  [txn bank-id account-id opts]
+  (core/get-operations txn bank-id account-id opts))
 
 (defn get-account-balances
   "Read an account's balances, with the posted and available totals
@@ -93,7 +107,7 @@
   - txn: FDB transaction or db handle.
   - bank-id: owning bank id.
   - opts (optional): map; `:after`, `:before`, `:limit`,
-    `:embed-balances`, `:embed-transactions`."
+    `:embed-balances`, `:embed-transactions`, `:embed-operations`."
   ([txn bank-id]
    (core/get-accounts txn bank-id))
   ([txn bank-id opts]
@@ -196,6 +210,19 @@
   - product-type, account-type, currency: the subtotal's group."
   [txn bank-id product-type account-type currency]
   (store/get-aggregates txn bank-id product-type account-type currency))
+
+(defn count-operations
+  "Count the operations asked of an account on one day, read at
+  snapshot. A read primitive for the write sibling's daily limit, whose
+  transaction also writes the account, so two operations on it conflict.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - account-id: account id.
+  - requested-on: the day, as an epoch day."
+  [txn bank-id account-id requested-on]
+  (store/count-operations txn bank-id account-id requested-on))
 
 (defn find-accounts-by-party
   "Return every CashAccount held by a party, regardless of status. A

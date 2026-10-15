@@ -114,6 +114,44 @@
   {:status :outbound-intent-status-failed
    :event (close-refused intent (shared/undelivered failure reason))})
 
+(defn- operate
+  "Block or unblock the account at Modulr, on the account its money is
+  held in now."
+  [action]
+  (fn [config _now intent]
+    (let [{:keys! [account-id provider-account-id]} (shared/context intent)]
+      (shared/answer (shared/call config
+                                  intent
+                                  {:method :post
+                                   :path (str "/accounts/"
+                                              (shared/held-at
+                                               config
+                                               account-id
+                                               provider-account-id)
+                                              "/"
+                                              action)})))))
+
+(defn- operated
+  [_config _now intent _result]
+  (let [{:keys! [bank-id account-id operation-id]} (shared/context intent)]
+    {:status :outbound-intent-status-settled
+     :event (account-event intent
+                           "payment-account-operation-completed"
+                           {:bank-id bank-id
+                            :account-id account-id
+                            :operation-id operation-id})}))
+
+(defn- operation-failed
+  [_config _now intent failure reason]
+  (let [{:keys! [bank-id account-id operation-id]} (shared/context intent)]
+    {:status :outbound-intent-status-failed
+     :event (account-event intent
+                           "payment-account-operation-refused"
+                           {:bank-id bank-id
+                            :account-id account-id
+                            :operation-id operation-id
+                            :reason (shared/undelivered failure reason)})}))
+
 (defn- reissue-step
   "The call for the reissue's current step, and how its result advances
   the context: block the old account, read what it holds, open the new
@@ -272,4 +310,8 @@
   :modulr-outbound-intent-kind-close-account
   {:call close :answered closed :failed close-failed}
   :modulr-outbound-intent-kind-reissue-address
-  {:call reissue :answered reissue-advanced :failed reissue-stopped}})
+  {:call reissue :answered reissue-advanced :failed reissue-stopped}
+  :modulr-outbound-intent-kind-block-account
+  {:call (operate "block") :answered operated :failed operation-failed}
+  :modulr-outbound-intent-kind-unblock-account
+  {:call (operate "unblock") :answered operated :failed operation-failed}})

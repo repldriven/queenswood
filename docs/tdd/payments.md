@@ -283,6 +283,20 @@ provider account behind it:
   blocked the old provider account unblocks it first; one whose
   balance has moved and whose only failure is the old account's close
   reports the reissue, leaving the old account blocked and logged.
+- **Suspending and resuming.** A suspend or a resume changes the
+  account at once and records a `CashAccountOperation`, pending, with a
+  `cash-account-operation-requested` activity entry naming its kind.
+  The activity processor sends `block-payment-account` or
+  `unblock-payment-account`, held behind the account's earlier calls,
+  and the adapter reports `payment-account-operation-completed` or
+  `payment-account-operation-refused` with a reason, which settles the
+  operation. Modulr blocks and unblocks the provider account. Form3 has
+  no blocked state and a ClearBank virtual account no reversible one,
+  so their adapters answer without a call: the platform refuses an
+  inbound to a suspended account where it admits it, and submits none
+  from one. A refused block leaves the account suspended. An account
+  with no provider account records the operation completed and sends
+  nothing.
 - **Closed and frozen accounts.** A closed account's provider account
   is closed, so the provider returns money sent to it rather than the
   platform parking it. A frozen account's provider account stays open,

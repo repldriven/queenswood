@@ -41,6 +41,7 @@
    :posted-balance {:value 8000 :currency "GBP"}
    :available-balance {:value 7700 :currency "GBP"}
    :transactions []
+   :operations []
    :created-at 1700000000000
    :created-by {:kind :actor-kind-bank
                 :principal-id "bnk.01kprbmgcj35ptc8npmybhh4s7"}

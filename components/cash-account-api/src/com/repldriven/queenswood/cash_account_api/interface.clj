@@ -50,14 +50,23 @@
   account — so a `CashAccount` reaches a client in one spelling however
   it arrives.
 
-  The two embedded collections a read route fills on `embed`
-  — `balances` and `transactions` — are not carried; a consumer follows
+  The embedded collections a read route fills on `embed`
+  — `balances`, `transactions` and `operations` — are not carried; a consumer follows
   the account's links for either.
 
   Args:
   - account: a cash account as the query brick hands it back."
   [account]
   (components/->wire-body account))
+
+(defn ->operation-body
+  "Project a stored account operation onto the keys
+  `CashAccountOperation` declares.
+
+  Args:
+  - operation: an account operation as the query brick hands it back."
+  [operation]
+  (components/->operation-body operation))
 
 ;; ---
 ;; coercion

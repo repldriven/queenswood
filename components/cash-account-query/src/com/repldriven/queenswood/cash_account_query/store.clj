@@ -151,6 +151,33 @@
         :before before
         :after after}))))
 
+(def ^:private operations-store-name "cash-account-operations")
+
+(defn get-operations
+  "A page of an account's operations, newest first by default."
+  ([txn bank-id account-id]
+   (get-operations txn bank-id account-id nil))
+  ([txn bank-id account-id opts]
+   (let [{:keys [after before limit order]
+          :or {limit 20 order :desc}}
+         opts]
+     (let-nom>
+       [result (fdb/transact txn
+                             (fn [txn]
+                               (fdb/scan-records
+                                (fdb/open txn operations-store-name)
+                                {:prefix [bank-id account-id]
+                                 :after after
+                                 :before before
+                                 :limit limit
+                                 :order order}))
+                             :cash-account-operation/list
+                             "Failed to list account operations")
+        {:keys [records before after]} result]
+       {:operations (mapv schema/pb->CashAccountOperation records)
+        :before before
+        :after after}))))
+
 (defn count-by-org
   [txn bank-id]
   (fdb/transact txn
@@ -181,6 +208,19 @@
    :cash-account/get-aggregates
    {:message "Failed to count accounts"
     :bank-id bank-id}))
+
+(defn count-operations
+  [txn bank-id account-id requested-on]
+  (fdb/transact txn
+                (fn [txn]
+                  (fdb/count-records-snapshot
+                   (fdb/open txn operations-store-name)
+                   "CashAccountOperation_count_by_account_requested_on"
+                   [bank-id account-id requested-on]))
+                :cash-account/count-operations
+                {:message "Failed to count account operations"
+                 :bank-id bank-id
+                 :account-id account-id}))
 
 (defn count-by-version
   [txn bank-id version-id]

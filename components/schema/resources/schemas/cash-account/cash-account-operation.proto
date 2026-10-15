@@ -1,0 +1,41 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.cash_account;
+
+import "record_metadata_options.proto";
+import "schemas/actor/actor.proto";
+import "schemas/fideslang/data-category.proto";
+
+option java_outer_classname = "CashAccountOperationProto";
+
+enum CashAccountOperationKind {
+  CASH_ACCOUNT_OPERATION_KIND_UNKNOWN = 0;
+  CASH_ACCOUNT_OPERATION_KIND_SUSPEND = 1;
+  CASH_ACCOUNT_OPERATION_KIND_RESUME = 2;
+}
+
+enum CashAccountOperationStatus {
+  CASH_ACCOUNT_OPERATION_STATUS_UNKNOWN = 0;
+  CASH_ACCOUNT_OPERATION_STATUS_PENDING = 1;
+  CASH_ACCOUNT_OPERATION_STATUS_COMPLETED = 2;
+  CASH_ACCOUNT_OPERATION_STATUS_REFUSED = 3;
+}
+
+// An operation asked of an account, carried out at its payment provider.
+message CashAccountOperation {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string account_id = 2;
+  required string operation_id = 3; // cao.<uuidv7>
+
+  required CashAccountOperationKind kind = 4;
+  required CashAccountOperationStatus status = 5;
+  required int64 requested_on = 6 [(fideslang.data_category) = "system.operations"]; // epoch day
+  optional string refused_reason = 7;
+
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+  optional int64 updated_at = 103;
+  optional com.repldriven.queenswood.schema.actor.Actor updated_by = 104;
+}

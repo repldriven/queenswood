@@ -219,6 +219,16 @@ payment from a frozen account is refused, and a payment
 arriving for one is held by the platform for
 reconciliation rather than credited.
 
+A freeze takes effect on the platform at once, and the
+platform asks the payment provider to block the account
+too where the provider can. Each freeze and unfreeze is
+kept with the account, with who asked for it and whether
+the provider carried it out, so the customer can see what
+was done to an account and when. An account takes a few
+freezes and unfreezes a day, set by the platform's policy;
+past that an unfreeze is refused until the next day, but a
+freeze never is.
+
 A closed account's payment address is never reissued to
 anyone else, and money sent to it never lands on an
 account nobody is watching: the provider returns it to the
@@ -249,6 +259,9 @@ The customer can:
 - List the accounts the bank holds, a page at a time, with
   balances included on request.
 - Read an account's transactions.
+- Read the freezes and unfreezes asked of an account, and
+  whether the payment provider carried each out — alone, or
+  with the account on request.
 
 ### Multi-tenant isolation
 

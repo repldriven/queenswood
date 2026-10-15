@@ -37,6 +37,11 @@
      {#{:bank-id} total
       #{:bank-id :product-type :account-type :currency} subtotal}}))
 
+(defn- get-operation-aggregates
+  [txn bank-id account-id today]
+  (let-nom> [n (q/count-operations txn bank-id account-id today)]
+    {:cash-account-operation {#{:bank-id :account-id :requested-on} n}}))
+
 (defn- product-type-of
   [product-version]
   (:product-type product-version))
@@ -66,6 +71,25 @@
                                     :provider-account-id provider-account-id}
                              :causation-id account-id
                              :dedup-key account-id}))))
+
+(defn- record-operation
+  "Save `operation` and, while it is pending, the activity entry that asks
+  the account's provider to carry it out."
+  [txn account operation]
+  (let [{:keys [bank-id account-id provider-account-id]} account
+        {:keys [operation-id kind]} operation]
+    (let-nom>
+      [_ (store/save-operation txn operation)]
+      (when (domain/pending-operation? operation)
+        (bank-activity/record txn
+                              {:bank-id bank-id
+                               :event-name "cash-account-operation-requested"
+                               :data {:account-id account-id
+                                      :operation-id operation-id
+                                      :kind kind
+                                      :provider-account-id provider-account-id}
+                               :causation-id account-id
+                               :dedup-key operation-id})))))
 
 (defn- record-rotation
   [txn account]
@@ -275,6 +299,13 @@
                                   :status-after (:status updated)
                                   :change-kind
                                   :cash-account-change-kind-suspend})
+           _ (record-operation
+              txn
+              updated
+              (domain/new-operation updated
+                                    :cash-account-operation-kind-suspend
+                                    (utility/today)
+                                    (:actor data)))
            _ (audit/record txn
                            (audit-entry :audit-kind-cash-account-suspended
                                         account
@@ -291,11 +322,16 @@
    (store/transact
     txn
     (fn [txn]
-      (let [{:keys [bank-id account-id]} data]
+      (let [{:keys [bank-id account-id]} data
+            today (utility/today)]
         (let-nom>
           [policies (get-policies txn bank-id account-id opts)
            account (q/get-account txn bank-id account-id)
-           updated (domain/resume-account account (:actor data) policies)
+           aggregates (get-operation-aggregates txn bank-id account-id today)
+           updated (domain/resume-account account
+                                          (:actor data)
+                                          aggregates
+                                          policies)
            _ (store/save-account txn
                                  updated
                                  {:account-id account-id
@@ -303,6 +339,13 @@
                                   :status-after (:status updated)
                                   :change-kind
                                   :cash-account-change-kind-resume})
+           _ (record-operation
+              txn
+              updated
+              (domain/new-operation updated
+                                    :cash-account-operation-kind-resume
+                                    today
+                                    (:actor data)))
            _ (audit/record txn
                            (audit-entry :audit-kind-cash-account-resumed
                                         account
@@ -379,6 +422,29 @@
 (defn- status?
   [status]
   (fn [account] (= status (:status account))))
+
+(defn- settle-operation
+  [txn {:keys [bank-id account-id operation-id]} settle]
+  (store/transact
+   txn
+   (fn [txn]
+     (let-nom>
+       [operation (store/find-operation txn bank-id account-id operation-id)]
+       (when (and operation (domain/pending-operation? operation))
+         (store/save-operation txn (settle operation)))))
+   :cash-account-operation/settle
+   "Failed to settle account operation"))
+
+(defn provider-operation-completed
+  [txn event]
+  (settle-operation txn event domain/completed-operation))
+
+(defn provider-operation-refused
+  [txn {:keys [reason] :as event}]
+  (settle-operation txn
+                    event
+                    (fn [operation]
+                      (domain/refused-operation operation reason))))
 
 (defn provider-opened
   [txn {:keys [bank-id account-id] :as event}]

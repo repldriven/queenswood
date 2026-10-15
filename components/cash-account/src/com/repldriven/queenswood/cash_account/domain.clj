@@ -35,6 +35,17 @@
     :window :time-window-instant
     :value (inc (get-in aggregates [:cash-account #{:bank-id}]))}))
 
+(defn- check-operation-limit
+  [aggregates policies]
+  (policy/check-limit
+   policies
+   :cash-account-operation
+   {:aggregate :count
+    :window :time-window-daily
+    :value (inc (get-in aggregates
+                        [:cash-account-operation
+                         #{:bank-id :account-id :requested-on}]))}))
+
 (defn- non-zero-balances
   "Balance buckets whose net (credit - debit) isn't zero, across all
   balance-statuses (pending holds included, not just posted)."
@@ -269,7 +280,7 @@
              :updated-at now))))
 
 (defn resume-account
-  [account actor policies]
+  [account actor aggregates policies]
   (let-nom>
     [_ (when-not (= :cash-account-status-suspended (:status account))
          (error/reject :cash-account/invalid-status
@@ -279,12 +290,55 @@
                         :allowed #{:cash-account-status-suspended}}))
      _ (check-capability :cash-account-action-resume
                          (:account-type account)
-                         policies)]
+                         policies)
+     _ (check-operation-limit aggregates policies)]
     (let [now (utility/now)]
       (assoc account
              :status :cash-account-status-opened
              :updated-by actor
              :updated-at now))))
+
+(def ^:private operation-pending :cash-account-operation-status-pending)
+
+(defn new-operation
+  "An operation of `kind` asked of `account` by `actor`: pending until its
+  provider answers, or completed where the account has no account at its
+  provider to carry it out."
+  [account kind today actor]
+  (let [now (utility/now)]
+    {:bank-id (:bank-id account)
+     :account-id (:account-id account)
+     :operation-id (utility/generate-id "cao")
+     :kind kind
+     :status (if (:provider-account-id account)
+               operation-pending
+               :cash-account-operation-status-completed)
+     :requested-on today
+     :created-at now
+     :created-by actor}))
+
+(defn pending-operation?
+  [operation]
+  (= operation-pending (:status operation)))
+
+(defn completed-operation
+  "The operation as its provider's carrying it out leaves it."
+  [operation]
+  (assoc operation
+         :status :cash-account-operation-status-completed
+         :updated-at (utility/now)
+         :updated-by platform))
+
+(defn refused-operation
+  "The operation as its provider's refusal leaves it, with the reason it
+  gave."
+  [operation reason]
+  (utility/assoc-some (assoc operation
+                             :status :cash-account-operation-status-refused
+                             :updated-at (utility/now)
+                             :updated-by platform)
+                      :refused-reason
+                      reason))
 
 (defn request-rotation
   [account data policies]

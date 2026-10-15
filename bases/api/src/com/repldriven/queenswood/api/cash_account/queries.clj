@@ -15,10 +15,14 @@
   (let [{:keys [record-db record-store auth parameters]} request
         {:keys [bank-id]} auth
         {:keys [page embed]} (:query parameters)
-        {embed-balances :balances embed-transactions :transactions} embed
+        {embed-balances :balances
+         embed-transactions :transactions
+         embed-operations :operations}
+        embed
         opts (utility/assoc-some (cursor/page-opts page)
                                  :embed-balances embed-balances
-                                 :embed-transactions embed-transactions)
+                                 :embed-transactions embed-transactions
+                                 :embed-operations embed-operations)
         result (cash-accounts/get-accounts
                 {:record-db record-db :record-store record-store}
                 bank-id
@@ -51,14 +55,18 @@
         {:keys [path query]} parameters
         {:keys [account-id]} path
         {:keys [embed]} query
-        {embed-balances :balances embed-transactions :transactions} embed
+        {embed-balances :balances
+         embed-transactions :transactions
+         embed-operations :operations}
+        embed
         result (cash-accounts/get-account
                 {:record-db record-db :record-store record-store}
                 bank-id
                 account-id
                 (utility/assoc-some {}
                                     :embed-balances embed-balances
-                                    :embed-transactions embed-transactions))]
+                                    :embed-transactions embed-transactions
+                                    :embed-operations embed-operations))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)
       {:status 200 :body (cash-account-api/->body result)})))
@@ -81,6 +89,28 @@
                                    page
                                    (mapv transaction-api/->body
                                          (:transactions found))
+                                   found))]
+    (if (error/anomaly? result)
+      (errors/anomaly->response result)
+      {:status 200 :body result})))
+
+(defn list-operations
+  [request]
+  (let [{:keys [record-db record-store auth parameters]} request
+        {:keys [bank-id]} auth
+        {:keys [path query]} parameters
+        {:keys [account-id]} path
+        {:keys [page]} query
+        result (error/let-nom>
+                 [found (cash-accounts/get-operations
+                         {:record-db record-db :record-store record-store}
+                         bank-id
+                         account-id
+                         (cursor/page-opts page))]
+                 (cursor/page-body (cursor/request-path request)
+                                   page
+                                   (mapv cash-account-api/->operation-body
+                                         (:operations found))
                                    found))]
     (if (error/anomaly? result)
       (errors/anomaly->response result)

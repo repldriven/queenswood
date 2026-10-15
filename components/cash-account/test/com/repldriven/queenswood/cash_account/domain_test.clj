@@ -343,7 +343,7 @@
                     :cash-account-status-opened
                     :cash-account-status-closing
                     :cash-account-status-closed]]
-      (let [result (SUT/resume-account (account status) operator [])]
+      (let [result (SUT/resume-account (account status) operator {} [])]
         (is (error/rejection? result))
         (is (= :cash-account/invalid-status (error/kind result)))
         (is (= status (:status (error/payload result))))))))
@@ -461,3 +461,67 @@
       (is (= (:payment-addresses acct) (:payment-addresses result)))
       (is (= (:account-id acct) (:account-id result)))
       (is (int? (:updated-at result))))))
+
+(def ^:private member {:kind :actor-kind-member :principal-id "usr.1"})
+
+(deftest an-operation-waits-on-its-provider-test
+  (let [held (assoc (account :cash-account-status-suspended)
+                    :bank-id "bnk.test"
+                    :provider-account-id "prv-1")
+        pending (SUT/new-operation held
+                                   :cash-account-operation-kind-suspend
+                                   20500
+                                   member)]
+    (testing "an account its provider holds waits on the provider"
+      (is (SUT/pending-operation? pending))
+      (is (= :cash-account-operation-kind-suspend (:kind pending)))
+      (is (= member (:created-by pending)))
+      (is (re-find #"^cao\." (:operation-id pending))))
+    (testing "one with no account at its provider has nothing to wait on"
+      (is (= :cash-account-operation-status-completed
+             (:status (SUT/new-operation (dissoc held :provider-account-id)
+                                         :cash-account-operation-kind-resume
+                                         20500
+                                         member)))))
+    (testing "the provider's answer settles it, by the platform"
+      (is (= :cash-account-operation-status-completed
+             (:status (SUT/completed-operation pending))))
+      (let [refused (SUT/refused-operation pending "blocked by provider")]
+        (is (= :cash-account-operation-status-refused (:status refused)))
+        (is (= "blocked by provider" (:refused-reason refused)))
+        (is (= :actor-kind-platform (get-in refused [:updated-by :kind])))))))
+
+(defn- operations-today
+  [n]
+  {:cash-account-operation {#{:bank-id :account-id :requested-on} n}})
+
+(def ^:private five-operations-a-day
+  {:status :policy-status-active
+   :limits [{:kind {:cash-account-operation {}}
+             :bound {:kind {:max {:aggregate
+                                  {:kind {:count {:value 5
+                                                  :window
+                                                  :time-window-daily}}}}}}}]})
+
+(deftest an-account-takes-its-daily-operations-test
+  (let [policies [(policy-allowing :cash-account-action-suspend
+                                   :cash-account-action-resume)
+                  five-operations-a-day]
+        suspended (account :cash-account-status-suspended)]
+    (testing "a resume within the day's operations is allowed"
+      (is (= :cash-account-status-opened
+             (:status (SUT/resume-account suspended
+                                          operator
+                                          (operations-today 4)
+                                          policies)))))
+    (testing "one past them is refused"
+      (is (= :policy/limit-exceeded
+             (error/kind (SUT/resume-account suspended
+                                             operator
+                                             (operations-today 5)
+                                             policies)))))
+    (testing "a suspend never is"
+      (is (= :cash-account-status-suspended
+             (:status (SUT/suspend-account (account :cash-account-status-opened)
+                                           operator
+                                           policies)))))))

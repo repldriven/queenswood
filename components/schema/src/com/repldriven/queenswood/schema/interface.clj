@@ -65,7 +65,8 @@
      CashAccountProductTypesProto$IsoCashAccountType)
     (com.repldriven.queenswood.schema.actor ActorProto$ActorKind)
     (com.repldriven.queenswood.schema.cash_account
-     CashAccountProto$CashAccount)
+     CashAccountProto$CashAccount
+     CashAccountOperationProto$CashAccountOperation)
     (com.repldriven.queenswood.schema.company CompanyProto$Company)
     (com.repldriven.queenswood.schema.email
      EmailDeliveryProto$EmailDelivery)
@@ -827,6 +828,39 @@
   [m]
   (CashAccountProto$CashAccount/parseFrom (CashAccount->pb m)))
 
+(def ^:private cash-account-operation-unset
+  {:refused-reason "" :updated-at 0 :updated-by nil})
+
+(defn pb->CashAccountOperation
+  "Parse CashAccountOperation protobuf bytes into a Clojure map, each
+  optional field present only when set, and `created-by` and
+  `updated-by` plain maps.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (reduce plain-embedded
+          (without-unset (cash-account/pb->CashAccountOperation input)
+                         cash-account-operation-unset)
+          [:created-by :updated-by]))
+
+(defn CashAccountOperation->pb
+  "Serialise a CashAccountOperation map to protobuf bytes.
+
+  Args:
+  - m: CashAccountOperation map matching the generated schema."
+  [m]
+  (proto/->pb (cash-account/new-CashAccountOperation m)))
+
+(defn CashAccountOperation->java
+  "Parse a CashAccountOperation map into the generated Java protobuf class.
+
+  Args:
+  - m: CashAccountOperation map matching the generated schema."
+  [m]
+  (CashAccountOperationProto$CashAccountOperation/parseFrom
+   (CashAccountOperation->pb m)))
+
 (defn pb->LedgerAccount
   "Parse LedgerAccount protobuf bytes into a Clojure map, an `updated-at`
   present only when set and the creator a plain map.
@@ -1529,6 +1563,8 @@
    :party (PartyProto$Party/getDescriptor)
    :idv-session (IdvSessionProto$IdvSession/getDescriptor)
    :cash-account (CashAccountProto$CashAccount/getDescriptor)
+   :cash-account-operation
+   (CashAccountOperationProto$CashAccountOperation/getDescriptor)
    :cash-account-product
    (CashAccountProductProto$CashAccountProduct/getDescriptor)
    :cash-account-migration

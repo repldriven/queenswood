@@ -27,3 +27,18 @@
                           :account-type-unknown))
 
 (def account-type-enum-schema (:enum-schema account-type-enum))
+
+(def ^:private operation-kind-enum
+  (coercion/enum-coercion {"suspend" :cash-account-operation-kind-suspend
+                           "resume" :cash-account-operation-kind-resume}
+                          :cash-account-operation-kind-unknown))
+
+(def operation-kind-enum-schema (:enum-schema operation-kind-enum))
+
+(def ^:private operation-status-enum
+  (coercion/enum-coercion {"pending" :cash-account-operation-status-pending
+                           "completed" :cash-account-operation-status-completed
+                           "refused" :cash-account-operation-status-refused}
+                          :cash-account-operation-status-unknown))
+
+(def operation-status-enum-schema (:enum-schema operation-status-enum))

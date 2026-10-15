@@ -207,8 +207,10 @@ one transaction, in the intermediate state (`:opening` or
 `cash-account-status-changed` event; the brick's own event
 handler reads the account back and applies the terminal
 transition. Suspend and resume are direct flips between
-`:opened` and `:suspended`, with no intermediate state and
-no second leg.
+`:opened` and `:suspended`, with no intermediate state; each
+records an operation the payment provider carries out after,
+as [Operations at the provider](#operations-at-the-provider)
+describes.
 
 What each status permits. Rows are statuses, columns
 operations; Accrue is interest accrual, Rotate is address
@@ -380,6 +382,37 @@ capability set contains it — so it reaches an account only
 through a bespoke policy record bound to that bank or
 account. Sweeping the balance first is the ordinary path;
 the waiver is for the case where sweeping is not possible.
+
+### Operations at the provider
+
+A suspend or a resume writes, in the transaction that changes the
+account, a `CashAccountOperation` under `[bank_id, account_id,
+operation_id]`: its kind, its status, the day it was requested on and
+who asked. It is `pending` while the account has a provider account,
+with a `cash-account-operation-requested` activity entry asking the
+provider to block or unblock it, and `completed` at once where there is
+none. The provider's `payment-account-operation-completed` or
+`payment-account-operation-refused` settles a pending one, `refused`
+carrying the provider's reason as `refused_reason`, and a redelivered
+answer finds it settled and does nothing. The account's status does
+not wait on the provider: a suspended account refuses payments from the
+moment it is suspended, and a refused block leaves it suspended.
+
+`GET /v1/cash-accounts/{account-id}/operations` pages an account's
+operations newest first, and `embed[operations]` on the account reads
+carries its latest page, so a customer sees what was asked of the
+account and whether the provider carried it out. Rotation and close
+keep their own state on the account for now.
+
+An account takes at most the platform-restricted policy's
+`cash-account-operation` limit of operations a day, counted by the
+`CashAccountOperation_count_by_account_requested_on` count index over
+`[bank_id, account_id, requested_on]` and read at snapshot in the
+transaction that records the next one; the account's own write conflicts
+two operations on it. A resume past the limit is refused with
+`:policy/limit-exceeded` (429). A suspend is counted but never refused,
+so an account can always be frozen, and since only a resume reopens it,
+the limit bounds suspends too.
 
 ### Event transitions
 
@@ -702,9 +735,13 @@ What follows is what the model does not reach.
   dead-lettered, and the account stays opening with nothing to say why.
   A provider that issues each number once never does this; the Modulr
   simulator did, after restarts, before it issued numbers in turn.
-- **Status changes and address rotations have no limit.** A suspend,
-  resume, close or `rotate-address` each sends the bank's payment
-  provider a command, and nothing counts how many a bank makes in a day.
+- **Rotation and close are not operations yet.** Their state stays on
+  the account, in `rotation`, `close_requested_from` and
+  `refused_reason`; neither appears among the account's operations, and
+  neither counts towards its daily limit, though each sends the provider
+  a command.
+- **Retired addresses accumulate.** Each rotation appends the old
+  addresses to `retired_payment_addresses`, and nothing trims them.
 
 ## References
 

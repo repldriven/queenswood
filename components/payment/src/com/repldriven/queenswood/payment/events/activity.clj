@@ -31,6 +31,21 @@
                                         [:bank-id :account-id
                                          :provider-account-id]))))
 
+(def ^:private operation-commands
+  {:cash-account-operation-kind-suspend "block-payment-account"
+   :cash-account-operation-kind-resume "unblock-payment-account"})
+
+(defn- operate-account
+  [config data]
+  (let [{:keys [bank-id account-id kind]} data]
+    (provider/send-command config
+                           bank-id
+                           (get operation-commands kind)
+                           account-id
+                           (select-keys data
+                                        [:bank-id :account-id :operation-id
+                                         :provider-account-id]))))
+
 (defn- reissue-address
   [config data]
   (let [{:keys [bank-id account-id provider-account-id]} data]
@@ -78,6 +93,7 @@
 (def ^:private handlers
   {"cash-account-open-requested" open-account
    "cash-account-close-requested" close-account
+   "cash-account-operation-requested" operate-account
    "cash-account-address-rotation-requested" reissue-address
    "transaction-posted" provider-transfer/mirror-posted
    "outbound-payment-submitted" submit-payment

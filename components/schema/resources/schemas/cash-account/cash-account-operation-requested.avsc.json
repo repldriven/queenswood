@@ -1,0 +1,35 @@
+{
+  "type": "record",
+  "name": "CashAccountOperationRequested",
+  "namespace": "com.repldriven.queenswood.schema.cash_account",
+  "doc": "An operation asked of a cash account held at the bank's payment provider.",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "operation_id",
+      "type": "string"
+    },
+    {
+      "name": "kind",
+      "type": {
+        "type": "enum",
+        "name": "CashAccountOperationKind",
+        "symbols": [
+          "CASH_ACCOUNT_OPERATION_KIND_SUSPEND",
+          "CASH_ACCOUNT_OPERATION_KIND_RESUME"
+        ]
+      }
+    },
+    {
+      "name": "provider_account_id",
+      "type": "string"
+    }
+  ]
+}

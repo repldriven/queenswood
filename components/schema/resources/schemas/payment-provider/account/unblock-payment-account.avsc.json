@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "name": "UnblockPaymentAccount",
+  "namespace": "com.repldriven.queenswood.schema.payment_provider.account",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "operation_id",
+      "type": "string"
+    },
+    {
+      "name": "provider_account_id",
+      "type": "string"
+    }
+  ]
+}
