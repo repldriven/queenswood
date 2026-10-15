@@ -5,6 +5,7 @@ suspend-cash-account: schemas/cash-account/suspend-cash-account.avsc.json
 resume-cash-account: schemas/cash-account/resume-cash-account.avsc.json
 rotate-cash-account-address: schemas/cash-account/rotate-cash-account-address.avsc.json
 cash-account-status-changed: schemas/cash-account/cash-account-status-changed.avsc.json
+cash-account-operation-changed: schemas/cash-account/cash-account-operation-changed.avsc.json
 
 party-command-reply: schemas/party/party-command-reply.avsc.json
 create-party: schemas/party/create-party.avsc.json
@@ -92,9 +93,7 @@ lookup-company: schemas/company/lookup-company.avsc.json
 
 
 cash-account-open-requested: schemas/cash-account/cash-account-open-requested.avsc.json
-cash-account-close-requested: schemas/cash-account/cash-account-close-requested.avsc.json
 cash-account-operation-requested: schemas/cash-account/cash-account-operation-requested.avsc.json
-cash-account-address-rotation-requested: schemas/cash-account/cash-account-address-rotation-requested.avsc.json
 outbound-payment-submitted: schemas/payment/outbound-payment-submitted.avsc.json
 inbound-payment-suspended: schemas/payment/inbound-payment-suspended.avsc.json
 inbound-payment-simulation-requested: schemas/payment/inbound-payment-simulation-requested.avsc.json

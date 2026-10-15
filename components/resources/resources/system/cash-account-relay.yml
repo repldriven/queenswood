@@ -15,3 +15,9 @@ relay-runners: !system/component
     consumer-id: cash-account-watcher
     store-name: cash-accounts
     handler: !system/local-ref relay-handler
+  cash-account-operations:
+    record-db: !system/ref fdb.record-db
+    keyspace-prefix: !system/ref fdb.keyspace-prefix
+    consumer-id: cash-account-operations-relay
+    store-name: cash-account-operations
+    handler: !system/local-ref relay-handler

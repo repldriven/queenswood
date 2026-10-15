@@ -318,11 +318,14 @@ same status.
   `change_kind` rotate-address and migrate. Both carry equal before
   and after statuses, because neither write moves the status, and are
   told whatever that status is. A rotation is told when the provider's
-  new address lands; the write that asks for it, change kind
-  rotate-requested, is not told.
-- `cash-account.address-rotation-failed` — `change_kind`
-  rotate-failed, told when the payment provider refuses a reissue and
-  the account keeps its addresses.
+  new address lands; asking for one writes no account.
+- `cash-account.operation-completed` and
+  `cash-account.operation-refused` — `cash-account-operation-changed`,
+  `CashAccountOperation`, by bank and operation id. Told on `pending` to
+  `completed` or `refused`, when the payment provider carries out or
+  refuses a suspend, resume, close or rotation; an operation on an
+  account the provider does not hold is completed as it is recorded,
+  and is not told.
 - `party.opened`, `party.rejected`, `party.suspended`,
   `party.resumed`, `party.closed` and `party.merged` —
   `party-status-changed`, `Party`, by bank and party id. The event

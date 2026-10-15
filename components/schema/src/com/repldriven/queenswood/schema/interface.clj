@@ -788,29 +788,20 @@
   (SchedulerRunProto$SchedulerRun/parseFrom (SchedulerRun->pb m)))
 
 (def ^:private cash-account-unset
-  {:bban ""
-   :rotation nil
-   :refused-reason ""
-   :close-requested-from :cash-account-status-unknown
-   :updated-at 0
-   :updated-by nil})
+  {:bban "" :refused-reason "" :updated-at 0 :updated-by nil})
 
 (defn pb->CashAccount
   "Parse CashAccount protobuf bytes into a Clojure map. Strips the
   optional fields an account was never given, as they deserialise as
-  proto2 defaults: an empty `bban` or `refused-reason`, no `rotation` or
-  a rotation's empty `failed-reason`, and a zero `updated-at` and absent
-  `updated-by`. Downstream
-  read sites use `(when (:bban account) ...)` to tell an account with
-  addresses from one without. An embedded message is a plain map."
+  proto2 defaults: an empty `bban` or `refused-reason`, and a zero
+  `updated-at` and absent `updated-by`. Downstream read sites use
+  `(when (:bban account) ...)` to tell an account with addresses from
+  one without. An embedded message is a plain map."
   [input]
-  (let [account (reduce plain-embedded
-                        (without-unset (cash-account/pb->CashAccount input)
-                                       cash-account-unset)
-                        [:rotation :created-by :updated-by])]
-    (cond-> account
-            (:rotation account)
-            (update :rotation without-unset {:failed-reason ""}))))
+  (reduce plain-embedded
+          (without-unset (cash-account/pb->CashAccount input)
+                         cash-account-unset)
+          [:created-by :updated-by]))
 
 (defn CashAccount->pb
   "Serialise a CashAccount map to protobuf bytes.
@@ -829,7 +820,7 @@
   (CashAccountProto$CashAccount/parseFrom (CashAccount->pb m)))
 
 (def ^:private cash-account-operation-unset
-  {:refused-reason "" :updated-at 0 :updated-by nil})
+  {:refused-reason "" :idempotency-key "" :updated-at 0 :updated-by nil})
 
 (defn pb->CashAccountOperation
   "Parse CashAccountOperation protobuf bytes into a Clojure map, each

@@ -164,10 +164,6 @@ reads inside its own FDB transactions, passing the live
  [{:address {:scheme :payment-address-scheme-scan :scan {...}}
    :retired-at 1789000000000}]
 
- ;; tag 24 — the idempotency key of the rotation that last replaced
- ;; the addresses above
- :last-rotation-idempotency-key
-
  :created-at
  :updated-at}
 ```
@@ -207,9 +203,10 @@ one transaction, in the intermediate state (`:opening` or
 `cash-account-status-changed` event; the brick's own event
 handler reads the account back and applies the terminal
 transition. Suspend and resume are direct flips between
-`:opened` and `:suspended`, with no intermediate state; each
-records an operation the payment provider carries out after,
-as [Operations at the provider](#operations-at-the-provider)
+`:opened` and `:suspended`, with no intermediate state. A
+suspend, a resume, a close and a rotation each record an
+operation the payment provider carries out after, as
+[Operations at the provider](#operations-at-the-provider)
 describes.
 
 What each status permits. Rows are statuses, columns
@@ -385,34 +382,50 @@ the waiver is for the case where sweeping is not possible.
 
 ### Operations at the provider
 
-A suspend or a resume writes, in the transaction that changes the
-account, a `CashAccountOperation` under `[bank_id, account_id,
-operation_id]`: its kind, its status, the day it was requested on and
-who asked. It is `pending` while the account has a provider account,
-with a `cash-account-operation-requested` activity entry asking the
-provider to block or unblock it, and `completed` at once where there is
-none. The provider's `payment-account-operation-completed` or
-`payment-account-operation-refused` settles a pending one, `refused`
-carrying the provider's reason as `refused_reason`, and a redelivered
-answer finds it settled and does nothing. The account's status does
-not wait on the provider: a suspended account refuses payments from the
-moment it is suspended, and a refused block leaves it suspended.
+A suspend, a resume, a close or a rotation writes, in the transaction
+that changes the account, a `CashAccountOperation` under `[bank_id,
+account_id, operation_id]`: its kind, its status, the day it was
+requested on, the account's status when it was asked, the command's
+idempotency key and who asked. It is `pending` while the account has a
+provider account, with a `cash-account-operation-requested` activity
+entry asking the provider to carry it out, and `completed` at once where
+there is none. A rotation changes nothing on the account until the
+provider answers.
+
+The provider's answer settles a pending operation, `refused` carrying
+the provider's reason as `refused_reason`, and a redelivered answer
+finds it settled and does nothing:
+
+- a block or an unblock → `payment-account-operation-completed` or
+  `payment-account-operation-refused`, which settle the operation
+  alone. A suspended account refuses payments from the moment it is
+  suspended, and a refused block leaves it suspended;
+- a close → `payment-account-closed`, which also closes the account, or
+  `payment-account-close-refused`, which returns it to the operation's
+  `account_status`, opened or suspended;
+- a reissue → `payment-address-reissued`, which also replaces the
+  account's addresses, or `payment-address-reissue-failed`, which
+  leaves the account as it was.
+
+Every save of an operation co-commits a changelog entry, relayed as a
+`cash-account-operation-changed` event on `cash-accounts-event`, ordered
+by the account, so a webhook tells the customer when the provider
+settles one.
 
 `GET /v1/cash-accounts/{account-id}/operations` pages an account's
 operations newest first, and `embed[operations]` on the account reads
 carries its latest page, so a customer sees what was asked of the
-account and whether the provider carried it out. Rotation and close
-keep their own state on the account for now.
+account and whether the provider carried it out.
 
 An account takes at most the platform-restricted policy's
 `cash-account-operation` limit of operations a day, counted by the
 `CashAccountOperation_count_by_account_requested_on` count index over
 `[bank_id, account_id, requested_on]` and read at snapshot in the
-transaction that records the next one; the account's own write conflicts
-two operations on it. A resume past the limit is refused with
-`:policy/limit-exceeded` (429). A suspend is counted but never refused,
-so an account can always be frozen, and since only a resume reopens it,
-the limit bounds suspends too.
+transaction that records the next one, which reads the account too. A
+resume or a rotation past the limit is refused with
+`:policy/limit-exceeded` (429). A suspend or a close is counted but never
+refused, so an account can always be frozen or closed, and since only a
+resume reopens a suspended one, the limit bounds suspends too.
 
 ### Event transitions
 
@@ -432,32 +445,27 @@ activity event processor sends the provider's command (ADR-0033):
 - an opening → `cash-account-open-requested`, with the holder party's
   display name, the currency and the address schemes the
   version allows, sent as `open-payment-account`;
-- a closing of an account the provider holds →
-  `cash-account-close-requested`, sent as `close-payment-account`;
-- a rotation → `cash-account-address-rotation-requested`, with the
-  pending rotation's key, sent as `reissue-payment-address`.
+- an operation on an account the provider holds →
+  `cash-account-operation-requested`, with the operation's id and kind,
+  sent as `block-payment-account`, `unblock-payment-account`,
+  `close-payment-account` or `reissue-payment-address`.
 
 `events.clj` handles the `cash-account-status-changed` event
 only to flip a closing account the provider never held to
 `:closed`, and drops every other. The payment adapter answers on
 `schemes-account-event`, which the brick's second handler
 consumes: `payment-account-opened` opens the account with
-the issued addresses, provider account id and BBAN;
+the issued addresses, provider account id and BBAN, and
 `payment-account-open-refused` makes it `:refused`, with the
-provider's reason; `payment-account-closed` closes it;
-`payment-account-close-refused` returns it to its
-`:closing-from`, `:opened` or `:suspended`, with the reason;
-`payment-address-reissued` replaces its addresses, retiring
-the old; and `payment-address-reissue-failed` clears the
-pending rotation, keeping the addresses, with the reason.
-Each is one FDB transaction — read the account,
-apply the domain transition, save — gated on the account
+provider's reason; the answers to an operation settle it as
+[Operations at the provider](#operations-at-the-provider)
+describes. Each is one FDB transaction, gated on the account
 still being in the expected source status, or on the
-pending rotation's key, so redelivery is a silent no-op.
+operation still pending, so redelivery is a silent no-op.
 
 **Telling one write from another.** The payload carries
 `change_kind`, one of open, close, suspend, resume,
-rotate-requested, rotate-address or migrate, added to
+rotate-address, migrate or close-refused, added to
 `account-status-changed.avsc.json` with a null default so an
 entry written before the field decodes. It is what
 distinguishes a rotation from a migration: both leave the
@@ -491,11 +499,10 @@ number twice. The closed account's record also keeps its
 accidental re-issue would fail at the provider's report
 regardless.
 
-**Rotation.** `rotate-address` records a pending rotation
-under its key, with the change kind rotate-requested, and the
-handler asks the provider to reissue. The account keeps its
-addresses until the provider reports new ones for that key,
-when `:bban` is rewritten and the old addresses are appended
+**Rotation.** `rotate-address` records a pending operation,
+and the provider is asked to reissue. The account keeps its
+addresses until the provider reports new ones for that
+operation, when `:bban` is rewritten and the old addresses are appended
 to `:retired-payment-addresses` rather than discarded, so the
 record keeps a permanent history. A payment landing on a
 retired BBAN is a lookup miss for `get-account-by-bban`. The
@@ -503,7 +510,7 @@ account stays on `:cash-account-status-opened` throughout.
 
 ### Lookups
 
-Every read lives in `cash-account-query`. Ten of them:
+Every read lives in `cash-account-query`:
 
 - **`get-account`** by `(bank-id, account-id)` — the
   primary key, optionally enriching with the account's
@@ -553,6 +560,18 @@ Every read lives in `cash-account-query`. Ten of them:
   snapshot: the two scans refill in separate transactions,
   so an account opened mid-pass can arrive without its
   balances.
+- **`get-operations`** — a page of an account's operations,
+  newest first, scanned under the account's key prefix. Used by
+  the API's operations route and its `embed[operations]`.
+- **`find-operation`** — the unique
+  `CashAccountOperation_by_operation_id` index. Used by the
+  webhook brick to load the operation a notification carries.
+- **`find-operation-by-idempotency-key`** — the unique
+  `CashAccountOperation_by_idempotency_key` index. Used by the
+  write brick to answer a retried operation.
+- **`count-operations`** —
+  `CashAccountOperation_count_by_account_requested_on`. Used by
+  the write brick's daily operations limit.
 
 The bank's settlement leg is a `LedgerAccount`, not a
 cash-account, and is resolved by GL code through
@@ -587,20 +606,14 @@ that handle is a config. A caller that passes a live
 transaction must not pass a key: there is no handle left to
 read back on.
 
-**Rotation stamps its own key.** A rotation writes
-`:last-rotation-idempotency-key` onto the account. A
-`rotate-cash-account-address` retried under that same key
-returns the account unchanged — nothing asked of the
-provider, no save, no changelog entry — which is a read-derived skip
-rather than a rejection.
-
-**Close, suspend and resume stamp nothing.** Their
-protection is the source-status guard: the first call has
-already moved the account off the status the guard requires,
-so a retry after a lost reply meets
-`:cash-account/invalid-status` and a 409 where the first
-reply was a 200. A caller that has lost a reply should read
-the account rather than retry the write.
+**An operation keeps its command's key.** Each operation holds
+the idempotency key of the command that asked for it, under the
+unique `CashAccountOperation_by_idempotency_key` index over
+`[bank_id, account_id, idempotency_key]`. A suspend, resume,
+close or `rotate-cash-account-address` retried under a key that
+already asked for an operation of the account returns the
+account as it is — no operation, no save, no changelog entry —
+which is a read-derived skip rather than a rejection.
 
 ### Account-type vs product-type — why both
 
@@ -735,11 +748,6 @@ What follows is what the model does not reach.
   dead-lettered, and the account stays opening with nothing to say why.
   A provider that issues each number once never does this; the Modulr
   simulator did, after restarts, before it issued numbers in turn.
-- **Rotation and close are not operations yet.** Their state stays on
-  the account, in `rotation`, `close_requested_from` and
-  `refused_reason`; neither appears among the account's operations, and
-  neither counts towards its daily limit, though each sends the provider
-  a command.
 - **Retired addresses accumulate.** Each rotation appends the old
   addresses to `retired_payment_addresses`, and nothing trims them.
 

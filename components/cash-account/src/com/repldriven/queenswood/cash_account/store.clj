@@ -39,14 +39,21 @@
 (def ^:private operations-store-name "cash-account-operations")
 
 (defn save-operation
-  [txn operation]
-  (fdb/transact txn
-                (fn [txn]
-                  (fdb/save-record (fdb/open txn operations-store-name)
-                                   (schema/CashAccountOperation->java
-                                    operation)))
-                :cash-account-operation/save
-                "Failed to save account operation"))
+  [txn operation status-before]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let-nom>
+       [_ (fdb/save-record (fdb/open txn operations-store-name)
+                           (schema/CashAccountOperation->java operation))
+        entry (changelog/operation-changed operation status-before)
+        _ (fdb/write-changelog txn
+                               operations-store-name
+                               (:operation-id operation)
+                               entry)]
+       nil))
+   :cash-account-operation/save
+   "Failed to save account operation"))
 
 (defn find-operation
   [txn bank-id account-id operation-id]

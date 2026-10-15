@@ -4,7 +4,7 @@
  :tags #{:serial}
  ;; The simulator refuses the next close it is asked for. An opened
  ;; account goes back to opened and a suspended one to suspended, each
- ;; carrying the provider's reason, and the customer is told.
+ ;; close refused with the provider's reason, and the customer is told.
  :given
  [{:fixture :bank :as :bank-0 :with {:name "Close Refused"}}
   {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
@@ -43,8 +43,7 @@
              :path "/v1/cash-accounts/{account-id}"
              :path-params {:account-id [:ref :open-one :account :account-id]}
              :auth [:ref :bank-0 :token]}
-   :until {:status 200
-           :body {:status "opened"}}
+   :until {:status 200 :body {:status "opened"}}
    :timeout-ms 45000}
   {:command :api/request
    :request
@@ -64,9 +63,21 @@
              :path-params {:account-id [:ref :suspended-one :account
                                         :account-id]}
              :auth [:ref :bank-0 :token]}
-   :until {:status 200
-           :body {:status "suspended"}}
+   :until {:status 200 :body {:status "suspended"}}
    :timeout-ms 45000}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :suspended-one :account
+                                        :account-id]}
+             :query-params {"embed[operations]" "true"}
+             :auth [:ref :bank-0 :token]}
+   :assert
+   {:status 200
+    :body {:operations [{:kind "close"
+                         :status "refused"
+                         :account-status "suspended"
+                         :refused-reason [:m/regex ".+"]} {:kind "suspend"}]}}}
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}"

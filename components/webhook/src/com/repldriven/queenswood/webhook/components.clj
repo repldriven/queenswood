@@ -221,6 +221,7 @@
   `WebhookEndpoint` is here for the test notification, which carries
   the endpoint it was sent to and belongs to no catalogue entry."
   {"CashAccount" "CashAccount"
+   "CashAccountOperation" "CashAccountOperation"
    "OutboundPayment" "OutboundPayment"
    "InboundPayment" "InboundPayment"
    "InternalPayment" "InternalPayment"

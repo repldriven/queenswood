@@ -414,18 +414,16 @@ processor's index outlives the cache entry.
   payment as ACCEPTED. A retry under a different key is a new request
   to both layers, and creates a second payment. See
   [payments.md](payments.md).
-- `POST /v1/cash-accounts/{account-id}/rotate-address` keeps the key
-  of the last rotation on the account rather than in an index. A
-  retry under that key returns the account as the first rotation
-  left it and asks the payment provider for nothing.
+- `POST /v1/cash-accounts/{account-id}/close`, `/suspend`, `/resume`
+  and `/rotate-address` — the operation each records keeps the key,
+  unique per account in `CashAccountOperation_by_idempotency_key`. A
+  retry under that key returns the account as it is and asks the
+  payment provider for nothing.
 
 **The pair and a domain guard.** No index, but the second attempt
 meets a guard that refuses it with the answer a replay would have
 given.
 
-- `POST /v1/cash-accounts/{account-id}/close`, `/suspend` and
-  `/resume` — the source-state guard rejects
-  `:cash-account/invalid-status`, a 409.
 - `POST /v1/parties/{party-id}/suspend`, `/resume`, `/close` and
   `/merge` — `:party/invalid-status`, a 409.
 - `POST /v1/bank/change-status` — `:bank/invalid-status`, a 409. The

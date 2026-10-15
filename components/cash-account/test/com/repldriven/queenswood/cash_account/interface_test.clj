@@ -1,8 +1,8 @@
 (ns com.repldriven.queenswood.cash-account.interface-test
   "The provider legs, against a real store: a rotation retried under one
-  idempotency key asks the provider once, and each report from the
-  provider — an opening, a refusal, a reissue — lands once, however
-  often it is delivered. The domain-level guards live in `domain-test`;
+  idempotency key asks the provider once, each report from the provider
+  — an opening, a refusal, a reissue — lands once, however often it is
+  delivered, and a refused close returns the account to where it was. The domain-level guards live in `domain-test`;
   the opening guards, the count limits and the non-zero close are pure
   there, and their end-to-end shape is an EDN scenario in
   `test-scenarios` or `test-api-scenarios`."
@@ -31,6 +31,8 @@
   [sys]
   {:record-db (system/instance sys [:fdb :record-db])
    :record-store (system/instance sys [:fdb :store])})
+
+(def ^:private member {:kind :actor-kind-member :principal-id "usr.1"})
 
 (def ^:private allow-rotate
   [{:status :policy-status-active
@@ -101,50 +103,107 @@
                  _ (is (= "04000420000001" (:bban stored)))
                  _ (is (= :cash-account-status-opened (:status stored)))]))))
 
+(defn- operation-under
+  [config account-id idempotency-key]
+  (q/find-operation-by-idempotency-key config
+                                       test-bank-id
+                                       account-id
+                                       idempotency-key))
+
 (deftest rotate-address-retried-under-one-key-asks-once-test
   (with-test-system
    [sys config-file]
    (let [config (fdb-config sys)
          account-id "acc.rotate.retry"
          key "ik-rotate-retry-00000001"
-         command
-         {:bank-id test-bank-id :account-id account-id :idempotency-key key}]
+         command {:bank-id test-bank-id
+                  :account-id account-id
+                  :idempotency-key key
+                  :actor member}]
      (nom-test> [_ (save config
                          (account account-id :cash-account-status-opening))
                  opened (core/provider-opened config
                                               (issued account-id "20000001"))
                  requested
                  (SUT/rotate-address config command {:policies allow-rotate})
-                 _ (testing "the rotation is pending and the address stays"
-                     (is (= {:idempotency-key key
-                             :status :address-rotation-status-pending}
-                            (:rotation requested)))
+                 _ (testing "the address stays until the provider answers"
                      (is (= (:bban opened) (:bban requested))))
+                 operation (operation-under config account-id key)
+                 _ (testing "and the rotation waits on it as an operation"
+                     (is (= :cash-account-operation-kind-rotate-address
+                            (:kind operation)))
+                     (is (= :cash-account-operation-status-pending
+                            (:status operation))))
                  retried
                  (SUT/rotate-address config command {:policies allow-rotate})
                  _ (testing "the retry answers with the account as it was"
                      (is (= (:updated-at requested) (:updated-at retried))))
-                 stale (core/provider-reissued config
-                                               (issued
-                                                account-id
-                                                "20000007"
-                                                :rotation-key
-                                                "ik-some-other-rotation"))
-                 _ (testing "a reissue for another rotation is ignored"
+                 asked (q/count-operations config
+                                           test-bank-id
+                                           account-id
+                                           (:requested-on operation))
+                 _ (testing "and asks for no second operation" (is (= 1 asked)))
+                 stale
+                 (core/provider-reissued
+                  config
+                  (issued account-id "20000007" :operation-id "cao.some-other"))
+                 _ (testing "a reissue for another operation is ignored"
                      (is (nil? stale)))
-                 reissued (core/provider-reissued
-                           config
-                           (issued account-id "20000002" :rotation-key key))
+                 answer (issued account-id
+                                "20000002"
+                                :operation-id
+                                (:operation-id operation))
+                 reissued (core/provider-reissued config answer)
                  _ (testing "the provider's new address replaces the old"
                      (is (= "04000420000002" (:bban reissued)))
-                     (is (= 1 (count (:retired-payment-addresses reissued))))
-                     (is (= :address-rotation-status-completed
-                            (get-in reissued [:rotation :status]))))
-                 replayed (core/provider-reissued
-                           config
-                           (issued account-id "20000002" :rotation-key key))
+                     (is (= 1 (count (:retired-payment-addresses reissued)))))
+                 settled (operation-under config account-id key)
+                 _ (testing "and completes the operation"
+                     (is (= :cash-account-operation-status-completed
+                            (:status settled))))
+                 replayed (core/provider-reissued config answer)
                  _ (testing "and a redelivered reissue is a no-op"
                      (is (nil? replayed)))
                  stored (q/get-account config test-bank-id account-id)
                  _ (is (= "04000420000002" (:bban stored)))
                  _ (is (= 1 (count (:retired-payment-addresses stored))))]))))
+
+(def ^:private allow-close
+  [{:status :policy-status-active
+    :capabilities [{:effect :effect-allow
+                    :kind {:cash-account {:action
+                                          :cash-account-action-close}}}]}])
+
+(deftest a-refused-close-returns-the-account-test
+  (with-test-system
+   [sys config-file]
+   (let [config (fdb-config sys)
+         account-id "acc.close.refused"
+         key "ik-close-refused-00000001"]
+     (nom-test> [_ (save config
+                         (account account-id :cash-account-status-opening))
+                 _ (core/provider-opened config (issued account-id "20000003"))
+                 closing (SUT/close-account config
+                                            {:bank-id test-bank-id
+                                             :account-id account-id
+                                             :idempotency-key key
+                                             :actor member}
+                                            {:policies allow-close})
+                 _ (is (= :cash-account-status-closing (:status closing)))
+                 operation (operation-under config account-id key)
+                 _ (testing "the close remembers the status it was asked from"
+                     (is (= :cash-account-status-opened
+                            (:account-status operation))))
+                 refused (core/provider-close-refused
+                          config
+                          {:bank-id test-bank-id
+                           :account-id account-id
+                           :operation-id (:operation-id operation)
+                           :reason "Money still moving"})
+                 _ (testing "a refusal returns the account to it"
+                     (is (= :cash-account-status-opened (:status refused))))
+                 settled (operation-under config account-id key)
+                 _ (testing "and refuses the operation with the reason"
+                     (is (= :cash-account-operation-status-refused
+                            (:status settled)))
+                     (is (= "Money still moving" (:refused-reason settled))))]))))

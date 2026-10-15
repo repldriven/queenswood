@@ -352,7 +352,7 @@
                             "{}" {:bank-id "bnk.1"
                                   :account-id "acc.1"
                                   :provider-account-id "A1"
-                                  :rotation-key "k1"}))])
+                                  :operation-id "cao.k1"}))])
      (doseq [t (range 6)] (SUT/drain-once config t))
      (testing "block, read, open, move and close, in that order"
        (is (= [[:post "/accounts/A1/block"] [:get "/accounts/A1"]
@@ -374,7 +374,7 @@
                             config
                             "reissue:acc.1:k1:payment-address-reissued"))]
          (is (= "A2" (:provider-account-id data)))
-         (is (= "k1" (:rotation-key data)))))
+         (is (= "cao.k1" (:operation-id data)))))
      (is (= :outbound-intent-status-settled
             (:status (load-intent config "int.r1"))))
      (is (= "done"
@@ -398,6 +398,7 @@
                             "close:acc.2"
                             "{}" {:bank-id "bnk.1"
                                   :account-id "acc.2"
+                                  :operation-id "cao.c2"
                                   :provider-account-id "A2"}))])
      (SUT/drain-once config 0)
      (testing "a refused close fails rather than being tried again"
@@ -442,6 +443,7 @@
                                    "close:acc.wait.1"
                                    "{}" {:bank-id "bnk.1"
                                          :account-id "acc.wait.1"
+                                         :operation-id "cao.wait.1"
                                          :provider-account-id "A1"})
                            :subjects
                            ["acc.wait.1"]))])

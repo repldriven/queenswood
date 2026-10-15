@@ -127,7 +127,8 @@ would otherwise only discover by reading the record again.
 - **Parties** — identity verification completed, with the party now
   active or rejected. A party suspended, resumed, or closed.
 - **Cash accounts** — an account opened, closed, frozen, unfrozen,
-  moved to another product, or given a new payment address.
+  moved to another product, or given a new payment address, and the
+  payment provider carrying out or refusing what was asked of it.
 - **Interest** — interest paid into an account.
 - **Cash account products** — a version published. A bulk move of
   accounts completed.

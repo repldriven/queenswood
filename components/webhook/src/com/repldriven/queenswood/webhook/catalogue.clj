@@ -28,6 +28,9 @@
 (def ^:private cash-account-status-name
   (enum-name-fn (cash-account-api/cash-account-status-enum-schema)))
 
+(def ^:private operation-status-name
+  (enum-name-fn (cash-account-api/operation-status-enum-schema)))
+
 (def ^:private party-status-name
   (enum-name-fn (party-api/party-status-enum-schema)))
 
@@ -75,6 +78,23 @@
                         :project cash-account-api/->wire-body}
                        :terminal-status
                        terminal-status)))
+
+(defn- operation-entry
+  "One `cash-account.operation-*` kind per way a provider settles an
+  operation asked of an account. Told only once the provider answers: an
+  operation on an account it does not hold is settled as it is recorded,
+  and the caller holds that answer."
+  [kind published terminal-status]
+  {:kind kind
+   :event "cash-account-operation-changed"
+   :published-change-kind published
+   :terminal-status terminal-status
+   :statuses-before #{:cash-account-operation-status-pending}
+   :resource-type "CashAccountOperation"
+   :resource-id-key :operation-id
+   :status-name operation-status-name
+   :load cash-account-query/find-operation
+   :project cash-account-api/->operation-wire-body})
 
 (defn- party-entry
   "One `party.*` kind per transition the party brick writes. Its event
@@ -177,14 +197,16 @@
                        :cash-account-change-kind-migrate
                        "migrate")
    ;; A close the provider refused returns the account to where it
-   ;; closed from, and a reissue it failed leaves the addresses as they
-   ;; were, so neither names a terminal status.
+   ;; closed from, so it names no terminal status.
    (cash-account-entry "cash-account.close-refused"
                        :cash-account-change-kind-close-refused
                        "close-refused")
-   (cash-account-entry "cash-account.address-rotation-failed"
-                       :cash-account-change-kind-rotate-failed
-                       "rotate-failed")
+   (operation-entry "cash-account.operation-completed"
+                    "complete"
+                    :cash-account-operation-status-completed)
+   (operation-entry "cash-account.operation-refused"
+                    "refuse"
+                    :cash-account-operation-status-refused)
    ;; A party opens when it first becomes active: a person on passing
    ;; identity verification, and a party created without one at once.
    (party-entry "party.opened"

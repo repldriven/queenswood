@@ -245,21 +245,18 @@
                         :balances (reported-buckets offending)}))]
     (assoc account
            :status :cash-account-status-closing
-           :close-requested-from (:status account)
            :updated-at (utility/now)
            :updated-by actor)))
 
 (defn closed-account
   [account]
-  (-> account
-      (moved :cash-account-status-closed)
-      (dissoc :close-requested-from)))
+  (moved account :cash-account-status-closed))
 
 (defn close-refused-account
-  [account]
-  (-> account
-      (moved (:close-requested-from account :cash-account-status-opened))
-      (dissoc :close-requested-from)))
+  "The account as a refused close leaves it: back in the status it was
+  closed from, which its close operation holds."
+  [account operation]
+  (moved account (:account-status operation)))
 
 (defn suspend-account
   [account actor policies]
@@ -301,21 +298,26 @@
 (def ^:private operation-pending :cash-account-operation-status-pending)
 
 (defn new-operation
-  "An operation of `kind` asked of `account` by `actor`: pending until its
-  provider answers, or completed where the account has no account at its
-  provider to carry it out."
-  [account kind today actor]
-  (let [now (utility/now)]
-    {:bank-id (:bank-id account)
-     :account-id (:account-id account)
-     :operation-id (utility/generate-id "cao")
-     :kind kind
-     :status (if (:provider-account-id account)
-               operation-pending
-               :cash-account-operation-status-completed)
-     :requested-on today
-     :created-at now
-     :created-by actor}))
+  "An operation of `kind` asked of `account`, as it was before the
+  operation, by the command in `data`: pending until its provider
+  answers, or completed where the account has no account at its provider
+  to carry it out."
+  [account kind today data]
+  (let [{:keys [actor idempotency-key]} data
+        now (utility/now)]
+    (assoc-some {:bank-id (:bank-id account)
+                 :account-id (:account-id account)
+                 :operation-id (utility/generate-id "cao")
+                 :kind kind
+                 :status (if (:provider-account-id account)
+                           operation-pending
+                           :cash-account-operation-status-completed)
+                 :requested-on today
+                 :account-status (:status account)
+                 :created-at now
+                 :created-by actor}
+                :idempotency-key
+                idempotency-key)))
 
 (defn pending-operation?
   [operation]
@@ -341,7 +343,9 @@
                       reason))
 
 (defn request-rotation
-  [account data policies]
+  "The account, unchanged, where it may be given new payment addresses:
+  an opened account, within its operations for the day."
+  [account aggregates policies]
   (let-nom>
     [_ (when-not (= :cash-account-status-opened (:status account))
          (error/reject :cash-account/invalid-status
@@ -351,24 +355,9 @@
                         :allowed #{:cash-account-status-opened}}))
      _ (check-capability :cash-account-action-rotate-address
                          (:account-type account)
-                         policies)]
-    (let [rotation-key (or (:idempotency-key data)
-                           (str (utility/uuidv7)))
-          now (utility/now)]
-      (assoc account
-             :rotation {:idempotency-key rotation-key
-                        :status :address-rotation-status-pending}
-             :updated-by (:actor data)
-             :updated-at now))))
-
-(defn reissue-failed-account
-  [account reason]
-  (-> account
-      (update :rotation
-              assoc-some
-              :status :address-rotation-status-failed
-              :failed-reason reason)
-      (assoc :updated-at (utility/now) :updated-by platform)))
+                         policies)
+     _ (check-operation-limit aggregates policies)]
+    account))
 
 (defn reissued-account
   [account {:keys [provider-account-id addresses]}]
@@ -376,7 +365,6 @@
         retired (mapv (fn [address] {:address address :retired-at now})
                       (:payment-addresses account))]
     (-> account
-        (assoc-in [:rotation :status] :address-rotation-status-completed)
         (dissoc :bban)
         (with-addresses addresses provider-account-id)
         (assoc :retired-payment-addresses

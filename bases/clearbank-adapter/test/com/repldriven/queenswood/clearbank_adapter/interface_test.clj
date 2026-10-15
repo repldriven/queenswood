@@ -355,17 +355,17 @@
                  :address-schemes ["scan"]}
         closing {:bank-id "bnk.1"
                  :account-id "acc.adapter.1"
+                 :operation-id "cao.close-1"
                  :provider-account-id "va-1"}
         reissue {:bank-id "bnk.1"
                  :account-id "acc.adapter.1"
                  :provider-account-id "va-1"
-                 :rotation-key "rot-1"}]
+                 :operation-id "cao.rotate-1"}]
     (testing "each account command enqueues one call, however often sent"
       (doseq [[command data dedup-key]
               [["open-payment-account" opening "open:acc.adapter.1"]
-               ["close-payment-account" closing "close:acc.adapter.1"]
-               ["reissue-payment-address" reissue
-                "reissue:acc.adapter.1:rot-1"]]]
+               ["close-payment-account" closing "close:cao.close-1"]
+               ["reissue-payment-address" reissue "reissue:cao.rotate-1"]]]
         (is (= {:status "ACCEPTED"} (send command data)))
         (is (= {:status "ACCEPTED"} (send command data)))
         (is (= 1 (intents dedup-key)) command)))))

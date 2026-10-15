@@ -27,10 +27,6 @@
 (def ^:private schema-paths
   {"cash-account-open-requested"
    "schemas/cash-account/cash-account-open-requested.avsc.json"
-   "cash-account-close-requested"
-   "schemas/cash-account/cash-account-close-requested.avsc.json"
-   "cash-account-address-rotation-requested"
-   "schemas/cash-account/cash-account-address-rotation-requested.avsc.json"
    "cash-account-operation-requested"
    "schemas/cash-account/cash-account-operation-requested.avsc.json"
    "outbound-payment-submitted"

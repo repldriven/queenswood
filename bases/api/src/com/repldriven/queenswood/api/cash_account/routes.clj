@@ -121,9 +121,10 @@
        :get {:summary "List a cash account's operations"
              :openapi {:operationId "ListCashAccountOperations"
                        :description
-                       (str "Each suspend or resume asked of the account, "
-                            "newest first, a page at a time, with whether "
-                            "its payment provider carried it out.")
+                       (str "Each suspend, resume, close or address "
+                            "rotation asked of the account, newest first, a "
+                            "page at a time, with whether its payment "
+                            "provider carried it out.")
                        :parameters ^:replace
                                    [shared.parameters/ref-account-id
                                     shared.parameters/ref-page
@@ -148,7 +149,8 @@
                        "shortly after, and a `cash-account.closed` webhook "
                        "notification follows. Where the payment provider "
                        "refuses the close, the account returns to the status "
-                       "it closed from, and a `cash-account.close-refused` "
+                       "it closed from, its operation is refused with the "
+                       "provider's reason, and a `cash-account.close-refused` "
                        "webhook notification follows.")
                   :parameters ^:replace
                               [shared.parameters/ref-account-id
@@ -217,33 +219,34 @@
               :handler commands/resume-cash-account}}]
      ["/rotate-address"
       {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
-       :post
-       {:summary "Rotate a cash account's payment address"
-        :openapi
-        {:operationId "RotateCashAccountAddress"
-         :description
-         (str "Only an opened account can be rotated. It is "
-              "given a new account number under the same sort "
-              "code, and the old one is retired rather than "
-              "redirected, so money sent to it is parked in "
-              "suspense. A `cash-account.address-rotated` "
-              "webhook notification follows. Where the payment "
-              "provider refuses the reissue, the account keeps "
-              "its address, its `rotation` failed with the provider's reason, "
-              "and a `cash-account.address-rotation-failed` "
-              "webhook notification follows.")
-         :parameters ^:replace
-                     [shared.parameters/ref-account-id
-                      shared.parameters/ref-bank-id-header
-                      shared.parameters/ref-idempotency-key]}
-        :interceptors [server/require-idempotency-key
-                       bank-idempotency/cache-response]
-        :responses (shared.idempotency/with-responses
-                    {200 {:description
-                          "The account with its new payment address."
-                          :body [:ref "RotateCashAccountAddressResponse"]
-                          :openapi {:links cash-account-api/from-account}}
-                     403 (ErrorExamples [#'api-schema/PolicyDenied])
-                     404 (ErrorResponse [#'CashAccountNotFound])
-                     409 (ErrorResponse [#'CashAccountInvalidStatus])})
-        :handler commands/rotate-cash-account-address}}]]]])
+       :post {:summary "Rotate a cash account's payment address"
+              :openapi
+              {:operationId "RotateCashAccountAddress"
+               :description
+               (str "Only an opened account can be rotated, and one that has "
+                    "taken its operations for the day is refused with 429. It "
+                    "is given a new account number under the same sort code, "
+                    "and the old one is retired rather than redirected, so "
+                    "money sent to it is parked in suspense. A "
+                    "`cash-account.address-rotated` webhook notification "
+                    "follows. Where the payment provider refuses the reissue, "
+                    "the account keeps its address, its operation is refused "
+                    "with the provider's reason, and a "
+                    "`cash-account.operation-refused` webhook notification "
+                    "follows.")
+               :parameters ^:replace
+                           [shared.parameters/ref-account-id
+                            shared.parameters/ref-bank-id-header
+                            shared.parameters/ref-idempotency-key]}
+              :interceptors [server/require-idempotency-key
+                             bank-idempotency/cache-response]
+              :responses
+              (shared.idempotency/with-responses
+               {200 {:description "The account with its new payment address."
+                     :body [:ref "RotateCashAccountAddressResponse"]
+                     :openapi {:links cash-account-api/from-account}}
+                403 (ErrorExamples [#'api-schema/PolicyDenied])
+                404 (ErrorResponse [#'CashAccountNotFound])
+                409 (ErrorResponse [#'CashAccountInvalidStatus])
+                429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
+              :handler commands/rotate-cash-account-address}}]]]])

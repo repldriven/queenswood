@@ -4,19 +4,16 @@
  ;; The rotation commits and its reply never arrives, so the API answers
  ;; 500 and the cache releases its claim. The retry under the same key
  ;; runs the handler again -- it is not a replay, and carries no replay
- ;; header -- and the account's own record of the key that last rotated
- ;; it is what keeps it to one set of addresses: no allocation, no save,
- ;; no changelog entry, and the addresses the first attempt allocated
- ;; come back.
+ ;; header -- and the operation the key already asked for is what keeps
+ ;; it to one set of addresses: no allocation, no save, no changelog
+ ;; entry, and the addresses the first attempt allocated come back.
  ;;
  ;; The lost reply is produced by a test-only seam keyed on the
  ;; `ik-lost-reply-` prefix; see `test_api_scenarios/fault.clj`.
  :given [{:fixture :bank
           :as :bank-0
           :with {:name "Rotate Lost Reply Test" :status "live"}}
-         {:fixture :person
-          :as :party-0
-          :with {:token [:ref :bank-0 :token]}}
+         {:fixture :person :as :party-0 :with {:token [:ref :bank-0 :token]}}
          {:fixture :product :as :draft :with {:token [:ref :bank-0 :token]}}
          {:fixture :account
           :as :account-0
@@ -65,4 +62,11 @@
    :assert {:status 200
             :body {:payment-addresses [:ref :after-first :payment-addresses]
                    :idempotency-key [:m/absent]
-                   :last-rotation-idempotency-key [:m/absent]}}}]}
+                   :last-rotation-idempotency-key [:m/absent]}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/operations"
+             :path-params {:account-id [:ref :account-0 :account :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200
+            :body {:items [{:kind "rotate-address" :status "completed"}]}}}]}

@@ -52,7 +52,7 @@
     `:request` (FPS JSON body), `:status` (\"pending\"), `:attempt-count`,
     `:created-at`, and for an account call its `:kind` and `:context`,
     an EDN map of `:bank-id`, `:account-id` and, as the call needs them,
-    `:provider-account-id` and `:rotation-key`."
+    `:provider-account-id` and `:operation-id`."
   [txn intent]
   (store/save-intent txn intent))
 

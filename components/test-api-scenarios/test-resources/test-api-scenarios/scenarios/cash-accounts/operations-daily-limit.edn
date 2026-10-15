@@ -1,6 +1,6 @@
 {:name "An account's sixth operation of the day, a resume, is refused"
- ;; The platform-restricted policy counts an account's suspends and
- ;; resumes, five a day, and the refused resume leaves it suspended.
+ ;; The platform-restricted policy counts an account's operations, five a
+ ;; day, and the refused resume leaves it suspended.
  :given [{:fixture :bank :as :bank-0 :with {:name "Operation Limits"}}
          {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
          {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}

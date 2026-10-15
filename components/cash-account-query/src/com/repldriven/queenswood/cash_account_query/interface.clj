@@ -211,6 +211,33 @@
   [txn bank-id product-type account-type currency]
   (store/get-aggregates txn bank-id product-type account-type currency))
 
+(defn find-operation
+  "Return the account operation `operation-id` names, or nil. The
+  resource a webhook notification of its settling carries.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - operation-id: operation id."
+  [txn bank-id operation-id]
+  (store/find-operation txn bank-id operation-id))
+
+(defn find-operation-by-idempotency-key
+  "Return the operation of an account asked for under `idempotency-key`,
+  or nil. A read primitive for the write sibling, which hands a retried
+  command the account as the first attempt left it.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - account-id: account id.
+  - idempotency-key: the command's idempotency key."
+  [txn bank-id account-id idempotency-key]
+  (store/find-operation-by-idempotency-key txn
+                                           bank-id
+                                           account-id
+                                           idempotency-key))
+
 (defn count-operations
   "Count the operations asked of an account on one day, read at
   snapshot. A read primitive for the write sibling's daily limit, whose

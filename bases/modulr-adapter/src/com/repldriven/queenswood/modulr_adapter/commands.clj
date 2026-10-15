@@ -112,13 +112,14 @@
 
 (defn- close-intent
   [data]
-  (let [{:keys [bank-id account-id provider-account-id]} data]
-    {:idempotency-key (str "close:" account-id)
+  (let [{:keys [bank-id account-id operation-id provider-account-id]} data]
+    {:idempotency-key (str "close:" operation-id)
      :kind :modulr-outbound-intent-kind-close-account
      :subjects [account-id]
      :request "{}"
      :context (transit/write-str {:bank-id bank-id
                                   :account-id account-id
+                                  :operation-id operation-id
                                   :provider-account-id provider-account-id})}))
 
 (defn- operation-intent
@@ -137,8 +138,8 @@
 
 (defn- reissue-intent
   [config data]
-  (let [{:keys [bank-id account-id provider-account-id rotation-key]} data]
-    {:idempotency-key (str "reissue:" account-id ":" rotation-key)
+  (let [{:keys [bank-id account-id provider-account-id operation-id]} data]
+    {:idempotency-key (str "reissue:" operation-id)
      :kind :modulr-outbound-intent-kind-reissue-address
      :subjects [account-id]
      :request (json/write-str (utility/assoc-some {}
@@ -146,8 +147,8 @@
                                                   (:product-code config)))
      :context (transit/write-str (utility/assoc-some {:bank-id bank-id
                                                       :account-id account-id
-                                                      :rotation-key
-                                                      rotation-key}
+                                                      :operation-id
+                                                      operation-id}
                                                      :provider-account-id
                                                      provider-account-id))}))
 

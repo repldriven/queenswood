@@ -12,7 +12,7 @@
       "type": "string"
     },
     {
-      "name": "rotation_key",
+      "name": "operation_id",
       "type": "string"
     },
     {
