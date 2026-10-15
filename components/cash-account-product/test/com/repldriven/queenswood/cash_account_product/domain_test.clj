@@ -60,12 +60,6 @@
    :created-at 1700000000000
    :updated-at 1700000000000})
 
-(def ^:private discarded-version
-  (assoc published-version
-         :version-id "prv.2"
-         :version-number 2
-         :status :version-status-discarded))
-
 (def ^:private draft-version
   (assoc published-version
          :version-id "prv.3"
@@ -86,14 +80,6 @@
                                 operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
-  (testing "rejects with :version-immutable when existing is discarded"
-    (let [r (SUT/update-version discarded-version
-                                template
-                                good-data
-                                permissive-policies
-                                operator)]
-      (is (error/rejection? r))
-      (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "succeeds when existing is a draft, preserving id and number"
     (let [v (SUT/update-version draft-version
                                 template
@@ -107,16 +93,15 @@
 
 (def ^:private payment-provider {:addresses ["scan"]})
 
+(defn- publishes
+  [n]
+  {:cash-account-product {#{:bank-id :product-id :published-on} n}})
+
 (deftest publish-test
   (testing "rejects with :version-immutable when already published"
     (let [r (SUT/publish published-version
-                         permissive-policies
-                         payment-provider
-                         operator)]
-      (is (error/rejection? r))
-      (is (= :cash-account-product/version-immutable (error/kind r)))))
-  (testing "rejects with :version-immutable when discarded"
-    (let [r (SUT/publish discarded-version
+                         20500
+                         (publishes 0)
                          permissive-policies
                          payment-provider
                          operator)]
@@ -124,10 +109,13 @@
       (is (= :cash-account-product/version-immutable (error/kind r)))))
   (testing "flips draft to :published, preserving other fields"
     (let [v (SUT/publish draft-version
+                         20500
+                         (publishes 0)
                          permissive-policies
                          payment-provider
                          operator)]
       (is (= :version-status-published (:status v)))
+      (is (= 20500 (:published-on v)))
       (is (number? (:updated-at v)))
       (is (= operator (:updated-by v)))
       (is (= "prv.3" (:version-id v)))
@@ -137,6 +125,8 @@
                                 :allowed-payment-address-schemes
                                 [:payment-address-scheme-scan
                                  :payment-address-scheme-iban])
+                         20500
+                         (publishes 0)
                          permissive-policies
                          payment-provider
                          operator)]
@@ -147,6 +137,8 @@
     (let [v (SUT/publish (assoc draft-version
                                 :allowed-payment-address-schemes
                                 [:payment-address-scheme-scan])
+                         20500
+                         (publishes 0)
                          permissive-policies
                          payment-provider
                          operator)]
@@ -157,14 +149,9 @@
     (let [r (SUT/discard published-version permissive-policies operator)]
       (is (error/rejection? r))
       (is (= :cash-account-product/version-immutable (error/kind r)))))
-  (testing "rejects with :version-immutable when already discarded"
-    (let [r (SUT/discard discarded-version permissive-policies operator)]
-      (is (error/rejection? r))
-      (is (= :cash-account-product/version-immutable (error/kind r)))))
-  (testing "flips draft to :discarded, by whom recorded"
-    (let [v (SUT/discard draft-version permissive-policies operator)]
-      (is (= :version-status-discarded (:status v)))
-      (is (= operator (:updated-by v))))))
+  (testing "answers a draft as it is, for deleting"
+    (is (= draft-version
+           (SUT/discard draft-version permissive-policies operator)))))
 
 (deftest new-version-test
   (testing "rejects with :draft-already-exists when versions contains a draft"
@@ -176,10 +163,10 @@
                              permissive-policies)]
       (is (error/rejection? r))
       (is (= :cash-account-product/draft-already-exists (error/kind r)))))
-  (testing "succeeds when prior versions are all published or discarded"
+  (testing "succeeds when prior versions are all published"
     (let [v (SUT/new-version "bnk.1"
                              "prd.1"
-                             [published-version discarded-version]
+                             [published-version published-version]
                              template
                              good-data
                              permissive-policies)]
@@ -537,3 +524,32 @@
     (testing "the deny names own funds alone"
       (is (= :account-product-type-sub-ledger-current
              (:product-type (create template operator)))))))
+
+(def ^:private two-publishes-a-month
+  (conj permissive-policies
+        {:status :policy-status-active
+         :limits
+         [{:kind {:cash-account-product
+                  {:filters [{:action :cash-account-product-action-publish}]}}
+           :bound {:kind {:max {:aggregate
+                                {:kind {:count {:value 2
+                                                :window
+                                                :time-window-monthly}}}}}}}]}))
+
+(deftest a-product-publishes-within-its-month-test
+  (testing "a publish within the month's is allowed"
+    (is (= :version-status-published
+           (:status (SUT/publish draft-version
+                                 20500
+                                 (publishes 1)
+                                 two-publishes-a-month
+                                 payment-provider
+                                 operator)))))
+  (testing "one past them is refused"
+    (is (= :policy/limit-exceeded
+           (error/kind (SUT/publish draft-version
+                                    20500
+                                    (publishes 2)
+                                    two-publishes-a-month
+                                    payment-provider
+                                    operator))))))

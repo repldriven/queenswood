@@ -98,10 +98,12 @@
   open-draft
   products/open-draft)
 
-(def ^{:doc
-       "Discards `prod`'s latest version. Args:
+(def
+  ^{:doc
+    "Deletes `prod`'s latest version, its draft, and `prod` with it where
+  that draft was its only version. Args:
   - prod: model product id."}
-     discard-draft
+  discard-draft
   products/discard-draft)
 
 (def

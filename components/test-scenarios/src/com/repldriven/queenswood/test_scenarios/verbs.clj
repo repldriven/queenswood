@@ -307,7 +307,7 @@
         ;; caps; the always-on platform policy governs). Binding it keeps
         ;; this model-equality suite decoupled from the production micro
         ;; tier, whose limits change for production reasons. The narrower
-        ;; micro caps (e.g. one product per type) are exercised by the API
+        ;; micro caps (e.g. two publishes a month) are exercised by the API
         ;; scenarios; per-scenario `bind-policy` supplies any tight limit a
         ;; case needs.
         result (banks/new-bank bank
@@ -485,8 +485,7 @@
                                        {:actor scenario-operator})]
     (-> ctx
         (cond-> (not (error/anomaly? result))
-                (update-latest-version model-prod
-                                       (fn [v] (assoc v :status :discarded))))
+                (update-in [:products model-prod :versions] pop))
         (update :counter inc)
         (track result))))
 

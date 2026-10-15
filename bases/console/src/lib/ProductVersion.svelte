@@ -86,7 +86,7 @@
   const shows = $derived(choice ? paymentShows(choice) : {});
   const currencies = $derived(template?.["allowed-currencies"] ?? (form ? [form.currency] : []));
 
-  const TONE = { draft: "draft", published: "published", discarded: "archived" };
+  const TONE = { draft: "draft", published: "published" };
 
   const DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
 

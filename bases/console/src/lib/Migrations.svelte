@@ -62,7 +62,6 @@
   // version so a product that is only a draft still reads as itself.
   function normaliseProduct(item) {
     const versions = (item.versions ?? [])
-      .filter((v) => shortEnum(v.status) !== "discarded")
       .map((v) => ({
         id: v["version-id"],
         productId: item["product-id"],

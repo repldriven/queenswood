@@ -117,18 +117,28 @@
                    (step :open-draft [:prod-1]))]
         (is (= [(version :published 1) (version :draft 2)]
                (get-in s5 [:products :prod-1 :versions])))))
-    (testing "discard-draft flips the latest draft to discarded"
+    (testing "discard-draft deletes the latest draft"
+      (let [s6 (-> s0
+                   (step :create-product [:bank-0 :current 0])
+                   (step :publish-product [:prod-1])
+                   (step :open-draft [:prod-1])
+                   (step :discard-draft [:prod-1]))]
+        (is (= [(version :published 1)]
+               (get-in s6 [:products :prod-1 :versions])))))
+    (testing "discarding a product's only draft deletes the product"
       (let [s6 (-> s0
                    (step :create-product [:bank-0 :current 0])
                    (step :discard-draft [:prod-1]))]
-        (is (= [(version :discarded 1)]
-               (get-in s6 [:products :prod-1 :versions])))))
-    (testing "open-draft after discard appends v2 in :draft"
+        (is (nil? (get-in s6 [:products :prod-1])))
+        (is (= [:prod-0] (get-in s6 [:banks :bank-0 :products])))))
+    (testing "open-draft after discard takes the deleted draft's number"
       (let [s7 (-> s0
                    (step :create-product [:bank-0 :current 0])
+                   (step :publish-product [:prod-1])
+                   (step :open-draft [:prod-1])
                    (step :discard-draft [:prod-1])
                    (step :open-draft [:prod-1]))]
-        (is (= [(version :discarded 1) (version :draft 2)]
+        (is (= [(version :published 1) (version :draft 2)]
                (get-in s7 [:products :prod-1 :versions])))))
     (testing "update-product-draft rewrites the latest version's window"
       (let [s8 (-> s0

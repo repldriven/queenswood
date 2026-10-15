@@ -82,6 +82,20 @@
   [product as-of]
   (domain/active-version product as-of))
 
+(defn count-published-since
+  "Count a product's versions published on or after the epoch day
+  `since`, read at snapshot. A read primitive for the write sibling's
+  monthly publish limit; a draft carries no publish day and is not
+  counted.
+
+  Args:
+  - txn: FDB transaction or db handle.
+  - bank-id: owning bank id.
+  - product-id: product id.
+  - since: epoch day."
+  [txn bank-id product-id since]
+  (store/count-published-since txn bank-id product-id since))
+
 (defn get-versions
   "Return the raw version records for a bank (optionally one product).
   A read primitive for the write sibling's draft/limit logic.

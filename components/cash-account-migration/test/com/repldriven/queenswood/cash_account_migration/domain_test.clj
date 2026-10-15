@@ -89,12 +89,6 @@
           result (SUT/new-migration data savings-v1 draft)]
       (is (error/rejection? result))
       (is (= :cash-account-migration/target-not-published
-             (error/kind result)))))
-  (testing "a discarded target is refused — the terms were abandoned"
-    (let [discarded (assoc savings-v2 :status :version-status-discarded)
-          result (SUT/new-migration data savings-v1 discarded)]
-      (is (error/rejection? result))
-      (is (= :cash-account-migration/target-not-published
              (error/kind result))))))
 
 (deftest degenerate-migration-test

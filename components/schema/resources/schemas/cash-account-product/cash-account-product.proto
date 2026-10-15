@@ -14,7 +14,6 @@ enum VersionStatus {
   VERSION_STATUS_UNKNOWN = 0;
   VERSION_STATUS_DRAFT = 1;
   VERSION_STATUS_PUBLISHED = 2;
-  VERSION_STATUS_DISCARDED = 3;
 }
 
 enum InterestBanding {
@@ -132,6 +131,7 @@ message CashAccountProduct {
   required int64 effective_from = 16; // epoch day
   optional int64 effective_to = 17; // epoch day
   repeated com.repldriven.queenswood.schema.policy.Limit limits = 18;
+  optional int64 published_on = 19; // epoch day
 
   optional string idempotency_key = 100;
   required int64 created_at = 101;

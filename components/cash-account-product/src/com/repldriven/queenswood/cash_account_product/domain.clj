@@ -541,22 +541,39 @@
                        :version-id (:version-id version)
                        :unsupported (vec unsupported)})))))
 
+(defn- check-publish-limit
+  [aggregates policies]
+  (policy/check-limit
+   policies
+   :cash-account-product
+   {:aggregate :count
+    :window :time-window-monthly
+    :action :cash-account-product-action-publish
+    :value (inc (get-in aggregates
+                        [:cash-account-product
+                         #{:bank-id :product-id :published-on}]))}))
+
 (defn publish
-  [existing policies payment-provider actor]
+  "The draft as publishing it on `today` leaves it, within the product's
+  publishes for the month."
+  [existing today aggregates policies payment-provider actor]
   (let-nom>
     [_ (ensure-draft existing)
      _ (check-capability :cash-account-product-action-publish
                          (:product-type existing)
                          actor
                          policies)
-     _ (check-address-schemes existing payment-provider)]
+     _ (check-address-schemes existing payment-provider)
+     _ (check-publish-limit aggregates policies)]
     (let [now (utility/now)]
       (assoc existing
              :status :version-status-published
+             :published-on today
              :updated-at now
              :updated-by actor))))
 
 (defn discard
+  "The draft, where `actor` may discard it, so that it can be deleted."
   [existing policies actor]
   (let-nom>
     [_ (ensure-draft existing)
@@ -564,8 +581,4 @@
                          (:product-type existing)
                          actor
                          policies)]
-    (let [now (utility/now)]
-      (assoc existing
-             :status :version-status-discarded
-             :updated-at now
-             :updated-by actor))))
+    existing))

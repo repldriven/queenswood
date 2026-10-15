@@ -7,7 +7,8 @@
     [com.repldriven.queenswood.cash-account-product-query.interface :as q]
     [com.repldriven.queenswood.policy.interface :as policy]
 
-    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]))
+    [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- get-policies
   ([txn bank-id opts]
@@ -26,6 +27,20 @@
      by-type (q/count-by-org-product-type txn bank-id product-type)]
     {:cash-account-product {#{:bank-id} total
                             #{:bank-id :product-type} by-type}}))
+
+(defn- get-publish-aggregates
+  "The product's versions published since the start of the calendar
+  month `today` falls in."
+  [txn bank-id product-id today]
+  (let-nom> [n (q/count-published-since
+                txn
+                bank-id
+                product-id
+                (policy/period-start {:window :time-window-monthly
+                                      :anchor :window-anchor-calendar}
+                                     today
+                                     nil))]
+    {:cash-account-product {#{:bank-id :product-id :published-on} n}}))
 
 (defn- or-already-created
   "On a uniqueness violation — a retried create carrying an already-seen
@@ -48,10 +63,10 @@
   [txn kind before after opts]
   (when (:audited? opts)
     (audit/record txn
-                  {:bank-id (:bank-id after)
+                  {:bank-id (:bank-id (or after before))
                    :kind kind
                    :subject-kind :audit-subject-kind-product-version
-                   :subject-id (:version-id after)
+                   :subject-id (:version-id (or after before))
                    :request-id (:request-id opts)
                    :before before
                    :after after
@@ -139,11 +154,11 @@
         [policies (get-policies txn bank-id product-id opts)
          existing (q/get-version txn bank-id product-id version-id)
          discarded (domain/discard existing policies (:actor opts))
-         _ (store/save-version txn discarded)
+         _ (store/delete-version txn discarded)
          _ (audited txn
                     :audit-kind-product-version-discarded
                     existing
-                    discarded
+                    nil
                     opts)]
         discarded)))))
 
@@ -155,9 +170,13 @@
     txn
     (fn [txn]
       (let-nom>
-        [policies (get-policies txn bank-id product-id opts)
+        [today (utility/today)
+         policies (get-policies txn bank-id product-id opts)
          existing (q/get-version txn bank-id product-id version-id)
+         aggregates (get-publish-aggregates txn bank-id product-id today)
          published (domain/publish existing
+                                   today
+                                   aggregates
                                    policies
                                    (:payment-provider opts)
                                    (:actor opts))

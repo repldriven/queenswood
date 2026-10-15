@@ -15,7 +15,8 @@
 
        draft     → Publish (brand), Edit (ghost), Discard (danger)
        published → New version (ghost)   — opens a fresh draft
-       discarded → no actions (the row is a tombstone)
+
+     A discarded draft is deleted, so it has no row.
 
      A pending draft stays out of the mainline but is advertised on it,
      because hiding it would hide its publish and discard actions.
@@ -67,12 +68,10 @@
   // kickers cleanly, which beats a stand-in "Console" placeholder.
   const kicker = $derived(members?.[0]?.["bank-name"]);
 
-  // Backend statuses map straight to ui badge tones except for
-  // `discarded`, which is conceptually archived from the UI's POV.
+  // Backend statuses map straight to ui badge tones.
   const TONE = {
     draft: "draft",
     published: "published",
-    discarded: "archived",
   };
 
   function toneFor(status) {

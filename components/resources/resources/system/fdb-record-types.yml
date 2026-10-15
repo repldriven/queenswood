@@ -38,6 +38,10 @@ stores:
         modified: 1
         fields: [bank_id, idempotency_key]
         unique: true
+      - name: CashAccountProduct_by_product_published_on
+        added: 1
+        modified: 1
+        fields: [bank_id, product_id, published_on]
   cash-account-product-templates:
     record-type: CashAccountProductTemplate
     indexes: []

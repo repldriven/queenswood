@@ -47,7 +47,7 @@ can offer (e.g. capping the number of products, restricting product types).
   a new version.
 - **Draft / publish gate.** Drafts are mutable; publishing
   is the explicit step that locks the version. A draft can
-  also be discarded if abandoned.
+  also be discarded if abandoned, which removes it.
 - **One draft at a time, per product.** Only one draft can
   be open against a product at any moment. This keeps the
   authoring workflow linear.
@@ -69,8 +69,9 @@ can offer (e.g. capping the number of products, restricting product types).
   currency. A multi-currency offering is several products,
   one per currency.
 - **Policy-bounded.** Platform-level policies cap the
-  number of products an organisation can have and can
-  restrict which product types a given organisation may
+  number of products an organisation can have of each
+  type and how often each one publishes a new version, and
+  can restrict which product types a given organisation may
   draft.
 - **Multi-tenant isolation.** Products belong to one
   organisation. Organisations don't see each other's
@@ -88,9 +89,6 @@ can offer (e.g. capping the number of products, restricting product types).
 - **Parallel drafts.** Compliance and product teams cannot
   prepare independent draft versions of the same product
   in parallel. One draft at a time.
-- **Cleanup of discarded drafts.** Discarded drafts are
-  retained as history. There's no archival or pruning
-  flow.
 - **Customer-specified balance buckets.** The shape of an
   account's balances (which balance buckets it carries) is
   settled by the template the product is built from.
@@ -166,9 +164,11 @@ version. The customer supplies the new terms in full.
 ### Discarding a draft
 
 A draft can be discarded if the customer decides not to
-proceed with it. Discarded drafts are kept as history; the
-slot is freed so the customer can open a new draft on the
-same product.
+proceed with it. A discarded draft is removed, and the
+next draft takes its version number; the bank's audit log
+still shows what it held and who discarded it. The slot is
+freed so the customer can open a new draft on the same
+product.
 
 ### Reading products
 
@@ -226,8 +226,11 @@ drafts products:
   draft products at all, and whether it is allowed to draft
   products of a particular type. An organisation might be
   denied, say, the term-deposit product type by its tier.
-- **Count limit** — a cap on the total number of products
-  an organisation can have.
+- **Count limits** — a cap on the number of products of
+  each type an organisation can have, and on how many
+  versions each product publishes in a calendar month. A
+  starter organisation might hold ten products of each type
+  and publish twice a month to each.
 
 Both bounds come from the platform's policy machinery —
 see [policies](policies.md).
@@ -291,13 +294,12 @@ sequenceDiagram
     Q-->>T: updated draft
     Note over T: decision: don't proceed
     T->>Q: discard draft
-    Q-->>T: v3 discarded (terminal)
+    Q-->>T: v3 removed
     Note over T,Q: the customer may now open another draft
 ```
 
 The customer can discard an in-flight draft. Once
-discarded, the draft is closed for good; the customer can
-open a fresh
+discarded, the draft is gone; the customer can open a fresh
 draft on the same product if they want to start again.
 
 ### 4. End customer continues on their original terms
@@ -330,10 +332,6 @@ Only an approved migration moves it.
   independent drafts in parallel. The argument for the
   one-at-a-time invariant is simplicity; the cost is that
   two streams of changes have to be sequenced.
-- **Discarded draft cleanup.** Discarded drafts accumulate.
-  An archival or pruning pass would prevent the version
-  list from growing without bound for customers that
-  rapid-iterate.
 - **Supersession history.** When a new version publishes,
   the previous version isn't marked superseded — it just
   stops being the latest. "Which versions are still in use

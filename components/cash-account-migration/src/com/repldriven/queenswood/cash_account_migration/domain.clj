@@ -19,8 +19,8 @@
 
 (defn- ensure-target-published
   "Accounts may only be moved onto terms the bank has committed to. A
-  draft is still being written and a discarded version was abandoned;
-  neither is something to hold customers on."
+  draft is still being written, and is not something to hold customers
+  on."
   [target-version]
   (when-not (= :version-status-published (:status target-version))
     (error/reject :cash-account-migration/target-not-published

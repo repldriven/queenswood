@@ -1,6 +1,6 @@
-{:name "A bank's third pending invitation is refused by the micro tier's limit"
- ;; The micro tier allows a bank two pending invitations, an operator's
- ;; as much as a member's. Withdrawing one makes room for another.
+{:name "A bank's third pending invitation is refused by its tier's limit"
+ ;; The tier allows a bank two pending invitations, an operator's as much
+ ;; as a member's. Withdrawing one makes room for another.
  :given
  [{:command :api/request
    :request {:method :post
@@ -8,7 +8,7 @@
              :auth :admin
              :body {:name "Pending Limit Bank"
                     :status "test"
-                    :tier "micro"
+                    :tier "few-invitations"
                     :currencies ["GBP"]}}
    :as :bank
    :assert {:status 201}}
@@ -43,7 +43,7 @@
    :assert {:status 429
             :problem {:type ":policy/limit-exceeded"
                       :detail
-                      "Micro tier - a bank has at most 2 pending invitations"}}}
+                      "Few-invitations tier - a bank has at most 2 pending invitations"}}}
   {:command :api/request
    :request {:method :post
              :path "/v1/invitations/{invitation-id}/withdraw"

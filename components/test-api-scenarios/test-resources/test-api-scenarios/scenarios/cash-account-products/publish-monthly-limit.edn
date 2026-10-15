@@ -1,0 +1,42 @@
+{:name "A publish past the month's limit is refused, and leaves the draft"
+ ;; The tier allows a product one publish a month, and the fixture
+ ;; publishes the first version, so the second is refused.
+ :given [{:fixture :bank
+          :as :bank-0
+          :with {:name "Publish Limit" :tier "few-products"}}
+         {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products/{product-id}/versions"
+             :path-params {:product-id [:ref :current :product :product-id]}
+             :auth [:ref :bank-0 :token]
+             :body {:name "Current Account"
+                    :template-id "tpl.00000000000000000000000001"
+                    :currency "GBP"
+                    :interest-rate-bps 0
+                    :effective-from "2026-02-01"}}
+   :as :v2
+   :assert {:status 201}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :current :product :product-id]
+                  :version-id [:ref :v2 :version-id]}
+    :auth [:ref :bank-0 :token]}
+   :assert
+   {:status 429
+    :problem
+    {:type ":policy/limit-exceeded"
+     :detail
+     "Few-products tier - a product publishes at most 1 version per calendar month"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path
+             "/v1/cash-account-products/{product-id}/versions/{version-id}"
+             :path-params {:product-id [:ref :current :product :product-id]
+                           :version-id [:ref :v2 :version-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200 :body {:status "draft" :published-on [:m/absent]}}}]}

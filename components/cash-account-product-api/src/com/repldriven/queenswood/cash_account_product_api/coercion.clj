@@ -9,8 +9,7 @@
 
 (def ^:private version-status-enum
   (coercion/enum-coercion {"draft" :version-status-draft
-                           "published" :version-status-published
-                           "discarded" :version-status-discarded}
+                           "published" :version-status-published}
                           :version-status-unknown))
 
 (def ^:private payment-direction-enum

@@ -162,6 +162,7 @@ message CashAccountOperationLimit {}
 
 message CashAccountProductLimitFilter {
   optional com.repldriven.queenswood.schema.account_product_type.AccountProductType product_type = 1;
+  optional CashAccountProductAction action = 2;
 }
 
 message CashAccountProductLimit {

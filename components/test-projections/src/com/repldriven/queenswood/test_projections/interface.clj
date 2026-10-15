@@ -51,7 +51,8 @@
   each org's products via `get-products` and emits
   `{model-prod-id [{:status ... :number n :currency ...
   :effective-from ... :effective-to ...} ...]}` ordered
-  descending by `:number`. Args:
+  descending by `:number`, leaving out a product no longer on record.
+  Args:
   - bank: FDB config map.
   - model->real: `{model-prod-id {:real-id <id>
                                   :bank-real-id <bank>}}`."}
