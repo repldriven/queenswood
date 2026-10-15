@@ -226,6 +226,8 @@ message TransactionLimit {}
 
 message WebhookEndpointLimit {}
 
+message WebhookTestNotificationLimit {}
+
 message Limit {
   required Bound bound = 1;
   optional string reason = 2;
@@ -251,5 +253,6 @@ message Limit {
     MemberLimit member = 27;
     EmailLimit email = 28;
     AccountPaymentLimit account_payment = 29;
+    WebhookTestNotificationLimit webhook_test_notification = 30;
   }
 }

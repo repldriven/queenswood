@@ -130,6 +130,10 @@
    [:from [:ref "Timestamp"]]
    [:to {:optional true} [:ref "Timestamp"]]])
 
+(def WebhookResend
+  [:map {:json-schema/example examples/WebhookResend}
+   [:resent-count nat-int?]])
+
 (def WebhookEndpointList
   (schema/list-schema "WebhookEndpoint" examples/WebhookEndpointList))
 
@@ -203,7 +207,7 @@
     #'WebhookEndpointId #'WebhookEndpointList #'WebhookEndpointRegistration
     #'WebhookEndpointRequest #'WebhookEndpointSecretRotation
     #'WebhookEndpointStatus #'WebhookNotificationId #'WebhookNotificationKind
-    #'WebhookResendWindowRequest #'WebhookSigningSecret]))
+    #'WebhookResend #'WebhookResendWindowRequest #'WebhookSigningSecret]))
 
 ;; ---------------------------------------------------------------------------
 ;; The notification resource

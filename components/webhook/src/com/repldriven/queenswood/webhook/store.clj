@@ -134,19 +134,49 @@
    :webhook-notification/find-by-idempotency-key
    "Failed to find webhook notification by idempotency key"))
 
-(defn find-notifications-by-bank
-  [txn bank-id]
+(defn find-notifications-since
+  "Up to `limit` of the bank's notifications created at or after `since`,
+  oldest first, or with `after`, those past that entry. Each comes as
+  `{:key entry :notification n}`, the last `:key` the next page's
+  `after`."
+  [txn bank-id since after limit]
   (fdb/transact
    txn
    (fn [txn]
-     (mapv schema/pb->WebhookNotification
-           (fdb/query-records (fdb/open txn notifications-store-name)
-                              "WebhookNotification"
-                              "bank_id"
-                              bank-id
-                              {:index "WebhookNotification_by_bank_created"})))
-   :webhook-notification/find-by-bank
-   "Failed to find webhook notifications by bank"))
+     (mapv (fn [{:keys [key record]}]
+             {:key key :notification (schema/pb->WebhookNotification record)})
+           (fdb/scan-index-entries (fdb/open txn notifications-store-name)
+                                   "WebhookNotification_by_bank_created"
+                                   [bank-id]
+                                   (utility/assoc-some {:from [since]
+                                                        :limit limit}
+                                                       :after
+                                                       after))))
+   :webhook-notification/find-since
+   "Failed to find webhook notifications since an instant"))
+
+(def ^:private most-notifications-counted
+  "More notifications of one kind than any policy lets a bank send in a
+  day, so a count of a day's reaches its limit."
+  10000)
+
+(defn count-notifications-since
+  "How many of the bank's notifications of `kind` were created at or
+  after `since`, read at snapshot."
+  [txn bank-id kind since]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (count (fdb/scan-index-records (fdb/open txn notifications-store-name)
+                                    "WebhookNotification_by_kind_created"
+                                    [bank-id kind]
+                                    {:from [since]
+                                     :limit most-notifications-counted
+                                     :isolation :snapshot})))
+   :webhook-notification/count
+   {:message "Failed to count webhook notifications"
+    :bank-id bank-id
+    :kind kind}))
 
 ;; ---------------------------------------------------------------------------
 ;; Deliveries
@@ -211,6 +241,40 @@
    :webhook-delivery/find-by-endpoint
    "Failed to find webhook deliveries by endpoint"))
 
+(defn find-failed-deliveries
+  "Up to `limit` of the endpoint's failed deliveries created inside
+  `[from, to]`, oldest first."
+  [txn bank-id endpoint-id from to limit]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (mapv schema/pb->WebhookDelivery
+           (fdb/scan-index-records
+            (fdb/open txn deliveries-store-name)
+            "WebhookDelivery_by_endpoint_status"
+            [bank-id
+             endpoint-id
+             (schema/webhook-delivery-status->int
+              :webhook-delivery-status-failed)]
+            {:from [from] :through [to] :limit limit})))
+   :webhook-delivery/find-failed
+   "Failed to find failed webhook deliveries"))
+
+(defn holds-delivery?
+  "Whether the endpoint holds a delivery of the notification, whatever
+  its status."
+  [txn bank-id endpoint-id notification-id]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (boolean (seq (fdb/scan-index-records
+                    (fdb/open txn deliveries-store-name)
+                    "WebhookDelivery_by_endpoint_notification"
+                    [bank-id endpoint-id notification-id]
+                    {:limit 1}))))
+   :webhook-delivery/find-by-notification
+   "Failed to find a webhook delivery of a notification"))
+
 ;; ---------------------------------------------------------------------------
 ;; Delivery attempts
 
@@ -274,6 +338,24 @@
                                   due-by
                                   (assoc :through [due-by]))))
 
+(defn- pending-by-endpoint
+  "Up to `limit` pending deliveries in endpoint order, each endpoint's
+  due first: those of the endpoints after `cursor`, then, where the
+  index ends sooner, those from its start through `cursor`. `cursor` is
+  `[bank-id endpoint-id]`, or nil to start at the beginning."
+  [store limit cursor]
+  (let [scan (fn [opts]
+               (mapv schema/pb->WebhookDelivery
+                     (fdb/scan-index-records
+                      store
+                      "WebhookDelivery_by_status_endpoint_due"
+                      [(schema/webhook-delivery-status->int delivery-pending)]
+                      opts)))
+        tail (scan (utility/assoc-some {:limit limit} :after cursor))]
+    (if (and cursor (< (count tail) limit))
+      (into tail (scan {:limit (- limit (count tail)) :through cursor}))
+      tail)))
+
 (defn claim-due-deliveries
   "Claim the deliveries that are due, in the transaction that read
   them: each moves to in-flight, its next attempt at when the claim
@@ -283,9 +365,14 @@
   between the claim commit and the outcome commit.
 
   Lapsed claims are scanned before the pending rows, so a pending
-  backlog of more than `:limit` rows cannot starve the recovery.
+  backlog of more than `:limit` rows cannot starve the recovery. The
+  pending rows are read endpoint by endpoint from `:cursor` on, so an
+  endpoint whose breaker holds a backlog fills at most one pass's read,
+  and the next pass starts past it.
 
-  Returns the claimed deliveries as they were written.
+  Returns `{:claimed rows :cursor next}`: the claimed deliveries as they
+  were written, and the endpoint the read ended on, nil where it read
+  every pending row.
 
   Args:
   - txn: FDB transaction or config map.
@@ -299,9 +386,10 @@
     - `:endpoint-allowance` — optional, `(fn [txn bank-id endpoint-id])`,
       asked in
       this transaction the first time an endpoint's delivery is reached,
-      answering how many of its deliveries the batch may carry at most."
+      answering how many of its deliveries the batch may carry at most.
+    - `:cursor` — optional, the `:cursor` the last pass returned."
   [txn
-   {:keys [now lease-ms limit per-endpoint-limit endpoint-allowance]}]
+   {:keys [now lease-ms limit per-endpoint-limit endpoint-allowance cursor]}]
   (fdb/transact
    txn
    (fn [txn]
@@ -325,28 +413,37 @@
              (when (< (get @taken endpoint-id 0) (allowance delivery))
                (vswap! taken update endpoint-id (fnil inc 0))
                true))
+           read-limit (* scan-factor limit)
+           pending (pending-by-endpoint store read-limit cursor)
            due (into []
-                     (comp (map schema/pb->WebhookDelivery)
+                     (comp (filter (fn [{:keys [next-attempt-at]}]
+                                     (<= next-attempt-at now)))
                            (filter within-endpoint-limit?)
                            (take limit))
-                     (concat (deliveries-with-status store
-                                                     delivery-in-flight
-                                                     (* scan-factor limit)
-                                                     now)
-                             (deliveries-with-status store
-                                                     delivery-pending
-                                                     (* scan-factor limit)
-                                                     now)))]
-       (reduce (fn [claimed delivery]
-                 (let [row (assoc delivery
-                                  :status delivery-in-flight
-                                  :next-attempt-at (+ now lease-ms))
-                       res (fdb/save-record
-                            store
-                            (schema/WebhookDelivery->java row))]
-                   (if (error/anomaly? res) (reduced res) (conj claimed row))))
-               []
-               due)))
+                     (concat (map schema/pb->WebhookDelivery
+                                  (deliveries-with-status store
+                                                          delivery-in-flight
+                                                          read-limit
+                                                          now))
+                             pending))
+           claimed (reduce (fn [claimed delivery]
+                             (let [row (assoc delivery
+                                              :status delivery-in-flight
+                                              :next-attempt-at (+ now
+                                                                  lease-ms))
+                                   res (fdb/save-record
+                                        store
+                                        (schema/WebhookDelivery->java row))]
+                               (if (error/anomaly? res)
+                                 (reduced res)
+                                 (conj claimed row))))
+                           []
+                           due)]
+       (if (error/anomaly? claimed)
+         claimed
+         {:claimed claimed
+          :cursor (when (= read-limit (count pending))
+                    ((juxt :bank-id :endpoint-id) (peek pending)))})))
    :webhook-delivery/claim
    "Failed to claim due webhook deliveries"))
 

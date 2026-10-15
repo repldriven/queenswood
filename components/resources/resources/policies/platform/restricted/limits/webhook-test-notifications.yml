@@ -1,0 +1,11 @@
+- kind:
+    webhook-test-notification: {}
+  bound:
+    kind:
+      max:
+        aggregate:
+          kind:
+            count:
+              value: 50
+              window: !keyword time-window-daily
+  reason: "Platform-restricted - a bank sends at most 50 test notifications per day"

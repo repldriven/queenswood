@@ -129,9 +129,10 @@
   - opts (optional): map; `:policies` overrides policy resolution, and
     `:since` — an epoch-ms instant — asks for the gap as well as the
     resumption: every notification from that instant on that this
-    endpoint has chosen and has never had delivered gets a fresh
-    pending delivery, written in the transaction the enable commits
-    in."
+    endpoint has chosen and has never had a delivery of gets a pending
+    one, written after the enable commits, a batch to a transaction. A
+    batch that fails leaves the endpoint enabled and the gap queued up
+    to it."
   ([txn bank-id endpoint-id actor]
    (core/enable txn bank-id endpoint-id actor))
   ([txn bank-id endpoint-id actor opts]
@@ -217,8 +218,8 @@
   status and its endpoint — which the tenant reads back through the
   delivery history to see what the endpoint answered.
 
-  Every call creates a delivery. Repetition is the caller's to bound,
-  through the idempotency pair the route declares.
+  Every call creates a delivery, and a bank's test notifications are
+  held to the daily limit its policies set.
 
   Args:
   - txn: FDB transaction or config map.
@@ -251,18 +252,20 @@
    (core/resend txn bank-id endpoint-id delivery-id actor opts)))
 
 (defn resend-window
-  "Send every notification the endpoint has chosen from a window again,
-  one new pending delivery each. Returns `{:deliveries [...]}` or an
-  anomaly. Unlike `enable`'s `:since`, this re-sends what was already
-  delivered too: it answers a tenant that lost what it received rather
-  than one that never received it.
+  "Pend again every delivery to the endpoint created inside a window
+  that has failed, due now and its attempts counted from none, a batch
+  to a transaction. Returns `{:resent-count n}` or an anomaly. A
+  pending, in-flight or delivered delivery is left as it is, so asking
+  twice sends nothing twice; `resend` sends one delivered notification
+  again. A batch that fails leaves those before it pending, and asking
+  again picks up the rest.
 
   Args:
   - txn: FDB transaction or config map.
   - bank-id: owning bank id.
   - endpoint-id: endpoint id.
   - data: `:from` (required) and `:to`, epoch-ms bounds over when the
-    notification was created. An absent `:to` leaves the window open.
+    delivery was created. An absent `:to` is now.
   - actor: who is acting, as `api.shared.actor/actor` builds it.
   - opts (optional): map; `:policies` overrides policy resolution."
   ([txn bank-id endpoint-id data actor]

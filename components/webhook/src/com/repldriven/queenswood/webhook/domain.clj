@@ -238,6 +238,16 @@
                        :window :time-window-instant
                        :value (inc existing-count)}))
 
+(defn- check-test-notification-limit
+  [aggregates policies]
+  (policy/check-limit policies
+                      :webhook-test-notification
+                      {:aggregate :count
+                       :window :time-window-daily
+                       :value (inc (get-in aggregates
+                                           [:webhook-test-notification
+                                            #{:bank-id :kind :created-on}]))}))
+
 ;; ---------------------------------------------------------------------------
 ;; Public domain operations
 
@@ -432,16 +442,26 @@
                 :idempotency-key (:resource-idempotency-key row))))]
     (.getBytes ^String encoded StandardCharsets/UTF_8)))
 
+(def ^:private ms-per-day 86400000)
+
+(defn day-start
+  "The instant the UTC day `at` falls in began, epoch millis."
+  [at]
+  (- at (mod at ms-per-day)))
+
 (defn test-notification
   "A notification of the test kind, carrying the endpoint it is sent to
   as its resource, so its `data` projects onto the same union member
-  every other notification does.
+  every other notification does, refused when it would take the bank
+  past its daily limit. `aggregates` counts the bank's test
+  notifications since the day began.
 
   Its idempotency key is minted rather than taken from a relayed
   event, since a test notification answers to none."
-  [endpoint data now actor]
+  [endpoint data now actor aggregates policies]
   (let-nom>
-    [row {:bank-id (:bank-id endpoint)
+    [_ (check-test-notification-limit aggregates policies)
+     row {:bank-id (:bank-id endpoint)
           :notification-id (utility/generate-id "whn")
           :kind test-notification-kind
           :change-kind test-change-kind
@@ -471,6 +491,17 @@
                        :next-attempt-at now}
                       :created-by
                       actor))
+
+(defn requeue
+  "A failed delivery pending again, due now, with its attempts counted
+  from none, so a tenant that fixed what failed it has it tried on the
+  whole schedule. The attempts already made stay recorded."
+  [delivery now]
+  (assoc delivery
+         :status delivery-pending
+         :attempt-count 0
+         :next-attempt-at now
+         :updated-at now))
 
 (defn ensure-delivery-found
   "Reject when the store answered with no delivery, or with one
@@ -511,10 +542,6 @@
      _ (check-capability :webhook-endpoint-action-manage policies)]
     endpoint))
 
-(defn delivered-delivery?
-  [delivery]
-  (= delivery-delivered (:status delivery)))
-
 (defn matches-filters?
   "Whether a delivery passes the history's filters — its kind, its
   status as the outcome the tenant sees, and the window its creation
@@ -526,16 +553,17 @@
          (or (nil? from) (>= created-at from))
          (or (nil? to) (<= created-at to)))))
 
-(defn within-window?
-  "Whether a notification was created inside `[from, to]`. An absent
-  `to` leaves the window open at the top."
-  [notification from to]
-  (let [created-at (:created-at notification)]
-    (and (>= created-at from) (or (nil? to) (<= created-at to)))))
-
 (defn chosen?
   "Whether an endpoint has chosen a notification's kind. An endpoint
   that chose no kinds has chosen all of them."
   [endpoint kind]
   (let [kinds (:kinds endpoint)]
     (or (empty? kinds) (contains? (set kinds) kind))))
+
+(defn backfilled?
+  "Whether a re-enable asking for its gap queues `notification` to
+  `endpoint`: one of a kind the endpoint has chosen, and never a test
+  notification, which is sent to the one endpoint that asked for it."
+  [endpoint notification]
+  (let [kind (:kind notification)]
+    (and (not= test-notification-kind kind) (chosen? endpoint kind))))

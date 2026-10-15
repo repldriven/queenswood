@@ -60,6 +60,7 @@ export const DOMAINS = {
   bank:                 { label: "Bank",                 group: "Platform" },
   policy:               { label: "Policy",               group: "Platform" },
   webhook_endpoint:     { label: "Webhook Endpoint",     group: "Platform" },
+  webhook_test_notification: { label: "Webhook Test Notification", group: "Platform" },
 };
 
 export const DOMAIN_ORDER = Object.keys(DOMAINS);

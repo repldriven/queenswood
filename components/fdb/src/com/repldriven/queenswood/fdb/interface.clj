@@ -322,18 +322,29 @@
 (defn scan-index-records
   "The records a value index holds under `prefix`, in the index's order —
   the indexed fields, then the primary key — up to `:limit` of them, as
-  serialized bytes. With `:through`, only those whose fields after the
-  prefix are at most its values. Reads no record it leaves out.
+  serialized bytes. Reads no record it leaves out.
 
   Args:
   - store: an open FDBRecordStore.
   - index-name: the value index.
   - prefix: a vector of the index's leading fields, an enum as its
     number.
-  - opts: `{:limit n}`, the most records returned, and optionally
-    `:through`, a vector of the next fields' highest values."
+  - opts: `{:limit n}`, the most records returned, and optionally:
+    - `:from` — a vector of the next fields' lowest values.
+    - `:after` — an entry's `:key` from `scan-index-entries`, the scan
+      starting past it.
+    - `:through` — a vector of the next fields' highest values.
+    - `:isolation` — `:snapshot`, joining no read-conflict set, or
+      `:serializable`, the default."
   [store index-name prefix opts]
   (scan/scan-index-records store index-name prefix opts))
+
+(defn scan-index-entries
+  "As `scan-index-records`, but each record comes back as
+  `{:key entry :record bytes}`, `entry` the index entry's fields past
+  `prefix`, so a caller can page on with `:after`."
+  [store index-name prefix opts]
+  (scan/scan-index-entries store index-name prefix opts))
 
 (defn scan-record-entries
   "As `scan-records`, but each record comes back as

@@ -496,7 +496,13 @@ after roughly a day. Past the last attempt or the maximum age the
 delivery is marked failed and kept. Each endpoint has a circuit
 breaker, which [outbound-delivery](outbound-delivery.md) describes: the
 claim takes none of an endpoint's deliveries while its breaker is open,
-and one while it is half-open. The scenario rig shortens the policy so
+and one while it is half-open. It reads the pending deliveries endpoint
+by endpoint, each endpoint's due first, off
+`[status, bank_id, endpoint_id, next_attempt_at]`, starting past the
+endpoint the last pass's read ended on and wrapping to the start where
+the index ends first, at most ten times `batch-size` rows to a pass. An
+endpoint whose breaker holds a backlog fills at most one pass's read,
+and the next pass starts past it. The scenario rig shortens the policy so
 an outage plays out in seconds.
 
 #### The runner delivers it
@@ -514,7 +520,7 @@ sequenceDiagram
     end
     loop every poll-ms
     critical transact
-    WR->>DB: read the in-flight deliveries whose lease has passed, then the pending ones due
+    WR->>DB: read the in-flight deliveries whose lease has passed, then the pending ones endpoint by endpoint from the last pass's
     loop each, up to batch-size
     opt its endpoint not yet reached in this pass
     WR->>DB: read the endpoint's breaker, saving it when this pass claims the half-open probe
@@ -650,12 +656,15 @@ that lands.
   `POST .../disable` and `DELETE /v1/webhook-endpoints/{endpoint-id}`
   each leave the status they start from, so a repeat meets
   `:webhook-endpoint/invalid-status`.
-- **The pair alone.** `POST .../test-notification`,
-  `POST .../deliveries/{delivery-id}/resend` and `POST .../resend` each
-  create a delivery every time they run. Inside the cache window a
-  retry replays the first answer; past it, a second delivery goes out
-  under a notification id the tenant has already seen, which is the
-  repeat the signing convention exists to let it recognise.
+- **The pair alone.** `POST .../test-notification` and
+  `POST .../deliveries/{delivery-id}/resend` each create a delivery
+  every time they run. Inside the cache window a retry replays the
+  first answer; past it, a second delivery goes out under a
+  notification id the tenant has already seen, which is the repeat the
+  signing convention exists to let it recognise.
+- **The pair, and the status it reads.** `POST .../resend` queues
+  again only the failed deliveries in its window, so a repeat past the
+  cache window finds them pending or delivered and queues nothing.
 
 Reads take no key: get and list endpoints, list an endpoint's
 deliveries with filters on kind, outcome and time, and list a
@@ -663,15 +672,36 @@ delivery's attempts at `GET .../deliveries/{delivery-id}/attempts`.
 
 `POST .../enable` takes an optional `since`. Without it the endpoint
 resumes from the next change; with it, every notification for the
-endpoint's chosen kinds from that instant on that has no delivered
-delivery gets a fresh pending one, so re-enabling and asking for the
-gap are one call rather than two with the tenant computing the window.
+endpoint's chosen kinds from that instant on that it has no delivery
+of gets a pending one, so re-enabling and asking for the gap are one
+call rather than two with the tenant computing the window. The enable
+commits first, and the backfill reads the bank's notifications off
+`[bank_id, created_at]` after it, 500 to a transaction, each page
+starting past the index entry the last one ended on. A test
+notification is never backfilled: it was sent to the one endpoint that
+asked for it.
+
+`POST .../resend` takes a window, `from` and an optional `to`, over
+when each delivery was created, and queues again every delivery to the
+endpoint in it that failed: pending, due now, its attempts counted from
+none, so it is tried on the whole retry schedule. A pending, in-flight
+or delivered one is left as it is, so a consumer that asks on every
+restart duplicates nothing, and one that lost a delivered notification
+asks for it by `POST .../deliveries/{delivery-id}/resend`. The failed
+deliveries are read off `[bank_id, endpoint_id, status, created_at]`,
+500 to a transaction, until the window holds none, and the response is
+the count queued, `{"resent-count": n}`. Each re-queued delivery is an
+audit entry, its changeset the status and attempts before and after.
 
 `POST .../test-notification` answers with the delivery it created — its
 id, its status and its endpoint — and the tenant reads that delivery
 back through the delivery route to see what the endpoint answered. A
 test notification is a notification like any other, with its own id and
-its own attempts.
+its own attempts. A bank sends at most 50 a day, the
+`webhook-test-notification` limit in the platform's restricted policy,
+checked in the transaction that saves the notification against a count
+of the bank's test notifications since the UTC day began, read at
+snapshot off `[bank_id, kind, created_at]`.
 
 **Test and live.** A bank's status is `TEST` or `LIVE` on the one bank
 record, and `change-status` flips it, re-pointing the service-account
@@ -730,13 +760,17 @@ type in the `schema` brick's `interface.clj`.
 - `WebhookNotification` — notification id, bank id, kind, resource
   type and id, the envelope fields above, the rendered body, and the
   relayed changelog event's id as its idempotency key, unique per bank.
+  Indexed by bank and time for a backfill, and by bank, kind and time
+  for the test-notification count.
 - `WebhookDelivery` — delivery id, notification id, endpoint id,
   status (pending, in-flight, delivered, failed), the kind, how many
   attempts it has made, when the next is due or the claim lapses, the
   trace each attempt joins, when it was delivered or failed, and who
   asked for it where a person did. Indexed
-  by status and due time for the runner, and by endpoint and time for
-  the delivery history. Kind and outcome are denormalised onto the
+  by status and due time for the runner, by endpoint and time for
+  the delivery history, by endpoint, status and time for a resend, and
+  by endpoint and notification for a backfill's check that one is
+  already held. Kind and outcome are denormalised onto the
   delivery, so the history's filters answer off one index rather than
   a join back to the notification.
 - `WebhookDeliveryAttempt` — attempt id, delivery id, when it was
@@ -859,7 +893,10 @@ neither.
 
 - **The `webhook` brick** covers its domain rules (address validation,
   lifecycle guards, the backoff and give-up), its store (the
-  indexes, the dedup key), its signing against the vectors above, its
+  indexes, the dedup key), a backfill queuing only what the endpoint
+  holds no delivery of, a resend queuing only what failed, the daily
+  test-notification limit, a held endpoint's backlog leaving the next
+  pass to the endpoint after it, its signing against the vectors above, its
   runner against a receiver started in the test, its breaker holding
   an endpoint through an outage, and that its `oneOf`
   names every resource the catalogue maps to.
@@ -867,8 +904,9 @@ neither.
   each extraction, and holds with it that each kind is listed in the
   document's `webhooks` object.
 - **API scenarios** in `test-api-scenarios` cover the endpoint
-  lifecycle, secret rotation, the count limit and an opening's delivery
-  over HTTP, whose equality assertion is the design's contract.
+  lifecycle, secret rotation, the count limit, a resend's count and an
+  opening's delivery over HTTP, whose equality assertion is the
+  design's contract.
 
 ## Alternatives Considered
 
@@ -957,11 +995,17 @@ stated as unobserved, with what would observe it.
   `bank-tier-changed` are written to the bank store's changelog and
   relayed by no runner, so nothing has ever read one. The bank slice's
   relay runner and topic are what observe them.
-- **Deliveries made by hand have no limit.** `test-notification` and
-  `resend` each add a delivery, and nothing counts them. `resend-window`
-  reads every notification the bank has had in one transaction and
-  resends each in the window, so one call can queue thousands, and a long
-  history makes the read too large to commit.
+- **A single resend has no limit.** Each
+  `POST .../deliveries/{delivery-id}/resend` adds a delivery, and
+  nothing counts them.
+- **Deliveries are taken endpoint by endpoint, not oldest first.** A
+  pass reads from the endpoint after the last pass's, so a delivery
+  waits for the read to come round to its endpoint, and an older one
+  for another endpoint may go out after it.
+- **A backfill or a resend that fails part-way stays part-done.** Each
+  batch commits on its own, so a failure leaves the batches before it
+  queued. A resend asked again picks up the rest; an enable cannot be
+  asked again, since the endpoint is already enabled.
 
 ## References
 

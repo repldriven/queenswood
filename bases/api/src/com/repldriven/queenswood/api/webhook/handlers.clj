@@ -73,8 +73,8 @@
    :body (webhook/->delivery-body delivery)})
 
 (defn- resent
-  [{:keys [deliveries]}]
-  {:status 200 :body {:items (mapv webhook/->delivery-body deliveries)}})
+  [result]
+  {:status 200 :body result})
 
 (defn- with-idempotency-key
   "The client's key when it sent one. Every route that reads it

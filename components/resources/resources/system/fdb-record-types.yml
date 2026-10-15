@@ -542,6 +542,10 @@ stores:
         added: 1
         modified: 1
         fields: [bank_id, created_at]
+      - name: WebhookNotification_by_kind_created
+        added: 1
+        modified: 1
+        fields: [bank_id, kind, created_at]
   webhook-deliveries:
     record-type: WebhookDelivery
     primary-key: [bank_id, delivery_id]
@@ -554,6 +558,18 @@ stores:
         added: 1
         modified: 1
         fields: [bank_id, endpoint_id, created_at]
+      - name: WebhookDelivery_by_status_endpoint_due
+        added: 1
+        modified: 1
+        fields: [status, bank_id, endpoint_id, next_attempt_at]
+      - name: WebhookDelivery_by_endpoint_status
+        added: 1
+        modified: 1
+        fields: [bank_id, endpoint_id, status, created_at]
+      - name: WebhookDelivery_by_endpoint_notification
+        added: 1
+        modified: 1
+        fields: [bank_id, endpoint_id, notification_id]
   webhook-delivery-attempts:
     record-type: WebhookDeliveryAttempt
     primary-key: [bank_id, delivery_id, attempt_id]
