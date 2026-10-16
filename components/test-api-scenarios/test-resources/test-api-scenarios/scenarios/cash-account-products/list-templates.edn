@@ -16,7 +16,9 @@
                     :name "Current account"
                     :product-type "current"
                     :balance-sheet-side "liability"
-                    :allowed-currencies ["GBP"]}
+                    :allowed-currencies ["GBP"]
+                    :currency-calendars
+                    [{:currency "GBP" :calendars ["none" "weekends" "GBLO"]}]}
                    {:template-id "tpl.00000000000000000000000002"
                     :name "Savings account"
                     :product-type "savings"

@@ -268,11 +268,21 @@
      :payment {:kind {:account-day {:unit :interest-period-unit-day
                                     :every 1}}}}))
 
+(defn- offered-calendar?
+  "Whether `calendar` is one `currency-entry` offers a payment: none,
+  every day, or one it lists."
+  [currency-entry calendar]
+  (or (nil? calendar)
+      (= :business-day-calendar-none calendar)
+      (contains? (set (:calendars currency-entry)) calendar)))
+
 (defn- interest-fields
   "The version's interest terms from the caller's `:interest-terms`, or
   its `:interest-rate-bps` as flat ones, with the day count and business
-  day convention of the template's `currency-entry`. Nil where it pays
-  none, or an anomaly where the terms cannot hold."
+  day convention of the template's `currency-entry`, its payment
+  counted on every day where the terms name no calendar or pay at
+  close. Nil where it pays none, or an anomaly where the terms cannot
+  hold."
   [data currency-entry]
   (let [{:keys [interest-terms interest-rate-bps effective-from]} data
         terms (or interest-terms (flat-interest interest-rate-bps))
@@ -282,6 +292,10 @@
 
                  (nil? terms)
                  nil
+
+                 (not (offered-calendar? currency-entry
+                                         (get-in terms [:payment :calendar])))
+                 "The currency offers no such calendar"
 
                  :else
                  (accrual-problem (:accrual terms) effective-from))]
@@ -294,7 +308,14 @@
      (-> terms
          (assoc-in [:accrual :day-count] (:day-count currency-entry))
          (assoc-in [:payment :business-day-convention]
-                   (:business-day-convention currency-entry)))
+                   (:business-day-convention currency-entry))
+         (update :payment
+                 (fn [{:keys [kind calendar] :as payment}]
+                   (assoc payment
+                          :calendar
+                          (if (or (nil? calendar) (:at-close kind))
+                            :business-day-calendar-none
+                            calendar)))))
 
      :else
      nil)))

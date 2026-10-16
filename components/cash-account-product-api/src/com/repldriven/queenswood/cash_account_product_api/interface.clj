@@ -141,7 +141,8 @@
 
 (defn ->template-body
   "Project a stored template onto `CashAccountProductTemplate`, its
-  currencies as `allowed-currencies`.
+  currencies as `allowed-currencies`, and each one's calendars, `none`
+  first, as `currency-calendars`.
 
   Args:
   - template: a template as the store hands it back."

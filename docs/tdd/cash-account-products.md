@@ -286,6 +286,7 @@ message InterestPayment {
     CalendarDayInterestPayment calendar_day = 3;
     AtCloseInterestPayment at_close = 4;
   }
+  required BusinessDayCalendar calendar = 5;
 }
 
 message InterestTerms {
@@ -294,10 +295,10 @@ message InterestTerms {
 }
 ```
 
-`InterestBanding`, `InterestDayCount` and `BusinessDayConvention` are
-enums, the last two in the folder's `types.proto`, since the template
-names them too. `CashAccountProduct` carries the terms as
-`optional InterestTerms interest_terms = 14`.
+`InterestBanding`, `InterestDayCount`, `BusinessDayConvention` and
+`BusinessDayCalendar` are enums, the last three in the folder's
+`types.proto`, since the template names them too. `CashAccountProduct`
+carries the terms as `optional InterestTerms interest_terms = 14`.
 
 **Accrual.** The rates are a grid: a column for each band of the
 balance and a row for each period of an account's life, each cell a
@@ -332,13 +333,18 @@ account closes.
 **Conventions.** The template names, for each currency it allows, the
 day count and business day convention an account in it is held to, and
 a version takes those of its currency when it is created or updated.
-The request states neither:
+The request states neither. The template also lists the calendars a
+version in the currency may count its payment days on, besides `NONE`,
+which every currency offers:
 
 ```yaml
 # cash-account-product-templates/currencies/gbp.yml
 currency: GBP
 day-count: !keyword interest-day-count-actual-365
 business-day-convention: !keyword business-day-convention-modified-following
+calendars:
+  - !keyword business-day-calendar-weekends
+  - !keyword business-day-calendar-gblo
 ```
 
 `ACTUAL_365` divides a year's interest by 365 every day, `ACTUAL_ACTUAL`
@@ -346,6 +352,24 @@ by 366 on a day in a leap year, and `ACTUAL_360` by 360. A business day
 convention is ISDA's: `MODIFIED_FOLLOWING` moves a payment day that is
 not a business day to the next, or to the previous where the next is in
 another month.
+
+**Calendars.** A payment's `calendar` says which days are business
+days: `NONE` every day, so a daily payment is paid on every day of the
+year; `WEEKENDS` every day but Saturday and Sunday; and an FpML
+business centre, `GBLO` closed on England and Wales's bank holidays and
+`EUTA` on TARGET's closing days, each also at weekends. The API takes it
+on an `account-day` or `calendar-day` payment as `none`, `weekends`,
+`GBLO` or `EUTA`, `NONE` where the request names none and always at
+close, and refuses one the currency does not list with
+`:cash-account-product/invalid-interest-terms`. A template returns each
+currency's as `currency-calendars`, `none` first. GBP lists `WEEKENDS`
+and `GBLO`, EUR `WEEKENDS` and `EUTA`, and USD `WEEKENDS` until New
+York's holidays have a source. GBLO's holidays are
+[gblo.json](/components/resources/resources/calendars/gblo.json), copied
+from GOV.UK's England and Wales list by `just calendars-update`, and
+EUTA's follow TARGET's rule: New Year's Day, Good Friday, Easter Monday,
+1 May, and 25 and 26 December. `calc` counts a calendar's business days
+and moves a day by a convention, each taking the calendar as data.
 
 **Validation.** The API schema holds the field rules: 1 to 10 bands, 1
 to 12 periods, one rate for each, every rate in basis points and not

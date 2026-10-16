@@ -37,7 +37,9 @@
    :currencies [{:currency "GBP"
                  :day-count :interest-day-count-actual-365
                  :business-day-convention
-                 :business-day-convention-modified-following}]
+                 :business-day-convention-modified-following
+                 :calendars [:business-day-calendar-weekends
+                             :business-day-calendar-gblo]}]
    :balance-products [{:balance-type :balance-type-default
                        :balance-status :balance-status-posted}]
    :allowed-payment-address-schemes [:payment-address-scheme-scan]
@@ -413,7 +415,9 @@
           (-> terms
               (assoc-in [:accrual :day-count] :interest-day-count-actual-365)
               (assoc-in [:payment :business-day-convention]
-                        :business-day-convention-modified-following)))
+                        :business-day-convention-modified-following)
+              (update-in [:payment :calendar]
+                         (fnil identity :business-day-calendar-none))))
         refused (fn [data]
                   (let [r (draft data)]
                     (when (and (error/rejection? r)
@@ -424,6 +428,25 @@
     (testing "a version keeps its terms, with its currency's conventions"
       (is (= (conventions terms)
              (:interest-terms (draft {:interest-terms terms})))))
+    (testing "a payment's calendar is its own, or every day"
+      (let [calendar (fn [payment]
+                       (get-in (draft {:interest-terms
+                                       (assoc terms :payment payment)})
+                               [:interest-terms :payment :calendar]))]
+        (is (= :business-day-calendar-gblo
+               (calendar (assoc (:payment terms)
+                                :calendar
+                                :business-day-calendar-gblo))))
+        (is (= :business-day-calendar-none (calendar (:payment terms))))
+        (testing "but not one its currency does not offer"
+          (is (= "The currency offers no such calendar"
+                 (refused {:interest-terms (assoc-in terms
+                                            [:payment :calendar]
+                                            :business-day-calendar-euta)}))))
+        (testing "and every day at close, which has no schedule"
+          (is (= :business-day-calendar-none
+                 (calendar {:kind {:at-close {}}
+                            :calendar :business-day-calendar-gblo}))))))
     (testing "a rate alone is one band from opening, paid daily"
       (let [read (:interest-terms (draft {:interest-rate-bps 250}))]
         (is (= {:bands [0]

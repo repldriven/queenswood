@@ -37,9 +37,10 @@
     - `:interest-rate-bps` — optional; a flat rate from opening, paid
       daily. Absent with `:interest-terms`, the version pays none.
     - `:interest-terms` — optional, in place of the rate;
-      `{:accrual {:banding :bands :schedule} :payment {:kind}}`, a rate
-      for each period of an account's life and each band of its
-      balance, and when it is paid. The template's entry for
+      `{:accrual {:banding :bands :schedule} :payment {:kind
+      :calendar}}`, a rate for each period of an account's life and
+      each band of its balance, and when it is paid, counted on the
+      calendar, every day where it names none. The template's entry for
       `:currency` gives its day count and business day convention.
     - `:opening-reward` — optional; `{:amount n}`, the welcome reward
       paid once to an account opened under the version, in minor units
@@ -143,8 +144,9 @@
   - config: FDB config (`:record-db` / `:record-store`).
   - data: template fields (`:product-type`, `:balance-sheet-side`,
     `:balance-products`, `:allowed-payment-address-schemes`,
-    `:currencies`, each a `:currency` with its `:day-count` and
-    `:business-day-convention`, `:iso-cash-account-type`, optional
+    `:currencies`, each a `:currency` with its `:day-count`,
+    `:business-day-convention` and the `:calendars` it offers besides
+    none, `:iso-cash-account-type`, optional
     `:name`)."
   [config data]
   (core/new-template config data))

@@ -1,3 +1,6 @@
 currency: EUR
 day-count: !keyword interest-day-count-actual-360
 business-day-convention: !keyword business-day-convention-modified-following
+calendars:
+  - !keyword business-day-calendar-weekends
+  - !keyword business-day-calendar-euta

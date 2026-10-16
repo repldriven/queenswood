@@ -804,11 +804,14 @@ compares two schedules rather than two rates.
 - **Interest is paid into the account itself.** A version's
   terms cannot send it to a nominated account, which fixed-rate
   bonds and monthly-income savings commonly do and some require.
-- **Payment days are calendar days.** A version states its business
-  day convention, and nothing holds a calendar of UK bank holidays or
-  weekends for it to move a day by, so every day is a business day;
-  the scheduler's days are UTC days. A currency's calendars join its
-  template entry when the calendar is built.
+- **Payment days do not move yet.** A version names a calendar and a
+  business day convention, and `calc` can move a day by them, but
+  capitalisation pays every day until payment days are built; the
+  scheduler's days are UTC days.
+- **A calendar's holidays end where its source does.** GBLO's list from
+  GOV.UK runs a year or two ahead, and a day past its last year counts
+  as a business day; New York has no calendar, so USD counts weekends
+  alone.
 - **Calendar payments are by day of the month.** A payment every Monday
   or on a weekday of the month cannot be stated; a weekly payment counts
   from the account's day.

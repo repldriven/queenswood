@@ -53,11 +53,19 @@
     "preceding" :business-day-convention-preceding
     "modified-preceding" :business-day-convention-modified-preceding}))
 
+(def ^:private business-day-calendar-enum
+  (coercion/enum-coercion {"none" :business-day-calendar-none
+                           "weekends" :business-day-calendar-weekends
+                           "GBLO" :business-day-calendar-gblo
+                           "EUTA" :business-day-calendar-euta}))
+
 (def interest-banding-enum-schema (:enum-schema interest-banding-enum))
 (def interest-period-unit-enum-schema (:enum-schema interest-period-unit-enum))
 (def interest-day-count-enum-schema (:enum-schema interest-day-count-enum))
 (def business-day-convention-enum-schema
   (:enum-schema business-day-convention-enum))
+(def business-day-calendar-enum-schema
+  (:enum-schema business-day-calendar-enum))
 (def payment-direction-enum-schema (:enum-schema payment-direction-enum))
 (def payment-measure-enum-schema (:enum-schema payment-measure-enum))
 (def payment-period-enum-schema (:enum-schema payment-period-enum))
