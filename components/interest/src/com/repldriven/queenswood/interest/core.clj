@@ -46,7 +46,7 @@
   carries no row of at all: the resolution reads the chart, which says
   nothing about it, so it surfaces when that account is posted."
   [config data spec]
-  (let [{:keys [policy-kind run-kind gl-fn]} spec
+  (let [{:keys [policy-kind run-kind gl-fn prepare-fn]} spec
         {:keys [bank-id as-of-date]} data
         ctx (assoc spec
                    :bank-id bank-id
@@ -66,7 +66,11 @@
                                   policy-kind
                                   as-of-date)
        _ (run/check-daily-count policies policy-kind aggregates)
-       tally (scan/post-accounts config (assoc ctx :gl gl :policies policies))
+       prepared (if prepare-fn (prepare-fn config bank-id as-of-date) {})
+       tally (scan/post-accounts config
+                                 (merge ctx
+                                        prepared
+                                        {:gl gl :policies policies}))
        _ (run/check-complete bank-id as-of-date tally)
        record (run/closed bank-id as-of-date run-kind)
        _ (store/save-run config record)]

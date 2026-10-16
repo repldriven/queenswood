@@ -25,6 +25,14 @@
   [epoch-day]
   (.getMonthValue (LocalDate/ofEpochDay epoch-day)))
 
+(defn year-of
+  [epoch-day]
+  (.getYear (LocalDate/ofEpochDay epoch-day)))
+
+(defn days-in-month
+  [epoch-day]
+  (.lengthOfMonth (LocalDate/ofEpochDay epoch-day)))
+
 (defn epoch-day
   [year month day]
   (.toEpochDay (LocalDate/of (int year) (int month) (int day))))

@@ -1,0 +1,37 @@
+{:name "Interest is paid on the version's payment day, moved off a weekend"
+ ;; £1,000 at 36.5% earns 100 a day, paid monthly on the 3rd on
+ ;; weekdays. Saturday 3 July 2027 moves to Monday 5 July under GBP's
+ ;; modified following, so Friday's and Saturday's runs pay nothing and
+ ;; Monday's, whose window runs from Saturday, pays all three days. The
+ ;; model is compared after every step.
+ :given
+ [{:command :create-bank :args []}
+  {:command :create-product
+   :args
+   [:bank-0 :savings
+    {:banding :marginal
+     :bands [0]
+     :schedule {:relative {:unit :month
+                           :periods [{:after 0 :rates-bps [3650]}]}}
+     :payment {:calendar-day {:every 1 :day-of-month 3 :in-month 1}}
+     :calendar :weekends}]}
+  {:command :publish-product :args [:prod-1]}
+  {:command :create-person-party :args [:bank-0]}
+  {:command :open-account :args [:bank-0 :party-1 :prod-1]}
+  {:command :inbound-transfer :args [:acct-0 100000]}
+  {:command :internal-transfer :args [:acct-0 :acct-1 100000]}]
+ :when [{:command :accrue-interest :args [:bank-0 21001]}
+        {:command :capitalize-interest :args [:bank-0 21001]}
+        {:command :accrue-interest :args [:bank-0 21002]}
+        {:command :capitalize-interest :args [:bank-0 21002]}
+        {:command :accrue-interest :args [:bank-0 21004]}
+        {:command :capitalize-interest :args [:bank-0 21004]}]
+ :then [{:command :assert-no-anomaly :args []}
+        {:command :assert-interest-reconciliation :args [:bank-0 "GBP"]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :ledger-account-code-interest-expense "GBP" -300]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :ledger-account-code-interest-payable "GBP" 0]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :ledger-account-code-customer-deposits-savings "GBP"
+                100300]}]}

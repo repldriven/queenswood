@@ -401,26 +401,46 @@
   {:current :account-product-type-sub-ledger-current
    :savings :account-product-type-sub-ledger-savings})
 
+(defn- unit-keyword
+  [unit]
+  (keyword (str "interest-period-unit-" (name unit))))
+
+(defn- payment-terms
+  "A version's payment from the model's, daily on every day where it
+  states none."
+  [payment calendar]
+  (let [{:keys [account-day calendar-day at-close]} payment]
+    {:kind (cond account-day
+                 {:account-day (update account-day
+                                       :unit
+                                       unit-keyword)}
+
+                 calendar-day
+                 {:calendar-day calendar-day}
+
+                 at-close
+                 {:at-close {}}
+
+                 :else
+                 {:account-day {:unit :interest-period-unit-day
+                                :every 1}})
+     :calendar (keyword (str "business-day-calendar-"
+                             (name (or calendar :none))))}))
+
 (defn- interest-extras
   "A version's interest from the model's: a flat rate as
-  `:interest-rate-bps`, or terms as `:interest-terms`, paid daily."
+  `:interest-rate-bps`, or terms as `:interest-terms`."
   [interest]
   (if (map? interest)
-    (let [{:keys [banding bands schedule]} interest
+    (let [{:keys [banding bands schedule payment calendar]} interest
           {:keys [relative fixed]} schedule]
       {:interest-terms
        {:accrual {:banding (keyword (str "interest-banding-" (name banding)))
                   :bands bands
                   :schedule (if relative
-                              {:relative (update relative
-                                                 :unit
-                                                 (fn [unit]
-                                                   (keyword
-                                                    (str "interest-period-unit-"
-                                                         (name unit)))))}
+                              {:relative (update relative :unit unit-keyword)}
                               {:fixed fixed})}
-        :payment {:kind {:account-day {:unit :interest-period-unit-day
-                                       :every 1}}}}})
+        :payment (payment-terms payment calendar)}})
     (when (pos? interest) {:interest-rate-bps interest})))
 
 (defmethod dispatch :create-product

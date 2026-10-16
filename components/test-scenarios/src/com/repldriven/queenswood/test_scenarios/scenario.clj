@@ -103,7 +103,22 @@
          [:vector
           [:map {:closed true}
            [:from-on int?]
-           [:rates-bps [:vector int?]]]]]]]]]]])
+           [:rates-bps [:vector int?]]]]]]]]]]
+   [:payment {:optional true}
+    [:or
+     [:map {:closed true}
+      [:account-day
+       [:map {:closed true}
+        [:unit [:enum :day :week :month]]
+        [:every pos-int?]]]]
+     [:map {:closed true}
+      [:calendar-day
+       [:map {:closed true}
+        [:every [:enum 1 2 3 4 6 12]]
+        [:day-of-month [:int {:min 1 :max 31}]]
+        [:in-month [:int {:min 1 :max 12}]]]]]
+     [:map {:closed true} [:at-close [:map {:closed true}]]]]]
+   [:calendar {:optional true} [:enum :none :weekends]]])
 
 (def verbs
   {:create-bank {:kind :model :args none}

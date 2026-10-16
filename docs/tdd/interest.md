@@ -4,7 +4,7 @@
 
 Customer accounts earn interest. The bank computes it daily,
 records it against the customer's balance, and capitalises it
-at the cadence the bank's job sets, daily by default, so the
+on the payment days the account's product version sets, so the
 customer can spend it. Across millions of
 accounts and 365 days, fractions of a penny per day add up to
 real money. The math has to conserve every micro-unit.
@@ -413,12 +413,12 @@ deposit control, summed from the default ones, rises.
 
 ### Capitalisation cadence
 
-`capitalize-accrued` is **not constrained to any cadence**. It
-sweeps accrued interest into default whenever it is called. The
-operator (or whoever schedules the run) chooses the cadence,
-and the choice has real customer-facing consequences. Once a
-version's interest terms land, the version chooses it for each
-account; see "A version's interest terms".
+A version's payment terms choose each account's cadence, and
+`capitalize-accrued` sweeps the accounts whose payment day has come
+since the bank's last run; see "A version's interest terms". The
+bank's job only has to run often enough to reach every payment day,
+and a day it misses is paid by the next run. The choice has real
+customer-facing consequences.
 
 The compounding behaviour falls out of the cadence:
 
@@ -582,10 +582,10 @@ run before the day ends go when it lands.
 
 ### A version's interest terms
 
-Accrual reads the terms; the payment days, the term and maturity are
-not built yet. A version states its rates as a grid, a rate for each
-period of an account's life and each band of its balance, and says when
-interest is paid, as
+Accrual reads the terms and capitalisation pays on their payment days;
+the term and maturity are not built yet. A version states its rates as
+a grid, a rate for each period of an account's life and each band of
+its balance, and says when interest is paid, as
 [cash-account-products](cash-account-products.md#interest-terms) lays
 out. This section is how the passes read the terms, and the order to
 build the rest in.
@@ -597,12 +597,13 @@ accrual has one part, the whole principal at its band's rate, as
 "Daily-interest math" composes it. A flat rate at actual/365, one band
 and one period, computes what a single rate did.
 
-**A payment day moves by its convention.** A payment day that is not a
-business day moves as the version's business day convention says. Each
-payment day is set from the account's day or the calendar, never from
-the payment before it, so the schedule does not drift. Accrual is daily
-on the balance, so moving a payment changes the day the accrued
-interest is paid and not what accrues.
+**A payment day moves by its convention.** A payment day its payment's
+calendar does not count moves as the version's business day convention
+says, and under `NONE` nothing moves. Each payment day is set from the
+account's day or the calendar, never from the payment before it, so the
+schedule does not drift. Accrual is daily on the balance, so moving a
+payment changes the day the accrued interest is paid and not what
+accrues.
 
 **A principal at or below zero accrues nothing.** The bands start at
 zero, so no band covers an overdrawn balance, and the account is left
@@ -616,21 +617,39 @@ from it, and so does an `account_day` payment, so a migration starts a
 relative schedule afresh. Interest accrued before a migration
 stays in the bucket and is paid on the new version's schedule.
 
-**Capitalisation reads only the accounts due.** An `InterestAccount`
-record per account, in a store of the `interest` brick's own, holds the
-account's version, its `version_from_on` and its `next_payment_on`, indexed by
-`[bank_id, next_payment_on, account_id]`. The brick writes it from the
-cash-accounts changelog, in an event processor of its own, when an
-account opens and when a migration moves it, as
-[ADR-0021](../adr/0021-changelog-relay.md) has a brick react to another's
-records rather than read them. Capitalisation scans that index for
-`next_payment_on` on or before the business day instead of streaming
-every account, sweeps each, and advances `next_payment_on` in the
-chunk's transaction. A day the job missed is paid by the next run, so
-capitalisation no longer needs a run every day. An account paid every
-day is due every day, and one paid at close, or on a version with no
-terms, has no `next_payment_on` and is never read. The sweep's reference names
-the frequency rather than saying monthly whatever the cadence.
+**A payment day is worked out, not stored.** Whether an account is due
+is a pure function of what the pass already holds as it streams the
+bank's accounts: its version's payment terms, fixed once published, the
+payment's calendar and convention, and the day the account came onto
+the version. So no record holds an account's next payment.
+`calc/payment.clj` lists a schedule's days, never one before
+`version_from_on`: an `account_day` payment's every `every` units after
+`version_from_on`, a month landing on its last day where it has fewer,
+and a `calendar_day` payment's `day_of_month` in each month it falls
+in. A daily payment also pays `version_from_on` itself, so an account
+is paid the day it opens what it earned that day, and a longer cadence
+first pays one period after. An account is due where one of them,
+moved by the convention on the calendar, falls in the run's window. A
+payment at close is never due on a schedule, and neither is an account
+on a version with no terms.
+
+**A run pays the days since the last.** The window runs from the day
+after the bank's last capitalisation run, the latest `InterestRun` of
+its kind before the run's day, through the run's day, so a day the job
+missed is paid by the next run and no payment day is paid twice. A
+bank's first run pays its own day alone. The pass works out the due
+days once per run for each version, and for each account day where the
+payment counts from it or the account came onto its version within the
+window, as it memoises the day rates. An account not due sweeps
+nothing, as one with nothing accrued does. The sweep's reference reads
+"Interest payment" and the day.
+
+**A calendar's holidays are data.** The pass builds each calendar when
+it starts: `GBLO`'s from
+[gblo.json](/components/resources/resources/calendars/gblo.json), which
+`just calendars-update` copies from GOV.UK, `EUTA`'s from TARGET's rule
+over the run's year and those either side, `WEEKENDS` and `NONE` from
+their names.
 
 **Closing pays what has accrued first.** Closing refuses an account
 with any balance, `:cash-account/non-zero-on-close`, and under any
@@ -650,15 +669,15 @@ of the same party, bank and currency whose own version has no term,
 which `cash-account` checks at opening, refusing
 `:cash-account/payout-account-required` where the version has a term
 and none is named, and `:cash-account/invalid-payout-account` where the
-one named does not qualify. `InterestAccount` carries `matures_on`,
-`version_from_on` plus the term's months, a day the month lacks moving to its
-last, indexed by `[bank_id, matures_on, account_id]`. The account
-accrues nothing on or after it.
+one named does not qualify. The account matures `version_from_on` plus
+the term's months, a day the month lacks moving to its last, worked out
+as a payment day is, and accrues nothing on or after it.
 
 **Maturity never waits on the payout account.** The `daily-interest`
-job runs a third pass, after capitalisation, reading the `matures_on`
-index for days on or before the business day, and takes each account
-through two steps, each in one transaction:
+job runs a third pass, after capitalisation, streaming the bank's
+accounts as the others do, and takes each opened account whose maturity
+day has come, and each still matured, through two steps, each in one
+transaction:
 
 - **Matured.** It pays the accrued interest, as `pay-accrued` does, and
   calls `cash-account/mature-account`, which takes the account from
@@ -675,8 +694,8 @@ through two steps, each in one transaction:
 
 Where the second step cannot run, because a payment is in flight or
 the payout account has closed or been suspended since the account
-opened, the account stays matured, its `InterestAccount` recording why
-as its `last_error`, and the pass reads it again the next day. The money
+opened, the account stays matured, the run's row for it recording why
+as its `failure_reason`, and the next day's pass takes it again. The money
 is never sent anywhere the customer did not name: the tenant names
 another payout account with
 `PUT /v1/cash-accounts/{account-id}/payout-account`, and the next run
@@ -688,9 +707,9 @@ state, so it takes the ten points of
 First, the terms on the version, with their validation and API, every
 existing caller passing a flat rate paid daily; then `version_from_on`, in
 the cash-accounts pass of the clean-slate schema reset; then the grid
-and the day count in accrual, with the model's accrual beside it; then the
-`InterestAccount` record, its event processor and capitalisation from
-its index, with the model's payment days; then `pay-accrued` and its
+and the day count in accrual, with the model's accrual beside it; then
+the calendars; then payment days in capitalisation, worked out rather
+than stored, with the model's payment days; then `pay-accrued` and its
 route; then the term, the payout account and the maturity pass; and
 last the console's product drawer and the migration preview, which
 compares two schedules rather than two rates.
@@ -759,6 +778,13 @@ compares two schedules rather than two rates.
   they stream — an account pins a version that may be one the
   bank no longer offers, so enumerating current versions would
   miss accounts.
+- **A record per account holding its next payment day.** An
+  `InterestAccount` per account, written from the cash-accounts
+  changelog by an event processor of the brick's own and indexed by
+  `[bank_id, next_payment_on, account_id]`, so capitalisation read only
+  the accounts due. Rejected: the passes stream every account anyway,
+  and the record was a second copy of what the version and the account
+  already say, written at every payment and liable to drift from them.
 - **Interest accrual via the changelog relay pattern
   (ADR-0021).** Relayed events react to writes; accrual is
   time-driven, not write-driven. Rejected — wrong tool.
@@ -796,18 +822,17 @@ compares two schedules rather than two rates.
   it does not validate that the date is a period end or that
   all of the period's accruals have posted. The caller
   sequences.
-- **Accrual and capitalisation share one cadence.** They are
-  separate tasks, run one after the other by the seeded
-  `daily-interest` job, which allows a daily cadence only,
-  until a version's payment terms decide which accounts a
-  day's capitalisation pays.
+- **Capitalisation reads every account to pay the few due.** It
+  streams the bank's accounts as accrual does, so a bank paid monthly
+  reads each account thirty times for every one it pays.
+- **A first run pays its own day alone.** A bank with no earlier
+  capitalisation run has no window behind it, so a payment day before
+  its first run is not paid.
 - **Interest is paid into the account itself.** A version's
   terms cannot send it to a nominated account, which fixed-rate
   bonds and monthly-income savings commonly do and some require.
-- **Payment days do not move yet.** A version names a calendar and a
-  business day convention, and `calc` can move a day by them, but
-  capitalisation pays every day until payment days are built; the
-  scheduler's days are UTC days.
+- **The scheduler's days are UTC days.** A payment day is a business
+  day on its calendar, but the run that pays it starts on the UTC day.
 - **A calendar's holidays end where its source does.** GBLO's list from
   GOV.UK runs a year or two ahead, and a day past its last year counts
   as a business day; New York has no calendar, so USD counts weekends
@@ -863,9 +888,6 @@ compares two schedules rather than two rates.
   passes for one bank would both read the same carries;
   `check-daily-count` makes that a rejection rather than a
   race, but it is a limit rather than a guarantee.
-- **The posting's reference says monthly.** Each capitalisation
-  transaction is referenced "Monthly interest capitalization",
-  whatever cadence the bank's job runs at, daily by default.
 
 ## References
 
