@@ -289,11 +289,31 @@ message InterestPayment {
   required BusinessDayCalendar calendar = 5;
 }
 
+message PayOnClose {}
+
+message ForfeitOnClose {}
+
+message ForfeitDaysOnClose {
+  required int32 days = 1;
+}
+
+message InterestOnClose {
+  oneof kind {
+    PayOnClose pay = 1;
+    ForfeitOnClose forfeit = 2;
+    ForfeitDaysOnClose forfeit_days = 3;
+  }
+}
+
 message InterestTerms {
   required InterestAccrual accrual = 1;
   required InterestPayment payment = 2;
+  required InterestOnClose on_close = 3;
 }
 ```
+
+`on_close` is proposed, not built yet; `interest_terms` holds the first
+two today.
 
 `InterestBanding`, `InterestDayCount`, `BusinessDayConvention` and
 `BusinessDayCalendar` are enums, the last three in the folder's
@@ -329,6 +349,15 @@ quarterly on the 31st from March pays on the last days of March, June,
 September and December. `every` divides twelve, so the months a
 payment falls in are the same each year. `at_close` pays once, as the
 account closes.
+
+**At close.** `on_close` says what a close does with interest accrued
+and not yet paid: `pay` pays it, the default where a request names
+none; `forfeit` forfeits it; and `forfeit_days` forfeits `days` of
+interest at the day's rates, never more than has accrued, and pays the
+rest. The API takes it as `on-close`, `{"kind": "pay"}`, `{"kind":
+"forfeit"}` or `{"kind": "forfeit-days", "days": 90}`. An `at_close`
+payment with `forfeit` would never pay, and is refused as the grid's
+rules are. A maturity pays in full whatever it says.
 
 **Conventions.** The template names, for each currency it allows, the
 day count and business day convention an account in it is held to, and
