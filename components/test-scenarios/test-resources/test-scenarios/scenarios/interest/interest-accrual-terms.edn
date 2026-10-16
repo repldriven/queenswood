@@ -1,0 +1,32 @@
+{:name
+ "A savings account accrues across its version's bands, at the rates of the period in force"
+ ;; £1,000 in a savings account whose version pays 1% on the first £500
+ ;; and 2% on the rest, then 3% and 4% from 2 May. The model computes
+ ;; the same two days and is compared after every step.
+ ;;
+ ;;   1 May  (50_000 * 100 + 50_000 * 200) * 100 / 365
+ ;;          = 4_109_589 millionths: 4 credited, 109_589 carried
+ ;;   2 May  ((50_000 * 300 + 50_000 * 400) * 100 + 109_589 * 365) / 365
+ ;;          = 9_698_630 millionths: 9 credited, 698_630 carried
+ :given
+ [{:command :create-bank :args []}
+  {:command :create-product
+   :args
+   [:bank-0 :savings
+    {:banding :marginal
+     :bands [0 50000]
+     :schedule {:fixed {:periods [{:from-on 20089 :rates-bps [100 200]}
+                                  {:from-on 20260502 :rates-bps [300 400]}]}}}]}
+  {:command :publish-product :args [:prod-1]}
+  {:command :create-person-party :args [:bank-0]}
+  {:command :open-account :args [:bank-0 :party-1 :prod-1]}
+  {:command :inbound-transfer :args [:acct-0 100000]}
+  {:command :internal-transfer :args [:acct-0 :acct-1 100000]}]
+ :when [{:command :accrue-interest :args [:bank-0 20260501]}
+        {:command :accrue-interest :args [:bank-0 20260502]}]
+ :then [{:command :assert-no-anomaly :args []}
+        {:command :assert-interest-reconciliation :args [:bank-0 "GBP"]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :ledger-account-code-interest-expense "GBP" -13]}
+        {:command :assert-gl-balance
+         :args [:bank-0 :ledger-account-code-interest-payable "GBP" 13]}]}

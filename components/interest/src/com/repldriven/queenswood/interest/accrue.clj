@@ -39,13 +39,23 @@
           (swap! versions assoc k version))
         version))))
 
-(defn- first-rate
-  "The rate of `version`'s first period and first band, or 0 where it
-  pays none."
-  [version]
-  (let [schedule (get-in version [:interest-terms :accrual :schedule])
-        {:keys [periods]} (or (:relative schedule) (:fixed schedule))]
-    (or (first (:rates-bps (first periods))) 0)))
+(defn- get-day-rates
+  "The day rates `account` accrues against on the run's business day,
+  memoised for the run by its version and, where the version's schedule
+  counts from it, the day the account came onto it, so a version's
+  period and year are worked out once for the accounts sharing them
+  rather than once for each."
+  [ctx version account]
+  (let [{:keys [day-rates business-day]} ctx
+        accrual (get-in version [:interest-terms :accrual])
+        k (accrual/day-rates-key account accrual)]
+    (if (contains? @day-rates k)
+      (get @day-rates k)
+      (let [rates (accrual/day-rates accrual
+                                     (:version-from-on account)
+                                     business-day)]
+        (swap! day-rates assoc k rates)
+        rates))))
 
 (defn- accruals
   "Each account in `chunk` paired with its day's accrual, opening with
@@ -54,17 +64,18 @@
   [config ctx chunk carries]
   (let [{:keys [bank-id versions]} ctx]
     (reduce (fn [acc [account balances]]
-              (let [{:keys [account-id currency]} account
-                    result (let-nom>
+              (let [result (let-nom>
                              [version (get-product-version config
                                                            versions
                                                            bank-id
                                                            account)]
-                             (accrual/accrue account-id
-                                             currency
-                                             balances
-                                             (get carries account-id 0)
-                                             (first-rate version)))]
+                             (accrual/accrue
+                              account
+                              balances
+                              (get carries (:account-id account) 0)
+                              (get-day-rates ctx
+                                             version
+                                             account)))]
                 (cond (error/anomaly? result)
                       (reduced result)
 

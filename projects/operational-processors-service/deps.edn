@@ -35,6 +35,7 @@
   component/idv {:local/root "../../components/idv"}
   component/idv-provider {:local/root "../../components/idv-provider"}
   component/idv-query {:local/root "../../components/idv-query"}
+  component/calc {:local/root "../../components/calc"}
   component/interest {:local/root "../../components/interest"}
   component/ledger-account {:local/root "../../components/ledger-account"}
   component/member {:local/root "../../components/member"}

@@ -2,50 +2,79 @@
   (:require
     [com.repldriven.queenswood.interest.domain.balances :as balances]
 
+    [com.repldriven.queenswood.calc.interface :as calc]
+
     [com.repldriven.mono.log.interface :as log]
     [com.repldriven.mono.utility.interface :as utility]))
 
-(def ^:private default-micro-scale 1000000)
-(def ^:private default-day-count 365)
+(def ^:private bandings
+  {:interest-banding-marginal :marginal
+   :interest-banding-whole-balance :whole-balance})
 
-(defn- day-interest
-  "A day's interest on `principal` at `interest-rate-bps`, opening with
-  the sub-unit remainder `opening-carry`"
-  ([principal opening-carry interest-rate-bps]
-   (day-interest principal opening-carry interest-rate-bps nil))
+(def ^:private day-counts
+  {:interest-day-count-actual-365 :actual-365
+   :interest-day-count-actual-actual :actual-actual
+   :interest-day-count-actual-360 :actual-360})
 
-  ([principal opening-carry interest-rate-bps opts]
-   (let [{:keys [micro-scale day-count]
-          :or {micro-scale default-micro-scale
-               day-count default-day-count}}
-         opts]
-     (when-not (zero? interest-rate-bps)
-       (let [total-micro (+ (* principal
-                               interest-rate-bps
-                               (quot micro-scale 10000))
-                            (* opening-carry day-count))
-             daily-micro (quot total-micro day-count)]
-         {:amount (quot daily-micro micro-scale)
-          :closing-carry (rem daily-micro micro-scale)})))))
+(def ^:private units
+  {:interest-period-unit-day :day
+   :interest-period-unit-week :week
+   :interest-period-unit-month :month})
+
+(defn- calc-accrual
+  "A version's `accrual` terms in calc's vocabulary."
+  [accrual]
+  (let [{:keys [banding day-count bands schedule]} accrual
+        {:keys [relative fixed]} schedule]
+    {:banding (bandings banding)
+     :day-count (day-counts day-count)
+     :bands bands
+     :schedule (if relative
+                 {:relative (update relative :unit units)}
+                 {:fixed fixed})}))
+
+(defn day-rates
+  "What every account on a version accrues against on `business-day`
+  under its `accrual` terms, counting a relative schedule from
+  `version-from-on`, as calc's day rates; nil where the version pays no
+  interest that day."
+  [accrual version-from-on business-day]
+  (when accrual
+    (calc/day-rates (calc-accrual accrual) version-from-on business-day)))
+
+(defn day-rates-key
+  "What an account's day rates on a version depend on besides the day:
+  the version, and the day the account came onto it where the schedule
+  counts from it."
+  [account accrual]
+  (let [{:keys [product-id version-id version-from-on]} account]
+    [product-id
+     version-id
+     (when (get-in accrual [:schedule :relative]) version-from-on)]))
 
 (defn accrue
-  "A day's accrual for one account opening with the sub-unit carry
-  `opening-carry`: the `:principal` it was computed from, the `:amount`
-  earned, and the `:closing-carry` left over with its `:carry-delta`.
+  "A day's accrual for `account` at `day-rates`, opening with the
+  sub-unit carry `opening-carry`: the `:principal` it was computed from,
+  the `:amount` earned, and the `:closing-carry` left over with its
+  `:carry-delta`.
 
   Returns nil when there is nothing to accrue, either:
-  * the product pays no interest, or
+  * the version pays no interest, or none on this principal on this day,
+    or
   * it pays interest but the account has no accrued interest balance to
     hold it."
-  [account-id currency account-balances opening-carry interest-rate-bps]
-  (let [principal (balances/principal-amount account-balances currency)
-        accrued (day-interest principal opening-carry interest-rate-bps)]
+  [account account-balances opening-carry day-rates]
+  (let [{:keys [account-id currency]} account
+        principal (balances/principal-amount account-balances currency)
+        accrued (when day-rates
+                  (calc/accrue day-rates principal opening-carry))]
     (when accrued
       (if (balances/accrued-interest-balance account-balances)
-        (assoc accrued
-               :principal principal
-               :opening-carry opening-carry
-               :carry-delta (- (:closing-carry accrued) opening-carry))
+        {:amount (:amount accrued)
+         :closing-carry (:carry accrued)
+         :principal principal
+         :opening-carry opening-carry
+         :carry-delta (- (:carry accrued) opening-carry)}
         (do (log/warnf (str "Account %s has a non-zero interest rate but no"
                             " accrual balance - interest is not being accrued"
                             " for this account.")
@@ -66,7 +95,7 @@
   "The accrual transactions for one chunk of `accruals`, each a pair of
   an account and what it accrued: one per currency, moving each
   account's interest-accrued bucket by what it earned, a credit, or by
-  what an overdrawn principal took, a debit, and interest expense,
+  what a negative rate took, a debit, and interest expense,
   `(expense-id currency)`, by the opposite of their total. An account
   that moved by nothing whole has no leg, and a currency none of whose
   accounts did has no transaction.

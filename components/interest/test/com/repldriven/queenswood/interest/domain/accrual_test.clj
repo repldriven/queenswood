@@ -1,7 +1,6 @@
 (ns com.repldriven.queenswood.interest.domain.accrual-test
-  "The daily-interest arithmetic at sub-minor-unit precision, the
-  outcome one account's accrual settles on, and the transactions a
-  chunk of them records."
+  "The outcome one account's accrual settles on, from its version's
+  terms, and the transactions a chunk of them records."
   (:require
     [com.repldriven.queenswood.interest.domain.accrual :as SUT]
 
@@ -31,53 +30,71 @@
 
 (def ^:private spendable-only (vec (take 2 earning-balances)))
 
-(deftest day-interest-test
-  (let [day-interest #'SUT/day-interest]
-    (testing "zero rate returns nil — nothing is earned"
-      (is (nil? (day-interest 1000 0 0))))
-    (testing "a balance too small to earn a unit closes with a remainder"
-      ;; £10.00 (1000 minor units) at 100 bps (1%) APR, opening at 0:
-      ;; total-micro = 1000 * 100 * 100      + 0  = 10_000_000
-      ;; daily-micro = 10_000_000 / 365            = 27_397
-      (let [r (day-interest 1000 0 100)]
-        (is (= 0 (:amount r)))
-        (is (= 27397 (:closing-carry r)))))
-    (testing "the opening remainder is spent, and a larger one closes"
-      ;; Same £10.00 / 100 bps, opening at yesterday's 27_397:
-      ;; total-micro = 1000 * 100 * 100 + 27_397 * 365
-      ;;             = 10_000_000 + 9_999_905 = 19_999_905
-      ;; daily-micro = 19_999_905 / 365 = 54_794
-      (let [r (day-interest 1000 27397 100)]
-        (is (= 0 (:amount r)))
-        (testing "opening and closing are different numbers, and both matter"
-          (is (= 54794 (:closing-carry r))))))
-    (testing "an opening remainder eventually tips a whole unit over"
-      ;; The same tiny balance, opened with a remainder just under the
-      ;; line: the day's interest pushes it past a whole unit, which is
-      ;; the entire point of carrying it.
-      (let [r (day-interest 1000 999000 100)]
-        (is (= 1 (:amount r)))
-        (is (= 26397 (:closing-carry r)))))
-    (testing "large balance and rate cross the whole-unit threshold"
-      ;; £100,000 (10_000_000 minor units) at 365 bps (3.65%):
-      ;; total-micro = 10_000_000 * 365 * 100 + 0 = 365_000_000_000
-      ;; daily-micro = 365_000_000_000 / 365      = 1_000_000_000
-      (let [r (day-interest 10000000 0 365)]
-        (is (= 1000 (:amount r)))
-        (is (= 0 (:closing-carry r)))))))
+(def ^:private account
+  {:account-id "acc.1"
+   :product-id "prd.1"
+   :version-id "ver.1"
+   :currency "GBP"
+   :version-from-on 20089})
+
+(def ^:private flat
+  "A version's accrual at 100 bps on the whole balance from opening."
+  {:banding :interest-banding-marginal
+   :day-count :interest-day-count-actual-365
+   :bands [0]
+   :schedule {:relative {:unit :interest-period-unit-month
+                         :periods [{:after 0 :rates-bps [100]}]}}})
+
+(defn- day-rates
+  [accrual business-day]
+  (SUT/day-rates accrual (:version-from-on account) business-day))
+
+(deftest day-rates-test
+  (testing "a version paying no interest has none"
+    (is (nil? (day-rates nil 20100))))
+  (testing "the version's banding, day count and schedule are read"
+    (is (= {:banding :whole-balance
+            :bands [0 1000]
+            :rates-bps [100 200]
+            :basis 360}
+           (day-rates {:banding :interest-banding-whole-balance
+                       :day-count :interest-day-count-actual-360
+                       :bands [0 1000]
+                       :schedule {:fixed {:periods [{:from-on 20089
+                                                     :rates-bps [100 200]}]}}}
+                      20100))))
+  (testing "a relative schedule counts from the day the account came on"
+    (let [weekly (assoc flat
+                        :schedule
+                        {:relative {:unit :interest-period-unit-week
+                                    :periods [{:after 0 :rates-bps [0]}
+                                              {:after 1 :rates-bps [100]}]}})]
+      (is (= [0] (:rates-bps (day-rates weekly 20095))))
+      (is (= [100] (:rates-bps (day-rates weekly 20096)))))))
+
+(deftest day-rates-key-test
+  (testing "a relative schedule's rates depend on the account's day"
+    (is (= ["prd.1" "ver.1" 20089] (SUT/day-rates-key account flat))))
+  (testing "a fixed schedule's are the version's alone"
+    (is (= ["prd.1" "ver.1" nil]
+           (SUT/day-rates-key
+            account
+            (assoc flat
+                   :schedule
+                   {:fixed {:periods [{:from-on 20089 :rates-bps [100]}]}}))))))
 
 (deftest accrue-test
-  (testing "a product paying no interest accrues nothing"
-    (is (nil? (SUT/accrue "acc.1" "GBP" earning-balances 27397 0))))
+  (testing "a version paying no interest accrues nothing"
+    (is (nil? (SUT/accrue account earning-balances 27397 nil))))
   (testing "a rate with nowhere to put it accrues nothing either"
     ;; Logged rather than rejected — nothing the account did caused it.
-    (is (nil? (SUT/accrue "acc.1" "GBP" spendable-only 27397 100))))
+    (is (nil?
+         (SUT/accrue account spendable-only 27397 (day-rates flat 20100)))))
   (testing "a rate and a balance yield the amount and the carry together"
-    ;; 1500 available at 100 bps opening at 27_397: Total-micro = 1500 *
-    ;; 100 * 100 + 27_397 * 365 = 24_999_905 daily-micro = 24_999_905 / 365
-    ;; = 68_492
+    ;; 1500 available at 100 bps opening at 27_397: 1500 * 100 * 100 +
+    ;; 27_397 * 365 = 24_999_905, and / 365 = 68_492.
     (let [{:keys [amount closing-carry carry-delta principal opening-carry]}
-          (SUT/accrue "acc.1" "GBP" earning-balances 27397 100)]
+          (SUT/accrue account earning-balances 27397 (day-rates flat 20100))]
       (testing "what the account earned, and the remainder it leaves"
         (is (= 0 amount))
         (is (= 68492 closing-carry))
@@ -123,7 +140,7 @@
                :balance-type-default :leg-side-debit 8]]
              (mapv (juxt :account-id :product-type :balance-type :side :amount)
                    legs)))))
-  (testing "an overdrawn account's accrual is a debit"
+  (testing "a negative accrual is a debit"
     (let [[tx] (SUT/chunk-transactions "org.1"
                                        expense
                                        [[current {:amount -2}]]

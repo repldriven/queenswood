@@ -55,8 +55,9 @@
 (defn model-init
   "The model's initial state held to the policies the rig at
   `config-file` boots: the platform policy every bank is held to, and
-  the tier policy scenario banks are created on. Returns the state, or
-  an anomaly where the configuration cannot be read.
+  the tier policy scenario banks are created on, on today, the day the
+  accounts it opens come onto their versions as real ones do. Returns
+  the state, or an anomaly where the configuration cannot be read.
 
   Args:
   - config-file: the rig's configuration, as `with-test-system` takes

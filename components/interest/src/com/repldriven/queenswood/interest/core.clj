@@ -54,6 +54,7 @@
                    ;; Run-scoped, so every account in the pass is
                    ;; accrued against the same view of the rates.
                    :versions (atom {})
+                   :day-rates (atom {})
                    :chunks-in-flight (:interest-chunks-in-flight config 1))]
     (let-nom>
       [chart-of-accounts (ledger-accounts/list-accounts config bank-id)

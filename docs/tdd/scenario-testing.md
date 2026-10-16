@@ -195,6 +195,13 @@ interest runs and instant on accounts, which count the bank's house
 account; and the available balance limit. `:bind-policy`'s schema
 admits only those shapes.
 
+**The day.** `model-init` also puts the model on today's epoch day, the
+day an account the model opens comes onto its version, as reality's
+does, so a relative interest schedule counts from the same day on both
+sides. `:create-product` takes a flat rate or a version's interest
+terms, which the model keeps on the version, and a draft the runner
+opens or updates carries none.
+
 **Waiting.** `await.clj` is the one loop, with one timeout,
 `:await-timeout-ms` on the runner context. `:close-account` waits for no
 provider: the close records `closing` before it returns, which the

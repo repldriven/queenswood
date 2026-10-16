@@ -16,8 +16,9 @@
            prod-id (state/next-product-id state)
            party-id (state/next-party-id state)]
        (-> state
-           (assoc-in [:accounts acct-id]
-                     (accounts/new-account bank-id prod-id party-id))
+           (assoc-in
+            [:accounts acct-id]
+            (accounts/new-account bank-id prod-id party-id 1 (:today state)))
            (assoc-in [:banks bank-id]
                      {:accounts [acct-id]
                       :products [prod-id]
@@ -29,7 +30,6 @@
            (assoc-in [:products prod-id]
                      {:bank bank-id
                       :product-type :current
-                      :interest-rate-bps 0
                       :versions [(products/version :published 1)]})
            (assoc-in [:parties party-id]
                      {:bank bank-id :type :organization :status :active})

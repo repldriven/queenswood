@@ -3,20 +3,75 @@
     [com.repldriven.queenswood.test-model.policies :as policies]
     [com.repldriven.queenswood.test-model.state :as state]
 
-    [clojure.test.check.generators :as gen]))
+    [clojure.test.check.generators :as gen])
+  (:import
+    (java.time LocalDate)))
 
 (def ^:private micro-scale 1000000)
 
+(def ^:private day-counts
+  "Each currency's day count, as its template entry gives it."
+  {"GBP" :actual-365 "EUR" :actual-360 "USD" :actual-360})
+
+(defn- year-days
+  [day-count day]
+  (case day-count
+    :actual-365 365
+    :actual-360 360
+    :actual-actual (.lengthOfYear (LocalDate/ofEpochDay day))))
+
+(defn- period-start
+  [schedule from-on period]
+  (if-let [{:keys [unit]} (:relative schedule)]
+    (when from-on
+      (let [date (LocalDate/ofEpochDay from-on)
+            after (long (:after period))]
+        (.toEpochDay (case unit
+                       :day (.plusDays date after)
+                       :week (.plusDays date (* 7 after))
+                       :month (.plusMonths date after)))))
+    (:from-on period)))
+
+(defn- rates-on
+  "The rates of the latest period of `schedule` to have started by `day`."
+  [schedule from-on day]
+  (->> (:periods (or (:relative schedule) (:fixed schedule)))
+       (filter (fn [period]
+                 (let [start (period-start schedule from-on period)]
+                   (and start (<= start day)))))
+       last
+       :rates-bps))
+
+(defn- portions
+  "`principal` across `bands`: under `:marginal` the part between each
+  band's lowest balance and the next's, under `:whole-balance` all of it
+  in the band it falls in."
+  [banding bands principal]
+  (let [uppers (concat (rest bands) [Long/MAX_VALUE])]
+    (map (fn [lower upper]
+           (if (= :whole-balance banding)
+             (if (and (<= lower principal) (< principal upper)) principal 0)
+             (max 0 (- (min principal upper) lower))))
+         bands
+         uppers)))
+
 (defn daily-interest
-  [{:keys [available credit-carry] :or {credit-carry 0}} interest-rate-bps]
-  (when-not (zero? interest-rate-bps)
-    (let [net available
-          total-micro (+ (* net interest-rate-bps (quot micro-scale 10000))
-                         (* credit-carry 365))
-          daily-micro (quot total-micro 365)
-          whole-units (quot daily-micro micro-scale)
-          new-carry (rem daily-micro micro-scale)]
-      {:whole-units whole-units :carry new-carry})))
+  "A day's interest on `account` under `terms` on `day`: whole units and
+  the carry left, or nil where nothing accrues."
+  [{:keys [available credit-carry version-from-on] :or {credit-carry 0}}
+   currency
+   terms
+   day]
+  (let [{:keys [banding bands schedule]} terms
+        rates (rates-on schedule version-from-on day)
+        annual (*
+                (quot micro-scale 10000)
+                (reduce + 0 (map * (portions banding bands available) rates)))]
+    (when (and rates (not (zero? annual)))
+      (let [days (year-days (day-counts currency) day)
+            daily-micro (quot (+ annual (* credit-carry days)) days)]
+        {:whole-units (quot daily-micro micro-scale)
+         :carry (rem daily-micro micro-scale)}))))
 
 (defn- customer-account?
   [state acct]
@@ -28,11 +83,12 @@
          (= :open (:status account)))))
 
 (defn- accrue-account
-  [state customer-acct]
+  [day state customer-acct]
   (let [account (get-in state [:accounts customer-acct])
-        product-id (:product account)
-        rate (get-in state [:products product-id :interest-rate-bps] 0)
-        result (daily-interest account rate)]
+        version (some (fn [v] (when (= (:version account) (:number v)) v))
+                      (get-in state [:products (:product account) :versions]))
+        result (when-let [terms (:terms version)]
+                 (daily-interest account (:currency version) terms day))]
     (cond
      (nil? result)
      state
@@ -51,11 +107,11 @@
                       (fnil inc 0)))))))
 
 (defn- accrue-org
-  [state bank-id]
+  [state bank-id day]
   (let [org (get-in state [:banks bank-id])
         custs (filter (fn [a] (customer-account? state a))
                       (:accounts org))]
-    (reduce accrue-account state custs)))
+    (reduce (partial accrue-account day) state custs)))
 
 (defn- run-once
   [state bank-id date action f]
@@ -67,7 +123,7 @@
                                      action
                                      :time-window-daily
                                      runs))
-      (-> (f state bank-id)
+      (-> (f state bank-id date)
           (assoc-in [:banks bank-id :interest-runs action date] (inc runs)))
       state)))
 
@@ -95,7 +151,7 @@
                      2)))))
 
 (defn- capitalize-org
-  [state bank-id]
+  [state bank-id _day]
   (let [org (get-in state [:banks bank-id])
         custs (filter (fn [a] (customer-account? state a))
                       (:accounts org))]

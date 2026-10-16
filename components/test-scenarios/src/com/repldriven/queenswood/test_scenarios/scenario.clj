@@ -81,13 +81,38 @@
    [:capabilities {:optional true} [:vector capability]]
    [:limits {:optional true} [:vector count-limit]]])
 
+(def ^:private interest-terms
+  [:map {:closed true}
+   [:banding [:enum :marginal :whole-balance]]
+   [:bands [:vector nat-int?]]
+   [:schedule
+    [:or
+     [:map {:closed true}
+      [:relative
+       [:map {:closed true}
+        [:unit [:enum :day :week :month]]
+        [:periods
+         [:vector
+          [:map {:closed true}
+           [:after nat-int?]
+           [:rates-bps [:vector int?]]]]]]]]
+     [:map {:closed true}
+      [:fixed
+       [:map {:closed true}
+        [:periods
+         [:vector
+          [:map {:closed true}
+           [:from-on int?]
+           [:rates-bps [:vector int?]]]]]]]]]]])
+
 (def verbs
   {:create-bank {:kind :model :args none}
    :create-customer {:kind :model :args [:cat bank [:? prod]]}
    :open-account {:kind :model :args [:cat bank party prod]}
    :close-account {:kind :model :args [:cat acct]}
    :create-product {:kind :model
-                    :args [:cat bank [:enum :current :savings] int?]}
+                    :args [:cat bank [:enum :current :savings]
+                           [:or int? interest-terms]]}
    :publish-product {:kind :model :args [:cat prod]}
    :open-draft {:kind :model :args [:cat prod]}
    :discard-draft {:kind :model :args [:cat prod]}
