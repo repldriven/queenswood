@@ -12,7 +12,8 @@
     "interest-capitalization" :transaction-type-interest-capitalization
     "reward" :transaction-type-reward
     "outbound-return" :transaction-type-outbound-return
-    "inbound-return" :transaction-type-inbound-return}
+    "inbound-return" :transaction-type-inbound-return
+    "interest-forfeiture" :transaction-type-interest-forfeiture}
    :transaction-type-unknown))
 
 (def ^:private leg-side-enum

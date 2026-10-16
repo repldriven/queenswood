@@ -75,3 +75,11 @@
       (let [annual (annual-micro portions rates-bps)]
         (when-not (zero? annual)
           (day-share annual carry basis))))))
+
+(defn days-interest
+  [day-rates principal days]
+  (let [{:keys [banding bands rates-bps basis]} day-rates
+        portions (band-portions banding bands principal)]
+    (if portions
+      (:amount (day-share (* days (annual-micro portions rates-bps)) 0 basis))
+      0)))

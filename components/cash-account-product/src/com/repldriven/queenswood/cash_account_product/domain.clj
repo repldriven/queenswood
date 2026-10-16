@@ -280,9 +280,9 @@
   "The version's interest terms from the caller's `:interest-terms`, or
   its `:interest-rate-bps` as flat ones, with the day count and business
   day convention of the template's `currency-entry`, its payment
-  counted on every day where the terms name no calendar or pay at
-  close. Nil where it pays none, or an anomaly where the terms cannot
-  hold."
+  counted on every day where the terms name no calendar or pay on the
+  closure day. Nil where it pays none, or an anomaly where the terms
+  cannot hold."
   [data currency-entry]
   (let [{:keys [interest-terms interest-rate-bps effective-from]} data
         terms (or interest-terms (flat-interest interest-rate-bps))
@@ -313,19 +313,94 @@
                  (fn [{:keys [kind calendar] :as payment}]
                    (assoc payment
                           :calendar
-                          (if (or (nil? calendar) (:at-close kind))
+                          (if (or (nil? calendar) (:closure-day kind))
                             :business-day-calendar-none
                             calendar)))))
 
      :else
      nil)))
 
+;; ---------------------------------------------------------------------------
+;; Closure terms
+;;
+;; closure-terms is {:interest :early}: what a closure does with interest
+;; not yet paid, and the early windows, each refusing a closure or
+;; settling it by its own interest term and charging its fee. Counts,
+;; presence and signs are the API schema's.
+
+(def ^:private no-closure-terms
+  "The closure terms of a version that states none: what has accrued is
+  paid, and nothing is charged."
+  {:interest {:kind {:pay {}}}})
+
+(defn- closure-interests
+  "Every interest term `closure-terms` holds: its own, and each charged
+  window's."
+  [closure-terms]
+  (into [(:interest closure-terms)]
+        (keep (fn [window] (get-in window [:kind :charged :interest])))
+        (:early closure-terms)))
+
+(defn- pays?
+  [closure-interest]
+  (some? (get-in closure-interest [:kind :pay])))
+
+(defn- pays-some?
+  [closure-interest]
+  (nil? (get-in closure-interest [:kind :forfeit])))
+
+(defn- one-unit?
+  "Whether every window counts in the same unit."
+  [early]
+  (<= (count (distinct (map :unit early))) 1))
+
+(defn- fee-bounded?
+  "Whether a balance fee's minimum is no more than its maximum."
+  [window]
+  (let [{:keys [min max]} (get-in window [:kind :charged :fee :kind :balance])]
+    (or (nil? min) (nil? max) (<= min max))))
+
+(defn- closure-problem
+  [closure-terms interest-terms]
+  (let [{:keys [early]} closure-terms
+        interests (closure-interests closure-terms)]
+    (cond
+     (not (or interest-terms (every? pays? interests)))
+     "Only a version that pays interest can forfeit it at closure"
+
+     (not (or (nil? (get-in interest-terms [:payment :kind :closure-day]))
+              (every? pays-some? interests)))
+     "A version paying interest on its closure day cannot forfeit all of it"
+
+     (not (one-unit? early))
+     "Early closure windows count in one unit"
+
+     (not (strictly-increasing? (map :count early)))
+     "Early closure windows start in ascending order"
+
+     (not (every? fee-bounded? early))
+     "A balance fee's minimum is no more than its maximum"
+
+     :else
+     nil)))
+
+(defn- closure-fields
+  "The version's closure terms from the caller's `:closure-terms`, paying
+  what has accrued and charging nothing where it states none, or an
+  anomaly where they cannot hold beside its `interest-terms`."
+  [data interest-terms]
+  (let [closure-terms (or (:closure-terms data) no-closure-terms)]
+    (if-some [problem (closure-problem closure-terms interest-terms)]
+      (error/reject :cash-account-product/invalid-closure-terms
+                    {:message problem})
+      closure-terms)))
+
 (defn- product-fields
   "Snapshot the derived instrument fields from the resolved `template`
   (product-type, balance-sheet-side, balance buckets, payment-address
   schemes, iso type) plus the caller's `:interest-terms`, or its
   `:interest-rate-bps` as flat ones, with the currency's conventions,
-  `:opening-reward`, as an opening reward's terms, `:payment-limits`, as
+  its `:closure-terms`, `:opening-reward`, as an opening reward's terms, `:payment-limits`, as
   policy limits on the account's payments, and `:min-balance` and
   `:max-balance`, as policy limits on its available balance, and stamp
   the originating `:template-id` for provenance. Returns the fields or
@@ -339,6 +414,7 @@
       [_ (ensure-currency-allowed template currency)
        interest-terms (interest-fields data
                                        (template-currency template currency))
+       closure-terms (closure-fields data interest-terms)
        _ (ensure-payment-limits payment-limits)
        _ (ensure-balance-limits min-balance max-balance)]
       (utility/assoc-some
@@ -348,7 +424,8 @@
         :balance-products (:balance-products template)
         :allowed-payment-address-schemes
         (:allowed-payment-address-schemes template)
-        :iso-cash-account-type (:iso-cash-account-type template)}
+        :iso-cash-account-type (:iso-cash-account-type template)
+        :closure-terms closure-terms}
        :interest-terms
        interest-terms
        :reward-terms

@@ -117,7 +117,7 @@
         [:every [:enum 1 2 3 4 6 12]]
         [:day-of-month [:int {:min 1 :max 31}]]
         [:in-month [:int {:min 1 :max 12}]]]]]
-     [:map {:closed true} [:at-close [:map {:closed true}]]]]]
+     [:map {:closed true} [:closure-day [:map {:closed true}]]]]]
    [:calendar {:optional true} [:enum :none :weekends]]])
 
 (def verbs

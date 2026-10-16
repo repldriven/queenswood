@@ -126,7 +126,7 @@
                                       :unit "month"
                                       :periods
                                       [{:after 0 :rates-bps [500 300 0]}]}
-                            :payment {:kind "at-close"}}
+                            :payment {:kind "closure-day"}}
            :effective-from "2026-11-01"}}
    :assert {:status 422
             :problem {:type ":cash-account-product/invalid-interest-terms"
@@ -146,7 +146,7 @@
                                       :bands [0]
                                       :unit "month"
                                       :periods [{:after 0 :rates-bps [-50]}]}
-                            :payment {:kind "at-close"}}
+                            :payment {:kind "closure-day"}}
            :effective-from "2026-11-01"}}
    :assert {:status 400}}
   {:command :api/request
@@ -174,7 +174,7 @@
                                       :bands [0]
                                       :unit "month"
                                       :periods [{:after 0 :rates-bps [100]}]}
-                            :payment {:kind "at-close"}}
+                            :payment {:kind "closure-day"}}
            :effective-from "2026-11-01"}}
    :assert {:status 400}}]
  :then

@@ -195,7 +195,7 @@ consequences:
   or the month's last day, every one, two, three, four, six or
   twelve months: the 1st of each month, the last day of each
   quarter, or each 31 March.
-- **At close.** Interest accrues for the life of the account
+- **On closure.** Interest accrues for the life of the account
   and is paid when it closes.
 
 Each payment is counted on a calendar the version names: every day,

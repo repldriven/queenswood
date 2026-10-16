@@ -41,8 +41,12 @@
     DAY_COUNTS,
     FREQUENCIES,
     MONTH_NAMES,
+    UNITS,
+    CLOSURE_FEES,
+    CLOSURE_INTEREST,
     SECTIONS,
     aer,
+    bpsFromPercent,
     changedSections,
     customerTerms,
     defaultLimit,
@@ -52,6 +56,10 @@
     major,
     minorFromMajor,
     offeredCalendars,
+    closureFeeFrom,
+    closureInterestFrom,
+    defaultEarlyClosure,
+    earlyClosureFrom,
     onLabel,
     ordinal,
     paymentChoice,
@@ -207,6 +215,19 @@
     form.interest.payment = paymentFrom({ ...choice, [key]: value }, form.interest.payment);
   }
 
+  function wholeNumber(text) {
+    const n = Math.round(Number(String(text).trim()));
+    return Number.isFinite(n) && n >= 1 ? n : null;
+  }
+
+  function setWindow(i, patch) {
+    form.closure.early[i] = { ...form.closure.early[i], ...patch };
+  }
+
+  function setFee(i, patch) {
+    setWindow(i, { fee: { ...form.closure.early[i].fee, ...patch } });
+  }
+
   function scrollTo(id) {
     document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: "smooth" });
   }
@@ -249,6 +270,37 @@
     return { bps, aer: aer(bps, n) };
   });
 </script>
+
+{#snippet interestChoice(interest, onchange, label)}
+  <Select
+    aria-label={label}
+    value={interest.kind}
+    disabled={!editable}
+    onchange={(e) => onchange(closureInterestFrom(e.target.value, interest))}
+  >
+    {#each CLOSURE_INTEREST as c (c.value)}
+      <option
+        value={c.value}
+        disabled={c.value !== "pay" &&
+          (!form.interest.on || (c.value === "forfeit" && choice.frequency === "closure-day"))}
+      >{c.label}</option>
+    {/each}
+  </Select>
+  {#if interest.kind === "forfeit-days"}
+    <Input
+      aria-label="{label} days"
+      value={String(interest.days)}
+      inputmode="numeric"
+      affix="days"
+      disabled={!editable}
+      onchange={(e) => {
+        const days = wholeNumber(e.target.value);
+        if (days) onchange({ kind: "forfeit-days", days });
+      }}
+    />
+    <span>of interest at the day's rates</span>
+  {/if}
+{/snippet}
 
 {#if loading}
   <div class="loading">Loading…</div>
@@ -455,7 +507,7 @@
                     {/each}
                   </Select>
                 {/if}
-                {#if choice.frequency !== "at-close"}
+                {#if choice.frequency !== "closure-day"}
                   <span>counted on</span>
                   <Select
                     aria-label="Calendar"
@@ -479,7 +531,6 @@
                   {form.currency}, and shown once the draft is saved.
                 {/if}
                 A day the calendar does not count moves by the convention.
-                Interest is paid daily for now, whatever the payment says.
               </p>
             {/if}
           </div>
@@ -500,6 +551,146 @@
               version does not have yet. A rate that changes after a time is a
               period in the accrual grid above.
             </Callout>
+          </div>
+        </Panel>
+      </section>
+
+      <!-- Closure -->
+      <section id="section-closure">
+        <Panel>
+          <PanelHead title="Closure">
+            {#if changed.includes("closure")}<Badge tone="draft">changed</Badge>{/if}
+          </PanelHead>
+          <div class="body">
+            <p class="explain">
+              What closing an account does with interest accrued and not yet
+              paid, and what closing it early costs. Each window counts from
+              the day the account came onto the version; a closure after the
+              last is held to the terms above them.
+            </p>
+            <div class="sentence">
+              <span>Unpaid interest is</span>
+              {@render interestChoice(
+                form.closure.interest,
+                (next) => (form.closure.interest = next),
+                "Closure interest",
+              )}
+            </div>
+            {#each form.closure.early as w, i (i)}
+              <div class="sentence window">
+                <span>In the first</span>
+                <Input
+                  aria-label="Window {i + 1} length"
+                  value={String(w.count)}
+                  inputmode="numeric"
+                  disabled={!editable}
+                  onchange={(e) => {
+                    const count = wholeNumber(e.target.value);
+                    if (count) setWindow(i, { count });
+                  }}
+                />
+                <Select
+                  aria-label="Window {i + 1} unit"
+                  value={w.unit}
+                  disabled={!editable}
+                  onchange={(e) => setWindow(i, { unit: e.target.value })}
+                >
+                  {#each UNITS as u (u.value)}<option value={u.value}>{u.many}</option>{/each}
+                </Select>
+                <span>a closure is</span>
+                <Select
+                  aria-label="Window {i + 1} kind"
+                  value={w.kind}
+                  disabled={!editable}
+                  onchange={(e) => (form.closure.early[i] = earlyClosureFrom(w, e.target.value))}
+                >
+                  <option value="refused">refused</option>
+                  <option value="charged">allowed</option>
+                </Select>
+                {#if w.kind === "charged"}
+                  <span>with unpaid interest</span>
+                  {@render interestChoice(
+                    w.interest,
+                    (next) => setWindow(i, { interest: next }),
+                    `Window ${i + 1} interest`,
+                  )}
+                  <span>and</span>
+                  <Select
+                    aria-label="Window {i + 1} fee"
+                    value={w.fee?.kind ?? "none"}
+                    disabled={!editable}
+                    onchange={(e) => setWindow(i, { fee: closureFeeFrom(e.target.value, w.fee) })}
+                  >
+                    {#each CLOSURE_FEES as f (f.value)}<option value={f.value}>{f.label}</option>{/each}
+                  </Select>
+                  {#if w.fee?.kind === "flat"}
+                    <Input
+                      aria-label="Window {i + 1} fee amount"
+                      value={major(w.fee.amount)}
+                      inputmode="decimal"
+                      affix={form.currency}
+                      disabled={!editable}
+                      onchange={(e) => {
+                        const amount = minorFromMajor(e.target.value);
+                        if (Number.isFinite(amount) && amount > 0) setFee(i, { amount });
+                      }}
+                    />
+                  {:else if w.fee?.kind === "balance"}
+                    <Input
+                      aria-label="Window {i + 1} fee rate"
+                      value={pct(w.fee["rate-bps"])}
+                      inputmode="decimal"
+                      disabled={!editable}
+                      onchange={(e) => {
+                        const bps = bpsFromPercent(e.target.value);
+                        if (bps > 0) setFee(i, { "rate-bps": bps });
+                      }}
+                    />
+                    <span>at most</span>
+                    <Input
+                      aria-label="Window {i + 1} fee maximum"
+                      value={w.fee.max == null ? "" : major(w.fee.max)}
+                      placeholder="no maximum"
+                      inputmode="decimal"
+                      affix={form.currency}
+                      disabled={!editable}
+                      onchange={(e) => {
+                        const text = String(e.target.value).trim();
+                        const max = text === "" ? null : minorFromMajor(text);
+                        if (max === null) {
+                          const { max: _, ...fee } = w.fee;
+                          setWindow(i, { fee });
+                        } else if (Number.isFinite(max) && max > 0) setFee(i, { max });
+                      }}
+                    />
+                  {/if}
+                {/if}
+                {#if editable}
+                  <button type="button" class="remove" aria-label="Remove window {i + 1}"
+                          onclick={() => form.closure.early.splice(i, 1)}>×</button>
+                {/if}
+              </div>
+            {/each}
+            {#if editable}
+              <div class="add">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onclick={() => form.closure.early.push(defaultEarlyClosure(form.closure.early))}
+                >
+                  Add early window
+                </Button>
+              </div>
+            {/if}
+            <p class="hint">
+              {#if !form.interest.on}
+                The version pays no interest, so there is none to forfeit.
+              {:else if choice.frequency === "closure-day"}
+                Interest paid on the closure day is never wholly forfeited.
+              {/if}
+              A fee is never more than the balance left once the interest is
+              settled. A term that runs to maturity closes after every window.
+            </p>
           </div>
         </Panel>
       </section>
@@ -878,6 +1069,13 @@
   }
   .sentence :global(select) {
     width: auto;
+  }
+  .sentence :global(.input-affix),
+  .sentence > :global(.input) {
+    width: 9em;
+  }
+  .window {
+    margin-top: 10px;
   }
   .limits-wrap {
     overflow-x: auto;

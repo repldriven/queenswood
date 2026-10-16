@@ -263,6 +263,7 @@
    :allowed-payment-address-schemes [:payment-address-scheme-scan]
    :iso-cash-account-type :iso-cash-account-type-cacc
    :effective-from 20089
+   :closure-terms {:interest {:kind {:pay {}}}}
    :created-at 1700000000000
    :created-by {:kind :actor-kind-operator :principal-id "queenswood-admin"}
    :updated-at 1700000000000})
@@ -309,12 +310,33 @@
                                                             [450]}]}}}
                     :payment {:business-day-convention
                               :business-day-convention-modified-following
-                              :kind {:at-close {}}
+                              :kind {:closure-day {}}
                               :calendar :business-day-calendar-none}}
           read (SUT/pb->CashAccountProduct
                 (SUT/CashAccountProduct->pb
                  (assoc draft-version :interest-terms interest)))]
-      (is (= interest (:interest-terms read))))))
+      (is (= interest (:interest-terms read)))))
+  (testing "a version's closure terms read back as plain maps"
+    (is (= {:interest {:kind {:pay {}}}}
+           (:closure-terms (SUT/pb->CashAccountProduct
+                            (SUT/CashAccountProduct->pb draft-version)))))
+    (let [closure
+          {:interest {:kind {:pay {}}}
+           :early
+           [{:unit :interest-period-unit-month :count 3 :kind {:refused {}}}
+            {:unit :interest-period-unit-month
+             :count 12
+             :kind {:charged {:interest {:kind {:forfeit-days {:days 90}}}
+                              :fee {:kind {:balance {:rate-bps 100
+                                                     :max 5000}}}}}}
+            {:unit :interest-period-unit-month
+             :count 24
+             :kind {:charged {:interest {:kind {:forfeit {}}}
+                              :fee {:kind {:flat {:amount 2500}}}}}}]}
+          read (SUT/pb->CashAccountProduct
+                (SUT/CashAccountProduct->pb
+                 (assoc draft-version :closure-terms closure)))]
+      (is (= closure (:closure-terms read))))))
 
 (def ^:private deferred-reward
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"

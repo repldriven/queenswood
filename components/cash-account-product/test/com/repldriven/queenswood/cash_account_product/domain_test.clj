@@ -445,7 +445,7 @@
                                             :business-day-calendar-euta)}))))
         (testing "and every day at close, which has no schedule"
           (is (= :business-day-calendar-none
-                 (calendar {:kind {:at-close {}}
+                 (calendar {:kind {:closure-day {}}
                             :calendar :business-day-calendar-gblo}))))))
     (testing "a rate alone is one band from opening, paid daily"
       (let [read (:interest-terms (draft {:interest-rate-bps 250}))]
@@ -492,7 +492,7 @@
                                      20100)})))))
     (testing "each kind of payment is kept"
       (doseq [kind [{:calendar-day {:every 3 :day-of-month 31 :in-month 3}}
-                    {:at-close {}}]]
+                    {:closure-day {}}]]
         (is (= kind
                (get-in (draft {:interest-terms
                                (assoc-in terms [:payment :kind] kind)})
@@ -505,6 +505,101 @@
                                 (assoc-in terms
                                  [:accrual :day-count]
                                  :interest-day-count-actual-actual)})))))))
+
+(deftest closure-terms-test
+  (let [draft (fn [data]
+                (SUT/new-version "bnk.1"
+                                 "prd.1"
+                                 []
+                                 template
+                                 (merge good-data data)
+                                 permissive-policies))
+        refused (fn [data]
+                  (let [r (draft data)]
+                    (when (and (error/rejection? r)
+                               (= :cash-account-product/invalid-closure-terms
+                                  (error/kind r)))
+                      (:message (error/payload r)))))
+        pay {:kind {:pay {}}}
+        forfeit {:kind {:forfeit {}}}
+        window (fn [count kind]
+                 {:unit :interest-period-unit-month :count count :kind kind})
+        stepped {:interest pay
+                 :early [(window 3 {:refused {}})
+                         (window 12
+                                 {:charged
+                                  {:interest {:kind {:forfeit-days {:days 90}}}
+                                   :fee {:kind {:balance {:rate-bps 100
+                                                          :min 500
+                                                          :max 5000}}}}})]}
+        closure-day (fn [data]
+                      (merge {:interest-terms
+                              {:accrual {:banding :interest-banding-marginal
+                                         :bands [0]
+                                         :schedule
+                                         {:relative
+                                          {:unit :interest-period-unit-month
+                                           :periods [{:after 0
+                                                      :rates-bps [450]}]}}}
+                               :payment {:kind {:closure-day {}}}}}
+                             (dissoc data :interest-rate-bps)))]
+    (testing "a version stating none pays what has accrued and charges nothing"
+      (is (= {:interest pay} (:closure-terms (draft {}))))
+      (is (= {:interest pay} (:closure-terms (draft {:interest-rate-bps 0})))))
+    (testing "a version keeps the terms it states"
+      (is (= stepped
+             (:closure-terms (draft {:interest-rate-bps 250
+                                     :closure-terms stepped})))))
+    (testing "only a version that pays interest can forfeit it"
+      (is (= "Only a version that pays interest can forfeit it at closure"
+             (refused {:interest-rate-bps 0
+                       :closure-terms {:interest forfeit}})))
+      (is (= {:interest pay :early [(window 6 {:refused {}})]}
+             (:closure-terms (draft {:interest-rate-bps 0
+                                     :closure-terms
+                                     {:interest pay
+                                      :early [(window 6 {:refused {}})]}})))
+          "though it may refuse an early closure"))
+    (testing "a version paid on its closure day pays some of it"
+      (is
+       (=
+        "A version paying interest on its closure day cannot forfeit all of it"
+        (refused (closure-day {:closure-terms {:interest forfeit}}))))
+      (is
+       (=
+        "A version paying interest on its closure day cannot forfeit all of it"
+        (refused (closure-day
+                  {:closure-terms
+                   {:interest pay
+                    :early [(window 12 {:charged {:interest forfeit}})]}}))))
+      (is (some? (:closure-terms (draft (closure-day
+                                         {:closure-terms
+                                          {:interest {:kind {:forfeit-days
+                                                             {:days 90}}}}}))))
+          "forfeiting some days pays the rest"))
+    (testing "windows start in ascending order, in one unit"
+      (is (= "Early closure windows start in ascending order"
+             (refused {:closure-terms {:interest pay
+                                       :early [(window 12 {:refused {}})
+                                               (window 3 {:refused {}})]}})))
+      (is (= "Early closure windows count in one unit"
+             (refused {:closure-terms {:interest pay
+                                       :early
+                                       [(window 3 {:refused {}})
+                                        (assoc (window 12 {:refused {}})
+                                               :unit
+                                               :interest-period-unit-day)]}}))))
+    (testing "a balance fee's minimum is no more than its maximum"
+      (is (= "A balance fee's minimum is no more than its maximum"
+             (refused {:closure-terms
+                       {:interest pay
+                        :early [(window 12
+                                        {:charged
+                                         {:interest pay
+                                          :fee {:kind {:balance
+                                                       {:rate-bps 100
+                                                        :min 5000
+                                                        :max 500}}}}})]}}))))))
 
 (deftest own-funds-product-test
   (let [own-funds (assoc template

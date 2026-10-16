@@ -308,6 +308,21 @@ guess.
 
 ## Known Limitations
 
+- **A move is summarised as its rate.** The console's migration page
+  compares source and target by their first rate, though a version
+  carries a grid of rates, a payment schedule and calendar, payment and
+  balance limits, and may be another product's, as when the source is
+  being withdrawn; the page says neither what else changes nor why the
+  move is made.
+- **An account is not checked against the target's limits.** A verdict
+  reads the account's status and currency and whether it is already on
+  the target, so an account whose balance falls outside the target's
+  balance limits is moved.
+- **Accrued interest waits for the target's schedule.** Interest accrued
+  before the move stays in the bucket and is paid on the target's
+  payment days, so a target paying later, or only on closure, holds back
+  interest earned under the source.
+
 - **The cohort is the source product, not a query.** A migration names
   a source product and may narrow it to particular source versions.
   There is no stored query (currency, balance band, party segment) and

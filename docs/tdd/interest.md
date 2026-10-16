@@ -583,7 +583,9 @@ run before the day ends go when it lands.
 ### A version's interest terms
 
 Accrual reads the terms and capitalisation pays on their payment days;
-the term and maturity are not built yet. A version states its rates as
+`interest/settle-accrued` settles a closure by the version's closure
+terms, and no close calls it yet; the term and maturity are not built
+yet. A version states its rates as
 a grid, a rate for each period of an account's life and each band of
 its balance, and says when interest is paid, as
 [cash-account-products](cash-account-products.md#interest-terms) lays
@@ -630,7 +632,7 @@ in. A daily payment also pays `version_from_on` itself, so an account
 is paid the day it opens what it earned that day, and a longer cadence
 first pays one period after. An account is due where one of them,
 moved by the convention on the calendar, falls in the run's window. A
-payment at close is never due on a schedule, and neither is an account
+closure-day payment is never due on a schedule, and neither is an account
 on a version with no terms.
 
 **A run pays the days since the last.** The window runs from the day
@@ -651,16 +653,28 @@ it starts: `GBLO`'s from
 over the run's year and those either side, `WEEKENDS` and `NONE` from
 their names.
 
-**Closing pays what has accrued first.** Closing refuses an account
-with any balance, `:cash-account/non-zero-on-close`, and under any
-payment but daily the interest-accrued bucket holds what is not yet
-paid, under one paid at close all of it. `interest/pay-accrued` sweeps
-one account's bucket at once, as capitalisation does, keyed
-`pay-accrued-<account-id>-<as-of-date>`, and the API takes it as
-`POST /v1/cash-accounts/{account-id}/interest-payments`. A tenant pays
-the accrued interest, moves the balance out and closes the account; a
-second call that day finds the bucket empty and pays nothing, and the
-carry, under a minor unit, is forfeited at close.
+**A version's closure terms say what happens to interest not yet
+paid.** Its
+[closure terms](cash-account-products.md#closure-terms) pay it,
+forfeit it, for a product whose interest holds only while the account
+stays open, or forfeit a number of days' interest at the closure day's
+rates and pay the rest, the usual charge for closing a fixed-term or
+notice account early, never more than has accrued; an early closure is
+held to its window's term instead.
+
+**Interest is settled when the account is closed.** Closing refuses an
+account it cannot empty, and under any payment but daily the
+interest-accrued bucket holds what is not yet paid, under one paid on
+its closure day all of it. `interest/settle-accrued` applies the
+closure's interest term to one account's bucket in the close's own
+transaction, as
+[cash-accounts](cash-accounts.md#closing-with-a-payout-account) lays
+out: what is paid moves to the default bucket as capitalisation moves
+it, and what is forfeited leaves the bucket against 5100 interest
+expense, an `interest-forfeiture` transaction, so 2400 still balances.
+The carry, under a minor unit, is forfeited whatever the term. There is
+no settlement apart from a close: the payout the close makes is what
+moves the balance out. A close by maturity is never early, as below.
 
 **A fixed-term account matures.** A version with a `term_months`, as
 [cash-account-products](cash-account-products.md#term) lays out, is
@@ -679,18 +693,19 @@ accounts as the others do, and takes each opened account whose maturity
 day has come, and each still matured, through two steps, each in one
 transaction:
 
-- **Matured.** It pays the accrued interest, as `pay-accrued` does, and
-  calls `cash-account/mature-account`, which takes the account from
+- **Matured.** It pays the accrued interest in full, since a closure at
+  maturity is past every early window, and calls
+  `cash-account/mature-account`, which takes the account from
   opened to a new `matured` status: it accrues nothing, refuses
   credits and allows debits. A suspended account is left until it is
   resumed, and accrues nothing meanwhile.
 - **Paid out.** Where the account has no pending amount and its payout
-  account is still opened, it records a transaction of type `maturity`
-  moving the whole default balance to the payout account's, writing
+  account is still opened, it closes the account to the payout account
+  as a tenant's close does, the interest already paid, moving the whole
+  default balance in a `closure` transaction, writing
   `transaction-posted` to the bank's activity log as every posting
   does, so a provider holding balances per account moves the money
-  too, and takes the account from matured to closing; the close then
-  finishes as any other does.
+  too; the close then finishes as any other does.
 
 Where the second step cannot run, because a payment is in flight or
 the payout account has closed or been suspended since the account
@@ -709,10 +724,13 @@ existing caller passing a flat rate paid daily; then `version_from_on`, in
 the cash-accounts pass of the clean-slate schema reset; then the grid
 and the day count in accrual, with the model's accrual beside it; then
 the calendars; then payment days in capitalisation, worked out rather
-than stored, with the model's payment days; then `pay-accrued` and its
-route; then the term, the payout account and the maturity pass; and
-last the console's product drawer and the migration preview, which
-compares two schedules rather than two rates.
+than stored, with the model's payment days; then closure terms and
+settlement in a close that names its payout account; then a migration
+as a change of terms, its preview and console comparing every term the
+move changes and saying why it is made, each account checked against
+the target's limits and its accrued interest paid where the payment
+changes; then the term, the payout account and the maturity pass; and
+last the console's product drawer.
 
 ## Alternatives Considered
 

@@ -1,10 +1,12 @@
 (ns com.repldriven.queenswood.interest.interface
   "Interest accrual and capitalisation for customer cash accounts.
   Iterates an organisation's customer accounts on a given as-of date
-  and posts the resulting accrual or capitalisation transactions.
-  Returns a per-call summary map or an anomaly."
+  and posts the resulting accrual or capitalisation transactions, and
+  settles one account's accrued interest when it closes. Returns a
+  per-call summary map or an anomaly."
   (:require
-    [com.repldriven.queenswood.interest.core :as core]))
+    [com.repldriven.queenswood.interest.core :as core]
+    [com.repldriven.queenswood.interest.settle :as settle]))
 
 (defn accrue-day
   "Post one day's interest accrual for every customer account in the
@@ -77,3 +79,27 @@
   - account-id: the cash account."
   [config bank-id account-id]
   (core/accrual-carry config bank-id account-id))
+
+(defn settle-accrued
+  "Settle a closing account's accrued interest by `:interest`, the
+  closure's interest term from its version's closure terms, inside the
+  close's own transaction, at the version's rates: what is paid
+  moves from its interest-accrued bucket to its default one, as
+  capitalisation moves it, and what is forfeited leaves the bucket
+  against interest expense in an `interest-forfeiture` transaction, so
+  interest payable still balances. `forfeit-days` forfeits that many
+  days' interest on the account's balance at the day's rates, never
+  more than has accrued. The sub-unit carry is forfeited whatever the
+  term, by being left behind.
+
+  Args:
+  - txn: an open FDB transaction.
+  - data: map with :account, the cash account closing, :interest, a
+    `ClosureInterest` `{:kind {:pay {}}}`, `{:kind {:forfeit {}}}` or
+    `{:kind {:forfeit-days {:days n}}}`, :business-day, the close's epoch
+    day, and :policies, the bank's effective policies.
+
+  Returns `{:paid :forfeited}` in minor units, both zero where nothing
+  has accrued, or an anomaly."
+  [txn data]
+  (settle/settle-accrued txn data))

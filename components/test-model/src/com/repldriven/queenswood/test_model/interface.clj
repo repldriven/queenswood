@@ -87,7 +87,7 @@
     :periods [{:after n :rates-bps [...]}]}}` or `{:fixed {:periods
     [{:from-on epoch-day :rates-bps [...]}]}}`, one rate per band; and
     optionally `:payment`, `{:account-day {:unit :every}}`,
-    `{:calendar-day {:every :day-of-month :in-month}}` or `{:at-close
+    `{:calendar-day {:every :day-of-month :in-month}}` or `{:closure-day
     {}}`, daily where absent, with `:calendar` `:none`, the default, or
     `:weekends`."}
   create-product

@@ -23,7 +23,20 @@ export const FREQUENCIES = [
   { value: "quarterly", label: "Every 3 months" },
   { value: "half-yearly", label: "Every 6 months" },
   { value: "annually", label: "Annually" },
-  { value: "at-close", label: "When the account closes" },
+  { value: "closure-day", label: "When the account closes" },
+];
+
+// What a closure does with interest not yet paid.
+export const CLOSURE_INTEREST = [
+  { value: "pay", label: "paid" },
+  { value: "forfeit", label: "forfeited" },
+  { value: "forfeit-days", label: "paid, less" },
+];
+
+export const CLOSURE_FEES = [
+  { value: "none", label: "no fee" },
+  { value: "flat", label: "a fee of" },
+  { value: "balance", label: "a share of the balance" },
 ];
 
 const MONTHS_EVERY = { monthly: 1, quarterly: 3, "half-yearly": 6, annually: 12 };
@@ -160,7 +173,7 @@ export function todayIso() {
 // `custom` and kept as it is.
 export function paymentChoice(payment) {
   const kind = payment?.kind;
-  if (kind === "at-close") return { frequency: "at-close", on: "account", inMonth: 1 };
+  if (kind === "closure-day") return { frequency: "closure-day", on: "account", inMonth: 1 };
   if (kind === "account-day") {
     const { unit, every } = payment;
     if (unit === "day" && every === 1) return { frequency: "daily", on: "account", inMonth: 1 };
@@ -188,7 +201,7 @@ export function paymentFrom(choice, current) {
   if (frequency === "custom") return current;
   if (frequency === "daily") return { kind: "account-day", unit: "day", every: 1 };
   if (frequency === "weekly") return { kind: "account-day", unit: "week", every: 1 };
-  if (frequency === "at-close") return { kind: "at-close" };
+  if (frequency === "closure-day") return { kind: "closure-day" };
   const every = MONTHS_EVERY[frequency];
   if (on === "account") return { kind: "account-day", unit: "month", every };
   return {
@@ -202,7 +215,7 @@ export function paymentFrom(choice, current) {
 // Whether the sentence shows `on`, and whether it shows `starting in`.
 export function paymentShows(choice) {
   const { frequency, on } = choice;
-  const dated = !["daily", "weekly", "at-close", "custom"].includes(frequency);
+  const dated = !["daily", "weekly", "closure-day", "custom"].includes(frequency);
   return {
     on: dated,
     inMonth: dated && frequency !== "monthly" && on !== "account",
@@ -229,7 +242,7 @@ function unitWords(unit, n) {
 // month as the account opened".
 export function describePayment(payment) {
   const kind = payment?.kind;
-  if (kind === "at-close") return "paid when the account closes";
+  if (kind === "closure-day") return "paid when the account closes";
   if (kind === "account-day") {
     const { unit, every } = payment;
     if (unit === "day" && every === 1) return "paid daily";
@@ -248,6 +261,79 @@ export function describePayment(payment) {
     return `paid every ${every} months, on ${day} of the month, from ${month}`;
   }
   return "";
+}
+
+// The stored closure interest for the select `kind`, keeping the days
+// of `current` where it forfeits some.
+export function closureInterestFrom(kind, current) {
+  if (kind === "forfeit-days") return { kind, days: current?.days ?? 90 };
+  return { kind };
+}
+
+// The stored closure fee for the select `kind`, or null for none.
+export function closureFeeFrom(kind, current) {
+  if (kind === "flat") return { kind, amount: current?.amount ?? 2500 };
+  if (kind === "balance") return { kind, "rate-bps": current?.["rate-bps"] ?? 100 };
+  return null;
+}
+
+export function defaultEarlyClosure(early) {
+  const last = early.at(-1);
+  return {
+    unit: last?.unit ?? "month",
+    count: last ? last.count + 3 : 3,
+    kind: "refused",
+  };
+}
+
+// A window's kind changed to `kind`, an early closure charged paying
+// what has accrued and no fee until its terms say otherwise.
+export function earlyClosureFrom(window, kind) {
+  const { unit, count } = window;
+  if (kind === "refused") return { unit, count, kind };
+  return { unit, count, kind, interest: window.interest ?? { kind: "pay" } };
+}
+
+function closureInterestWords(interest) {
+  if (interest?.kind === "forfeit") return "loses the interest not yet paid";
+  if (interest?.kind === "forfeit-days") {
+    return `loses ${interest.days} days' interest, or what has not yet been paid if that is less`;
+  }
+  return "is paid the interest not yet paid";
+}
+
+function closureFeeWords(fee, currency) {
+  if (fee?.kind === "flat") return `, and is charged ${money(fee.amount, currency)}`;
+  if (fee?.kind === "balance") {
+    const bounds = [
+      fee.min != null && `at least ${money(fee.min, currency)}`,
+      fee.max != null && `at most ${money(fee.max, currency)}`,
+    ].filter(Boolean);
+    const within = bounds.length ? ` (${bounds.join(", ")})` : "";
+    return `, and is charged ${pct(fee["rate-bps"])} of the balance${within}`;
+  }
+  return "";
+}
+
+// The closure terms in a customer's words: each early window, then
+// what any other closure does with interest not yet paid, or "" where
+// there is nothing to say.
+export function describeClosure(closure, payment, interestOn, currency) {
+  const out = (closure?.early ?? []).map((w) => {
+    const span = unitWords(w.unit, w.count);
+    if (w.kind === "refused") return `The account can't be closed in its first ${span}.`;
+    return `Closed in its first ${span}, it ${closureInterestWords(w.interest)}${closureFeeWords(w.fee, currency)}.`;
+  });
+  if (interestOn && !(closure?.interest?.kind === "pay" && payment?.kind === "closure-day")) {
+    const interest = closure?.interest;
+    let text;
+    if (interest?.kind === "forfeit") text = "interest not yet paid is lost when the account is closed";
+    else if (interest?.kind === "forfeit-days") {
+      text = `closing the account loses ${interest.days} days' interest, or what has not yet been paid if that is less`;
+    } else text = "interest not yet paid is paid when the account is closed";
+    out.push(out.length ? `After that, ${text}.` : `${capitalise(text)}.`);
+  }
+  return out.join(" ");
 }
 
 // Payments a year, for the AER; at close compounds nothing within a
@@ -423,6 +509,8 @@ export function fromVersion(version) {
     interest.payment = kind;
     interest.calendar = calendar ?? "none";
   }
+  const closure = structuredClone(version["closure-terms"] ?? { interest: { kind: "pay" } });
+  closure.early ??= [];
   const reward = version["opening-reward"];
   return {
     productId: version["product-id"],
@@ -434,6 +522,7 @@ export function fromVersion(version) {
     name: version.name ?? "",
     currency: version.currency,
     interest,
+    closure,
     dayCount: version["day-count"],
     businessDayConvention: version["business-day-convention"],
     minBalance: version["min-balance"] ?? 0,
@@ -461,8 +550,24 @@ export function interestTerms(form) {
   };
   if (relative) accrual.unit = interest.unit;
   const payment = { ...interest.payment };
-  if (payment.kind !== "at-close") payment.calendar = interest.calendar;
+  if (payment.kind !== "closure-day") payment.calendar = interest.calendar;
   return { accrual, payment };
+}
+
+export function closureTerms(form) {
+  const { interest, early } = form.closure;
+  const body = { interest: { ...interest } };
+  if (early.length) {
+    body.early = early.map((w) => {
+      const window = { unit: w.unit, count: Number(w.count), kind: w.kind };
+      if (w.kind === "charged") {
+        window.interest = { ...w.interest };
+        if (w.fee) window.fee = { ...w.fee };
+      }
+      return window;
+    });
+  }
+  return body;
 }
 
 function limitBody(limit) {
@@ -497,6 +602,7 @@ export function toRequest(form, overrides = {}) {
   if (form.effectiveTo) body["effective-to"] = form.effectiveTo;
   const terms = interestTerms({ ...form, effectiveFrom: body["effective-from"] });
   if (terms) body["interest-terms"] = terms;
+  body["closure-terms"] = closureTerms(form);
   if (form.maxBalance != null) body["max-balance"] = form.maxBalance;
   if (form.paymentLimits.length) body["payment-limits"] = form.paymentLimits.map(limitBody);
   if (form.reward.on) body["opening-reward"] = { amount: form.reward.amount };
@@ -510,6 +616,7 @@ export const SECTIONS = [
   { id: "product", title: "Product" },
   { id: "interest", title: "Interest" },
   { id: "term", title: "Term" },
+  { id: "closure", title: "Closure" },
   { id: "limits", title: "Limits" },
   { id: "rewards", title: "Rewards" },
   { id: "availability", title: "Availability" },
@@ -522,6 +629,8 @@ function sectionBody(form, id) {
       return { name: body.name, currency: body.currency };
     case "interest":
       return body["interest-terms"] ?? null;
+    case "closure":
+      return body["closure-terms"];
     case "limits":
       return {
         min: body["min-balance"],
@@ -561,6 +670,11 @@ export function summary(form, id) {
     }
     case "term":
       return "no term";
+    case "closure": {
+      const n = form.closure.early.length;
+      const kind = CLOSURE_INTEREST.find((c) => c.value === form.closure.interest.kind);
+      return n ? `${n} early window${n === 1 ? "" : "s"}` : `interest ${kind?.label ?? "paid"}`;
+    }
     case "limits": {
       const n = form.paymentLimits.length;
       return n ? `${n} payment limit${n === 1 ? "" : "s"}` : `min ${money(form.minBalance, currency)}`;
@@ -596,6 +710,8 @@ export function customerTerms(form) {
   } else {
     out.push({ section: "Interest", text: "This account pays no interest." });
   }
+  const closure = describeClosure(form.closure, interest.payment, interest.on, currency);
+  if (closure) out.push({ section: "Closure", text: closure });
   const limits = form.paymentLimits.map((l) => describeLimit(l, currency));
   limits.push(`The balance can't go below ${money(form.minBalance, currency)}.`);
   if (form.maxBalance != null) {

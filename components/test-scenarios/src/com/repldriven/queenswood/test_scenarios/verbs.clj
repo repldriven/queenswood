@@ -409,7 +409,7 @@
   "A version's payment from the model's, daily on every day where it
   states none."
   [payment calendar]
-  (let [{:keys [account-day calendar-day at-close]} payment]
+  (let [{:keys [account-day calendar-day closure-day]} payment]
     {:kind (cond account-day
                  {:account-day (update account-day
                                        :unit
@@ -418,8 +418,8 @@
                  calendar-day
                  {:calendar-day calendar-day}
 
-                 at-close
-                 {:at-close {}}
+                 closure-day
+                 {:closure-day {}}
 
                  :else
                  {:account-day {:unit :interest-period-unit-day
