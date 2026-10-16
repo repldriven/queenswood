@@ -328,3 +328,34 @@ few-webhooks: !system/component
                     value: 1
                     window: !keyword time-window-instant
         reason: "Few-webhooks tier - a bank has at most 1 webhook endpoint"
+# The rig's `bank-tier-default`: every bank a person creates lands on
+# it, and a member may create two, so a scenario can reach the limit
+# with three calls.
+few-member-banks: !system/component
+  system/component-kind: policies/policy
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  policy:
+    policy-id: pol.00000000000000000000000014
+    name: Few-member-banks policy
+    description: Few-member-banks tier - a member creates two banks
+    status: !keyword policy-status-active
+    labels: !strs
+      tier: few-member-banks
+    category: !keyword policy-category-restricted
+    capabilities: []
+    limits:
+      - kind:
+          bank:
+            filters:
+              - tier: few-member-banks
+                created-by-kind: !keyword actor-kind-member
+        bound:
+          kind:
+            max:
+              aggregate:
+                kind:
+                  count:
+                    value: 2
+                    window: !keyword time-window-instant
+        reason: "Few-member-banks tier - a member may create at most 2 banks"

@@ -259,6 +259,9 @@ system:
       audiences-by-status:
         bank-status-test: queenswood-api-test
         bank-status-live: queenswood-api-live
+      # The tier a bank is created on when its create names none, and
+      # so the tier of every bank a person creates.
+      bank-tier-default: micro
       dispatchers:
         banks: !system/ref banks.dispatcher
         cash-accounts: !system/ref cash-accounts.dispatcher

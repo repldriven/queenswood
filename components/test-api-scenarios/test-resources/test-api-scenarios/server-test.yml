@@ -26,6 +26,9 @@ interceptors: !system/component
   audiences-by-status:
     bank-status-test: queenswood-api-test
     bank-status-live: queenswood-api-live
+  # A tier of the rig's own, so the banks a person creates are held to
+  # a limit no product decision moves.
+  bank-tier-default: few-member-banks
   dispatchers:
     banks: !system/ref banks-dispatcher.dispatcher
     members: !system/ref members-dispatcher.dispatcher

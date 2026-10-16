@@ -267,9 +267,10 @@ For a person, the handler:
 2. Looks the company number up against the registry of record; a
    failed lookup comes back to the caller as it stands.
 3. Sends the `create-bank` command with the defaults a person cannot
-   change: status `bank-status-test`, tier `micro`, currencies
-   `["GBP"]`, a company binding snapshotted from the lookup, and an
-   owner member carrying `role-owner` for the signed-in user. The
+   change: status `bank-status-test`, the tier `bank-tier-default`
+   names in the API server's configuration, currencies `["GBP"]`, a
+   company binding snapshotted from the lookup, and an owner member
+   carrying `role-owner` for the signed-in user. The
    command itself rejects `:bank/company-not-active` when the snapshot
    is not active.
 4. Returns 201 with the bank (party, accounts, client-id, one-time
