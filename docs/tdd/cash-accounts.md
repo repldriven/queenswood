@@ -384,9 +384,10 @@ the waiver is for the case where sweeping is not possible.
 
 Not built yet. An account with a balance is closed today by the tenant
 emptying it with its own payments, waiting for them to settle, and then
-closing it; a version's terms say what happens at close to the interest
-accrued and not yet paid, which changes the balance being emptied, so
-the close itself settles it and moves what is left. This section is the
+closing it; a version's closure terms say what happens to the interest
+accrued and not yet paid, and may charge a fee, which changes the
+balance being emptied, so the close itself settles it and moves what is
+left. This section is the
 design, and the order to build it in.
 
 **A close names where the balance goes.** `POST
@@ -403,46 +404,55 @@ transaction that records the close operation:
 1. The guards run as today, the status, the capability, and the
    balance check, which now refuses only a bucket the close cannot
    empty itself: a pending hold, or a posted bucket other than the
-   default and the interest-accrued one.
-2. `interest/settle-accrued` applies the version's `on_close` term to
-   the interest-accrued bucket, paying it into the default bucket,
-   forfeiting it against 5100 interest expense, or forfeiting a number
-   of days' interest and paying the rest, as
+   default and the interest-accrued one. The version's
+   [closure terms](cash-account-products.md#closure-terms) then name the
+   early window the close falls in, if any, and a `refused` one refuses
+   it `:cash-account/early-closure-refused` (409).
+2. `interest/settle-accrued` settles the interest-accrued bucket by the
+   window's `interest`, or the terms' own where the close is not early:
+   paying it into the default bucket, forfeiting it against 5100
+   interest expense, or forfeiting a number of days' interest and
+   paying the rest, as
    [interest](interest.md#a-versions-interest-terms) lays out.
-3. A `closure` transaction moves the default bucket's whole posted
+3. The window's `fee`, where it names one, is charged from the default
+   bucket in a `fee` transaction against 4100 fee income, never more
+   than the bucket holds.
+4. A `closure` transaction moves the default bucket's whole posted
    balance to the payout account, checked as an internal payment into
    that account is: its inbound payment limits and its balance limits.
    A payout that would break one refuses the whole close with that
    limit's rejection, so nothing moves and the account stays as it was.
    The closure is not counted against the closing account's own payment
    limits, as interest is not.
-4. The account goes to `:cash-account-status-closing` with the
+5. The account goes to `:cash-account-status-closing` with the
    operation, and the provider's close is asked for as today, after the
    closure's posting on the bank's activity log (ADR-0033).
 
-A close naming no payout account settles the interest the same way and
-is refused `:cash-account/non-zero-on-close` where the default bucket
-then holds anything, its message saying to name one, so an empty
-account closes as it does today.
+A close naming no payout account settles the interest and charges the
+fee the same way and is refused `:cash-account/non-zero-on-close` where
+the default bucket then holds anything, its message saying to name
+one, so an empty account closes as it does today.
 
 **Closed only when empty.** The event transition from closing to
 closed refuses an account whose balance is not zero, whatever the
 provider says: a credit that landed after the close leaves it closing,
 the operation recording why, and the tenant closes it again. A close is
 accepted on a closing account too, naming a payout account, and runs
-steps 2 to 4 again, so an account that could not be emptied is not
-stuck. The payout account is the destination the tenant names; nothing
-is ever sent anywhere else.
+steps 2 to 5 again, finding nothing more to settle or charge, so an
+account that could not be emptied is not stuck. The payout account is
+the destination the tenant names; nothing is ever sent anywhere else.
 
 **Maturity reuses it.** A fixed-term account's maturity pays out to the
 payout account it was opened with through the same settlement and
 `closure` transaction, as [interest](interest.md#a-versions-interest-terms)
-describes.
+describes. A closure at maturity is never early, so it pays in full and
+charges nothing.
 
-First, the version's `on_close` term and `interest/settle-accrued`; then
-the payout account on the close, its checks and the `closure`
-transaction, with the closed-only-when-empty guard; then the console's
-close dialog naming the payout account.
+The version's closure terms and `interest/settle-accrued` are built;
+next, the payout account on the close, the early window and its fee,
+its checks and the `closure` transaction, with the
+closed-only-when-empty guard; then the console's close dialog naming
+the payout account.
 
 ### Operations at the provider
 

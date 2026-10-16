@@ -264,6 +264,23 @@
                      form))
                  interest))
 
+(defn- plain-closure
+  "A version's closure terms as plain maps, without early windows where
+  it has none, which read back empty, or a balance fee's `min` or `max`
+  where it was never given, which read back as zero."
+  [closure]
+  (walk/postwalk (fn [form]
+                   (if (map? form)
+                     (into {}
+                           (remove (fn [[k v]]
+                                     (or (nil? v)
+                                         (and (= :early k) (empty? v))
+                                         (and (contains? #{:min :max} k)
+                                              (zero? v)))))
+                           form)
+                     form))
+                 closure))
+
 (defn- plain-limits
   "A version's limits as plain maps, each oneof a map of its one set
   variant, without an aggregate's anchor, start or rolling span where
@@ -315,6 +332,9 @@
 
      (some? (:interest-terms version))
      (update :interest-terms plain-interest)
+
+     (some? (:closure-terms version))
+     (update :closure-terms plain-closure)
 
      (nil? (:updated-by version))
      (dissoc :updated-by)

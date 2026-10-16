@@ -1,0 +1,102 @@
+{:name "A product states what closing an account on it does"
+ ;; A version takes its closure terms in full and returns them as they
+ ;; were stated: what a closure does with interest not yet paid, and
+ ;; early windows that refuse a closure or charge it, each with its own
+ ;; interest term and fee. A version stating none pays what has accrued.
+ ;; Terms that cannot hold are refused with the rule they break.
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Closure Terms Product Bank" :status "live"}}]
+ :when
+ [{:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products"
+    :auth [:ref :org-0 :token]
+    :body {:name "Bonus Saver"
+           :template-id "tpl.00000000000000000000000002"
+           :currency "GBP"
+           :interest-rate-bps 450
+           :closure-terms
+           {:interest {:kind "pay"}
+            :early [{:unit "month" :count 3 :kind "refused"}
+                    {:unit "month"
+                     :count 12
+                     :kind "charged"
+                     :interest {:kind "forfeit-days" :days 90}
+                     :fee {:kind "balance" :rate-bps 100 :max 5000}}]}
+           :effective-from "2026-11-01"}}
+   :as :v1
+   :assert
+   {:status 201
+    :body {:closure-terms
+           {:interest {:kind "pay"}
+            :early [{:unit "month" :count 3 :kind "refused"}
+                    {:unit "month"
+                     :count 12
+                     :kind "charged"
+                     :interest {:kind "forfeit-days" :days 90}
+                     :fee {:kind "balance" :rate-bps 100 :max 5000}}]}}}}
+  ;; A version stating none pays what has accrued and charges nothing.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Easy Access"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 250
+                    :effective-from "2026-11-01"}}
+   :assert {:status 201 :body {:closure-terms {:interest {:kind "pay"}}}}}
+  ;; Interest paid on the closure day is never wholly forfeited.
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products"
+    :auth [:ref :org-0 :token]
+    :body {:name "Never Paid"
+           :template-id "tpl.00000000000000000000000002"
+           :currency "GBP"
+           :interest-terms {:accrual {:basis "relative"
+                                      :banding "marginal"
+                                      :bands [0]
+                                      :unit "month"
+                                      :periods [{:after 0 :rates-bps [500]}]}
+                            :payment {:kind "closure-day"}}
+           :closure-terms {:interest {:kind "forfeit"}}
+           :effective-from "2026-11-01"}}
+   :assert
+   {:status 422
+    :problem
+    {:type ":cash-account-product/invalid-closure-terms"
+     :detail
+     "A version paying interest on its closure day cannot forfeit all of it"}}}
+  ;; Windows start in ascending order.
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :org-0 :token]
+             :body {:name "Out Of Order"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 250
+                    :closure-terms
+                    {:interest {:kind "pay"}
+                     :early [{:unit "month" :count 12 :kind "refused"}
+                             {:unit "month" :count 3 :kind "refused"}]}
+                    :effective-from "2026-11-01"}}
+   :assert {:status 422
+            :problem {:type ":cash-account-product/invalid-closure-terms"
+                      :detail
+                      "Early closure windows start in ascending order"}}}]
+ :then
+ [{:command :api/request
+   :request
+   {:method :get
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}"
+    :path-params {:product-id [:ref :v1 :product-id]
+                  :version-id [:ref :v1 :version-id]}
+    :auth [:ref :org-0 :token]}
+   :assert {:status 200
+            :body {:closure-terms {:early [{:count 3 :kind "refused"}
+                                           {:count 12 :kind "charged"}]}}}}]}

@@ -39,7 +39,7 @@
     (is (= [] (SUT/scheduled-days monthly 20487 20480 20487))
         "a longer cadence first pays one period after"))
   (testing "a payment at close schedules none"
-    (is (= [] (SUT/scheduled-days {:at-close {}} 20000 20480 20487)))))
+    (is (= [] (SUT/scheduled-days {:closure-day {}} 20000 20480 20487)))))
 
 (deftest due?-test
   (testing "a daily payment on no calendar is due every day"

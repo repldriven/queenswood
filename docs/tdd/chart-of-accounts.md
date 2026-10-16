@@ -305,9 +305,11 @@ balance is the sum of the cash accounts of its product type, and
 2400's the sum of their interest-accrued buckets — see "Balance
 buckets per account class" below.
 
-Accounts the chart will grow when those flows land — fee
-income (4xxx), retained earnings, accrued fees receivable —
-are not seeded today; a bank adds them as it needs them.
+4100 fee income, an income detail account, is seeded with the
+fee an early closure charges, as
+[cash-accounts](cash-accounts.md#closing-with-a-payout-account)
+lays out; not built yet. Retained earnings and accrued fees
+receivable are not seeded; a bank adds them as it needs them.
 
 `1100 — Cash at correspondent` is the bank's own settlement
 account at its clearing rail. For a directly-connected bank it

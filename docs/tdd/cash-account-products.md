@@ -277,43 +277,23 @@ message CalendarDayInterestPayment {
   required int32 in_month = 3; // 1 to 12
 }
 
-message AtCloseInterestPayment {}
+message ClosureDayInterestPayment {}
 
 message InterestPayment {
   required BusinessDayConvention business_day_convention = 1;
   oneof kind {
     AccountDayInterestPayment account_day = 2;
     CalendarDayInterestPayment calendar_day = 3;
-    AtCloseInterestPayment at_close = 4;
+    ClosureDayInterestPayment closure_day = 4;
   }
   required BusinessDayCalendar calendar = 5;
-}
-
-message PayOnClose {}
-
-message ForfeitOnClose {}
-
-message ForfeitDaysOnClose {
-  required int32 days = 1;
-}
-
-message InterestOnClose {
-  oneof kind {
-    PayOnClose pay = 1;
-    ForfeitOnClose forfeit = 2;
-    ForfeitDaysOnClose forfeit_days = 3;
-  }
 }
 
 message InterestTerms {
   required InterestAccrual accrual = 1;
   required InterestPayment payment = 2;
-  required InterestOnClose on_close = 3;
 }
 ```
-
-`on_close` is proposed, not built yet; `interest_terms` holds the first
-two today.
 
 `InterestBanding`, `InterestDayCount`, `BusinessDayConvention` and
 `BusinessDayCalendar` are enums, the last three in the folder's
@@ -347,17 +327,9 @@ and 31 March. `calendar_day` pays on `day_of_month`, or the month's last
 day where it has fewer, in `in_month` and every `every` months from it:
 quarterly on the 31st from March pays on the last days of March, June,
 September and December. `every` divides twelve, so the months a
-payment falls in are the same each year. `at_close` pays once, as the
-account closes.
-
-**At close.** `on_close` says what a close does with interest accrued
-and not yet paid: `pay` pays it, the default where a request names
-none; `forfeit` forfeits it; and `forfeit_days` forfeits `days` of
-interest at the day's rates, never more than has accrued, and pays the
-rest. The API takes it as `on-close`, `{"kind": "pay"}`, `{"kind":
-"forfeit"}` or `{"kind": "forfeit-days", "days": 90}`. An `at_close`
-payment with `forfeit` would never pay, and is refused as the grid's
-rules are. A maturity pays in full whatever it says.
+payment falls in are the same each year. `closure_day` pays once, as
+the account closes, and the version's
+[closure terms](#closure-terms) say how much.
 
 **Conventions.** The template names, for each currency it allows, the
 day count and business day convention an account in it is held to, and
@@ -388,8 +360,8 @@ year; `WEEKENDS` every day but Saturday and Sunday; and an FpML
 business centre, `GBLO` closed on England and Wales's bank holidays and
 `EUTA` on TARGET's closing days, each also at weekends. The API takes it
 on an `account-day` or `calendar-day` payment as `none`, `weekends`,
-`GBLO` or `EUTA`, `NONE` where the request names none and always at
-close, and refuses one the currency does not list with
+`GBLO` or `EUTA`, `NONE` where the request names none and always on a
+closure day, and refuses one the currency does not list with
 `:cash-account-product/invalid-interest-terms`. A template returns each
 currency's as `currency-calendars`, `none` first. GBP lists `WEEKENDS`
 and `GBLO`, EUR `WEEKENDS` and `EUTA`, and USD `WEEKENDS` until New
@@ -444,7 +416,7 @@ account opened.
 #### Term
 
 Not built yet. A version may give its accounts a fixed term,
-`optional int32 term_months = 19` on `CashAccountProduct`, from 1 to
+`optional int32 term_months = 21` on `CashAccountProduct`, from 1 to
 120, absent on a version whose accounts stay open until closed. An
 account opened on a version with a term names the account its balance
 is paid out to when it matures, and matures that many months after it
@@ -455,7 +427,117 @@ A migration refuses a source or target version with a term,
 `:cash-account-migration/fixed-term-version`, since an
 account's term and payout account are fixed when it opens. A
 twelve-month regular saver is a savings version with a term of 12, one
-step at its fixed rate, and a payment of monthly or at close.
+step at its fixed rate, and a payment of monthly or on its closure day.
+Its early closure is a window of `term_months` in its
+[closure terms](#closure-terms).
+
+#### Closure terms
+
+What closing an account on the version does, `required ClosureTerms
+closure_terms = 20` on `CashAccountProduct`:
+
+```proto
+message PayClosureInterest {}
+
+message ForfeitClosureInterest {}
+
+message ForfeitDaysClosureInterest {
+  required int32 days = 1;
+}
+
+message ClosureInterest {
+  oneof kind {
+    PayClosureInterest pay = 1;
+    ForfeitClosureInterest forfeit = 2;
+    ForfeitDaysClosureInterest forfeit_days = 3;
+  }
+}
+
+message FlatClosureFee {
+  required int64 amount = 1; // minor units
+}
+
+message BalanceClosureFee {
+  required int32 rate_bps = 1; // of the balance closed
+  optional int64 min = 2; // minor units
+  optional int64 max = 3; // minor units
+}
+
+message ClosureFee {
+  oneof kind {
+    FlatClosureFee flat = 1;
+    BalanceClosureFee balance = 2;
+  }
+}
+
+message RefusedEarlyClosure {}
+
+message ChargedEarlyClosure {
+  required ClosureInterest interest = 1;
+  optional ClosureFee fee = 2;
+}
+
+message EarlyClosure {
+  required InterestPeriodUnit unit = 1;
+  required int32 count = 2; // units after version_from_on
+  oneof kind {
+    RefusedEarlyClosure refused = 3;
+    ChargedEarlyClosure charged = 4;
+  }
+}
+
+message ClosureTerms {
+  required ClosureInterest interest = 1;
+  repeated EarlyClosure early = 2;
+}
+```
+
+`interest` says what a closure does with interest accrued and not yet
+paid: `pay` pays it, `forfeit` forfeits it, and `forfeit_days` forfeits
+`days` of interest at the closure day's rates, never more than has
+accrued, and pays the rest. `early` holds windows counted from the day
+the account came onto the version, each `count` of `unit`, in ascending
+order. A closure inside the first window still open is `refused`, or
+`charged`: its interest settled by the window's own `interest` and its
+`fee` charged. A closure after the last window is held to `interest`
+alone. Stepped windows state a penalty that falls away: no closure in
+the first three months, then 90 days' interest and 1% of the balance
+until the twelfth. A fixed term's early closure is a window of its
+`term_months`, so a closure at maturity is never early and pays in
+full.
+
+A fee is `flat`, an amount, or `balance`, a rate of the balance left
+once the interest is settled, between its `min` and `max`, and is never
+more than that balance. A version that states no closure terms takes
+`pay` with no windows, so its closure pays what has accrued and charges
+nothing. The API takes and returns them as `closure-terms`, each
+variant's name as `kind`:
+
+```json
+"closure-terms": {
+  "interest": {"kind": "pay"},
+  "early": [
+    {"unit": "month", "count": 3, "kind": "refused"},
+    {"unit": "month", "count": 12, "kind": "charged",
+     "interest": {"kind": "forfeit-days", "days": 90},
+     "fee": {"kind": "balance", "rate-bps": 100}}
+  ]
+}
+```
+
+`closure-fields` in `domain.clj` runs on create and update and refuses
+`:cash-account-product/invalid-closure-terms`, a 422 whose message
+names the rule broken, unless:
+
+- every interest term but `pay` is on a version that pays interest;
+- every interest term on a version paid on its closure day pays some of
+  it, so none is `forfeit`;
+- the windows start in strictly ascending order, all in one unit;
+- a balance fee's `min` is no more than its `max`.
+
+A closure applies them as
+[cash-accounts](cash-accounts.md#closing-with-a-payout-account) lays
+out.
 
 #### The currency gate
 
@@ -857,6 +939,10 @@ truncated.
   internal products from the listing. A bank near its cap cannot see
   what is using the allowance. Excluding them means a filtered count
   index and a reindex behind it.
+- **No notice period.** A notice account's closure takes effect a
+  number of days after it is asked for, and closure terms cannot state
+  one: a closure waiting on a date rather than on the provider is a
+  change to the account's lifecycle, and the field comes with it.
 - **The single-draft invariant has no override.** If two product
   changes genuinely need parallel work, there's no escape hatch. Could
   be lifted later with explicit conflict resolution; today it's a hard

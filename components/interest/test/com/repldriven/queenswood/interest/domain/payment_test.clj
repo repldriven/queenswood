@@ -39,7 +39,7 @@
   (testing "a payment at close is never due on a schedule"
     (is (not (SUT/due? {:business-day-convention
                         :business-day-convention-unadjusted
-                        :kind {:at-close {}}
+                        :kind {:closure-day {}}
                         :calendar :business-day-calendar-none}
                        20000 {}
                        20000 30000)))))

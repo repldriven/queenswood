@@ -25,7 +25,7 @@
           {:calendar-day calendar-day}
 
           :else
-          {:at-close {}})))
+          {:closure-day {}})))
 
 (defn due-key
   "What whether `account` is due under its version's `payment` depends on

@@ -42,6 +42,13 @@
       each band of its balance, and when it is paid, counted on the
       calendar, every day where it names none. The template's entry for
       `:currency` gives its day count and business day convention.
+    - `:closure-terms` — optional; `{:interest :early}`, what a closure
+      does with interest not yet paid, `{:kind {:pay {}}}`,
+      `{:kind {:forfeit {}}}` or `{:kind {:forfeit-days {:days n}}}`,
+      and early windows `{:unit :count :kind}`, each `{:refused {}}` or
+      `{:charged {:interest :fee}}`. Absent, a closure pays what has
+      accrued and charges nothing; terms that cannot hold beside the
+      interest terms are refused `:invalid-closure-terms`.
     - `:opening-reward` — optional; `{:amount n}`, the welcome reward
       paid once to an account opened under the version, in minor units
       of `:currency`. `n` is positive, and the reward is fixed once the

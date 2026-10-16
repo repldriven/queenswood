@@ -130,3 +130,12 @@
     (testing "on an overdrawn principal" (is (nil? (accrue accrual -5000))))
     (testing "under a banding it does not know"
       (is (nil? (accrue (assoc accrual :banding :tiered) 150000))))))
+
+(deftest days-interest-test
+  (let [day-rates (SUT/day-rates accrual jan-1-2025 jan-1-2025)]
+    (testing "a number of days' interest at one day's rates"
+      ;; 2_000_000_000 a year * 90 / 365 = 493_150_684 millionths.
+      (is (= 493 (SUT/days-interest day-rates 150000 90)))
+      (is (= 5 (SUT/days-interest day-rates 150000 1))))
+    (testing "none on an overdrawn principal"
+      (is (zero? (SUT/days-interest day-rates -5000 90))))))

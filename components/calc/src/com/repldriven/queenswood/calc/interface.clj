@@ -160,6 +160,12 @@
   [day-rates principal carry]
   (interest/accrue day-rates principal carry))
 
+(defn days-interest
+  "`days` days' interest on `principal` at `day-rates`, in whole minor
+  units, the sub-unit residue dropped: zero where nothing would accrue."
+  [day-rates principal days]
+  (interest/days-interest day-rates principal days))
+
 ;; ---------------------------------------------------------------------------
 ;; Payment days
 
@@ -170,7 +176,7 @@
   `every` of `:day`, `:week` or `:month` after `from-on`, a month landing
   on its last day where it has fewer; `{:calendar-day {:every
   :day-of-month :in-month}}`, `day-of-month` or the month's last day in
-  `in-month` and every `every` months from it; or `{:at-close {}}`,
+  `in-month` and every `every` months from it; or `{:closure-day {}}`,
   which schedules none. An account-day payment without `from-on`
   schedules none; a calendar-day one without it has no lower bound."
   [payment from-on lo hi]

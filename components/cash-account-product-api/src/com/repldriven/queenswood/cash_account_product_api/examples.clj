@@ -69,6 +69,14 @@
              :periods [{:after 0 :rates-bps [500 0]}
                        {:after 12 :rates-bps [150 150]}]}
    :payment {:kind "account-day" :unit "month" :every 1 :calendar "GBLO"}})
+(def ClosureTerms
+  {:interest {:kind "pay"}
+   :early [{:unit "month" :count 3 :kind "refused"}
+           {:unit "month"
+            :count 12
+            :kind "charged"
+            :interest {:kind "forfeit-days" :days 90}
+            :fee {:kind "balance" :rate-bps 100}}]})
 (def PaymentLimit
   {:direction "in" :measure "amount" :max 30000 :period "month"})
 
@@ -86,6 +94,7 @@
    :balance-products [{:balance-type :default :balance-status :posted}]
    :allowed-payment-address-schemes [:scan]
    :interest-rate-bps 0
+   :closure-terms {:interest {:kind "pay"}}
    :opening-reward OpeningReward
    :effective-from "2025-01-01"
    :created-at "2025-01-01T00:00:00Z"

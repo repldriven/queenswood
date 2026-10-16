@@ -157,10 +157,10 @@
    [:in-month [:int {:min 1 :max 12}]]
    [:calendar {:optional true} [:ref "BusinessDayCalendar"]]])
 
-(def AtCloseInterestPayment
+(def ClosureDayInterestPayment
   [:map
    {:closed true :description "Interest paid once, when the account closes."}
-   [:kind [:enum "at-close"]]])
+   [:kind [:enum "closure-day"]]])
 
 (def InterestPayment
   [:multi
@@ -170,11 +170,11 @@
     {:propertyName "kind"
      :mapping {"account-day" "#/components/schemas/AccountDayInterestPayment"
                "calendar-day" "#/components/schemas/CalendarDayInterestPayment"
-               "at-close" "#/components/schemas/AtCloseInterestPayment"}}
+               "closure-day" "#/components/schemas/ClosureDayInterestPayment"}}
     :description "When accrued interest is paid into the account."}
    ["account-day" [:ref "AccountDayInterestPayment"]]
    ["calendar-day" [:ref "CalendarDayInterestPayment"]]
-   ["at-close" [:ref "AtCloseInterestPayment"]]])
+   ["closure-day" [:ref "ClosureDayInterestPayment"]]])
 
 (def InterestTerms
   [:map
@@ -185,6 +185,128 @@
     Fixed once the version is published."}
    [:accrual [:ref "InterestAccrual"]]
    [:payment [:ref "InterestPayment"]]])
+
+(def PayClosureInterest
+  [:map
+   {:closed true
+    :description "Interest accrued and not yet paid is paid at closure."}
+   [:kind [:enum "pay"]]])
+
+(def ForfeitClosureInterest
+  [:map
+   {:closed true
+    :description "Interest accrued and not yet paid is forfeited at closure."}
+   [:kind [:enum "forfeit"]]])
+
+(def ForfeitDaysClosureInterest
+  [:map
+   {:closed true
+    :description
+    "`days` of interest at the closure day's rates are forfeited, never
+    more than has accrued and not yet been paid, and the rest is paid."}
+   [:kind [:enum "forfeit-days"]]
+   [:days [:int {:min 1 :max 366}]]])
+
+(def ClosureInterest
+  [:multi
+   {:dispatch :kind
+    :json-schema/example (:interest examples/ClosureTerms)
+    :json-schema/discriminator
+    {:propertyName "kind"
+     :mapping {"pay" "#/components/schemas/PayClosureInterest"
+               "forfeit" "#/components/schemas/ForfeitClosureInterest"
+               "forfeit-days"
+               "#/components/schemas/ForfeitDaysClosureInterest"}}
+    :description
+    "What a closure does with interest accrued and not yet paid. Only a
+    version that pays interest can forfeit it, and one paid on its
+    `closure-day` cannot `forfeit` all of it."}
+   ["pay" [:ref "PayClosureInterest"]]
+   ["forfeit" [:ref "ForfeitClosureInterest"]]
+   ["forfeit-days" [:ref "ForfeitDaysClosureInterest"]]])
+
+(def FlatClosureFee
+  [:map
+   {:closed true
+    :description "A fee of `amount` in minor units of the version's currency."}
+   [:kind [:enum "flat"]]
+   [:amount [:int {:min 1}]]])
+
+(def BalanceClosureFee
+  [:map
+   {:closed true
+    :description
+    "A fee of `rate-bps` basis points of the balance closed, no less than
+    `min` and no more than `max`, each in minor units, where given."}
+   [:kind [:enum "balance"]]
+   [:rate-bps [:int {:min 1 :max 10000 :json-schema/format "int32"}]]
+   [:min {:optional true} [:int {:min 1}]]
+   [:max {:optional true} [:int {:min 1}]]])
+
+(def ClosureFee
+  [:multi
+   {:dispatch :kind
+    :json-schema/discriminator
+    {:propertyName "kind"
+     :mapping {"flat" "#/components/schemas/FlatClosureFee"
+               "balance" "#/components/schemas/BalanceClosureFee"}}
+    :description
+    "A fee charged at closure, never more than the balance left once the
+    interest is settled."}
+   ["flat" [:ref "FlatClosureFee"]]
+   ["balance" [:ref "BalanceClosureFee"]]])
+
+(def ^:private window-count
+  [:int {:min 1 :max 36600 :description "Units after the version's day."}])
+
+(def RefusedEarlyClosure
+  [:map
+   {:closed true
+    :description
+    "No closure before the account has been on the version `count` of
+    `unit`."}
+   [:kind [:enum "refused"]]
+   [:unit [:ref "InterestPeriodUnit"]]
+   [:count window-count]])
+
+(def ChargedEarlyClosure
+  [:map
+   {:closed true
+    :description
+    "A closure before the account has been on the version `count` of
+    `unit` settles its interest by `interest` and is charged `fee`."}
+   [:kind [:enum "charged"]]
+   [:unit [:ref "InterestPeriodUnit"]]
+   [:count window-count]
+   [:interest [:ref "ClosureInterest"]]
+   [:fee {:optional true} [:ref "ClosureFee"]]])
+
+(def EarlyClosure
+  [:multi
+   {:dispatch :kind
+    :json-schema/discriminator
+    {:propertyName "kind"
+     :mapping {"refused" "#/components/schemas/RefusedEarlyClosure"
+               "charged" "#/components/schemas/ChargedEarlyClosure"}}
+    :description
+    "A window from the day the account came onto the version, in which a
+    closure is refused or charged."}
+   ["refused" [:ref "RefusedEarlyClosure"]]
+   ["charged" [:ref "ChargedEarlyClosure"]]])
+
+(def ClosureTerms
+  [:map
+   {:closed true
+    :json-schema/example examples/ClosureTerms
+    :description
+    "What closing an account on the version does. A closure inside the
+    first `early` window still open is held to that window, and any
+    other to `interest` alone. The windows start in ascending order of
+    `count`, all in one `unit`. Where a request states none, a closure
+    pays what has accrued and charges nothing. Fixed once the version is
+    published."}
+   [:interest [:ref "ClosureInterest"]]
+   [:early {:optional true} [:vector {:max 12} [:ref "EarlyClosure"]]]])
 
 (def PaymentDirection
   (coercion/payment-direction-enum-schema {:json-schema/example "in"}))
@@ -228,6 +350,7 @@
    [:currency [:ref "Currency"]]
    [:interest-rate-bps {:optional true} [:ref "InterestRate"]]
    [:interest-terms {:optional true} [:ref "InterestTerms"]]
+   [:closure-terms {:optional true} [:ref "ClosureTerms"]]
    [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:payment-limits {:optional true} [:vector [:ref "PaymentLimit"]]]
    [:min-balance {:optional true} [:ref "SignedMinorUnits"]]
@@ -242,6 +365,7 @@
    [:currency [:ref "Currency"]]
    [:interest-rate-bps {:optional true} [:ref "InterestRate"]]
    [:interest-terms {:optional true} [:ref "InterestTerms"]]
+   [:closure-terms {:optional true} [:ref "ClosureTerms"]]
    [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:payment-limits {:optional true} [:vector [:ref "PaymentLimit"]]]
    [:min-balance {:optional true} [:ref "SignedMinorUnits"]]
@@ -268,6 +392,7 @@
    [:interest-terms {:optional true} [:ref "InterestTerms"]]
    [:day-count {:optional true} [:ref "InterestDayCount"]]
    [:business-day-convention {:optional true} [:ref "BusinessDayConvention"]]
+   [:closure-terms [:ref "ClosureTerms"]]
    [:opening-reward {:optional true} [:ref "OpeningReward"]]
    [:payment-limits {:optional true} [:vector [:ref "PaymentLimit"]]]
    [:min-balance [:ref "SignedMinorUnits"]]
@@ -343,7 +468,7 @@
                       unit
                       (assoc :unit unit))
      :payment (cond-> (assoc fields :kind (name kind))
-                      (not= :at-close kind)
+                      (not= :closure-day kind)
                       (assoc :calendar (:calendar payment)))}))
 
 (defn ->interest-terms
@@ -363,12 +488,65 @@
                       (:calendar payment)
                       (assoc :calendar (:calendar payment)))}))
 
+(defn- ->variant
+  "A request's `kind`-discriminated object as a stored oneof."
+  [body]
+  {:kind {(keyword (:kind body)) (dissoc body :kind)}})
+
+(defn- variant-body
+  "A stored oneof as its `kind`-discriminated object."
+  [variant]
+  (let [[kind fields] (first (:kind variant))]
+    (assoc fields :kind (name kind))))
+
+(defn- ->early-closure
+  [window]
+  (let [{:keys [unit count kind interest fee]} window]
+    {:unit unit
+     :count count
+     :kind (if (= "refused" kind)
+             {:refused {}}
+             {:charged (cond-> {:interest (->variant interest)}
+                               fee
+                               (assoc :fee (->variant fee)))})}))
+
+(defn- early-closure-body
+  [window]
+  (let [{:keys [unit count kind]} window
+        [variant {:keys [interest fee]}] (first kind)]
+    (cond-> {:unit unit :count count :kind (name variant)}
+            interest
+            (assoc :interest (variant-body interest))
+
+            fee
+            (assoc :fee (variant-body fee)))))
+
+(defn ->closure-terms
+  "The closure terms a request states, as a version stores them: each
+  `kind` as its oneof's variant."
+  [closure-terms]
+  (let [{:keys [interest early]} closure-terms]
+    (cond-> {:interest (->variant interest)}
+            (seq early)
+            (assoc :early (mapv ->early-closure early)))))
+
+(defn- ->closure-terms-body
+  "A version's stored closure terms as `ClosureTerms` states them."
+  [closure-terms]
+  (let [{:keys [interest early]} closure-terms]
+    (cond-> {:interest (variant-body interest)}
+            (seq early)
+            (assoc :early (mapv early-closure-body early)))))
+
 (defn ->version-data
   "A product request's body as the domain takes it."
   [body]
   (cond-> body
           (:interest-terms body)
-          (update :interest-terms ->interest-terms)))
+          (update :interest-terms ->interest-terms)
+
+          (:closure-terms body)
+          (update :closure-terms ->closure-terms)))
 
 (defn- first-rate
   "The rate of a version's first period and first band, or 0 where it
@@ -392,6 +570,10 @@
                    (first-rate version)
                    :min-balance
                    (or (balance-bound version :min) 0))
+            (:closure-terms version)
+            (assoc :closure-terms
+                   (->closure-terms-body (:closure-terms version)))
+
             interest-terms
             (assoc :interest-terms
                    (->interest-terms-body interest-terms)
@@ -460,9 +642,12 @@
     #'InterestRate #'InterestBanding #'InterestPeriodUnit #'InterestDayCount
     #'BusinessDayConvention #'BusinessDayCalendar #'RelativeInterestAccrual
     #'FixedInterestAccrual #'InterestAccrual #'AccountDayInterestPayment
-    #'CalendarDayInterestPayment #'AtCloseInterestPayment #'InterestPayment
-    #'InterestTerms #'PaymentDirection #'PaymentMeasure #'PaymentPeriod
-    #'PaymentPeriodAnchor #'PaymentLimit #'CashAccountProductRequest
-    #'CashAccountProductDraftRequest #'CashAccountProductVersion
-    #'CashAccountProduct #'CashAccountProductList #'CashAccountProductTemplate
-    #'CashAccountProductTemplateList]))
+    #'CalendarDayInterestPayment #'ClosureDayInterestPayment #'InterestPayment
+    #'InterestTerms #'PayClosureInterest #'ForfeitClosureInterest
+    #'ForfeitDaysClosureInterest #'ClosureInterest #'FlatClosureFee
+    #'BalanceClosureFee #'ClosureFee #'RefusedEarlyClosure #'ChargedEarlyClosure
+    #'EarlyClosure #'ClosureTerms #'PaymentDirection #'PaymentMeasure
+    #'PaymentPeriod #'PaymentPeriodAnchor #'PaymentLimit
+    #'CashAccountProductRequest #'CashAccountProductDraftRequest
+    #'CashAccountProductVersion #'CashAccountProduct #'CashAccountProductList
+    #'CashAccountProductTemplate #'CashAccountProductTemplateList]))

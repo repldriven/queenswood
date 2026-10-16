@@ -97,12 +97,20 @@ test("a flat regular saver paid monthly states its AER", async ({ page }) => {
 
   await page.getByRole("radio", { name: "Accrues interest" }).click();
   await setCell(page, "Rate in period 1, band 1", "6.31");
+  await page.getByRole("button", { name: "Add early window" }).click();
+  await setCell(page, "Window 1 length", "12");
+  await page.getByLabel("Window 1 kind").selectOption("charged");
+  await page.getByLabel("Window 1 interest", { exact: true }).selectOption("forfeit-days");
+  await setCell(page, "Window 1 interest days", "90");
   await page.getByRole("button", { name: "Add payment limit" }).click();
   await setCell(page, "At most", "300");
   await save(page);
 
   await page.reload();
   await expect(terms(page)).toContainText("6.31% a year gross (6.50% AER) on the whole balance");
+  await expect(terms(page)).toContainText(
+    "Closed in its first 12 months, it loses 90 days' interest, or what has not yet been paid if that is less.",
+  );
   await expect(terms(page)).toContainText(
     "Up to £300.00 paid in each month, counted from the opening day.",
   );

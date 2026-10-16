@@ -84,7 +84,7 @@ message CalendarDayInterestPayment {
 }
 
 // Interest paid once, when the account closes.
-message AtCloseInterestPayment {}
+message ClosureDayInterestPayment {}
 
 // When accrued interest is paid: on the days its kind schedules,
 // counted on `calendar`, a day the calendar does not count moving by
@@ -94,7 +94,7 @@ message InterestPayment {
   oneof kind {
     AccountDayInterestPayment account_day = 2;
     CalendarDayInterestPayment calendar_day = 3;
-    AtCloseInterestPayment at_close = 4;
+    ClosureDayInterestPayment closure_day = 4;
   }
   required BusinessDayCalendar calendar = 5;
 }
@@ -103,6 +103,76 @@ message InterestPayment {
 message InterestTerms {
   required InterestAccrual accrual = 1;
   required InterestPayment payment = 2;
+}
+
+// Accrued interest paid at closure.
+message PayClosureInterest {}
+
+// Accrued interest forfeited at closure.
+message ForfeitClosureInterest {}
+
+// `days` of interest at the closure day's rates forfeited, never more
+// than has accrued, and the rest paid.
+message ForfeitDaysClosureInterest {
+  required int32 days = 1;
+}
+
+// What a closure does with interest accrued and not yet paid.
+message ClosureInterest {
+  oneof kind {
+    PayClosureInterest pay = 1;
+    ForfeitClosureInterest forfeit = 2;
+    ForfeitDaysClosureInterest forfeit_days = 3;
+  }
+}
+
+// A fee of `amount`.
+message FlatClosureFee {
+  required int64 amount = 1; // minor units
+}
+
+// A fee of `rate_bps` of the balance closed, between `min` and `max`.
+message BalanceClosureFee {
+  required int32 rate_bps = 1; // basis points
+  optional int64 min = 2; // minor units
+  optional int64 max = 3; // minor units
+}
+
+// A fee charged at closure, never more than the balance left once the
+// interest is settled.
+message ClosureFee {
+  oneof kind {
+    FlatClosureFee flat = 1;
+    BalanceClosureFee balance = 2;
+  }
+}
+
+// An early closure refused.
+message RefusedEarlyClosure {}
+
+// An early closure allowed, its interest settled by `interest` and its
+// `fee` charged.
+message ChargedEarlyClosure {
+  required ClosureInterest interest = 1;
+  optional ClosureFee fee = 2;
+}
+
+// A closure before the account has been on the version `count` of
+// `unit`.
+message EarlyClosure {
+  required InterestPeriodUnit unit = 1;
+  required int32 count = 2; // units after version_from_on
+  oneof kind {
+    RefusedEarlyClosure refused = 3;
+    ChargedEarlyClosure charged = 4;
+  }
+}
+
+// What closing an account on the version does: an early closure by the
+// first of `early` still open, any other by `interest` alone.
+message ClosureTerms {
+  required ClosureInterest interest = 1;
+  repeated EarlyClosure early = 2; // in ascending order of count
 }
 
 // A reward a version promises the accounts opened under it.
@@ -135,6 +205,7 @@ message CashAccountProduct {
   optional int64 effective_to = 17; // epoch day
   repeated com.repldriven.queenswood.schema.policy.Limit limits = 18;
   optional int64 published_on = 19; // epoch day
+  required ClosureTerms closure_terms = 20;
 
   optional string idempotency_key = 100;
   required int64 created_at = 101;

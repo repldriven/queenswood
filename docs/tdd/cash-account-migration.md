@@ -320,7 +320,7 @@ guess.
   balance limits is moved.
 - **Accrued interest waits for the target's schedule.** Interest accrued
   before the move stays in the bucket and is paid on the target's
-  payment days, so a target paying later, or only at close, holds back
+  payment days, so a target paying later, or only on closure, holds back
   interest earned under the source.
 
 - **The cohort is the source product, not a query.** A migration names
