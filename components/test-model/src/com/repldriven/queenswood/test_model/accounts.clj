@@ -7,13 +7,17 @@
     [clojure.test.check.generators :as gen]))
 
 (defn new-account
-  [bank-id prod-id party-id]
+  "An open account of `party-id` at `bank-id` on version number `version`
+  of `prod-id`, which it came onto on the epoch day `from-on`."
+  [bank-id prod-id party-id version from-on]
   {:available 0
    :credit-carry 0
    :interest-accrued 0
    :status :open
    :bank bank-id
    :product prod-id
+   :version version
+   :version-from-on from-on
    :party party-id})
 
 (def close-account
@@ -76,7 +80,6 @@
         (-> (assoc-in [:products prod-id]
                       {:bank bank-id
                        :product-type :current
-                       :interest-rate-bps 0
                        :versions [(products/version :published 1)]})
             (update-in [:banks bank-id :products] (fnil conj []) prod-id)
             (update :next-product-id inc))
@@ -89,7 +92,14 @@
 
         (may-open? state bank-id)
         (-> (assoc-in [:accounts acct-id]
-                      (new-account bank-id prod-id party-id))
+                      (new-account bank-id
+                                   prod-id
+                                   party-id
+                                   (if created-prod?
+                                     1
+                                     (:number (state/latest-version state
+                                                                    prod-id)))
+                                   (:today state)))
             (update-in [:banks bank-id :accounts] (fnil conj []) acct-id)
             (update :next-id inc)))))
    :valid? (fn [state {[bank-id] :args}] (contains? (:banks state) bank-id))})
@@ -114,5 +124,10 @@
         (and (opens-on? state bank-id party-id prod-id)
              (may-open? state bank-id))
         (-> (assoc-in [:accounts acct-id]
-                      (new-account bank-id prod-id party-id))
+                      (new-account bank-id
+                                   prod-id
+                                   party-id
+                                   (:number (state/latest-version state
+                                                                  prod-id))
+                                   (:today state)))
             (update-in [:banks bank-id :accounts] (fnil conj []) acct-id)))))})

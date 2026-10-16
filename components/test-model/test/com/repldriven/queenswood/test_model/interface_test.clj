@@ -33,8 +33,12 @@
 
 (def ^:private tier {:name "Test-scenario policy"})
 
+(def ^:private today 20742)
+
 (def ^:private init
-  (SUT/with-policies SUT/init-state {:platform platform :tier tier}))
+  (-> SUT/init-state
+      (SUT/with-policies {:platform platform :tier tier})
+      (SUT/on-day today)))
 
 (defn- step
   "Applies the named command's `:next-state` with the given args
@@ -100,10 +104,14 @@
         (is (= :bank-0 (get-in s1 [:products :prod-1 :bank])))
         (is (= :current (get-in s1 [:products :prod-1 :product-type])))
         (is (= [:prod-0 :prod-1] (get-in s1 [:banks :bank-0 :products])))))
-    (testing "create-product :savings carries the rate-bps"
+    (testing "create-product :savings states a flat rate as terms"
       (let [s1 (step s0 :create-product [:bank-0 :savings 250])]
         (is (= :savings (get-in s1 [:products :prod-1 :product-type])))
-        (is (= 250 (get-in s1 [:products :prod-1 :interest-rate-bps])))))
+        (is (= {:banding :marginal
+                :bands [0]
+                :schedule {:relative {:unit :month
+                                      :periods [{:after 0 :rates-bps [250]}]}}}
+               (get-in s1 [:products :prod-1 :versions 0 :terms])))))
     (testing "publish-product flips the latest draft to published"
       (let [s2 (-> s0
                    (step :create-product [:bank-0 :current 0])
@@ -275,6 +283,8 @@
                 :status :open
                 :bank :bank-0
                 :product :prod-0
+                :version 1
+                :version-from-on today
                 :party :party-1}
                (get-in s' [:accounts :acct-1])))
         (is (= [:acct-0 :acct-1] (get-in s' [:banks :bank-0 :accounts])))
@@ -404,6 +414,66 @@
         (is (pos? (get-in once [:accounts :acct-1 :interest-accrued])))
         (is (= (get-in once [:accounts :acct-1 :interest-accrued])
                (get-in twice [:accounts :acct-1 :interest-accrued])))))))
+
+(deftest accrual-terms-test
+  (let [s (-> init
+              (step :create-bank [])
+              (step :create-person-party [:bank-0]))
+        saver (fn [terms]
+                (-> s
+                    (step :create-product [:bank-0 :savings terms])
+                    (step :publish-product [:prod-1])
+                    (step :open-account [:bank-0 :party-1 :prod-1])
+                    (assoc-in [:accounts :acct-1 :available] 100000)))
+        accrued (fn [state]
+                  (select-keys (get-in state [:accounts :acct-1])
+                               [:interest-accrued :credit-carry]))]
+    (testing "each band at its own rate, and the period in force on the day"
+      ;; £500 at 1% and £500 at 2% on 1 May: 1_500_000_000 / 365 a day;
+      ;; then 3% and 4% from 2 May, opening with the first day's carry.
+      (let [s1 (saver {:banding :marginal
+                       :bands [0 50000]
+                       :schedule {:fixed {:periods [{:from-on 20089
+                                                     :rates-bps [100 200]}
+                                                    {:from-on 20260502
+                                                     :rates-bps [300 400]}]}}})
+            day-1 (step s1 :accrue-interest [:bank-0 20260501])
+            day-2 (step day-1 :accrue-interest [:bank-0 20260502])]
+        (is (= {:interest-accrued 4 :credit-carry 109589} (accrued day-1)))
+        (is (= {:interest-accrued 13 :credit-carry 698630} (accrued day-2)))))
+    (testing "the whole balance in the band it reaches"
+      ;; All £1,000 at 2%: 2_000_000_000 / 365 a day.
+      (let [s1 (saver {:banding :whole-balance
+                       :bands [0 100000]
+                       :schedule {:fixed {:periods [{:from-on 20089
+                                                     :rates-bps [100 200]}]}}})]
+        (is (= {:interest-accrued 5 :credit-carry 479452}
+               (accrued (step s1 :accrue-interest [:bank-0 20260501]))))))
+    (testing "a relative period counts from the day the account came on"
+      (let [s1 (saver {:banding :marginal
+                       :bands [0]
+                       :schedule {:relative {:unit :day
+                                             :periods [{:after 0 :rates-bps [0]}
+                                                       {:after 2
+                                                        :rates-bps [200]}]}}})]
+        (is (= {:interest-accrued 0 :credit-carry 0}
+               (accrued (step s1 :accrue-interest [:bank-0 (inc today)]))))
+        (is (= {:interest-accrued 5 :credit-carry 479452}
+               (accrued (step s1 :accrue-interest [:bank-0 (+ 2 today)]))))))
+    (testing "a draft opened after it pays no interest"
+      (let [s1 (-> (saver {:banding :marginal
+                           :bands [0]
+                           :schedule {:relative {:unit :month
+                                                 :periods [{:after 0
+                                                            :rates-bps
+                                                            [200]}]}}})
+                   (step :open-draft [:prod-1])
+                   (step :publish-product [:prod-1])
+                   (step :open-account [:bank-0 :party-1 :prod-1])
+                   (assoc-in [:accounts :acct-2 :available] 100000))
+            run (step s1 :accrue-interest [:bank-0 20260501])]
+        (is (= 5 (get-in run [:accounts :acct-1 :interest-accrued])))
+        (is (= 0 (get-in run [:accounts :acct-2 :interest-accrued])))))))
 
 (defn- statuses
   [state]

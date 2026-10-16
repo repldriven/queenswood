@@ -219,14 +219,15 @@ on a given day (see **Effective dating** below).
 
 #### Interest terms
 
-Stored and taken by the API, not yet read beyond its first rate. A
+Stored, taken by the API, and read by accrual. A
 version states how interest is earned and when it is paid in one
 `interest_terms` field, absent on a version that pays none, such as the
 own-funds house product. A request states `interest-terms`, or
 `interest-rate-bps`, which is stored as one band and one period paid
-daily, and never both. Accrual reads the first period's first rate and
-pays daily whatever the terms say, until the interest pass reads them
-as [interest](interest.md#a-versions-interest-terms) lays out.
+daily, and never both. Accrual reads the bands, the period in force and
+the day count, and interest is paid daily whatever the payment terms
+say, until capitalisation reads them as
+[interest](interest.md#a-versions-interest-terms) lays out.
 
 ```proto
 enum InterestPeriodUnit {

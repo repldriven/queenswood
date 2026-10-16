@@ -401,17 +401,38 @@
   {:current :account-product-type-sub-ledger-current
    :savings :account-product-type-sub-ledger-savings})
 
+(defn- interest-extras
+  "A version's interest from the model's: a flat rate as
+  `:interest-rate-bps`, or terms as `:interest-terms`, paid daily."
+  [interest]
+  (if (map? interest)
+    (let [{:keys [banding bands schedule]} interest
+          {:keys [relative fixed]} schedule]
+      {:interest-terms
+       {:accrual {:banding (keyword (str "interest-banding-" (name banding)))
+                  :bands bands
+                  :schedule (if relative
+                              {:relative (update relative
+                                                 :unit
+                                                 (fn [unit]
+                                                   (keyword
+                                                    (str "interest-period-unit-"
+                                                         (name unit)))))}
+                              {:fixed fixed})}
+        :payment {:kind {:account-day {:unit :interest-period-unit-day
+                                       :every 1}}}}})
+    (when (pos? interest) {:interest-rate-bps interest})))
+
 (defmethod dispatch :create-product
   [{:keys [bank counter next-product-id banks] :as ctx}
-   {[model-bank type rate-bps] :args}]
+   {[model-bank type interest] :args}]
   (let [model-prod (model-id-for-next-product next-product-id)
         {:keys [real-id]} (get banks model-bank)
         kind
         (get product-type->kind type :account-product-type-sub-ledger-current)
         name
         (str (if (= :savings type) "Savings" "Current") " Product " counter)
-        extras (when (and rate-bps (pos? rate-bps))
-                 {:interest-rate-bps rate-bps})
+        extras (interest-extras interest)
         result (products/new-product bank
                                      real-id
                                      (product-payload name kind extras)

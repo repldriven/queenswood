@@ -143,30 +143,44 @@ and the deposit controls the product types roll into. See
 ### Daily-interest math
 
 Implementation is integer-only at micro-scale (one minor unit
-= one million micro-minor-units). The algorithm:
+= one million micro-minor-units), in the `calc` component, built up
+from functions that each take every value they need and read no
+record:
+
+- **`calc/date.clj`**, the lowest level: `days-in-year` and
+  `plus-units`, a day, week or month after an epoch day, a month
+  landing on its last day where it has fewer.
+- **`calc/interest.clj`**, on top of it: `year-basis`, the days a
+  year's rate is divided by under a day count; `period-in-force`, the
+  schedule's latest period to have started; `band-portions`, the
+  principal across the bands; `annual-micro`, a year's interest on the
+  portions; and `day-share`, a day of it with the carry. `day-rates`
+  takes what a day needs from the version and the day alone, the
+  period's rates and the year's days, and `accrue` the rest for one
+  account's principal and carry.
+
+`interest` translates a version's accrual terms into calc's plain
+keywords. The pass works out a version's day rates once per run, keyed
+by the version and, under a relative schedule, the day the account came
+onto it, as it memoises the versions, so a period is found once for the
+accounts sharing it rather than once for each; each account then costs
+its bands' arithmetic. A day's share:
 
 ```clojure
-;; conceptual; see interest/domain.clj for the actual code
-(let [net          (- credit debit)               ; minor units
-      bps-factor   100                            ; 1 bps in micro per minor
-      annual-micro (* net interest-rate-bps bps-factor)
-      ;; carry was sub-minor-unit; treat it as annual-equivalent
-      ;; so dividing by 365 returns its daily share exactly
-      total-micro  (+ annual-micro (* credit-carry 365))
-      daily-micro  (quot total-micro 365)
-      whole-units  (quot daily-micro 1000000)
-      new-carry    (rem daily-micro 1000000)]
-  {:whole-units whole-units :carry new-carry})
+(let [daily (quot (+ annual-micro (* carry basis)) basis)]
+  {:amount (quot daily 1000000)
+   :carry  (rem daily 1000000)})
 ```
 
-The clever bit is `(* credit-carry 365)`. The carry is in
-micro-minor-units of *daily* residue. By multiplying by 365
-before summing with the annual interest, then dividing the
-total by 365, the carry's daily share is preserved exactly —
-no precision loss in the round-trip.
+The clever bit is `(* carry basis)`. The carry is in micro-minor-units
+of *daily* residue. By multiplying by the year's days before summing
+with the annual interest, then dividing the total by them, the carry's
+daily share is preserved exactly — no precision loss in the round-trip,
+and none when a 365-day year gives way to a 366-day one.
 
-Rate is annual (in basis points; 500 bps = 5% APR). Day-count
-is a simple actual/365. The math is **simple daily interest**
+Rate is annual, in basis points (500 bps = 5% APR), and the year is the
+day count's: 365 under actual/365, 360 under actual/360, and the day's
+own year under actual/actual. The math is **simple daily interest**
 on the account's available balance, and the result lands in
 `:balance-type-interest-accrued`. Compounding emerges from the
 *cadence of capitalisation*, not from the daily math itself:
@@ -201,8 +215,8 @@ CREDIT customer-account  interest-accrued / posted   ...
 DEBIT  5100 interest expense  default / posted       the chunk's total
 ```
 
-An overdrawn principal accrues a charge, so its leg is a debit
-and 5100's the opposite of the net. An account whose day came to
+A negative rate accrues a charge, so its leg is a debit and 5100's
+the opposite of the net. An account whose day came to
 no whole unit has no leg, and its row still records the carry's
 change. The transaction is keyed on the run, the currency and
 the chunk's first account, so a chunk retried after its commit
@@ -568,35 +582,20 @@ run before the day ends go when it lands.
 
 ### A version's interest terms
 
-Not built yet beyond the terms on the version. A version states its
-rates as a grid, a rate for each period of an account's life and each
-band of its balance, and says when interest is paid, as
+Accrual reads the terms; the payment days, the term and maturity are
+not built yet. A version states its rates as a grid, a rate for each
+period of an account's life and each band of its balance, and says when
+interest is paid, as
 [cash-account-products](cash-account-products.md#interest-terms) lays
-out. Accrual reads the first period's first rate today. This section is
-how the passes read the terms, and the order to build it in.
+out. This section is how the passes read the terms, and the order to
+build the rest in.
 
 **A day's rate is a period's row.** The pass takes the period in force
 on the business day and splits the principal across the bands, summing
 each part times that period's rate for its band, where a whole-balance
-accrual has one part, the whole principal at its band's rate:
-
-```clojure
-(let [days         (year-days day-count business-day) ; 365, 366 or 360
-      annual-micro (reduce + (map (fn [{:keys [portion rate-bps]}]
-                                    (* portion rate-bps bps-factor))
-                                  (band-portions banding
-                                                 principal
-                                                 bands
-                                                 (:rates-bps period))))
-      total-micro  (+ annual-micro (* credit-carry days))
-      daily-micro  (quot total-micro days)]
-  ...)
-```
-
-The carry is a day's residue whatever the year's length, so dividing by
-366 on a leap-year day keeps it exact. The remainder is unchanged, and
-a flat rate at actual/365, one band and one period, computes what it
-does today.
+accrual has one part, the whole principal at its band's rate, as
+"Daily-interest math" composes it. A flat rate at actual/365, one band
+and one period, computes what a single rate did.
 
 **A payment day moves by its convention.** A payment day that is not a
 business day moves as the version's business day convention says. Each
@@ -607,8 +606,8 @@ interest is paid and not what accrues.
 
 **A principal at or below zero accrues nothing.** The bands start at
 zero, so no band covers an overdrawn balance, and the account is left
-out of the chunk as one at a zero rate is. The charge an overdrawn
-principal accrues today goes with it.
+out of the chunk as one at a zero rate is, accruing no charge. A
+negative rate is still a debit.
 
 **The account carries the day it came onto its version.** `version_from_on`,
 an epoch day on `CashAccount`, is written with `version_id`: when the
@@ -771,14 +770,12 @@ compares two schedules rather than two rates.
 - **Each chunk reads its balances at its own moment.** A payment
   between accounts in different chunks during a run is earned on twice
   or not at all; see "Reading balances at the cut-off".
-- **Accrual divides by 365.** A version takes actual/365,
-  actual/actual or actual/360 from its currency's template entry, and
-  the pass divides by 365 whatever it says until it reads the terms.
-  30/360 is not offered.
-- **Accrual reads one rate.** A version's terms carry a grid of bands
-  and periods, and the pass reads its first rate, so a tiered rate, a
-  bonus period or a change on a date is not yet honoured. See "A
-  version's interest terms".
+- **30/360 is not offered.** A version takes actual/365, actual/actual
+  or actual/360 from its currency's template entry.
+- **Generated runs accrue on no interest-bearing account.** The model's
+  generated commands open accounts only on current products, which pay
+  no interest, so the property test never compares an accrual; the
+  hand-written interest scenarios do.
 - **A schedule counts in one unit.** A relative schedule's periods are
   all days, weeks or months, so a seven-day introductory rate before a
   twelve-month anniversary cannot be stated.

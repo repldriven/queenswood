@@ -80,7 +80,12 @@
     "A product on `bank` whose first version is a draft. Args:
   - bank: model bank id.
   - type: `:current` or `:savings`.
-  - rate-bps: its interest rate in basis points."}
+  - interest: a flat rate in basis points, where zero pays none, or the
+    version's interest terms, `{:banding :bands :schedule}`: `:banding`
+    `:marginal` or `:whole-balance`, `:bands` each band's lowest balance
+    from zero, and `:schedule` `{:relative {:unit :day|:week|:month
+    :periods [{:after n :rates-bps [...]}]}}` or `{:fixed {:periods
+    [{:from-on epoch-day :rates-bps [...]}]}}`, one rate per band."}
   create-product
   products/create-product)
 
@@ -93,7 +98,7 @@
 (def
   ^{:doc
     "A new draft version of `prod`, numbered after its latest, where the
-  latest is not a draft. Args:
+  latest is not a draft. It pays no interest. Args:
   - prod: model product id."}
   open-draft
   products/open-draft)
@@ -109,7 +114,7 @@
 (def
   ^{:doc
     "Rewrites the effective window of `prod`'s latest version where it is
-  a draft. Args:
+  a draft, which then pays no interest. Args:
   - prod: model product id.
   - window: `{:effective-from epoch-day :effective-to epoch-day-or-nil}`."}
   update-product-draft
@@ -240,13 +245,15 @@
 
 (def
   ^{:doc
-    "A day's interest on each open customer account of `bank` whose product
-  pays it: whole units credited to its accrued interest and the
-  remainder carried, with no leg written. Runs where the bank's policies
+    "A day's interest on `date` on each open customer account of `bank`
+  whose version pays it: its available balance across the version's
+  bands at the rates of the period in force, over its currency's day
+  count, whole units credited to its accrued interest and the remainder
+  carried, with no leg written. Runs where the bank's policies
   permit accruing and count one more run on `date` within their limits.
   Args:
   - bank: model bank id.
-  - date: the run's as-of date, YYYYMMDD."}
+  - date: the run's business day, an epoch day."}
   accrue-interest
   interest/accrue-interest)
 
@@ -336,6 +343,15 @@
   next synthetic id of each kind."}
   init-state
   state/init-state)
+
+(def
+  ^{:doc
+    "`state` on the epoch day `today`, the day each account it opens comes
+  onto its version. Args:
+  - state: model state, typically `init-state`.
+  - today: epoch day."}
+  on-day
+  state/on-day)
 
 (def
   ^{:doc

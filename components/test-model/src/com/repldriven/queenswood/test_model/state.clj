@@ -23,6 +23,12 @@
    :next-interest-date 20260501
    :now 0})
 
+(defn on-day
+  "`state` on the epoch day `today`, the day the accounts it opens come
+  onto their versions."
+  [state today]
+  (assoc state :today today))
+
 (defn next-id
   [state]
   ;; Not `:acct/<n>`: the reader refuses a namespaced keyword whose name

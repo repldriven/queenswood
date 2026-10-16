@@ -26,12 +26,25 @@
    :effective-from default-effective-from
    :effective-to nil})
 
+(defn- flat-terms
+  "Interest terms paying `rate-bps` on the whole balance from opening, as
+  a version states a flat rate. Nil at a zero rate, which pays none."
+  [rate-bps]
+  (when-not (zero? rate-bps)
+    {:banding :marginal
+     :bands [0]
+     :schedule {:relative {:unit :month
+                           :periods [{:after 0 :rates-bps [rate-bps]}]}}}))
+
 (defn- new-product-state
-  [bank-id product-type interest-rate-bps]
-  {:bank bank-id
-   :product-type product-type
-   :interest-rate-bps interest-rate-bps
-   :versions [(version :draft 1)]})
+  [bank-id product-type interest]
+  (let [terms (if (map? interest) interest (flat-terms interest))]
+    {:bank bank-id
+     :product-type product-type
+     :versions [(cond-> (version :draft 1)
+
+                        terms
+                        (assoc :terms terms))]}))
 
 (def create-product
   {:run? (fn [state] (seq (state/known-banks state)))
@@ -41,11 +54,11 @@
                      rate (gen/choose 100 10000)]
              [org type (if (= :savings type) rate 0)]))
    :next-state
-   (fn [state {[bank-id type rate-bps] :args}]
+   (fn [state {[bank-id type interest] :args}]
      (let [prod-id (state/next-product-id state)]
        (-> state
            (assoc-in [:products prod-id]
-                     (new-product-state bank-id type rate-bps))
+                     (new-product-state bank-id type interest))
            (update-in [:banks bank-id :products] (fnil conj []) prod-id)
            (update :next-product-id inc))))
    :valid? (fn [state {[bank-id] :args}] (contains? (:banks state) bank-id))})
@@ -129,9 +142,11 @@
                    (flip-latest state
                                 prod-id
                                 (fn [v]
-                                  (assoc v
-                                         :effective-from (:effective-from data)
-                                         :effective-to (:effective-to data))))
+                                  (-> v
+                                      (assoc :effective-from (:effective-from
+                                                              data)
+                                             :effective-to (:effective-to data))
+                                      (dissoc :terms))))
                    state))
    :valid? (fn [state {[prod-id] :args}]
              (= :draft (:status (state/latest-version state prod-id))))})

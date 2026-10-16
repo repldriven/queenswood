@@ -74,6 +74,7 @@
     components/registrar {:local/root "components/registrar"}
     components/modulr-relay {:local/root "components/modulr-relay"}
     components/form3-relay {:local/root "components/form3-relay"}
+    components/calc {:local/root "components/calc"}
     components/interest {:local/root "components/interest"}
     components/ledger-account {:local/root "components/ledger-account"}
     components/member {:local/root "components/member"}
@@ -163,6 +164,7 @@
                        "components/idv/test"
                        "components/idv/test-resources"
                        "components/idv-provider/test"
+                       "components/calc/test"
                        "components/interest/test"
                        "components/ledger-account/test"
                        "components/ledger-account/test-resources"

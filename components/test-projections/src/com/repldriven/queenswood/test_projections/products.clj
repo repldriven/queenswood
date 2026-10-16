@@ -42,4 +42,9 @@
 (defn project-model-products
   [model-state]
   (update-vals (:products model-state)
-               (fn [prod] (vec (reverse (:versions prod))))))
+               (fn [prod]
+                 (mapv (fn [v]
+                         (select-keys v
+                                      [:status :number :currency :effective-from
+                                       :effective-to]))
+                       (reverse (:versions prod))))))
