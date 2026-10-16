@@ -81,8 +81,6 @@
 
 (def ^:private default-status :bank-status-test)
 
-(def ^:private default-tier "micro")
-
 (def ^:private default-currencies ["GBP"])
 
 (def ^:private operator-fields
@@ -117,12 +115,14 @@
 
 (defn create-bank-data
   "The create-bank command payload: the body with the defaults a field
-  left out takes, its status's audience, and `company`, the registry's
-  answer for the number it names, as its binding.
+  left out takes, the tier's from `bank-tier-default`, its status's
+  audience, and `company`, the registry's answer for the number it
+  names, as its binding.
   An operator is the actor and may name an owner by email; a person is
   the actor and the owner."
   [request company]
-  (let [{:keys [auth parameters audiences-by-status]} request
+  (let [{:keys [auth parameters audiences-by-status bank-tier-default]}
+        request
         {:keys [body]} parameters
         {:keys [name status tier currencies owner-email providers]} body
         status (or status default-status)
@@ -134,7 +134,7 @@
     (utility/assoc-some
      {:name name
       :status status
-      :tier (or tier default-tier)
+      :tier (or tier bank-tier-default)
       :currencies (or currencies default-currencies)
       :audience (get audiences-by-status status)
       :actor (actor/actor auth)}

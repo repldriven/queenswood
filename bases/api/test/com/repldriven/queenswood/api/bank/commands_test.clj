@@ -58,6 +58,7 @@
           :principal-id "queenswood-admin"
           :roles #{:admin}}
    :audiences-by-status {:bank-status-test "queenswood-test"}
+   :bank-tier-default "micro"
    :parameters {:body (merge {:name "Galactic Bank"
                               :status :bank-status-test
                               :tier "micro"
@@ -90,9 +91,10 @@
                                            :roles #{:admin}}
                                     :audiences-by-status {:bank-status-test
                                                           "queenswood-test"}
+                                    :bank-tier-default "small"
                                     :parameters {:body {:name "Galactic Bank"}}}
                                    nil)]
-    (is (= {:status :bank-status-test :tier "micro" :currencies ["GBP"]}
+    (is (= {:status :bank-status-test :tier "small" :currencies ["GBP"]}
            (select-keys data [:status :tier :currencies])))
     (is (= "queenswood-test" (:audience data)))
     (is (not (contains? data :member)) "an operator is not the owner")))

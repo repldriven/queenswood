@@ -254,7 +254,8 @@ bank's `providers`, one per kind, which the bank records for good, as
 [bank-providers.md](bank-providers.md) describes.
 
 - An operator may choose the status, tier and currencies, which
-  default to test, `micro` and `["GBP"]`, and may name an owner by
+  default to test, the API server's `bank-tier-default` (`micro` in
+  each service's configuration) and `["GBP"]`, and may name an owner by
   email, whom the create invites.
 - A signed-in person must name a company, and gets the defaults and an
   owner member of their own. Naming a status, tier, currencies or
