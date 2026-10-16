@@ -8,12 +8,14 @@ import "schemas/cash-account-product/types.proto";
 
 option java_outer_classname = "CashAccountProductTemplateProto";
 
-// A currency a template allows, and the market conventions an account
-// in it is held to.
+// A currency a template allows, the market conventions an account in it
+// is held to, and the calendars its versions' payments may count their
+// days on besides NONE, which every currency offers.
 message TemplateCurrency {
   required string currency = 1; // ISO 4217
   required InterestDayCount day_count = 2;
   required BusinessDayConvention business_day_convention = 3;
+  repeated BusinessDayCalendar calendars = 4;
 }
 
 // A platform template a cash account product is created from.

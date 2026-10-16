@@ -99,8 +99,6 @@ interest job fires every day, and operating the bank's settlement account.
   or holds only while a set amount is paid in.
 - **Paying interest elsewhere.** Interest is paid into the
   account that earned it, never to a nominated account.
-- **Working days.** Payment days are calendar days; no
-  "first working day of the month".
 - **Interest on pending balances.** Pending-incoming and
   pending-outgoing amounts don't earn interest. Only
   settled balance does.
@@ -199,6 +197,15 @@ consequences:
   quarter, or each 31 March.
 - **At close.** Interest accrues for the life of the account
   and is paid when it closes.
+
+Each payment is counted on a calendar the version names: every day,
+so daily interest is paid at weekends and on holidays too; weekdays;
+or a business centre's working days, such as London's, closed on
+England and Wales's bank holidays, from those the account's currency
+offers. A version that names none counts every day. A payment day the
+calendar does not count moves to a working day as the currency's
+convention says, so "monthly on the 1st" on London's calendar can be
+paid on the first working day.
 
 Less frequent payment means the end customer earns less in
 absolute terms (since accrued interest doesn't itself earn

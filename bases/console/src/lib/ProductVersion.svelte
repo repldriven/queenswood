@@ -36,6 +36,7 @@
     update_cash_account_product_draft,
   } from "./api.mjs";
   import {
+    CALENDARS,
     CONVENTIONS,
     DAY_COUNTS,
     FREQUENCIES,
@@ -50,6 +51,7 @@
     longDate,
     major,
     minorFromMajor,
+    offeredCalendars,
     onLabel,
     ordinal,
     paymentChoice,
@@ -85,6 +87,9 @@
   const choice = $derived(form ? paymentChoice(form.interest.payment) : null);
   const shows = $derived(choice ? paymentShows(choice) : {});
   const currencies = $derived(template?.["allowed-currencies"] ?? (form ? [form.currency] : []));
+  const calendars = $derived(
+    offeredCalendars(template, form?.currency, form?.interest.calendar),
+  );
 
   const TONE = { draft: "draft", published: "published" };
 
@@ -450,6 +455,19 @@
                     {/each}
                   </Select>
                 {/if}
+                {#if choice.frequency !== "at-close"}
+                  <span>counted on</span>
+                  <Select
+                    aria-label="Calendar"
+                    value={form.interest.calendar}
+                    disabled={!editable}
+                    onchange={(e) => (form.interest.calendar = e.target.value)}
+                  >
+                    {#each calendars as value (value)}
+                      <option {value}>{CALENDARS[value] ?? value}</option>
+                    {/each}
+                  </Select>
+                {/if}
               </div>
               <p class="hint">
                 {#if form.dayCount}
@@ -460,7 +478,8 @@
                   The day count and business day convention are set by
                   {form.currency}, and shown once the draft is saved.
                 {/if}
-                Accrual reads only the first rate and pays daily for now.
+                A day the calendar does not count moves by the convention.
+                Interest is paid daily for now, whatever the payment says.
               </p>
             {/if}
           </div>

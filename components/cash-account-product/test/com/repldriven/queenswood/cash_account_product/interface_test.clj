@@ -257,7 +257,8 @@
           :currencies [{:currency "GBP"
                         :day-count :interest-day-count-actual-365
                         :business-day-convention
-                        :business-day-convention-modified-following}]
+                        :business-day-convention-modified-following
+                        :calendars [:business-day-calendar-gblo]}]
           :allowed-payment-address-schemes [:payment-address-scheme-scan]
           :balance-products [{:balance-type :balance-type-default
                               :balance-status :balance-status-posted}]}]

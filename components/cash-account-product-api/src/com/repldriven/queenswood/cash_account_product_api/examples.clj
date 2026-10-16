@@ -68,7 +68,7 @@
              :unit "month"
              :periods [{:after 0 :rates-bps [500 0]}
                        {:after 12 :rates-bps [150 150]}]}
-   :payment {:kind "account-day" :unit "month" :every 1}})
+   :payment {:kind "account-day" :unit "month" :every 1 :calendar "GBLO"}})
 (def PaymentLimit
   {:direction "in" :measure "amount" :max 30000 :period "month"})
 
@@ -111,6 +111,7 @@
    :product-type :current
    :balance-sheet-side :liability
    :allowed-currencies ["GBP"]
+   :currency-calendars [{:currency "GBP" :calendars ["none" "weekends" "GBLO"]}]
    :balance-products [{:balance-type :default :balance-status :posted}]
    :allowed-payment-address-schemes [:scan]})
 

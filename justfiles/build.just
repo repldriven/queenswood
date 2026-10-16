@@ -77,6 +77,19 @@ fideslang-update tag:
       > components/schema/resources/fideslang/data-categories.json
     clojure -M:poly test brick:schema project:dev :all
 
+# Copy England and Wales's bank holidays from GOV.UK into the GBLO calendar's data
+calendars-update:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    upstream=$(curl -fsSL https://www.gov.uk/bank-holidays.json)
+    mkdir -p components/resources/resources/calendars
+    jq --arg fetched "$(date -u +%F)" '
+      {source: "https://www.gov.uk/bank-holidays.json",
+       division: "england-and-wales",
+       "fetched-on": $fetched,
+       holidays: [.["england-and-wales"].events[] | {date, title}]}' \
+      <<<"$upstream" > components/resources/resources/calendars/gblo.json
+
 # Force re-run code generation for the bank profile
 force-prep:
     clj -X:deps prep :aliases '[{{ DOMAIN_ALIASES }} :dev]' :force true

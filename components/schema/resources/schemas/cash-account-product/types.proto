@@ -59,3 +59,14 @@ enum BusinessDayConvention {
   BUSINESS_DAY_CONVENTION_PRECEDING = 4;
   BUSINESS_DAY_CONVENTION_MODIFIED_PRECEDING = 5;
 }
+
+// The days a payment schedule counts as business days. A named
+// calendar is an FpML business centre: its Saturdays, Sundays and
+// published holidays are not business days.
+enum BusinessDayCalendar {
+  BUSINESS_DAY_CALENDAR_UNKNOWN = 0;
+  BUSINESS_DAY_CALENDAR_NONE = 1; // every day
+  BUSINESS_DAY_CALENDAR_WEEKENDS = 2; // every day but Saturday and Sunday
+  BUSINESS_DAY_CALENDAR_GBLO = 3; // London: England and Wales bank holidays
+  BUSINESS_DAY_CALENDAR_EUTA = 4; // TARGET closing days
+}

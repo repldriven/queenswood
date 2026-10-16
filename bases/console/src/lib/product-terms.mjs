@@ -39,6 +39,25 @@ export const DAY_COUNTS = {
   "actual-360": "Actual/360",
 };
 
+// The calendars a payment may count its days on, every day by default.
+export const CALENDARS = {
+  none: "every day",
+  weekends: "weekdays",
+  GBLO: "London business days",
+  EUTA: "TARGET business days",
+};
+
+// The calendars `template` offers a version in `currency`, every day
+// first, keeping `current` where the version names one the template no
+// longer lists.
+export function offeredCalendars(template, currency, current) {
+  const entry = (template?.["currency-calendars"] ?? []).find(
+    (c) => c.currency === currency,
+  );
+  const offered = entry?.calendars ?? ["none"];
+  return current && !offered.includes(current) ? [...offered, current] : offered;
+}
+
 export const CONVENTIONS = {
   unadjusted: "unadjusted",
   following: "following",
@@ -264,6 +283,7 @@ export function defaultInterest() {
     bands: [0],
     periods: [{ start: 0, rates: [0] }],
     payment: { kind: "account-day", unit: "month", every: 1 },
+    calendar: "none",
   };
 }
 
@@ -399,7 +419,9 @@ export function fromVersion(version) {
       start: accrual.basis === "relative" ? p.after : p["from-on"],
       rates: [...p["rates-bps"]],
     }));
-    interest.payment = { ...payment };
+    const { calendar, ...kind } = payment;
+    interest.payment = kind;
+    interest.calendar = calendar ?? "none";
   }
   const reward = version["opening-reward"];
   return {
@@ -438,7 +460,9 @@ export function interestTerms(form) {
     ),
   };
   if (relative) accrual.unit = interest.unit;
-  return { accrual, payment: { ...interest.payment } };
+  const payment = { ...interest.payment };
+  if (payment.kind !== "at-close") payment.calendar = interest.calendar;
+  return { accrual, payment };
 }
 
 function limitBody(limit) {

@@ -294,7 +294,8 @@
                                             {:after 12 :rates-bps [150 150]}]}}}
            :payment
            {:business-day-convention :business-day-convention-modified-following
-            :kind {:calendar-day {:every 3 :day-of-month 31 :in-month 3}}}}
+            :kind {:calendar-day {:every 3 :day-of-month 31 :in-month 3}}
+            :calendar :business-day-calendar-gblo}}
           read (SUT/pb->CashAccountProduct
                 (SUT/CashAccountProduct->pb
                  (assoc draft-version :interest-terms interest)))]
@@ -308,7 +309,8 @@
                                                             [450]}]}}}
                     :payment {:business-day-convention
                               :business-day-convention-modified-following
-                              :kind {:at-close {}}}}
+                              :kind {:at-close {}}
+                              :calendar :business-day-calendar-none}}
           read (SUT/pb->CashAccountProduct
                 (SUT/CashAccountProduct->pb
                  (assoc draft-version :interest-terms interest)))]

@@ -1,12 +1,15 @@
 (ns com.repldriven.queenswood.calc.interface
   "Pure calculations on dates and money, in integers: date arithmetic on
-  epoch days, and interest built up from it — a day count's year, the
-  period of a rate schedule in force, a balance split across bands, and
-  a day's accrual in millionths of a minor unit with the remainder
-  carried to the next day. Nothing here reads or writes state or names a
+  epoch days; business days on a calendar, a calendar being plain data,
+  `{:weekends #{iso-day-of-week ...} :holidays #{epoch-day ...}}`, with
+  `{}` counting every day; and interest built up from dates — a day
+  count's year, the period of a rate schedule in force, a balance split
+  across bands, and a day's accrual in millionths of a minor unit with
+  the remainder carried to the next day. Nothing here reads or writes state or names a
   record: each function takes every value it needs, in this component's
   own vocabulary of plain keywords."
   (:require
+    [com.repldriven.queenswood.calc.calendar :as calendar]
     [com.repldriven.queenswood.calc.date :as date]
     [com.repldriven.queenswood.calc.interest :as interest]))
 
@@ -25,6 +28,61 @@
   the month's last day where it has fewer. Nil for any other unit."
   [epoch-day unit n]
   (date/plus-units epoch-day unit n))
+
+(defn day-of-week
+  "The ISO day of the week of `epoch-day`, 1 for Monday to 7 for Sunday."
+  [epoch-day]
+  (date/day-of-week epoch-day))
+
+(defn month-of
+  "The month, 1 to 12, holding `epoch-day`."
+  [epoch-day]
+  (date/month-of epoch-day))
+
+(defn epoch-day
+  "The epoch day of `year`, `month` and `day`."
+  [year month day]
+  (date/epoch-day year month day))
+
+(defn easter-sunday
+  "The epoch day of Easter Sunday in `year`, by the Gregorian
+  calendar."
+  [year]
+  (date/easter-sunday year))
+
+;; ---------------------------------------------------------------------------
+;; Calendars
+
+(def ^{:doc "The calendar closed on Saturdays and Sundays alone."} weekends
+  calendar/weekends)
+
+(defn target-closing-days
+  "The epoch days in `year` TARGET is closed besides weekends: New
+  Year's Day, Good Friday, Easter Monday, 1 May, and 25 and 26
+  December."
+  [year]
+  (calendar/target-closing-days year))
+
+(defn target
+  "TARGET's calendar over `years`: closed on Saturdays, Sundays and its
+  closing days."
+  [years]
+  (calendar/target years))
+
+(defn business-day?
+  "Whether `calendar` counts `epoch-day` as a business day."
+  [calendar epoch-day]
+  (calendar/business-day? calendar epoch-day))
+
+(defn adjust
+  "`epoch-day` moved to a business day of `calendar` by `convention`:
+  `:unadjusted` keeps it; `:following` and `:preceding` take the
+  nearest business day after or before; `:modified-following` and
+  `:modified-preceding` do the same unless it falls in another month,
+  then go the other way. A business day stays put. Nil for any other
+  convention, or where no business day falls within a month."
+  [convention calendar epoch-day]
+  (calendar/adjust convention calendar epoch-day))
 
 ;; ---------------------------------------------------------------------------
 ;; Interest

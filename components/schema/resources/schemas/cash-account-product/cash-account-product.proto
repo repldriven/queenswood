@@ -86,7 +86,9 @@ message CalendarDayInterestPayment {
 // Interest paid once, when the account closes.
 message AtCloseInterestPayment {}
 
-// When accrued interest is paid.
+// When accrued interest is paid: on the days its kind schedules,
+// counted on `calendar`, a day the calendar does not count moving by
+// `business_day_convention`.
 message InterestPayment {
   required BusinessDayConvention business_day_convention = 1;
   oneof kind {
@@ -94,6 +96,7 @@ message InterestPayment {
     CalendarDayInterestPayment calendar_day = 3;
     AtCloseInterestPayment at_close = 4;
   }
+  required BusinessDayCalendar calendar = 5;
 }
 
 // A version's interest: how it is earned and when it is paid.

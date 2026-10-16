@@ -37,6 +37,16 @@
   (coercion/business-day-convention-enum-schema {:json-schema/example
                                                  "modified-following"}))
 
+(def BusinessDayCalendar
+  (coercion/business-day-calendar-enum-schema
+   {:json-schema/example "GBLO"
+    :description
+    "The days a payment schedule counts as business days: `none`, every
+    day; `weekends`, every day but Saturday and Sunday; or an FpML
+    business centre, `GBLO` for London's England and Wales bank holidays
+    and `EUTA` for TARGET's closing days, each also closed on Saturday
+    and Sunday."}))
+
 (def InterestRate
   [:int
    {:min 0
@@ -122,10 +132,14 @@
     :description
     "Interest paid every `every` of `unit`, counted from the day the
     account came onto the version: every 1 day is daily, and every 3
-    months quarterly on the account's day."}
+    months quarterly on the account's day. A day `calendar` does not
+    count moves by the currency's business day convention: `none`, every
+    day, where it names none, or one of its template's
+    `currency-calendars` for the currency."}
    [:kind [:enum "account-day"]]
    [:unit [:ref "InterestPeriodUnit"]]
-   [:every [:int {:min 1 :max 366}]]])
+   [:every [:int {:min 1 :max 366}]]
+   [:calendar {:optional true} [:ref "BusinessDayCalendar"]]])
 
 (def CalendarDayInterestPayment
   [:map
@@ -133,11 +147,15 @@
     :description
     "Interest paid on `day-of-month`, or the month's last day where it
     has fewer, in `in-month` and every `every` months from it: 31 is
-    the last day of each month."}
+    the last day of each month. A day `calendar` does not count moves by
+    the currency's business day convention: `none`, every day, where it
+    names none, or one of its template's `currency-calendars` for the
+    currency."}
    [:kind [:enum "calendar-day"]]
    [:every [:enum 1 2 3 4 6 12]]
    [:day-of-month [:int {:min 1 :max 31}]]
-   [:in-month [:int {:min 1 :max 12}]]])
+   [:in-month [:int {:min 1 :max 12}]]
+   [:calendar {:optional true} [:ref "BusinessDayCalendar"]]])
 
 (def AtCloseInterestPayment
   [:map
@@ -324,12 +342,14 @@
                        :periods periods}
                       unit
                       (assoc :unit unit))
-     :payment (assoc fields :kind (name kind))}))
+     :payment (cond-> (assoc fields :kind (name kind))
+                      (not= :at-close kind)
+                      (assoc :calendar (:calendar payment)))}))
 
 (defn ->interest-terms
   "The interest terms a request states, as a version stores them: the
-  accrual's basis as its schedule's variant and the payment's kind as
-  its own."
+  accrual's basis as its schedule's variant, and the payment's kind as
+  its own beside the calendar it names."
   [interest-terms]
   (let [{:keys [accrual payment]} interest-terms
         {:keys [basis banding bands unit periods]} accrual]
@@ -338,7 +358,10 @@
                :schedule (if (= "relative" basis)
                            {:relative {:unit unit :periods periods}}
                            {:fixed {:periods periods}})}
-     :payment {:kind {(keyword (:kind payment)) (dissoc payment :kind)}}}))
+     :payment (cond-> {:kind {(keyword (:kind payment))
+                              (dissoc payment :kind :calendar)}}
+                      (:calendar payment)
+                      (assoc :calendar (:calendar payment)))}))
 
 (defn ->version-data
   "A product request's body as the domain takes it."
@@ -388,9 +411,17 @@
 
 (defn ->template-body
   [template]
-  (-> template
-      (dissoc :currencies)
-      (assoc :allowed-currencies (mapv :currency (:currencies template)))))
+  (let [{:keys [currencies]} template]
+    (-> template
+        (dissoc :currencies)
+        (assoc :allowed-currencies (mapv :currency currencies)
+               :currency-calendars (mapv (fn [{:keys [currency calendars]}]
+                                           {:currency currency
+                                            :calendars
+                                            (into
+                                             [:business-day-calendar-none]
+                                             calendars)})
+                                         currencies)))))
 
 (defn ->product-body
   [product]
@@ -407,6 +438,14 @@
    [:product-type [:ref "ProductType"]]
    [:balance-sheet-side [:ref "BalanceSheetSide"]]
    [:allowed-currencies [:unique-vector-lax {:min 1} [:ref "Currency"]]]
+   [:currency-calendars
+    [:vector
+     {:description
+      "Each allowed currency's calendars, the ones a version in it may
+      count its payment days on, `none` first."}
+     [:map
+      [:currency [:ref "Currency"]]
+      [:calendars [:vector [:ref "BusinessDayCalendar"]]]]]]
    [:balance-products [:unique-vector-lax {:min 1} [:ref "BalanceProduct"]]]
    [:allowed-payment-address-schemes
     [:vector [:ref "PaymentAddressScheme"]]]])
@@ -419,10 +458,11 @@
   (components-registry
    [#'TemplateId #'BalanceSheetSide #'VersionStatus #'OpeningReward
     #'InterestRate #'InterestBanding #'InterestPeriodUnit #'InterestDayCount
-    #'BusinessDayConvention #'RelativeInterestAccrual #'FixedInterestAccrual
-    #'InterestAccrual #'AccountDayInterestPayment #'CalendarDayInterestPayment
-    #'AtCloseInterestPayment #'InterestPayment #'InterestTerms
-    #'PaymentDirection #'PaymentMeasure #'PaymentPeriod #'PaymentPeriodAnchor
-    #'PaymentLimit #'CashAccountProductRequest #'CashAccountProductDraftRequest
-    #'CashAccountProductVersion #'CashAccountProduct #'CashAccountProductList
-    #'CashAccountProductTemplate #'CashAccountProductTemplateList]))
+    #'BusinessDayConvention #'BusinessDayCalendar #'RelativeInterestAccrual
+    #'FixedInterestAccrual #'InterestAccrual #'AccountDayInterestPayment
+    #'CalendarDayInterestPayment #'AtCloseInterestPayment #'InterestPayment
+    #'InterestTerms #'PaymentDirection #'PaymentMeasure #'PaymentPeriod
+    #'PaymentPeriodAnchor #'PaymentLimit #'CashAccountProductRequest
+    #'CashAccountProductDraftRequest #'CashAccountProductVersion
+    #'CashAccountProduct #'CashAccountProductList #'CashAccountProductTemplate
+    #'CashAccountProductTemplateList]))
