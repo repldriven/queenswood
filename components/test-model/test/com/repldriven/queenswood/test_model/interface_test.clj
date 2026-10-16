@@ -528,3 +528,45 @@
                    (step :inbound-transfer [:acct-0 100 :e2e-b])
                    (step :inbound-transfer [:acct-0 100 :e2e-b]))]
         (is (= 100 (SUT/balance s' :acct-0)))))))
+
+(deftest payment-days-test
+  (let [saver (fn [payment]
+                (-> init
+                    (step :create-bank [])
+                    (step :create-person-party [:bank-0])
+                    (step :create-product
+                          [:bank-0 :savings
+                           (merge {:banding :marginal
+                                   :bands [0]
+                                   :schedule {:relative {:unit :month
+                                                         :periods [{:after 0
+                                                                    :rates-bps
+                                                                    [3650]}]}}}
+                                  payment)])
+                    (step :publish-product [:prod-1])
+                    (step :open-account [:bank-0 :party-1 :prod-1])
+                    (assoc-in [:accounts :acct-1 :available] 100000)))
+        run (fn [state day]
+              (-> state
+                  (step :accrue-interest [:bank-0 day])
+                  (step :capitalize-interest [:bank-0 day])))
+        accrued (fn [state]
+                  (get-in state [:accounts :acct-1 :interest-accrued]))]
+    (testing "terms stating no payment pay every day"
+      (is (= 0 (accrued (run (saver {}) 21001)))))
+    (testing "a monthly payment on a weekend waits for the business day"
+      ;; The 3rd of July 2027 is a Saturday, moved to Monday the 5th.
+      (let [s (saver {:payment {:calendar-day
+                                {:every 1 :day-of-month 3 :in-month 1}}
+                      :calendar :weekends})
+            fri (run s 21001)
+            sat (run fri 21002)
+            mon (run sat 21004)]
+        (is (= 100 (accrued fri)))
+        (is (= 200 (accrued sat)))
+        (is (= 0 (accrued mon)))
+        (is (= 100300 (get-in mon [:accounts :acct-1 :available])))))
+    (testing "on every day, the Saturday itself"
+      (let [s (saver {:payment {:calendar-day
+                                {:every 1 :day-of-month 3 :in-month 1}}})]
+        (is (= 0 (accrued (run (run s 21001) 21002))))))))

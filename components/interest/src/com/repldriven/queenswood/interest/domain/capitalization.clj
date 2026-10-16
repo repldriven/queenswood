@@ -33,7 +33,7 @@
      :idempotency-key (idempotency-key (:account-id account) as-of-date)
      :transaction-type :transaction-type-interest-capitalization
      :currency currency
-     :reference (str "Monthly interest capitalization "
+     :reference (str "Interest payment "
                      (utility/epoch-day->iso-date as-of-date))
      :legs [(leg account :balance-type-interest-accrued from amount currency)
             (leg account :balance-type-default to amount currency)]}))

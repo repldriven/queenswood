@@ -85,7 +85,11 @@
     `:marginal` or `:whole-balance`, `:bands` each band's lowest balance
     from zero, and `:schedule` `{:relative {:unit :day|:week|:month
     :periods [{:after n :rates-bps [...]}]}}` or `{:fixed {:periods
-    [{:from-on epoch-day :rates-bps [...]}]}}`, one rate per band."}
+    [{:from-on epoch-day :rates-bps [...]}]}}`, one rate per band; and
+    optionally `:payment`, `{:account-day {:unit :every}}`,
+    `{:calendar-day {:every :day-of-month :in-month}}` or `{:at-close
+    {}}`, daily where absent, with `:calendar` `:none`, the default, or
+    `:weekends`."}
   create-product
   products/create-product)
 
@@ -260,11 +264,13 @@
 (def
   ^{:doc
     "Moves each open customer account's accrued interest into its
-  available balance, in two legs. Runs where the bank's policies permit
-  capitalising and count one more run on `date` within their limits.
-  Args:
+  available balance, in two legs, where its version's payment falls due
+  after the bank's last capitalisation run and on or before `date`, a
+  day its calendar does not count moved by its currency's convention.
+  Runs where the bank's policies permit capitalising and count one more
+  run on `date` within their limits. Args:
   - bank: model bank id.
-  - date: the run's as-of date, YYYYMMDD."}
+  - date: the run's business day, an epoch day."}
   capitalize-interest
   interest/capitalize-interest)
 

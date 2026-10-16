@@ -34,6 +34,37 @@
     :bank-id bank-id
     :business-day business-day}))
 
+(def ^:private runs-page 20)
+
+(defn last-run-before
+  "The bank's latest closed run of `kind` before `business-day`, or nil
+  where it has none, read a page of runs at a time newest first."
+  [txn bank-id business-day kind]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let [store (fdb/open txn interest-runs-store-name)]
+       (loop [cursor business-day]
+         (let [{:keys [records after]} (fdb/scan-records store
+                                                         {:prefix [bank-id]
+                                                          :after cursor
+                                                          :limit runs-page
+                                                          :order :desc})
+               runs (map schema/pb->InterestRun records)
+               found (some (fn [run] (when (= kind (:kind run)) run)) runs)]
+           (cond found
+                 found
+
+                 after
+                 (recur after)
+
+                 :else
+                 nil)))))
+   :interest/last-run-before
+   {:message "Failed to read the bank's last interest run"
+    :bank-id bank-id
+    :business-day business-day}))
+
 (defn count-by-org-business-day-per-kind
   [txn bank-id kind business-day]
   (fdb/transact

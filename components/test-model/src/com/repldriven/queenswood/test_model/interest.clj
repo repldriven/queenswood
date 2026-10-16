@@ -5,7 +5,8 @@
 
     [clojure.test.check.generators :as gen])
   (:import
-    (java.time LocalDate)))
+    (java.time LocalDate)
+    (java.time.temporal ChronoUnit)))
 
 (def ^:private micro-scale 1000000)
 
@@ -73,6 +74,98 @@
         {:whole-units (quot daily-micro micro-scale)
          :carry (rem daily-micro micro-scale)}))))
 
+(def ^:private conventions
+  "Each currency's business day convention, as its template entry gives
+  it."
+  {"GBP" :modified-following
+   "EUR" :modified-following
+   "USD" :modified-following})
+
+(def ^:private daily {:account-day {:unit :day :every 1}})
+
+(defn- local-date [day] (LocalDate/ofEpochDay day))
+
+(defn- open?
+  "Whether `calendar`, `:none` or `:weekends`, counts `day`."
+  [calendar day]
+  (not (and (= :weekends calendar)
+            (>= (.getValue (.getDayOfWeek (local-date day))) 6))))
+
+(defn- next-open
+  [calendar day step]
+  (first (filter (fn [d] (open? calendar d))
+                 (iterate (fn [d] (+ d step)) day))))
+
+(defn- moved
+  "`day` moved to one `calendar` counts by `convention`."
+  [convention calendar day]
+  (let [same-month? (fn [d]
+                      (= (.getMonthValue (local-date d))
+                         (.getMonthValue (local-date day))))]
+    (case convention
+      :unadjusted day
+      :following (next-open calendar day 1)
+      :preceding (next-open calendar day -1)
+      :modified-following (let [d (next-open calendar day 1)]
+                            (if (same-month? d) d (next-open calendar day -1)))
+      :modified-preceding
+      (let [d (next-open calendar day -1)]
+        (if (same-month? d) d (next-open calendar day 1))))))
+
+(defn- scheduled?
+  "Whether `payment` schedules `day` for an account that came onto its
+  version on `from-on`: never before it, nor on it unless paid daily."
+  [payment from-on day]
+  (let [{:keys [account-day calendar-day]} payment]
+    (and from-on
+         (if (= {:unit :day :every 1} account-day)
+           (>= day from-on)
+           (> day from-on))
+         (cond
+          account-day
+          (let [{:keys [unit every]} account-day]
+            (case unit
+              :day (zero? (mod (- day from-on) every))
+              :week (zero? (mod (- day from-on) (* 7 every)))
+              :month
+              (let [start (local-date from-on)
+                    whole (.between ChronoUnit/MONTHS start (local-date day))]
+                (some (fn [n]
+                        (and (pos? n)
+                             (zero? (mod n every))
+                             (= day (.toEpochDay (.plusMonths start n)))))
+                      [whole (inc whole)]))))
+
+          calendar-day
+          (let [{:keys [every day-of-month in-month]} calendar-day
+                date (local-date day)]
+            (and (zero? (mod (- (.getMonthValue date) in-month) every))
+                 (= (.getDayOfMonth date)
+                    (min day-of-month (.lengthOfMonth date)))))
+
+          :else
+          false))))
+
+(defn- due?
+  "Whether an account on `version` is due a payment after `after`
+  through `through`, its version's terms paying daily on every day
+  where they say nothing."
+  [account version after through]
+  (let [{:keys [payment calendar] :or {payment daily calendar :none}}
+        (:terms version)
+        convention (conventions (:currency version))
+        after (or after (dec through))]
+    (boolean
+     (some (fn [day]
+             (and (scheduled? payment (:version-from-on account) day)
+                  (< after (moved convention calendar day) (inc through))))
+           (range (- after 30) (+ through 32))))))
+
+(defn- account-version
+  [state account]
+  (some (fn [v] (when (= (:version account) (:number v)) v))
+        (get-in state [:products (:product account) :versions])))
+
 (defn- customer-account?
   [state acct]
   (let [account (get-in state [:accounts acct])
@@ -85,8 +178,7 @@
 (defn- accrue-account
   [day state customer-acct]
   (let [account (get-in state [:accounts customer-acct])
-        version (some (fn [v] (when (= (:version account) (:number v)) v))
-                      (get-in state [:products (:product account) :versions]))
+        version (account-version state account)
         result (when-let [terms (:terms version)]
                  (daily-interest account (:currency version) terms day))]
     (cond
@@ -139,9 +231,13 @@
    :valid? (fn [state {[bank-id] :args}] (contains? (:banks state) bank-id))})
 
 (defn- capitalize-account
-  [state customer-acct]
-  (let [accrued (get-in state [:accounts customer-acct :interest-accrued] 0)]
-    (if (zero? accrued)
+  [after day state customer-acct]
+  (let [account (get-in state [:accounts customer-acct])
+        accrued (:interest-accrued account 0)
+        version (account-version state account)]
+    (if (or (zero? accrued)
+            (not (:terms version))
+            (not (due? account version after day)))
       state
       (-> state
           (update-in [:accounts customer-acct :available] + accrued)
@@ -150,12 +246,24 @@
                      (fnil + 0)
                      2)))))
 
+(defn- last-run-before
+  "The latest day before `day` the bank ran capitalisation, or nil."
+  [state bank-id day]
+  (->> (keys (get-in state
+                     [:banks bank-id :interest-runs
+                      :interest-action-capitalize]))
+       (filter (fn [d] (< d day)))
+       (reduce (fn [latest d] (if (or (nil? latest) (> d latest)) d latest))
+               nil)))
+
 (defn- capitalize-org
-  [state bank-id _day]
+  [state bank-id day]
   (let [org (get-in state [:banks bank-id])
         custs (filter (fn [a] (customer-account? state a))
                       (:accounts org))]
-    (reduce capitalize-account state custs)))
+    (reduce (partial capitalize-account (last-run-before state bank-id day) day)
+            state
+            custs)))
 
 (def capitalize-interest
   {:run? (fn [state] (seq (state/known-banks state)))

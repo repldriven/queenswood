@@ -11,7 +11,8 @@
   (:require
     [com.repldriven.queenswood.calc.calendar :as calendar]
     [com.repldriven.queenswood.calc.date :as date]
-    [com.repldriven.queenswood.calc.interest :as interest]))
+    [com.repldriven.queenswood.calc.interest :as interest]
+    [com.repldriven.queenswood.calc.payment :as payment]))
 
 ;; ---------------------------------------------------------------------------
 ;; Dates
@@ -38,6 +39,16 @@
   "The month, 1 to 12, holding `epoch-day`."
   [epoch-day]
   (date/month-of epoch-day))
+
+(defn year-of
+  "The year holding `epoch-day`."
+  [epoch-day]
+  (date/year-of epoch-day))
+
+(defn days-in-month
+  "The number of days in the month holding `epoch-day`."
+  [epoch-day]
+  (date/days-in-month epoch-day))
 
 (defn epoch-day
   "The epoch day of `year`, `month` and `day`."
@@ -148,3 +159,27 @@
   it does not know."
   [day-rates principal carry]
   (interest/accrue day-rates principal carry))
+
+;; ---------------------------------------------------------------------------
+;; Payment days
+
+(defn scheduled-days
+  "The days `payment` schedules from `lo` to `hi`, before any convention
+  moves them, never one before `from-on`, the day the account came onto
+  its version, nor `from-on` itself unless the payment is daily. `payment` is `{:account-day {:unit :every}}`, every
+  `every` of `:day`, `:week` or `:month` after `from-on`, a month landing
+  on its last day where it has fewer; `{:calendar-day {:every
+  :day-of-month :in-month}}`, `day-of-month` or the month's last day in
+  `in-month` and every `every` months from it; or `{:at-close {}}`,
+  which schedules none. An account-day payment without `from-on`
+  schedules none; a calendar-day one without it has no lower bound."
+  [payment from-on lo hi]
+  (payment/scheduled-days payment from-on lo hi))
+
+(defn due?
+  "Whether a day `payment` schedules, moved by `convention` on
+  `calendar`, falls after `after` and on or before `through`: the
+  window from the day after the last payment run to this one's. With
+  no `after`, the window is `through` alone."
+  [payment from-on calendar convention after through]
+  (payment/due? payment from-on calendar convention after through))
