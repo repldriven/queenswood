@@ -144,7 +144,9 @@
 ;; the minimum, zero where none is given, or above the maximum. A version
 ;; keeps each as a policy limit of the balance kind, on the transaction
 ;; types a customer or the bank drives, so interest is never refused, and
-;; an account already outside a bound may move back towards it.
+;; an account already outside a bound may move back towards it. A
+;; closure's payout is held to the maximum of the account it is paid
+;; into, and never to the minimum of the account it empties.
 
 (def ^:private lowering-types
   "The transaction types a balance minimum bounds."
@@ -153,7 +155,8 @@
 
 (def ^:private raising-types
   "The transaction types a balance maximum bounds."
-  [:transaction-type-internal-transfer :transaction-type-inbound-transfer])
+  [:transaction-type-internal-transfer :transaction-type-inbound-transfer
+   :transaction-type-closure])
 
 (defn- ensure-balance-limits
   [min-balance max-balance]

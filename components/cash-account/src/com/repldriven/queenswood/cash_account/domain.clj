@@ -1,6 +1,7 @@
 (ns com.repldriven.queenswood.cash-account.domain
   (:refer-clojure :exclude [name])
   (:require
+    [com.repldriven.queenswood.calc.interface :as calc]
     [com.repldriven.queenswood.policy.interface :as policy]
 
     [com.repldriven.mono.error.interface :as error :refer [let-nom>]]
@@ -218,35 +219,210 @@
               :refused-reason
               reason))
 
+(def ^:private closeable-statuses
+  #{:cash-account-status-opened :cash-account-status-suspended
+    :cash-account-status-closing})
+
+(def ^:private emptied-buckets
+  "The buckets a close empties itself: the posted default one, which it
+  pays out, and the posted interest-accrued one, which it settles."
+  #{[:balance-type-default :balance-status-posted]
+    [:balance-type-interest-accrued :balance-status-posted]})
+
+(defn- check-buckets
+  "Refuses `account`'s close where `balances` hold a bucket the close
+  cannot empty itself, a pending hold or another posted bucket, unless
+  `policies` waive the check."
+  [account balances policies]
+  (let [offending (remove (fn [b]
+                            (contains? emptied-buckets
+                                       [(:balance-type b) (:balance-status b)]))
+                          (non-zero-balances balances))]
+    (when (and (seq offending)
+               (error/anomaly?
+                (check-capability :cash-account-action-close-non-zero
+                                  (:account-type account)
+                                  policies)))
+      (error/reject :cash-account/non-zero-on-close
+                    {:message "Account has balance buckets a close cannot empty"
+                     :account-id (:account-id account)
+                     :balances (reported-buckets offending)}))))
+
+(defn- check-payout-account
+  "Refuses a `payout` that is not another opened account of `account`'s
+  party in its currency. `payout-account-id` names it, and `payout` is
+  nil where no such account is found."
+  [account payout-account-id payout]
+  (when (and payout-account-id
+             (not (and payout
+                       (= :cash-account-status-opened (:status payout))
+                       (= (:party-id account) (:party-id payout))
+                       (= (:currency account) (:currency payout))
+                       (not= (:account-id account) (:account-id payout)))))
+    (error/reject
+     :cash-account/invalid-payout-account
+     {:message
+      "A payout account is another opened account of the same party and currency"
+      :account-id (:account-id account)
+      :payout-account-id payout-account-id})))
+
 (defn close-account
-  [account balances actor policies]
+  "`account` as a close by `actor` leaves it, `closing`, where its status,
+  `policies` and `balances` allow one, and the payout account
+  `payout-account-id` names, `payout`, qualifies."
+  [account balances payout-account-id payout actor policies]
   (let-nom>
-    [_ (when-not (contains? #{:cash-account-status-opened
-                              :cash-account-status-suspended}
-                            (:status account))
+    [_ (when-not (contains? closeable-statuses (:status account))
          (error/reject :cash-account/invalid-status
                        {:message "Account is not in a closeable state"
                         :account-id (:account-id account)
                         :status (:status account)
-                        :allowed #{:cash-account-status-opened
-                                   :cash-account-status-suspended}}))
+                        :allowed closeable-statuses}))
      _ (check-capability :cash-account-action-close
                          (:account-type account)
                          policies)
-     offending (non-zero-balances balances)
-     _ (when (and (seq offending)
-                  (error/anomaly?
-                   (check-capability :cash-account-action-close-non-zero
-                                     (:account-type account)
-                                     policies)))
-         (error/reject :cash-account/non-zero-on-close
-                       {:message "Account has non-zero balance buckets"
-                        :account-id (:account-id account)
-                        :balances (reported-buckets offending)}))]
+     _ (check-payout-account account payout-account-id payout)
+     _ (check-buckets account balances policies)]
     (assoc account
            :status :cash-account-status-closing
            :updated-at (utility/now)
            :updated-by actor)))
+
+(def ^:private period-units
+  {:interest-period-unit-day :day
+   :interest-period-unit-week :week
+   :interest-period-unit-month :month})
+
+(defn- window-end
+  "The epoch day early closure `window` closes on, counted from the day
+  the account came onto its version, `version-from-on`."
+  [window version-from-on]
+  (let [{:keys [unit count]} window]
+    (calc/plus-units version-from-on (period-units unit) count)))
+
+(defn closure-term
+  "What `account`'s closure on `day` is held to by its version's
+  `closure-terms`: the `charged` term, `{:interest :fee}`, of the first
+  early window still open on that day, or after the last the terms' own
+  `{:interest}`. A `refused` window is refused
+  `:cash-account/early-closure-refused`, naming the day it closes on."
+  [account closure-terms day]
+  (let [{:keys [interest early]} closure-terms
+        from-on (:version-from-on account)
+        window (first (filter (fn [window] (< day (window-end window from-on)))
+                              early))
+        {:keys [refused charged]} (:kind window)]
+    (cond refused
+          (error/reject :cash-account/early-closure-refused
+                        {:message
+                         "The account's version refuses a closure this early"
+                         :account-id (:account-id account)
+                         :closable-from (utility/epoch-day->iso-date
+                                         (window-end window from-on))})
+
+          charged
+          charged
+
+          :else
+          {:interest interest})))
+
+(def ^:private basis-points 10000)
+
+(defn closure-fee
+  "What `fee` charges a closure leaving `held` in the default bucket: a
+  `flat` amount, or `balance`'s `rate-bps` of `held`, rounded down, raised
+  to its `min` and capped at its `max`. Never more than `held`, and zero
+  where there is no fee or nothing is held."
+  [fee held]
+  (let [{:keys [flat balance]} (:kind fee)
+        charged (cond flat
+                      (:amount flat)
+
+                      balance
+                      (let [{lowest :min highest :max} balance]
+                        (cond-> (quot (* held (:rate-bps balance))
+                                      basis-points)
+                                lowest
+                                (max lowest)
+
+                                highest
+                                (min highest)))
+
+                      :else
+                      0)]
+    (max 0 (min charged held))))
+
+(defn check-emptied
+  "Refuses a close leaving `held` in `account`'s default bucket, once its
+  interest is settled and its fee charged, where it names no payout
+  account to move it to, unless `policies` waive the check, and one
+  leaving it overdrawn."
+  [account held payout policies]
+  (when (or (neg? held)
+            (and (pos? held)
+                 (nil? payout)
+                 (error/anomaly?
+                  (check-capability :cash-account-action-close-non-zero
+                                    (:account-type account)
+                                    policies))))
+    (error/reject
+     :cash-account/non-zero-on-close
+     {:message
+      "Account holds a balance; name a payout account to move it to"
+      :account-id (:account-id account)
+      :balances [{:balance-type :balance-type-default
+                  :balance-status :balance-status-posted
+                  :currency (:currency account)
+                  :credit (max held 0)
+                  :debit (max (- held) 0)}]})))
+
+(defn default-held
+  "What `balances` hold in the posted default bucket, credits less
+  debits."
+  [balances]
+  (transduce (comp (filter (fn [b]
+                             (and (= :balance-type-default (:balance-type b))
+                                  (= :balance-status-posted
+                                     (:balance-status b)))))
+                   (map (fn [b] (- (:credit b 0) (:debit b 0)))))
+             +
+             0
+             balances))
+
+(defn fee-transaction
+  "The `fee` transaction charging closing `account` `amount` from its
+  default bucket, credited to the fee income account `fee-income-id`."
+  [account fee-income-id amount business-day]
+  (let [{:keys [bank-id account-id product-type currency]} account]
+    {:bank-id bank-id
+     :idempotency-key (str "closure-fee-" account-id)
+     :transaction-type :transaction-type-fee
+     :currency currency
+     :reference (str "Closure fee " (utility/epoch-day->iso-date business-day))
+     :legs [{:account-id account-id
+             :product-type product-type
+             :balance-type :balance-type-default
+             :balance-status :balance-status-posted
+             :side :leg-side-debit
+             :amount amount
+             :currency currency}
+            {:account-id fee-income-id
+             :product-type :account-product-type-general-ledger
+             :balance-type :balance-type-default
+             :balance-status :balance-status-posted
+             :side :leg-side-credit
+             :amount amount
+             :currency currency}]}))
+
+(def held-on-close
+  "Why a close the provider carried out leaves the account closing."
+  "The account held a balance when its provider closed it")
+
+(defn emptied?
+  "Whether `balances` are all zero, so the account they belong to may be
+  closed."
+  [balances]
+  (empty? (non-zero-balances balances)))
 
 (defn closed-account
   [account]
@@ -303,7 +479,7 @@
   answers, or completed where the account has no account at its provider
   to carry it out."
   [account kind today data]
-  (let [{:keys [actor idempotency-key]} data
+  (let [{:keys [actor idempotency-key payout-account-id]} data
         now (utility/now)]
     (assoc-some {:bank-id (:bank-id account)
                  :account-id (:account-id account)
@@ -317,7 +493,9 @@
                  :created-at now
                  :created-by actor}
                 :idempotency-key
-                idempotency-key)))
+                idempotency-key
+                :payout-account-id
+                payout-account-id)))
 
 (defn pending-operation?
   [operation]

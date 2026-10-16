@@ -47,10 +47,26 @@
            :status 409
            :detail "Account has non-zero balance buckets"}})
 
+(def CashAccountInvalidPayoutAccount
+  {:value
+   {:title "REJECTED"
+    :type ":cash-account/invalid-payout-account"
+    :status 422
+    :detail
+    "A payout account is another opened account of the same party and currency"}})
+
+(def CashAccountEarlyClosureRefused
+  {:value {:title "REJECTED"
+           :type ":cash-account/early-closure-refused"
+           :status 409
+           :detail "The account's version refuses a closure this early"}})
+
 (def registry
   (examples-registry [#'CashAccountNotFound #'ProductNotPublished
                       #'InvalidCurrency #'PartyNotFound #'ProductNotFound
-                      #'CashAccountInvalidStatus #'CashAccountNonZeroBalance]))
+                      #'CashAccountInvalidStatus #'CashAccountNonZeroBalance
+                      #'CashAccountInvalidPayoutAccount
+                      #'CashAccountEarlyClosureRefused]))
 
 (def CashAccount
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
@@ -86,6 +102,9 @@
 (def CashAccountOperationList {:items [CashAccountOperation]})
 
 (def CashAccountList {:items [CashAccount]})
+
+(def CloseCashAccountRequest
+  {:payout-account-id "acc.01kprbmgcj35ptc8npmybhh4t2"})
 
 (def CreateCashAccountRequest
   (select-keys CashAccount [:party-id :name :currency :product-id]))

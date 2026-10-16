@@ -289,6 +289,7 @@ cannot be deleted (status flip only).
 | 2400 | Interest payable                  | Liability | Control |
 | 2500 | Suspense — unreconciled inbound   | Liability | Detail  |
 | 3100 | Bank own funds                    | Equity    | Control |
+| 4100 | Fee income                        | Income    | Detail  |
 | 5100 | Interest expense                  | Expense   | Detail  |
 
 Normal side follows from type per the convention table above
@@ -305,10 +306,10 @@ balance is the sum of the cash accounts of its product type, and
 2400's the sum of their interest-accrued buckets — see "Balance
 buckets per account class" below.
 
-4100 fee income, an income detail account, is seeded with the
+4100 fee income, an income detail account, is credited with the
 fee an early closure charges, as
 [cash-accounts](cash-accounts.md#closing-with-a-payout-account)
-lays out; not built yet. Retained earnings and accrued fees
+lays out. Retained earnings and accrued fees
 receivable are not seeded; a bank adds them as it needs them.
 
 `1100 — Cash at correspondent` is the bank's own settlement
@@ -402,13 +403,13 @@ not summed, so the control moves when the payment posts. A
 customer `interest-accrued` bucket is summed into 2400 rather than
 the deposit control, so interest is counted once, on 2400, until
 capitalisation moves it to the default bucket and so to 2100; see
-[interest.md](interest.md). 1100, 2500 and 5100 are detail accounts,
-posted to directly, whose balance is the sum of their legs, read from
-a SUM index on `transaction-legs` over `amount` grouped by account,
-bucket and side: every posting naming one still records its leg, but
-the leg is left out of the balance writes, so settlements in one bank
-share no row on 1100, an interest run's chunks none on 5100, and no
-account in the chart keeps a stored balance; see
+[interest.md](interest.md). 1100, 2500, 4100 and 5100 are detail
+accounts, posted to directly, whose balance is the sum of their legs,
+read from a SUM index on `transaction-legs` over `amount` grouped by
+account, bucket and side: every posting naming one still records its
+leg, but the leg is left out of the balance writes, so settlements in
+one bank share no row on 1100, an interest run's chunks none on 5100,
+and no account in the chart keeps a stored balance; see
 [ADR-0039](../adr/0039-cash-at-correspondents-balance-is-the-sum-of-its-legs.md),
 [ADR-0042](../adr/0042-a-cash-accounts-balance-is-the-sum-of-its-legs.md)
 and
@@ -684,7 +685,7 @@ on `LedgerAccountList` beside the accounts; the console's ledger
 view renders the block.
 
 The cost is a balance read per chart row on every list. That is
-tolerable for a chart of nine rows per currency and is the
+tolerable for a chart of ten rows per currency and is the
 reason the reporting surfaces named under "Known Limitations"
 would not be built this way.
 

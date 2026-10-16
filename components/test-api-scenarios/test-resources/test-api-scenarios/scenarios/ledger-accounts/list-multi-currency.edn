@@ -8,11 +8,11 @@
  [{:command :api/request
    :request
    {:method :get :path "/v1/ledger-accounts" :auth [:ref :org-0 :token]}
-   ;; The chart is seeded once per requested currency, so the nine rows
+   ;; The chart is seeded once per requested currency, so the ten rows
    ;; of resources/ledgers/general-ledger.edn come back three times over
-   ;; -- twenty-seven in all. Seeding runs under the platform policies,
+   ;; -- thirty in all. Seeding runs under the platform policies,
    ;; so the micro tier's own caps do not thin it out. in-any-order pins
-   ;; the count, so a tenth row in any currency fails the match; maps in
+   ;; the count, so an eleventh row in any currency fails the match; maps in
    ;; expected position embed, so a row not under scrutiny needs only
    ;; its code and currency. 2400 and 5100 carry their class and type:
    ;; interest payable is a control account and interest expense an
@@ -32,6 +32,7 @@
                      :account-class "liability"}
                     {:code "2500" :currency "EUR"}
                     {:code "3100" :currency "EUR"}
+                    {:code "4100" :currency "EUR"}
                     {:code "5100"
                      :currency "EUR"
                      :account-type "detail"
@@ -57,6 +58,10 @@
                      :currency "GBP"
                      :account-type "control"
                      :account-class "equity"}
+                    {:code "4100"
+                     :currency "GBP"
+                     :account-type "detail"
+                     :account-class "income"}
                     {:code "5100"
                      :currency "GBP"
                      :account-type "detail"
@@ -72,6 +77,7 @@
                      :account-class "liability"}
                     {:code "2500" :currency "USD"}
                     {:code "3100" :currency "USD"}
+                    {:code "4100" :currency "USD"}
                     {:code "5100"
                      :currency "USD"
                      :account-type "detail"

@@ -7,7 +7,6 @@
   there, and their end-to-end shape is an EDN scenario in
   `test-scenarios` or `test-api-scenarios`."
   (:require
-    [com.repldriven.queenswood.fdb.interface]
     [com.repldriven.queenswood.testcontainers.interface]
 
     [com.repldriven.queenswood.cash-account.core :as core]
@@ -15,6 +14,8 @@
     [com.repldriven.queenswood.cash-account.store :as store]
 
     [com.repldriven.queenswood.cash-account-query.interface :as q]
+    [com.repldriven.queenswood.fdb.interface :as fdb]
+    [com.repldriven.queenswood.schema.interface :as schema]
 
     [com.repldriven.mono.system.interface :as system]
     [com.repldriven.mono.test-system.interface :refer
@@ -57,6 +58,37 @@
    :payment-addresses []
    :created-at (utility/now)
    :updated-at (utility/now)})
+
+(defn- save-version
+  "The version the test's accounts are on, which a close reads its
+  closure terms from."
+  [config]
+  (fdb/transact
+   config
+   (fn [txn]
+     (fdb/save-record (fdb/open txn "cash-account-products")
+                      (schema/CashAccountProduct->java
+                       {:bank-id test-bank-id
+                        :product-id "prd.test"
+                        :version-id "prv.test"
+                        :version-number 1
+                        :status :version-status-published
+                        :product-type :account-product-type-sub-ledger-current
+                        :balance-sheet-side :balance-sheet-side-liability
+                        :name "Provider Legs Account"
+                        :currency "GBP"
+                        :template-id "tpl.00000000000000000000000001"
+                        :iso-cash-account-type :iso-cash-account-type-cacc
+                        :balance-products [{:balance-type :balance-type-default
+                                            :balance-status
+                                            :balance-status-posted}]
+                        :closure-terms {:interest {:kind {:pay {}}}}
+                        :effective-from 20089
+                        :created-at (utility/now)
+                        :created-by {:kind :actor-kind-operator
+                                     :principal-id "test"}})))
+   :test/seed
+   "Failed to seed the version"))
 
 (defn- save
   [config account]
@@ -180,7 +212,8 @@
    (let [config (fdb-config sys)
          account-id "acc.close.refused"
          key "ik-close-refused-00000001"]
-     (nom-test> [_ (save config
+     (nom-test> [_ (save-version config)
+                 _ (save config
                          (account account-id :cash-account-status-opening))
                  _ (core/provider-opened config (issued account-id "20000003"))
                  closing (SUT/close-account config

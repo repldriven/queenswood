@@ -1,0 +1,77 @@
+{:name "A close naming a payout account that does not qualify is refused"
+ ;; A payout account is another opened account of the same party in the
+ ;; same currency. The account itself, another party's account and an
+ ;; account that does not exist are each refused with 422, and the
+ ;; account stays opened with its balance.
+ :given [{:fixture :bank
+          :as :org-0
+          :with {:name "Payout Refused Bank"}}
+         {:fixture :person
+          :as :party-0
+          :with {:token [:ref :org-0 :token]
+                 :display-name "First Holder"
+                 :legal-name "First Holder"}}
+         {:fixture :person
+          :as :party-1
+          :with {:token [:ref :org-0 :token]
+                 :display-name "Second Holder"
+                 :legal-name "Second Holder"}}
+         {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
+         {:fixture :funded-account
+          :as :closing
+          :with {:token [:ref :org-0 :token]
+                 :bank-id [:ref :org-0 :bank :bank-id]
+                 :party-id [:ref :party-0 :party :party-id]
+                 :product-id [:ref :draft :product :product-id]
+                 :name "To Be Closed"
+                 :amount 5000}}
+         {:fixture :account
+          :as :other
+          :with {:token [:ref :org-0 :token]
+                 :party-id [:ref :party-1 :party :party-id]
+                 :product-id [:ref :draft :product :product-id]
+                 :name "Another Party's"}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/close"
+             :path-params {:account-id [:ref :closing :opened :account
+                                        :account-id]}
+             :auth [:ref :org-0 :token]
+             :body {:payout-account-id [:ref :closing :opened :account
+                                        :account-id]}}
+   :assert {:status 422
+            :problem {:type ":cash-account/invalid-payout-account"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/close"
+             :path-params {:account-id [:ref :closing :opened :account
+                                        :account-id]}
+             :auth [:ref :org-0 :token]
+             :body {:payout-account-id [:ref :other :account :account-id]}}
+   :assert {:status 422
+            :problem {:type ":cash-account/invalid-payout-account"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/close"
+             :path-params {:account-id [:ref :closing :opened :account
+                                        :account-id]}
+             :auth [:ref :org-0 :token]
+             :body {:payout-account-id "acc.01kprbmgcj35ptc8npmybhh4t2"}}
+   :assert {:status 422
+            :problem {:type ":cash-account/invalid-payout-account"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :closing :opened :account
+                                        :account-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200 :body {:status "opened"}}}
+  {:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :closing :opened :account
+                                        :account-id]}
+             :auth [:ref :org-0 :token]}
+   :assert {:status 200 :body {:available-balance {:value 5000}}}}]}

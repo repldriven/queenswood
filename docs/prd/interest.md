@@ -230,11 +230,12 @@ themselves and the account is closed.
 
 ### Closing an account with interest owed
 
-An account can only close with nothing in it, and between
-payment days accrued interest is still in it. The customer
-uses the API to pay the account's accrued interest at once,
-moves the balance out, and closes the account. A fraction of
-a penny not yet credited is not paid.
+Between payment days an account's accrued interest is still
+in it. The customer uses the API to close the account, naming
+where the balance goes, and the close pays the interest into
+the balance, forfeits it, or forfeits some days of it, as the
+product's closure terms say, before moving the balance out. A
+fraction of a penny not yet credited is not paid.
 
 ### Rate stability over time
 

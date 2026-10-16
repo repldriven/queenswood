@@ -1,0 +1,86 @@
+{:name "A payout is held to its payout account's limits, never the closing one's"
+ ;; The saver's product allows a balance from GBP 50 to GBP 500. Closing
+ ;; an everyday account holding GBP 1,000 into the saver would pass its
+ ;; most, so the close is refused with that limit and nothing moves.
+ ;; Closing the saver into the everyday account empties it below its
+ ;; least, which its minimum does not refuse. Amounts in pence.
+ :given
+ [{:fixture :bank :as :bank-0 :with {:name "Payout Limits Bank"}}
+  {:fixture :product
+   :as :current
+   :with {:token [:ref :bank-0 :token] :name "Current"}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-account-products"
+             :auth [:ref :bank-0 :token]
+             :body {:name "Bounded Saver"
+                    :template-id "tpl.00000000000000000000000002"
+                    :currency "GBP"
+                    :interest-rate-bps 300
+                    :min-balance 5000
+                    :max-balance 50000
+                    :effective-from "2026-01-01"}}
+   :as :saver
+   :assert {:status 201}}
+  {:command :api/request
+   :request
+   {:method :post
+    :path "/v1/cash-account-products/{product-id}/versions/{version-id}/publish"
+    :path-params {:product-id [:ref :saver :product-id]
+                  :version-id [:ref :saver :version-id]}
+    :auth [:ref :bank-0 :token]}
+   :assert {:status 200}}
+  {:fixture :person :as :arthur :with {:token [:ref :bank-0 :token]}}
+  {:fixture :funded-account
+   :as :everyday
+   :with {:bank-id [:ref :bank-0 :bank :bank-id]
+          :token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :current :product :product-id]
+          :amount 100000}}
+  {:fixture :funded-account
+   :as :savings
+   :with {:bank-id [:ref :bank-0 :bank :bank-id]
+          :token [:ref :bank-0 :token]
+          :party-id [:ref :arthur :party :party-id]
+          :product-id [:ref :saver :product-id]
+          :name "Bounded Saver"
+          :amount 20000}}]
+ :when
+ [{:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/close"
+             :path-params {:account-id [:ref :everyday :opened :account
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]
+             :body {:payout-account-id [:ref :savings :opened :account
+                                        :account-id]}}
+   :assert
+   {:status 429
+    :problem {:type ":policy/limit-exceeded"
+              :detail
+              "The product's accounts hold at most 50000 GBP minor units"}}}
+  {:command :api/request
+   :request {:method :post
+             :path "/v1/cash-accounts/{account-id}/close"
+             :path-params {:account-id [:ref :savings :opened :account
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]
+             :body {:payout-account-id [:ref :everyday :opened :account
+                                        :account-id]}}
+   :assert {:status 200 :body {:status "closing"}}}
+  {:command :api/poll
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}"
+             :path-params {:account-id [:ref :savings :opened :account
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :until {:status 200 :body {:status "closed"}}}]
+ :then
+ [{:command :api/request
+   :request {:method :get
+             :path "/v1/cash-accounts/{account-id}/balances"
+             :path-params {:account-id [:ref :everyday :opened :account
+                                        :account-id]}
+             :auth [:ref :bank-0 :token]}
+   :assert {:status 200 :body {:available-balance {:value 120000}}}}]}

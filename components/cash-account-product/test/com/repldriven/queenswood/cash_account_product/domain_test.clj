@@ -375,15 +375,15 @@
                     (filter (fn [limit] (get-in limit [:kind :balance]))
                             (:limits version))))))
     (testing
-      "the minimum bounds payments and rewards, the maximum payments in,
-              and neither interest"
+      "the minimum bounds payments and rewards, the maximum payments in
+              and closures paid in, and neither interest"
       (let [version (draft {:max-balance 2000000})]
         (is (= [:transaction-type-internal-transfer
                 :transaction-type-inbound-transfer
                 :transaction-type-outbound-transfer :transaction-type-reward]
                (types version :min)))
         (is (= [:transaction-type-internal-transfer
-                :transaction-type-inbound-transfer]
+                :transaction-type-inbound-transfer :transaction-type-closure]
                (types version :max)))))
     (testing "a maximum at or below the minimum is :invalid-limit"
       (doseq [data [{:max-balance 0} {:min-balance 10000 :max-balance 10000}

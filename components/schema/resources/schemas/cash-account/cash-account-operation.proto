@@ -37,6 +37,7 @@ message CashAccountOperation {
   required int64 requested_on = 6 [(fideslang.data_category) = "system.operations"]; // epoch day
   required CashAccountStatus account_status = 7; // when the operation was asked
   optional string refused_reason = 8;
+  optional string payout_account_id = 9; // where a close sends the balance
 
   optional string idempotency_key = 100 [(fideslang.data_category) = "system.operations"];
   required int64 created_at = 101;

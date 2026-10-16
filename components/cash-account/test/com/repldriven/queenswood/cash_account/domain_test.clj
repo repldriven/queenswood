@@ -221,41 +221,50 @@
                                                  one-term-deposit)]
         (is (= :cash-account-status-opening (:status result)))))))
 
+(def ^:private may-close [(policy-allowing :cash-account-action-close)])
+
+(defn- close
+  ([acct balances]
+   (close acct balances nil nil))
+  ([acct balances payout-account-id payout]
+   (close acct balances payout-account-id payout may-close))
+  ([acct balances payout-account-id payout policies]
+   (SUT/close-account acct
+                      balances
+                      payout-account-id
+                      payout
+                      operator
+                      policies)))
+
 (deftest close-account-source-state-guard-test
   (testing
-    "closing an account that is neither opened nor suspended is
-           rejected, regardless of policy, and the rejection names both
-           closeable statuses"
-    (doseq [status [:cash-account-status-opening
-                    :cash-account-status-closing
-                    :cash-account-status-closed]]
-      (let [result (SUT/close-account (account status) [] operator [])]
+    "closing an account that is neither opened, suspended nor closing
+           is rejected, regardless of policy, and the rejection names
+           every closeable status"
+    (doseq [status [:cash-account-status-opening :cash-account-status-closed]]
+      (let [result (close (account status) [] nil nil [])]
         (is (error/rejection? result))
         (is (= :cash-account/invalid-status (error/kind result)))
         (is (= status (:status (error/payload result))))
-        (is (= #{:cash-account-status-opened :cash-account-status-suspended}
+        (is (= #{:cash-account-status-opened :cash-account-status-suspended
+                 :cash-account-status-closing}
                (:allowed (error/payload result))))))))
 
 (deftest close-account-from-suspended-test
   (testing "a suspended account closes without being resumed first"
-    (let [result (SUT/close-account (account :cash-account-status-suspended)
-                                    []
-                                    operator
-                                    [(policy-allowing
-                                      :cash-account-action-close)])]
+    (let [result (close (account :cash-account-status-suspended) [])]
       (is (= :cash-account-status-closing (:status result)))
-      (is (= operator (:updated-by result))))))
+      (is (= operator (:updated-by result)))))
+  (testing "a closing account may be closed again"
+    (is (= :cash-account-status-closing
+           (:status (close (account :cash-account-status-closing) []))))))
 
 (deftest close-refused-account-test
   (testing
     "a refused close returns the account to the status its
            operation was asked from"
     (doseq [from [:cash-account-status-opened :cash-account-status-suspended]]
-      (let [closing (SUT/close-account (account from)
-                                       []
-                                       operator
-                                       [(policy-allowing
-                                         :cash-account-action-close)])
+      (let [closing (close (account from) [])
             operation (SUT/new-operation (account from)
                                          :cash-account-operation-kind-close
                                          20500
@@ -270,8 +279,15 @@
   {:balance-type :balance-type-default
    :balance-status :balance-status-posted
    :currency "GBP"
-   :credit 500
+   :credit 1500
    :debit 500})
+
+(def ^:private accrued-bucket
+  {:balance-type :balance-type-interest-accrued
+   :balance-status :balance-status-posted
+   :currency "GBP"
+   :credit 25
+   :debit 0})
 
 (def ^:private pending-hold
   {:balance-type :balance-type-default
@@ -280,52 +296,135 @@
    :credit 0
    :debit 500})
 
-(deftest close-account-non-zero-balance-test
-  (let [acct (account :cash-account-status-opened)
-        balances [posted-bucket pending-hold]]
+(deftest close-account-buckets-test
+  (let [acct (account :cash-account-status-opened)]
+    (testing "a posted default or interest-accrued balance does not refuse it"
+      (is (= :cash-account-status-closing
+             (:status (close acct [posted-bucket accrued-bucket])))))
     (testing
-      "a bucket that doesn't net to zero is rejected by default, and
-             the rejection names the buckets it refused on rather than
-             a posted total"
-      (let [result (SUT/close-account acct
-                                      balances
-                                      operator
-                                      [(policy-allowing
-                                        :cash-account-action-close)])
+      "a pending hold is refused by default, and the rejection names
+             the buckets it refused on"
+      (let [result (close acct [posted-bucket pending-hold])
             payload (error/payload result)]
-        (is (error/rejection? result))
         (is (= :cash-account/non-zero-on-close (error/kind result)))
         (is (= "acc.test" (:account-id payload)))
-        (is (= [pending-hold] (:balances payload)))
-        (is (not (contains? payload :posted-balance)))))
+        (is (= [pending-hold] (:balances payload)))))
     (testing "a bucket carrying no type or status reports what it has"
-      (let [result (SUT/close-account acct
-                                      [{:credit 500 :debit 0}]
-                                      operator
-                                      [(policy-allowing
-                                        :cash-account-action-close)])]
+      (let [result (close acct [{:credit 500 :debit 0}])]
         (is (= [{:credit 500 :debit 0}] (:balances (error/payload result))))))
     (testing "an explicit opt-out capability allows the close"
-      (let [result (SUT/close-account acct
-                                      balances
-                                      operator
-                                      [(policy-allowing
-                                        :cash-account-action-close
-                                        :cash-account-action-close-non-zero)])]
+      (let [result (close acct
+                          [posted-bucket pending-hold]
+                          nil
+                          nil
+                          [(policy-allowing
+                            :cash-account-action-close
+                            :cash-account-action-close-non-zero)])]
         (is (= :cash-account-status-closing (:status result)))))))
 
-(deftest close-account-zero-balance-test
-  (testing
-    "balances that net to zero across all buckets close without the
-           opt-out capability"
-    (let [acct (account :cash-account-status-opened)
-          balances [{:credit 500 :debit 500} {:credit 0 :debit 0}]
-          result (SUT/close-account acct
-                                    balances
-                                    operator
-                                    [(policy-allowing
-                                      :cash-account-action-close)])]
-      (is (= :cash-account-status-closing (:status result))))))
+(def ^:private holder
+  (assoc (account :cash-account-status-opened) :party-id "pty.test"))
+
+(def ^:private savings (assoc holder :account-id "acc.savings"))
+
+(deftest close-account-payout-test
+  (testing "another opened account of the party in its currency qualifies"
+    (is (= :cash-account-status-closing
+           (:status (close holder [] "acc.savings" savings)))))
+  (testing "anything else is refused, naming the payout account"
+    (doseq [[label payout]
+            [["not found" nil]
+             ["itself" holder]
+             ["another party's" (assoc savings :party-id "pty.x")]
+             ["in another currency" (assoc savings :currency "EUR")]
+             ["not opened"
+              (assoc savings :status :cash-account-status-suspended)]]]
+      (let [result (close holder [] "acc.savings" payout)]
+        (is (= :cash-account/invalid-payout-account (error/kind result)) label)
+        (is (= "acc.savings" (:payout-account-id (error/payload result)))
+            label)))))
+
+(def ^:private closure-terms
+  "No closure in the first three months, then ten days' interest and 1%
+  of the balance, between 5.00 and 20.00, until the twelfth."
+  {:interest {:kind {:pay {}}}
+   :early [{:unit :interest-period-unit-month :count 3 :kind {:refused {}}}
+           {:unit :interest-period-unit-month
+            :count 12
+            :kind {:charged {:interest {:kind {:forfeit-days {:days 10}}}
+                             :fee {:kind {:balance {:rate-bps 100
+                                                    :min 500
+                                                    :max 2000}}}}}}]})
+
+(def ^:private from-on
+  "2026-01-31, the epoch day the account came onto its version."
+  20484)
+
+(deftest closure-term-test
+  (let [acct (assoc holder :version-from-on from-on)]
+    (testing "inside a refused window the close is refused, naming its end"
+      (let [result (SUT/closure-term acct closure-terms (+ from-on 30))]
+        (is (= :cash-account/early-closure-refused (error/kind result)))
+        (is (= "2026-04-30" (:closable-from (error/payload result))))))
+    (testing "a closure on the day a window ends is in the next one"
+      (is (error/rejection? (SUT/closure-term acct closure-terms 20572)))
+      (is (= {:kind {:forfeit-days {:days 10}}}
+             (:interest (SUT/closure-term acct closure-terms 20573)))))
+    (testing "a charged window's interest term and fee hold inside it"
+      (is (= (get-in closure-terms [:early 1 :kind :charged])
+             (SUT/closure-term acct closure-terms (+ from-on 200)))))
+    (testing "after the last window the terms' own interest term holds"
+      (is (= {:interest {:kind {:pay {}}}}
+             (SUT/closure-term acct closure-terms (+ from-on 400)))))
+    (testing "terms with no windows hold from the first day"
+      (is (= {:interest {:kind {:pay {}}}}
+             (SUT/closure-term acct {:interest {:kind {:pay {}}}} from-on))))))
+
+(deftest closure-fee-test
+  (let [balance-fee (get-in closure-terms [:early 1 :kind :charged :fee])]
+    (testing "a balance fee is its rate of what is held, rounded down"
+      (is (= 1234 (SUT/closure-fee balance-fee 123456))))
+    (testing "raised to its minimum and capped at its maximum"
+      (is (= 500 (SUT/closure-fee balance-fee 10000)))
+      (is (= 2000 (SUT/closure-fee balance-fee 1000000))))
+    (testing "never more than is held"
+      (is (= 300 (SUT/closure-fee balance-fee 300)))
+      (is (= 300 (SUT/closure-fee {:kind {:flat {:amount 1000}}} 300))))
+    (testing "a flat fee is its amount"
+      (is (= 1000 (SUT/closure-fee {:kind {:flat {:amount 1000}}} 5000))))
+    (testing "no fee, or nothing held, charges nothing"
+      (is (zero? (SUT/closure-fee nil 5000)))
+      (is (zero? (SUT/closure-fee balance-fee 0)))
+      (is (zero? (SUT/closure-fee balance-fee -100))))))
+
+(deftest check-emptied-test
+  (testing "nothing held closes with or without a payout account"
+    (is (nil? (SUT/check-emptied holder 0 nil may-close))))
+  (testing "a balance moves to the payout account"
+    (is (nil? (SUT/check-emptied holder 1000 savings may-close))))
+  (testing "a balance with nowhere to go is refused, saying to name one"
+    (let [result (SUT/check-emptied holder 1000 nil may-close)]
+      (is (= :cash-account/non-zero-on-close (error/kind result)))
+      (is (= [{:balance-type :balance-type-default
+               :balance-status :balance-status-posted
+               :currency "GBP"
+               :credit 1000
+               :debit 0}]
+             (:balances (error/payload result))))))
+  (testing "unless the bank's policies waive it"
+    (is (nil? (SUT/check-emptied holder
+                                 1000
+                                 nil
+                                 [(policy-allowing
+                                   :cash-account-action-close
+                                   :cash-account-action-close-non-zero)]))))
+  (testing "an overdrawn account is refused even with a payout account"
+    (is (= :cash-account/non-zero-on-close
+           (error/kind (SUT/check-emptied holder -1 savings may-close))))))
+
+(deftest emptied-test
+  (is (SUT/emptied? [{:credit 500 :debit 500} {:credit 0 :debit 0}]))
+  (is (not (SUT/emptied? [accrued-bucket]))))
 
 (deftest suspend-account-source-state-guard-test
   (testing
