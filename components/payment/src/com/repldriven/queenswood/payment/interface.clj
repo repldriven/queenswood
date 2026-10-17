@@ -32,7 +32,8 @@
     [com.repldriven.queenswood.payment.events.inbound :as inbound]
     [com.repldriven.queenswood.payment.events.outbound :as outbound]
     [com.repldriven.queenswood.payment.events.provider-transfer :as
-     provider-transfer]))
+     provider-transfer]
+    [com.repldriven.queenswood.payment.payout :as payout]))
 
 (defn submit-internal
   "Submit an internal (same-org) payment between two cash accounts.
@@ -49,6 +50,26 @@
   isn't in the same org returns `:cash-account/not-found`."
   [config data]
   (core/submit-internal config data))
+
+(defn pay-out-closure
+  "Move a closing account's remaining balance to its payout account in a
+  `closure` transaction, inside the close's own transaction. The payout
+  is held to what an internal payment into the payout account is: its
+  inbound payment limits, the bank's and its version's, and its version's
+  balance limits, refusing with the limit's rejection, and is checked
+  against no limit of the closing account's. It is not counted against
+  either account's payment limits afterwards.
+
+  Args:
+  - txn: an open FDB transaction.
+  - data: map with :account, the cash account closing, :payout-account,
+    the account it is paid into, :amount in minor units, :business-day,
+    the close's epoch day, :policies, the bank's effective policies, and
+    :actor, who asked for the close.
+
+  Returns the recorded transaction with its legs, or an anomaly."
+  [txn data]
+  (payout/pay-out-closure txn data))
 
 (defn submit-outbound
   "Submit an outbound payment: verify the debtor, debit the customer

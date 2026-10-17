@@ -12,10 +12,10 @@
   (select-keys config [:record-db :record-store]))
 
 (defn- handle-status-changed
-  "Close an account the provider never held as soon as it is closing:
-  there is nothing for the provider to close, so no reply will complete
-  it. An account the provider holds is closed by the provider's reply to
-  the command its activity sends."
+  "Close an account the provider never held as soon as it is closing and
+  holds no balance: there is nothing for the provider to close, so no
+  reply will complete it. An account the provider holds is closed by the
+  provider's reply to the command its activity sends."
   [config data]
   (let [{:keys [bank-id account-id status-after]} data]
     (when (= :cash-account-status-closing status-after)
@@ -23,9 +23,11 @@
                                        bank-id
                                        account-id
                                        :cash-account-status-closing
-                                       (fn [account]
-                                         (nil? (:provider-account-id
-                                                account)))))))
+                                       (fn [txn account]
+                                         (and (nil? (:provider-account-id
+                                                     account))
+                                              (core/emptied? txn
+                                                             account)))))))
 
 (defn- dispatch
   [config message]

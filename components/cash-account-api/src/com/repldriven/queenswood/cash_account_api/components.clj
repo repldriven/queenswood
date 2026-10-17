@@ -51,6 +51,7 @@
    [:requested-on [:ref "BusinessDay"]]
    [:account-status [:ref "CashAccountStatus"]]
    [:refused-reason {:optional true} string?]
+   [:payout-account-id {:optional true} [:ref "CashAccountId"]]
    [:created-at [:ref "Timestamp"]]
    [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]
@@ -127,6 +128,10 @@
 (def CashAccountList
   (schema/list-schema "CashAccount" examples/CashAccountList))
 
+(def CloseCashAccountRequest
+  [:map {:closed true :json-schema/example examples/CloseCashAccountRequest}
+   [:payout-account-id {:optional true} [:ref "CashAccountId"]]])
+
 (def CloseCashAccountResponse [:ref "CashAccount"])
 
 (def SuspendCashAccountResponse [:ref "CashAccount"])
@@ -140,11 +145,11 @@
    [#'CashAccountId #'ScanAddress #'PaymentAddress #'CashAccountStatus
     #'AccountType #'CashAccount #'RetiredPaymentAddress
     #'CreateCashAccountRequest #'CreateCashAccountResponse #'CashAccountList
-    #'CloseCashAccountResponse #'SuspendCashAccountResponse
-    #'ResumeCashAccountResponse #'RotateCashAccountAddressResponse
-    #'CashAccountOperationId #'CashAccountOperationKind
-    #'CashAccountOperationStatus #'CashAccountOperation
-    #'CashAccountOperationList]))
+    #'CloseCashAccountRequest #'CloseCashAccountResponse
+    #'SuspendCashAccountResponse #'ResumeCashAccountResponse
+    #'RotateCashAccountAddressResponse #'CashAccountOperationId
+    #'CashAccountOperationKind #'CashAccountOperationStatus
+    #'CashAccountOperation #'CashAccountOperationList]))
 
 (def ^:private embedded-keys
   "The `CashAccount` keys a read route fills only when the caller asks

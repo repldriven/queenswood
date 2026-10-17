@@ -5,7 +5,7 @@
 ;; balances; 2400 (interest payable) over customer interest-accrued
 ;; balances. The rest are detail accounts. Codes follow the
 ;; conventional 1=asset / 2=liability / 3=equity / 4=income /
-;; 5=expense layout (4xxx income is unused for now).
+;; 5=expense layout.
 [{:code :ledger-account-code-cash-at-correspondent
   :name "Cash at correspondent"}
  {:code :ledger-account-code-pending-outbound
@@ -22,5 +22,7 @@
   :name "Suspense - unreconciled inbound"}
  {:code :ledger-account-code-own-funds
   :name "Bank own funds"}
+ {:code :ledger-account-code-fee-income
+  :name "Fee income"}
  {:code :ledger-account-code-interest-expense
   :name "Interest expense"}]

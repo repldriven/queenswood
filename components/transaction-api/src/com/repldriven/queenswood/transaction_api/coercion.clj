@@ -13,7 +13,8 @@
     "reward" :transaction-type-reward
     "outbound-return" :transaction-type-outbound-return
     "inbound-return" :transaction-type-inbound-return
-    "interest-forfeiture" :transaction-type-interest-forfeiture}
+    "interest-forfeiture" :transaction-type-interest-forfeiture
+    "closure" :transaction-type-closure}
    :transaction-type-unknown))
 
 (def ^:private leg-side-enum

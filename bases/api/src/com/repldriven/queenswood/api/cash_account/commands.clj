@@ -5,7 +5,9 @@
 
     [com.repldriven.queenswood.cash-account-api.interface :as
      cash-account-api]
-    [com.repldriven.queenswood.schema.interface :as schema]))
+    [com.repldriven.queenswood.schema.interface :as schema]
+
+    [com.repldriven.mono.utility.interface :as utility]))
 
 (defn- dispatcher
   [request]
@@ -42,13 +44,15 @@
   [request]
   (let [{:keys [auth parameters]} request
         {:keys [bank-id]} auth
-        {:keys [path]} parameters
+        {:keys [path body]} parameters
         {:keys [account-id]} path]
     (send-command request
                   "close-cash-account"
-                  {:bank-id bank-id
-                   :account-id account-id
-                   :actor (actor/actor auth)}
+                  (utility/assoc-some {:bank-id bank-id
+                                       :account-id account-id
+                                       :actor (actor/actor auth)}
+                                      :payout-account-id
+                                      (:payout-account-id body))
                   account-id)))
 
 (defn suspend-cash-account

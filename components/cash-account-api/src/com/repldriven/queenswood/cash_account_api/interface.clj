@@ -194,3 +194,19 @@
   bucket — 409, `:cash-account/non-zero-on-close`."}
   CashAccountNonZeroBalance
   examples/CashAccountNonZeroBalance)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a close naming a payout account that is not
+  another opened account of the same party and currency — 422,
+  `:cash-account/invalid-payout-account`."}
+  CashAccountInvalidPayoutAccount
+  examples/CashAccountInvalidPayoutAccount)
+
+(def
+  ^{:doc
+    "RFC 9457 body for a close inside an early window the account's
+  version refuses closures in — 409,
+  `:cash-account/early-closure-refused`."}
+  CashAccountEarlyClosureRefused
+  examples/CashAccountEarlyClosureRefused)

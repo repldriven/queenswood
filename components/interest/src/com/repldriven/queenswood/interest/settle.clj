@@ -1,6 +1,5 @@
 (ns com.repldriven.queenswood.interest.settle
   (:require
-    [com.repldriven.queenswood.interest.domain.chart :as chart]
     [com.repldriven.queenswood.interest.domain.settlement :as settlement]
     [com.repldriven.queenswood.balance-query.interface :as balance-query]
     [com.repldriven.queenswood.balance.interface :as balances]
@@ -23,11 +22,12 @@
   [txn bank-id closure-interest currency]
   (let [{:keys [forfeit forfeit-days]} (:kind closure-interest)]
     (when (or forfeit forfeit-days)
-      (let-nom> [chart-of-accounts (ledger-accounts/list-accounts txn bank-id)
-                 accounts (chart/accrual-accounts chart-of-accounts
-                                                  bank-id
-                                                  currency)]
-        (:expense accounts)))))
+      (let-nom> [account (ledger-accounts/find-by-code
+                          txn
+                          bank-id
+                          :ledger-account-code-interest-expense
+                          currency)]
+        (:ledger-account-id account)))))
 
 (defn- record
   "Records `transaction`, after checking its controls, returning its

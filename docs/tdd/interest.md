@@ -583,11 +583,11 @@ run before the day ends go when it lands.
 ### A version's interest terms
 
 Accrual reads the terms and capitalisation pays on their payment days;
-`interest/settle-accrued` settles a closure by the version's closure
-terms, and no close calls it yet; the term and maturity are not built
-yet. A version states its rates as
-a grid, a rate for each period of an account's life and each band of
-its balance, and says when interest is paid, as
+a close settles by the version's closure terms through
+`interest/settle-accrued`; the term and maturity are not built yet. A
+version states its rates as a grid, a rate for each period of an
+account's life and each band of its balance, and says when interest is
+paid, as
 [cash-account-products](cash-account-products.md#interest-terms) lays
 out. This section is how the passes read the terms, and the order to
 build the rest in.

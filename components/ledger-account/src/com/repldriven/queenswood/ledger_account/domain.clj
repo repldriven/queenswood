@@ -29,7 +29,8 @@
   same with every customer's `:balance-type` interest-accrued bucket;
   1200 pending-outbound with every customer's pending-outgoing balance,
   and `:mirror?`s it, crediting what they debit; 1100
-  cash-at-correspondent, 2500 suspense and 5100 interest-expense, whose
+  cash-at-correspondent, 2500 suspense, 4100 fee-income and 5100
+  interest-expense, whose
   movements mirror no set of customer balances, sum their own legs from
   the journal (`:journal?`). Every account of the chart is in it. See
   ADR-0037, ADR-0038, ADR-0039, ADR-0042 and ADR-0048."
@@ -51,6 +52,8 @@
          {:balance-status :balance-status-posted :journal? true}
          :ledger-account-code-suspense {:balance-status :balance-status-posted
                                         :journal? true}
+         :ledger-account-code-fee-income {:balance-status :balance-status-posted
+                                          :journal? true}
          :ledger-account-code-interest-expense
          {:balance-status :balance-status-posted :journal? true}))
 

@@ -1,5 +1,6 @@
 (ns com.repldriven.queenswood.cash-account.core
   (:require
+    [com.repldriven.queenswood.cash-account.closure :as closure]
     [com.repldriven.queenswood.cash-account.domain :as domain]
     [com.repldriven.queenswood.cash-account.store :as store]
 
@@ -227,14 +228,7 @@
                opts
                {:kind :cash-account-operation-kind-close
                 :transition (fn [txn account _ policies]
-                              (let-nom> [balances (balances-q/list-balances
-                                                   txn
-                                                   (:bank-id account)
-                                                   (:account-id account))]
-                                (domain/close-account account
-                                                      balances
-                                                      (:actor data)
-                                                      policies)))
+                              (closure/close txn data account policies))
                 :change-kind :cash-account-change-kind-close
                 :audit-kind :audit-kind-cash-account-close-requested}))
     :cash-account/close
@@ -254,8 +248,8 @@
   `opened`, `closing` becomes `closed`.
 
   Gated on the loaded account still sitting at the expected source
-  status, and holding `ready?` where it is given, and skips silently
-  when it doesn't. Event redelivery and replay must be a no-op here, not
+  status, and holding `ready?`, called with the transaction and the
+  account, and skips silently when it doesn't. Event redelivery and replay must be a no-op here, not
   a rejection — the transition having already happened is the normal
   case, not an error."
   [txn bank-id account-id status-after ready?]
@@ -264,10 +258,10 @@
      txn
      (fn [txn]
        (let-nom>
-         [account (q/find-account txn bank-id account-id)]
-         (when (and account
-                    (= status-after (:status account))
-                    (ready? account))
+         [account (q/find-account txn bank-id account-id)
+          ready (when (and account (= status-after (:status account)))
+                  (ready? txn account))]
+         (when ready
            (let [transitioned (transition-fn account)]
              (store/save-account txn
                                  transitioned
@@ -429,13 +423,36 @@
                        (fn [account] (domain/refused-account account reason))
                        :cash-account-change-kind-open))
 
+(defn emptied?
+  "Whether `account` holds no balance, so it may be closed."
+  [txn account]
+  (let-nom> [account-balances (balances-q/list-balances txn
+                                                        (:bank-id account)
+                                                        (:account-id account))]
+    (domain/emptied? account-balances)))
+
 (defn provider-closed
+  "Closes the account the provider closed, or, where it still holds a
+  balance, leaves it closing and refuses the close operation, saying
+  so."
   [txn event]
-  (settle-operation txn
-                    event
-                    domain/completed-operation
-                    (fn [account _] (domain/closed-account account))
-                    :cash-account-change-kind-close))
+  (let [{:keys [bank-id account-id]} event]
+    (store/transact
+     txn
+     (fn [txn]
+       (let-nom> [account (q/find-account txn bank-id account-id)
+                  empty (or (nil? account) (emptied? txn account))]
+         (if empty
+           (settle-operation txn
+                             event
+                             domain/completed-operation
+                             (fn [account _] (domain/closed-account account))
+                             :cash-account-change-kind-close)
+           (settle-operation txn
+                             event
+                             (refused domain/held-on-close)))))
+     :cash-account/provider-closed
+     "Failed to close account")))
 
 (defn provider-close-refused
   [txn event]

@@ -56,14 +56,25 @@
    (core/open-account txn data opts)))
 
 (defn close-account
-  "Close an account. Returns the updated account
-  (`:cash-account-status-closing`) or an anomaly. The account becomes
-  `closed` once the payment provider closes the account behind it, at
-  once for one the provider never opened.
+  "Close an account, in one transaction: settle its accrued interest by
+  its version's closure terms, charge an early closure's fee against
+  4100 fee income, and move what is left to the payout account in a
+  `closure` transaction. Returns the updated account
+  (`:cash-account-status-closing`) or an anomaly:
+  `:cash-account/invalid-payout-account` for a payout account that is
+  not another opened account of the party in its currency,
+  `:cash-account/early-closure-refused` inside a window the version
+  refuses closures in, `:cash-account/non-zero-on-close` for a pending
+  hold or a balance with no payout account, and a payout limit's
+  rejection. A closing account may be closed again, charged no fee. The
+  account becomes `closed` once it holds nothing and the payment
+  provider closes the account behind it, at once for one the provider
+  never opened.
 
   Args:
   - txn: FDB transaction or db handle.
-  - data: map with `:bank-id` and `:account-id`.
+  - data: map with `:bank-id` and `:account-id`, and optionally
+    `:payout-account-id`.
   - opts (optional): map; `:policies` overrides policy resolution."
   ([txn data]
    (core/close-account txn data))

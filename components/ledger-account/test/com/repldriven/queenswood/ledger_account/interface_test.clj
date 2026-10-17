@@ -23,7 +23,7 @@
    :record-store (system/instance sys [:fdb :store])})
 
 (def ^:private template
-  "Test chart of accounts passed into seed!, the nine-row seed of
+  "Test chart of accounts passed into seed!, the ten-row seed of
   components/resources/resources/ledgers/general-ledger.edn, which
   bank-bank seeds every customer bank with at provisioning time."
   [{:code :ledger-account-code-cash-at-correspondent
@@ -39,6 +39,7 @@
    {:code :ledger-account-code-interest-payable :name "Interest payable"}
    {:code :ledger-account-code-suspense :name "Suspense - unreconciled inbound"}
    {:code :ledger-account-code-own-funds :name "Bank own funds"}
+   {:code :ledger-account-code-fee-income :name "Fee income"}
    {:code :ledger-account-code-interest-expense :name "Interest expense"}])
 
 (def ^:private chart-numbers
@@ -51,6 +52,7 @@
    :ledger-account-code-interest-payable "2400"
    :ledger-account-code-suspense "2500"
    :ledger-account-code-own-funds "3100"
+   :ledger-account-code-fee-income "4100"
    :ledger-account-code-interest-expense "5100"})
 
 (def ^:private operator
@@ -114,7 +116,7 @@
     (is (nil? (SUT/product-type->control-code :account-product-type-unknown)))))
 
 (deftest chart-number-test
-  (testing "the test chart is the nine seeded roles"
+  (testing "the test chart is the ten seeded roles"
     (is (= (set (keys chart-numbers)) (set (map :code template)))))
   (testing "each role reports its chart number as a string"
     (doseq [[role number] chart-numbers]
@@ -132,6 +134,7 @@
     (doseq [code [:ledger-account-code-cash-at-correspondent
                   :ledger-account-code-pending-outbound
                   :ledger-account-code-suspense
+                  :ledger-account-code-fee-income
                   :ledger-account-code-interest-expense]]
       (is (= :ledger-account-type-detail (SUT/account-type code)) (str code)))))
 
@@ -153,9 +156,9 @@
    [sys "classpath:ledger-account/application-test.yml"]
    (let [config (fdb-config sys)
          bank-id "bnk.test-seed"]
-     (testing "seeds nine ledger accounts per currency, each with a led. id"
+     (testing "seeds ten ledger accounts per currency, each with a led. id"
        (nom-test> [accounts (seed! config bank-id)
-                   _ (is (= 9 (count accounts)))
+                   _ (is (= 10 (count accounts)))
                    _ (is (every? #(re-find #"^led\." (:ledger-account-id %))
                                  accounts))
                    _ (is (every? #(= "GBP" (:currency %)) accounts))]))

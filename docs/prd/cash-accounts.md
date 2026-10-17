@@ -70,9 +70,14 @@ provider that issues every account's payment address, described in
   frozen no money leaves it and no money lands in it, but
   it keeps earning interest, because the balance is still
   owed. It can be closed without being unfrozen first.
-- **An account closes empty.** The platform refuses to
-  close an account whose balance is not zero, and tells the
-  customer which part of the balance is in the way.
+- **An account closes empty.** A close may name another of
+  the end customer's accounts to receive what the account
+  holds; without one, the platform refuses to close an
+  account whose balance is not zero, and tells the customer
+  which part of the balance is in the way.
+- **Closure terms.** A close does what the account's product
+  says about interest not yet paid, and an early close is
+  refused or charged a fee where the product says so.
 - **Multi-tenant isolation.** Every account belongs to one
   organisation. Organisations don't see each other's accounts.
 - **Policy-bounded.** Platform-level policies cap the
@@ -194,20 +199,31 @@ unfrozen first. Before closing, the platform checks:
 
 - The organisation is allowed (by policy) to close this
   kind of account.
-- The balance is empty. Every part of the balance counts,
-  including money set aside for a payment that has not
-  settled yet, so an account with a pending outgoing hold
-  is not empty even when the settled figure reads zero.
+- The account's product allows a close this soon. A product
+  can refuse a close in an account's first months, and the
+  refusal says from when it may close.
+- Nothing is set aside for a payment that has not settled
+  yet.
 
-If the balance is not empty the close is refused, and the
-refusal names the parts that are not empty so the customer
-knows what to sweep. An operator who has to close a
-non-empty account can be granted that permission
-explicitly; no tier carries it by default.
+The close then pays or forfeits the interest the account has
+earned, as the product says, and takes an early close's fee.
+Where the customer names a payout account — another open
+account of the same end customer, in the same currency — the
+close moves everything left there, all-or-nothing: where the
+payout account's own limits would refuse the money, the
+close is refused and nothing moves. Where it names none and
+money is left, the close is refused, and the refusal names
+the parts that are not empty so the customer knows what to
+sweep. An operator who has to close a non-empty account can
+be granted that permission explicitly; no tier carries it
+by default.
 
 If allowed, the platform sets the status to **closing**.
 A moment later the transition completes and the account
-becomes **closed** — its terminal state. Where the payment
+becomes **closed** — its terminal state — once it holds
+nothing. Money arriving after the close leaves it closing,
+and the customer closes it again, naming where that money
+goes. Where the payment
 provider refuses the close, the account goes back to open
 or frozen, as it was, and the customer is told why.
 

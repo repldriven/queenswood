@@ -842,7 +842,11 @@
   (CashAccountProto$CashAccount/parseFrom (CashAccount->pb m)))
 
 (def ^:private cash-account-operation-unset
-  {:refused-reason "" :idempotency-key "" :updated-at 0 :updated-by nil})
+  {:refused-reason ""
+   :payout-account-id ""
+   :idempotency-key ""
+   :updated-at 0
+   :updated-by nil})
 
 (defn pb->CashAccountOperation
   "Parse CashAccountOperation protobuf bytes into a Clojure map, each
