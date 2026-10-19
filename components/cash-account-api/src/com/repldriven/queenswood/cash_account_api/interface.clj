@@ -197,11 +197,11 @@
 
 (def
   ^{:doc
-    "RFC 9457 body for a close naming a payout account that is not
+    "RFC 9457 body for a close naming a nominated account that is not
   another opened account of the same party and currency — 422,
-  `:cash-account/invalid-payout-account`."}
-  CashAccountInvalidPayoutAccount
-  examples/CashAccountInvalidPayoutAccount)
+  `:cash-account/invalid-nominated-account`."}
+  CashAccountInvalidNominatedAccount
+  examples/CashAccountInvalidNominatedAccount)
 
 (def
   ^{:doc
@@ -210,3 +210,10 @@
   `:cash-account/early-closure-refused`."}
   CashAccountEarlyClosureRefused
   examples/CashAccountEarlyClosureRefused)
+
+(def
+  ^{:doc
+    "RFC 9457 body for closing an account while an earlier close is
+  still being carried out — 409, `:cash-account/close-in-progress`."}
+  CashAccountCloseInProgress
+  examples/CashAccountCloseInProgress)

@@ -12,6 +12,7 @@
 (def ^:private outbound-payments-store-name "outbound-payments")
 (def ^:private inbound-payments-store-name "inbound-payments")
 (def ^:private provider-transfers-store-name "payment-provider-transfers")
+(def ^:private closures-store-name "account-closures")
 
 (def transact fdb/transact)
 (def uniqueness-violation? fdb/uniqueness-violation?)
@@ -128,3 +129,35 @@
    :payment/save-transfer
    "Failed to save a provider transfer"))
 
+(defn save-closure
+  "Save `closure` and co-commit its changelog entry, one transaction."
+  [txn closure]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (let-nom>
+       [_ (fdb/save-record (fdb/open txn closures-store-name)
+                           (schema/AccountClosure->java closure))
+        entry (changelog/closure-recorded closure)
+        _ (fdb/write-changelog txn
+                               closures-store-name
+                               (:closure-id closure)
+                               entry)]
+       closure))
+   :payment/save-closure
+   "Failed to save account closure"))
+
+(defn find-closure
+  "The closure answering the close operation `operation-id`, or nil."
+  [txn bank-id operation-id]
+  (fdb/transact
+   txn
+   (fn [txn]
+     (some-> (fdb/query-record-compound
+              (fdb/open txn closures-store-name)
+              "AccountClosure"
+              [["bank_id" bank-id] ["operation_id" operation-id]]
+              {:index "AccountClosure_by_operation_id"})
+             schema/pb->AccountClosure))
+   :payment/find-closure
+   "Failed to find account closure"))

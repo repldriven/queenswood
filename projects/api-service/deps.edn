@@ -68,7 +68,6 @@
   component/scheduler {:local/root "../../components/scheduler"}
   component/party-query {:local/root "../../components/party-query"}
   component/payee-check {:local/root "../../components/payee-check"}
-  component/payment {:local/root "../../components/payment"}
   component/payment-query {:local/root "../../components/payment-query"}
   component/reward-query {:local/root "../../components/reward-query"}
   component/policy {:local/root "../../components/policy"}

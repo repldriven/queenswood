@@ -38,33 +38,85 @@
    :created-at (utility/now)
    :updated-at (utility/now)})
 
-(deftest redelivered-event-is-a-noop-test
+(defn- close-operation
+  [account-id operation-id]
+  {:bank-id test-bank-id
+   :account-id account-id
+   :operation-id operation-id
+   :kind :cash-account-operation-kind-close
+   :status :cash-account-operation-status-pending
+   :requested-on 20500
+   :account-status :cash-account-status-opened
+   :closure-interest {:kind {:pay {}}}
+   :created-at (utility/now)
+   :created-by {:kind :actor-kind-operator :principal-id "test"}})
+
+(deftest a-paid-closure-closes-an-account-no-provider-holds-test
   (with-test-system
    [sys "classpath:cash-account/application-test.yml"]
    (let [config {:record-db (system/instance sys [:fdb :record-db])
                  :record-store (system/instance sys [:fdb :store])}
-         account-id "acc.events.1"]
-     (testing
-       "seed the account already opened, then replay the
-              opening->opened transition as if the event had not been
-              consumed yet"
+         account-id "acc.events.1"
+         operation-id "cao.events.1"
+         paid {:bank-id test-bank-id
+               :account-id account-id
+               :operation-id operation-id
+               :status-after :account-closure-status-paid}]
+     (testing "seed a closing account and its pending close"
        (nom-test> [_ (store/save-account
                       config
-                      (account account-id :cash-account-status-opened)
+                      (account account-id :cash-account-status-closing)
                       {:account-id account-id
-                       :status-after :cash-account-status-opening
-                       :change-kind :cash-account-change-kind-open})]))
+                       :status-after :cash-account-status-closing
+                       :change-kind :cash-account-change-kind-close})
+                   _ (store/save-operation config
+                                           (close-operation account-id
+                                                            operation-id)
+                                           nil)]))
+     (testing "the closure's payment closes it and completes its operation"
+       (nom-test> [_ (core/closure-paid config paid)
+                   found (q/find-account config test-bank-id account-id)
+                   _ (is (= :cash-account-status-closed (:status found)))
+                   operation (q/find-operation config test-bank-id operation-id)
+                   _ (is (= :cash-account-operation-status-completed
+                            (:status operation)))
+                   _ (is (= {:kind {:pay {}}} (:closure-interest operation)))]))
      (testing
-       "the guard skips silently — the loaded account has already
-              moved past the expected source status, so replay is a
-              no-op rather than a rejection"
-       (core/complete-status-transition config
-                                        test-bank-id
-                                        account-id
-                                        :cash-account-status-opening
-                                        (constantly true))
-       (nom-test> [found (q/find-account config test-bank-id account-id)
-                   _ (is (= :cash-account-status-opened (:status found)))])))))
+       "redelivered, it finds the close no longer pending and leaves it
+              as it is"
+       (nom-test> [result (core/closure-paid config paid)
+                   _ (is (nil? result))])))))
+
+(deftest a-refused-closure-returns-the-account-test
+  (with-test-system
+   [sys "classpath:cash-account/application-test.yml"]
+   (let [config {:record-db (system/instance sys [:fdb :record-db])
+                 :record-store (system/instance sys [:fdb :store])}
+         account-id "acc.events.4"
+         operation-id "cao.events.4"]
+     (nom-test> [_ (store/save-account
+                    config
+                    (account account-id :cash-account-status-closing)
+                    {:account-id account-id
+                     :status-after :cash-account-status-closing
+                     :change-kind :cash-account-change-kind-close})
+                 _ (store/save-operation config
+                                         (close-operation account-id
+                                                          operation-id)
+                                         nil)
+                 _ (core/closure-refused config
+                                         {:bank-id test-bank-id
+                                          :account-id account-id
+                                          :operation-id operation-id
+                                          :status-after
+                                          :account-closure-status-refused
+                                          :refused-reason "Over the limit"})
+                 found (q/find-account config test-bank-id account-id)
+                 _ (is (= :cash-account-status-opened (:status found)))
+                 operation (q/find-operation config test-bank-id operation-id)
+                 _ (is (= :cash-account-operation-status-refused
+                          (:status operation)))
+                 _ (is (= "Over the limit" (:refused-reason operation)))]))))
 
 (def ^:private payload-schema
   (delay (avro/json->schema

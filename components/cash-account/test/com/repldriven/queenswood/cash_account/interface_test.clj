@@ -227,6 +227,8 @@
                  _ (testing "the close remembers the status it was asked from"
                      (is (= :cash-account-status-opened
                             (:account-status operation))))
+                 _ (testing "and the interest term its version closes it by"
+                     (is (some? (:closure-interest operation))))
                  refused (core/provider-close-refused
                           config
                           {:bank-id test-bank-id

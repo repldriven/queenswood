@@ -43,6 +43,12 @@
   - topic: topic-rewards-event-dlq
     partitions: 1
     replication-factor: -1
+  - topic: topic-account-closures-event
+    partitions: 1
+    replication-factor: -1
+  - topic: topic-account-closures-event-dlq
+    partitions: 1
+    replication-factor: -1
   - topic: topic-companies-command
     partitions: 1
     replication-factor: -1

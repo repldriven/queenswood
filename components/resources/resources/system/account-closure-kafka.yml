@@ -1,0 +1,15 @@
+# The account closure processor on Kafka. A channel there is one consumer
+# group member with one subscription, and the cash-account and reward
+# processors hold `cash-accounts-event`, so this one reads the same topic
+# as `payment-cash-accounts-event`, under its own group.
+event-processor-impl: !system/component
+  system/component-kind: payment/closure-event-processor
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+
+event-consumer: !system/component
+  system/component-kind: event-processor/event-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref event-processor-impl
+  event-channel: !keyword payment-cash-accounts-event

@@ -38,6 +38,7 @@ import "schemas/clearbank/clearbank-outbound-intent.proto";
 import "schemas/clearbank/clearbank-outbox-event.proto";
 import "schemas/party/party.proto";
 import "schemas/payee-check/payee-check.proto";
+import "schemas/payment/account-closure.proto";
 import "schemas/payment/inbound-payment.proto";
 import "schemas/payment/internal-payment.proto";
 import "schemas/payment/outbound-payment.proto";
@@ -113,4 +114,5 @@ message RecordTypeUnion {
   optional com.repldriven.queenswood.schema.form3.Form3OutboundIntent _Form3OutboundIntent = 54;
   optional com.repldriven.queenswood.schema.circuit_breaker.CircuitBreaker _CircuitBreaker = 55;
   optional com.repldriven.queenswood.schema.cash_account.CashAccountOperation _CashAccountOperation = 56;
+  optional com.repldriven.queenswood.schema.payment.AccountClosure _AccountClosure = 57;
 }

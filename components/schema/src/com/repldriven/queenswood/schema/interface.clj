@@ -85,6 +85,7 @@
     (com.repldriven.queenswood.schema.bank BankProto$Bank)
     (com.repldriven.queenswood.schema.party PartyProto$Party)
     (com.repldriven.queenswood.schema.payment
+     AccountClosureProto$AccountClosure
      InboundPaymentProto$InboundPayment
      InternalPaymentProto$InternalPayment
      OutboundPaymentProto$OutboundPayment
@@ -810,13 +811,18 @@
   (SchedulerRunProto$SchedulerRun/parseFrom (SchedulerRun->pb m)))
 
 (def ^:private cash-account-unset
-  {:bban "" :refused-reason "" :updated-at 0 :updated-by nil})
+  {:bban ""
+   :refused-reason ""
+   :provider-account-id ""
+   :updated-at 0
+   :updated-by nil})
 
 (defn pb->CashAccount
   "Parse CashAccount protobuf bytes into a Clojure map. Strips the
   optional fields an account was never given, as they deserialise as
-  proto2 defaults: an empty `bban` or `refused-reason`, and a zero
-  `updated-at` and absent `updated-by`. Downstream read sites use
+  proto2 defaults: an empty `bban`, `refused-reason` or
+  `provider-account-id`, and a zero `updated-at` and absent
+  `updated-by`. Downstream read sites use
   `(when (:bban account) ...)` to tell an account with addresses from
   one without. An embedded message is a plain map."
   [input]
@@ -843,23 +849,32 @@
 
 (def ^:private cash-account-operation-unset
   {:refused-reason ""
-   :payout-account-id ""
+   :nominated-account-id ""
+   :closure-interest nil
+   :closure-fee nil
    :idempotency-key ""
    :updated-at 0
    :updated-by nil})
 
 (defn pb->CashAccountOperation
   "Parse CashAccountOperation protobuf bytes into a Clojure map, each
-  optional field present only when set, and `created-by` and
-  `updated-by` plain maps.
+  optional field present only when set, and `created-by`, `updated-by`
+  and a close's terms plain maps.
 
   Args:
   - input: protobuf bytes."
   [input]
-  (reduce plain-embedded
-          (without-unset (cash-account/pb->CashAccountOperation input)
-                         cash-account-operation-unset)
-          [:created-by :updated-by]))
+  (let [operation (reduce plain-embedded
+                          (without-unset (cash-account/pb->CashAccountOperation
+                                          input)
+                                         cash-account-operation-unset)
+                          [:created-by :updated-by])]
+    (cond-> operation
+            (some? (:closure-interest operation))
+            (update :closure-interest plain-closure)
+
+            (some? (:closure-fee operation))
+            (update :closure-fee plain-closure))))
 
 (defn CashAccountOperation->pb
   "Serialise a CashAccountOperation map to protobuf bytes.
@@ -995,6 +1010,42 @@
 (def ^{:doc "Map of OutboundPaymentStatus label to protobuf int value."}
      outbound-payment-status->int
   payment/OutboundPaymentStatus-label2val)
+
+(def ^:private account-closure-unset
+  {:nominated-account-id ""
+   :interest-paid 0
+   :fee-charged 0
+   :amount 0
+   :transaction-id ""
+   :refused-reason ""})
+
+(defn pb->AccountClosure
+  "Parse AccountClosure protobuf bytes into a Clojure map, a paid one's
+  amounts and a refused one's reason present only when set, and
+  `created-by` a plain map.
+
+  Args:
+  - input: protobuf bytes."
+  [input]
+  (-> (payment/pb->AccountClosure input)
+      (without-unset account-closure-unset)
+      (plain-embedded :created-by)))
+
+(defn AccountClosure->pb
+  "Serialise an AccountClosure map to protobuf bytes.
+
+  Args:
+  - m: AccountClosure map matching the generated schema."
+  [m]
+  (proto/->pb (payment/new-AccountClosure m)))
+
+(defn AccountClosure->java
+  "Parse an AccountClosure map into the generated Java protobuf class.
+
+  Args:
+  - m: AccountClosure map matching the generated schema."
+  [m]
+  (AccountClosureProto$AccountClosure/parseFrom (AccountClosure->pb m)))
 
 (defn pb->InternalPayment
   "Parse InternalPayment protobuf bytes into a Clojure map, `reference`

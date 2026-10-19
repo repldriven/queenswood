@@ -31,6 +31,11 @@
 (def ^:private internal-schema
   (load-schema "schemas/payment/internal-payment-settled.avsc.json"))
 
+(def ^:private closure-event-name "account-closure-status-changed")
+
+(def ^:private closure-schema
+  (load-schema "schemas/payment/account-closure-status-changed.avsc.json"))
+
 (defn- entry
   "The shared-envelope changelog bytes for a payment write. `changelog`
   carries `:bank-id`, `:payment-id`, `:status-before`, `:status-after`,
@@ -81,3 +86,29 @@
 (defn internal-settled
   [changelog]
   (entry internal-event-name internal-schema changelog))
+
+(defn closure-recorded
+  "The shared-envelope changelog bytes for `closure`, written once, paid
+  or refused, keyed by its account."
+  [closure]
+  (let [{:keys [bank-id closure-id account-id operation-id status
+                refused-reason]}
+        closure]
+    (let-nom> [payload (avro/serialize @closure-schema
+                                       {:bank-id bank-id
+                                        :closure-id closure-id
+                                        :account-id account-id
+                                        :operation-id operation-id
+                                        :status-after status
+                                        :refused-reason refused-reason})]
+      (schema/ChangelogEvent->pb
+       (utility/assoc-some
+        {:event-id (str (utility/uuidv7))
+         :dedup-key closure-id
+         :event-name closure-event-name
+         :payload payload
+         :causation-id operation-id
+         :ordering-key account-id
+         :created-at (utility/now)}
+        :traceparent
+        (telemetry/inject-traceparent))))))

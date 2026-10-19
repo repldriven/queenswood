@@ -654,6 +654,15 @@ stores:
         modified: 1
         fields: [bank_id, account_id, kind]
         unique: true
+  account-closures:
+    record-type: AccountClosure
+    primary-key: [bank_id, closure_id]
+    indexes:
+      - name: AccountClosure_by_operation_id
+        added: 1
+        modified: 1
+        fields: [bank_id, operation_id]
+        unique: true
   zyphe-outbox:
     record-type: ZypheOutboxEvent
     primary-key: [outbox_id]

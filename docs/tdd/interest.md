@@ -662,32 +662,30 @@ rates and pay the rest, the usual charge for closing a fixed-term or
 notice account early, never more than has accrued; an early closure is
 held to its window's term instead.
 
-**Interest is settled when the account is closed.** Closing refuses an
-account it cannot empty, and under any payment but daily the
-interest-accrued bucket holds what is not yet paid, under one paid on
-its closure day all of it. `interest/settle-accrued` applies the
-closure's interest term to one account's bucket in the close's own
-transaction, as
-[cash-accounts](cash-accounts.md#closing-with-a-payout-account) lays
-out: what is paid moves to the default bucket as capitalisation moves
-it, and what is forfeited leaves the bucket against 5100 interest
-expense, an `interest-forfeiture` transaction, so 2400 still balances.
-The carry, under a minor unit, is forfeited whatever the term. There is
-no settlement apart from a close: the payout the close makes is what
-moves the balance out. A close by maturity is never early, as below.
+**Interest is settled when the account is closed.** Closing refuses an account
+it cannot empty, and under any payment but daily the interest-accrued bucket
+holds what is not yet paid, under one paid on its closure day all of it.
+`interest/settle-accrued` applies the closure's interest term to one account's
+bucket in the transaction the payment brick carries the close out in, as
+[cash-accounts](cash-accounts.md#closing-to-a-nominated-account) lays out: what
+is paid moves to the default bucket as capitalisation moves it, and what is
+forfeited leaves the bucket against 5100 interest expense, an
+`interest-forfeiture` transaction, so 2400 still balances. The carry, under a
+minor unit, is forfeited whatever the term. There is no settlement apart from a
+close: the `closure` transaction the close makes is what moves the balance out.
+A close by maturity is never early, as below.
 
 **A fixed-term account matures.** A version with a `term_months`, as
-[cash-account-products](cash-account-products.md#term) lays out, is
-opened with a `payout_account_id` on `CashAccount`: an opened account
-of the same party, bank and currency whose own version has no term,
-which `cash-account` checks at opening, refusing
-`:cash-account/payout-account-required` where the version has a term
-and none is named, and `:cash-account/invalid-payout-account` where the
-one named does not qualify. The account matures `version_from_on` plus
-the term's months, a day the month lacks moving to its last, worked out
-as a payment day is, and accrues nothing on or after it.
+[cash-account-products](cash-account-products.md#term) lays out, is opened with
+a `nominated_account_id` on `CashAccount`: an opened account of the same party,
+bank and currency whose own version has no term, which `cash-account` checks at
+opening, refusing `:cash-account/nominated-account-required` where the version
+has a term and none is named, and `:cash-account/invalid-nominated-account`
+where the one named does not qualify. The account matures `version_from_on` plus
+the term's months, a day the month lacks moving to its last, worked out as a
+payment day is, and accrues nothing on or after it.
 
-**Maturity never waits on the payout account.** The `daily-interest`
+**Maturity never waits on the nominated account.** The `daily-interest`
 job runs a third pass, after capitalisation, streaming the bank's
 accounts as the others do, and takes each opened account whose maturity
 day has come, and each still matured, through two steps, each in one
@@ -699,8 +697,9 @@ transaction:
   opened to a new `matured` status: it accrues nothing, refuses
   credits and allows debits. A suspended account is left until it is
   resumed, and accrues nothing meanwhile.
-- **Paid out.** Where the account has no pending amount and its payout
-  account is still opened, it closes the account to the payout account
+- **Paid out.** Where the account has no pending amount and its
+  nominated account is still opened, it closes the account to the
+  nominated account
   as a tenant's close does, the interest already paid, moving the whole
   default balance in a `closure` transaction, writing
   `transaction-posted` to the bank's activity log as every posting
@@ -708,12 +707,12 @@ transaction:
   too; the close then finishes as any other does.
 
 Where the second step cannot run, because a payment is in flight or
-the payout account has closed or been suspended since the account
+the nominated account has closed or been suspended since the account
 opened, the account stays matured, the run's row for it recording why
 as its `failure_reason`, and the next day's pass takes it again. The money
 is never sent anywhere the customer did not name: the tenant names
-another payout account with
-`PUT /v1/cash-accounts/{account-id}/payout-account`, and the next run
+another nominated account with
+`PUT /v1/cash-accounts/{account-id}/nominated-account`, and the next run
 pays out, or the customer moves the balance out and the tenant closes
 the account from matured, as from opened. `matured` is a lifecycle
 state, so it takes the ten points of
@@ -725,11 +724,11 @@ the cash-accounts pass of the clean-slate schema reset; then the grid
 and the day count in accrual, with the model's accrual beside it; then
 the calendars; then payment days in capitalisation, worked out rather
 than stored, with the model's payment days; then closure terms and
-settlement in a close that names its payout account; then a migration
+settlement in a close that names its nominated account; then a migration
 as a change of terms, its preview and console comparing every term the
 move changes and saying why it is made, each account checked against
 the target's limits and its accrued interest paid where the payment
-changes; then the term, the payout account and the maturity pass; and
+changes; then the term, the nominated account and the maturity pass; and
 last the console's product drawer.
 
 ## Alternatives Considered
@@ -871,10 +870,9 @@ last the console's product drawer.
 - **A relative schedule counts from the pin, not the first
   deposit.** Notice accounts that pay on the anniversary of the
   first deposit cannot say so.
-- **A matured balance stays at the bank.** The payout account is
-  the same customer's account at the same bank; a nominated account
-  elsewhere, and a choice to renew into a new term, are not
-  offered.
+- **A matured balance stays at the bank.** The nominated account is
+  the same customer's account at the same bank; one elsewhere, and a
+  choice to renew into a new term, are not offered.
 - **No reversal helper.** A wrongly-accrued day or a
   wrongly-capitalised period requires a manual reversing
   transaction. The patterns are simple but not packaged.

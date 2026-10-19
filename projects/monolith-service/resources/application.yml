@@ -28,6 +28,7 @@ system:
         - cash-accounts-event
         - payments-event
         - rewards-event
+        - account-closures-event
         - modulr-command
         - form3-command
         - clearbank-command
@@ -53,6 +54,7 @@ system:
   parties: !include system/party.yml
   payments: !include system/payment.yml
   rewards: !include system/reward.yml
+  account-closures: !include system/account-closure.yml
   transactions: !include system/transaction.yml
   idv: !include system/idv.yml
   idv-activity: !include system/idv-activity.yml
@@ -69,6 +71,7 @@ system:
   cash-accounts-relay: !include system/cash-account-relay.yml
   payments-relay: !include system/payment-relay.yml
   rewards-relay: !include system/reward-relay.yml
+  account-closures-relay: !include system/account-closure-relay.yml
   companies-dispatcher: !include system/company-dispatcher.yml
   idvs-relay: !include system/idv-relay.yml
   invitations-relay: !include system/invitation-relay.yml

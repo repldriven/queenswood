@@ -1,4 +1,6 @@
 system:
+  account-closures: !include system/account-closure-kafka.yml
+  account-closures-relay: !include system/account-closure-relay.yml
   avro: !include system/avro.yml
   payment-provider: !include system/payment-provider.yml
   idv-provider: !include system/idv-provider.yml

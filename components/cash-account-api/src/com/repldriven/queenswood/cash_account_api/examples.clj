@@ -47,13 +47,13 @@
            :status 409
            :detail "Account has non-zero balance buckets"}})
 
-(def CashAccountInvalidPayoutAccount
+(def CashAccountInvalidNominatedAccount
   {:value
    {:title "REJECTED"
-    :type ":cash-account/invalid-payout-account"
+    :type ":cash-account/invalid-nominated-account"
     :status 422
     :detail
-    "A payout account is another opened account of the same party and currency"}})
+    "A nominated account is another opened account of the same party and currency"}})
 
 (def CashAccountEarlyClosureRefused
   {:value {:title "REJECTED"
@@ -61,12 +61,18 @@
            :status 409
            :detail "The account's version refuses a closure this early"}})
 
+(def CashAccountCloseInProgress
+  {:value {:title "REJECTED"
+           :type ":cash-account/close-in-progress"
+           :status 409
+           :detail "The account's close is still being carried out"}})
+
 (def registry
-  (examples-registry [#'CashAccountNotFound #'ProductNotPublished
-                      #'InvalidCurrency #'PartyNotFound #'ProductNotFound
-                      #'CashAccountInvalidStatus #'CashAccountNonZeroBalance
-                      #'CashAccountInvalidPayoutAccount
-                      #'CashAccountEarlyClosureRefused]))
+  (examples-registry
+   [#'CashAccountNotFound #'ProductNotPublished #'InvalidCurrency
+    #'PartyNotFound #'ProductNotFound #'CashAccountInvalidStatus
+    #'CashAccountNonZeroBalance #'CashAccountInvalidNominatedAccount
+    #'CashAccountEarlyClosureRefused #'CashAccountCloseInProgress]))
 
 (def CashAccount
   {:bank-id "bnk.01kprbmgcj35ptc8npmybhh4s7"
@@ -104,7 +110,7 @@
 (def CashAccountList {:items [CashAccount]})
 
 (def CloseCashAccountRequest
-  {:payout-account-id "acc.01kprbmgcj35ptc8npmybhh4t2"})
+  {:nominated-account-id "acc.01kprbmgcj35ptc8npmybhh4t2"})
 
 (def CreateCashAccountRequest
   (select-keys CashAccount [:party-id :name :currency :product-id]))

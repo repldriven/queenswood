@@ -3,8 +3,8 @@
   rotate-address, and migrate-product for banks. Open allocates payment addresses,
   derives account-type from the party, validates the chosen product
   version, and seeds the product's balance buckets. Open and close
-  transitions are driven by the changelog relay and this brick's
-  event-processor; `seed-opened-account` and `seed-closed-account` are
+  complete as the provider's events, and for a close the payment brick's
+  closure, reach this brick's event processors; `seed-opened-account` and `seed-closed-account` are
   admin/test shortcuts that bypass that leg. Suspend, resume, and
   rotate-address are direct, single-phase flips — no second leg. Rotate-address stays on
   `:cash-account-status-opened`, replacing the account's payment
@@ -56,25 +56,28 @@
    (core/open-account txn data opts)))
 
 (defn close-account
-  "Close an account, in one transaction: settle its accrued interest by
-  its version's closure terms, charge an early closure's fee against
-  4100 fee income, and move what is left to the payout account in a
-  `closure` transaction. Returns the updated account
+  "Close an account: decide what its close is carried out by, and leave
+  it `closing`. The close operation records the nominated account and the
+  interest and fee terms the account's version holds the close to today,
+  the fee only where it was not already closing, and the payment brick
+  carries it out from there. Returns the updated account
   (`:cash-account-status-closing`) or an anomaly:
-  `:cash-account/invalid-payout-account` for a payout account that is
-  not another opened account of the party in its currency,
+  `:cash-account/invalid-nominated-account` for a nominated account that
+  is not another opened account of the party in its currency,
   `:cash-account/early-closure-refused` inside a window the version
-  refuses closures in, `:cash-account/non-zero-on-close` for a pending
-  hold or a balance with no payout account, and a payout limit's
-  rejection. A closing account may be closed again, charged no fee. The
-  account becomes `closed` once it holds nothing and the payment
-  provider closes the account behind it, at once for one the provider
-  never opened.
+  refuses closures in, `:cash-account/close-in-progress` while an earlier
+  close is still being carried out, and `:cash-account/non-zero-on-close`
+  for a pending hold, an overdrawn account, or a balance with no
+  nominated account. Once the balance has moved the provider is asked to
+  close the account behind it, and the account becomes `closed` when it
+  does, at once for one the provider never opened; a close the payment
+  brick refuses, by the nominated account's limits, returns the account
+  to the status it was closed from.
 
   Args:
   - txn: FDB transaction or db handle.
   - data: map with `:bank-id` and `:account-id`, and optionally
-    `:payout-account-id`.
+    `:nominated-account-id`.
   - opts (optional): map; `:policies` overrides policy resolution."
   ([txn data]
    (core/close-account txn data))

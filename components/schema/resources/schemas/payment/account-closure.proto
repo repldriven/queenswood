@@ -1,0 +1,37 @@
+syntax = "proto2";
+
+package com.repldriven.queenswood.schema.payment;
+
+import "record_metadata_options.proto";
+import "schemas/actor/actor.proto";
+
+option java_outer_classname = "AccountClosureProto";
+
+enum AccountClosureStatus {
+  ACCOUNT_CLOSURE_STATUS_UNKNOWN = 0;
+  ACCOUNT_CLOSURE_STATUS_PAID = 1;
+  ACCOUNT_CLOSURE_STATUS_REFUSED = 2;
+}
+
+// What closing a cash account settled, charged and moved, or why it was
+// refused.
+message AccountClosure {
+  option (com.apple.foundationdb.record.record).usage = RECORD;
+
+  required string bank_id = 1;
+  required string closure_id = 2; // acl.<uuidv7>
+
+  required AccountClosureStatus status = 3;
+  required string account_id = 4;
+  required string operation_id = 5; // the close operation it answers
+  required string currency = 6; // ISO 4217
+  optional string nominated_account_id = 7;
+  optional int64 interest_paid = 8; // minor units
+  optional int64 fee_charged = 9; // minor units
+  optional int64 amount = 10; // minor units moved to the nominated account
+  optional string transaction_id = 11;
+  optional string refused_reason = 12;
+
+  required int64 created_at = 101;
+  required com.repldriven.queenswood.schema.actor.Actor created_by = 102;
+}

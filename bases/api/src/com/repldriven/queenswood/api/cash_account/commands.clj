@@ -51,8 +51,8 @@
                   (utility/assoc-some {:bank-id bank-id
                                        :account-id account-id
                                        :actor (actor/actor auth)}
-                                      :payout-account-id
-                                      (:payout-account-id body))
+                                      :nominated-account-id
+                                      (:nominated-account-id body))
                   account-id)))
 
 (defn suspend-cash-account

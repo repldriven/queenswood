@@ -51,7 +51,7 @@
    [:requested-on [:ref "BusinessDay"]]
    [:account-status [:ref "CashAccountStatus"]]
    [:refused-reason {:optional true} string?]
-   [:payout-account-id {:optional true} [:ref "CashAccountId"]]
+   [:nominated-account-id {:optional true} [:ref "CashAccountId"]]
    [:created-at [:ref "Timestamp"]]
    [:created-by [:ref "Actor"]]
    [:updated-at {:optional true} [:ref "Timestamp"]]
@@ -130,7 +130,7 @@
 
 (def CloseCashAccountRequest
   [:map {:closed true :json-schema/example examples/CloseCashAccountRequest}
-   [:payout-account-id {:optional true} [:ref "CashAccountId"]]])
+   [:nominated-account-id {:optional true} [:ref "CashAccountId"]]])
 
 (def CloseCashAccountResponse [:ref "CashAccount"])
 

@@ -74,6 +74,17 @@
                    :ledger-cache-ttl-ms thirty-seconds-ms}
    :system/instance-schema some?})
 
+(def ^:private closure-event-processor
+  {:system/start (fn [{:system/keys [config instance]}]
+                   (or instance
+                       (commands/->ClosureEventProcessor
+                        (assoc config :caches (ledger-caches config)))))
+   :system/config {:record-db system/required-component
+                   :record-store system/required-component
+                   :schemas system/required-component
+                   :ledger-cache-ttl-ms thirty-seconds-ms}
+   :system/instance-schema some?})
+
 (def ^:private outbound-sweep
   {:system/start (fn [{:system/keys [config instance]}]
                    (or instance (sweep/start-runner config)))
@@ -89,4 +100,5 @@
                       {:processor processor
                        :event-processor event-processor
                        :activity-event-processor activity-event-processor
+                       :closure-event-processor closure-event-processor
                        :outbound-sweep outbound-sweep})

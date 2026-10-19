@@ -425,7 +425,7 @@ pass matures it. The API takes it as `"term-months": 12`.
 
 A migration refuses a source or target version with a term,
 `:cash-account-migration/fixed-term-version`, since an
-account's term and payout account are fixed when it opens. A
+account's term and nominated account are fixed when it opens. A
 twelve-month regular saver is a savings version with a term of 12, one
 step at its fixed rate, and a payment of monthly or on its closure day.
 Its early closure is a window of `term_months` in its
@@ -536,7 +536,7 @@ names the rule broken, unless:
 - a balance fee's `min` is no more than its `max`.
 
 A closure applies them as
-[cash-accounts](cash-accounts.md#closing-with-a-payout-account) lays
+[cash-accounts](cash-accounts.md#closing-to-a-nominated-account) lays
 out.
 
 #### The currency gate
