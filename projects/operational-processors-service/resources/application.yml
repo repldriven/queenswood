@@ -100,6 +100,12 @@ system:
           topic: topic-cash-accounts-event-dlq
           acks: all
           linger.ms: 0
+      account-closures-event-dlq:
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-account-closures-event-dlq
+          acks: all
+          linger.ms: 0
       idvs-event-dlq:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
@@ -187,6 +193,15 @@ system:
         conf:
           bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
           group.id: cash-account-service-cash-accounts-event
+      account-closures-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        topics: [topic-account-closures-event]
+        dead-letter-producer: !system/local-ref producers.account-closures-event-dlq
+        max-redeliveries: 5
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          group.id: cash-account-service-account-closures-event
       parties-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -273,6 +288,9 @@ system:
         max-in-flight: {initial: 4}
       cash-accounts-event:
         consumer: !system/local-ref consumers.cash-accounts-event
+        timeout: 500
+      account-closures-event:
+        consumer: !system/local-ref consumers.account-closures-event
         timeout: 500
       parties-event:
         consumer: !system/local-ref consumers.parties-event

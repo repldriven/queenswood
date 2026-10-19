@@ -308,7 +308,7 @@ buckets per account class" below.
 
 4100 fee income, an income detail account, is credited with the
 fee an early closure charges, as
-[cash-accounts](cash-accounts.md#closing-with-a-payout-account)
+[cash-accounts](cash-accounts.md#closing-to-a-nominated-account)
 lays out. Retained earnings and accrued fees
 receivable are not seeded; a bank adds them as it needs them.
 

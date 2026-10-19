@@ -1,0 +1,41 @@
+{
+  "type": "record",
+  "name": "AccountClosureStatusChanged",
+  "namespace": "com.repldriven.queenswood.schema.payment",
+  "doc": "A closing account's balance paid out, or the close refused.",
+  "fields": [
+    {
+      "name": "bank_id",
+      "type": "string"
+    },
+    {
+      "name": "closure_id",
+      "type": "string"
+    },
+    {
+      "name": "account_id",
+      "type": "string"
+    },
+    {
+      "name": "operation_id",
+      "type": "string"
+    },
+    {
+      "name": "status_after",
+      "type": {
+        "type": "enum",
+        "name": "AccountClosureStatus",
+        "symbols": [
+          "ACCOUNT_CLOSURE_STATUS_UNKNOWN",
+          "ACCOUNT_CLOSURE_STATUS_PAID",
+          "ACCOUNT_CLOSURE_STATUS_REFUSED"
+        ]
+      }
+    },
+    {
+      "name": "refused_reason",
+      "type": ["null", "string"],
+      "default": null
+    }
+  ]
+}

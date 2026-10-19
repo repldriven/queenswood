@@ -43,6 +43,7 @@
    :cash-account/invalid-status 409
    :cash-account/non-zero-on-close 409
    :cash-account/early-closure-refused 409
+   :cash-account/close-in-progress 409
    :cash-account-product/draft-already-exists 409
    :cash-account-product/version-immutable 409
    :cash-account-migration/invalid-status 409

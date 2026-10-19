@@ -61,24 +61,32 @@
                              :causation-id account-id
                              :dedup-key account-id}))))
 
-(defn- record-operation
-  "Save `operation` and, while it is pending, the activity entry that asks
-  the account's provider to carry it out."
+(defn- request-at-provider
+  "Record the activity entry that asks `account`'s provider to carry out
+  `operation`."
   [txn account operation]
   (let [{:keys [bank-id account-id provider-account-id]} account
         {:keys [operation-id kind]} operation]
-    (let-nom>
-      [_ (store/save-operation txn operation nil)]
-      (when (domain/pending-operation? operation)
-        (bank-activity/record txn
-                              {:bank-id bank-id
-                               :event-name "cash-account-operation-requested"
-                               :data {:account-id account-id
-                                      :operation-id operation-id
-                                      :kind kind
-                                      :provider-account-id provider-account-id}
-                               :causation-id account-id
-                               :dedup-key operation-id})))))
+    (bank-activity/record txn
+                          {:bank-id bank-id
+                           :event-name "cash-account-operation-requested"
+                           :data {:account-id account-id
+                                  :operation-id operation-id
+                                  :kind kind
+                                  :provider-account-id provider-account-id}
+                           :causation-id account-id
+                           :dedup-key operation-id})))
+
+(defn- record-operation
+  "Save `operation` and, while it is pending and not a close, which the
+  provider is asked to carry out once its balance has moved, the
+  activity entry that asks the account's provider to carry it out."
+  [txn account operation]
+  (let-nom>
+    [_ (store/save-operation txn operation nil)]
+    (when (and (domain/pending-operation? operation)
+               (not= :cash-account-operation-kind-close (:kind operation)))
+      (request-at-provider txn account operation))))
 
 (defn- or-already-opened
   "On a uniqueness violation — a redelivered or retried
@@ -183,11 +191,13 @@
   "Carry out an operation of `kind` on the account the command in `data`
   names. `transition` takes the transaction, the account, its operations
   for the day and the policies, and returns the account the operation
-  leaves, saved under `change-kind` where there is one. A command whose
-  idempotency key already asked for an operation of the account is a
-  retry after a lost reply, and gets back the account as it is: no
+  leaves, saved under `change-kind` where there is one; `terms`, where
+  given, takes the transaction, the account and the policies, and
+  returns what the operation records it is carried out by. A command
+  whose idempotency key already asked for an operation of the account is
+  a retry after a lost reply, and gets back the account as it is: no
   operation, no save, no changelog entry."
-  [txn data opts {:keys [kind transition change-kind audit-kind]}]
+  [txn data opts {:keys [kind transition terms change-kind audit-kind]}]
   (let [{:keys [bank-id account-id idempotency-key]} data
         today (utility/today)]
     (let-nom>
@@ -203,6 +213,7 @@
         (let-nom>
           [aggregates (get-operation-aggregates txn bank-id account-id today)
            updated (transition txn account aggregates policies)
+           operation-terms (when terms (terms txn account policies))
            _ (when change-kind
                (store/save-account txn
                                    updated
@@ -212,7 +223,11 @@
                                     :change-kind change-kind}))
            _ (record-operation txn
                                account
-                               (domain/new-operation account kind today data))
+                               (domain/new-operation account
+                                                     kind
+                                                     today
+                                                     data
+                                                     operation-terms))
            _ (audit/record txn (audit-entry audit-kind account updated data))]
           updated)))))
 
@@ -229,49 +244,12 @@
                {:kind :cash-account-operation-kind-close
                 :transition (fn [txn account _ policies]
                               (closure/close txn data account policies))
+                :terms (fn [txn account policies]
+                         (closure/terms txn data account policies))
                 :change-kind :cash-account-change-kind-close
                 :audit-kind :audit-kind-cash-account-close-requested}))
     :cash-account/close
     "Failed to close account")))
-
-(def ^:private second-leg
-  "The source statuses that have a second leg, each mapped to the
-  domain fn that completes it and the change kind the write records.
-  A new two-phase transition is one entry here."
-  {:cash-account-status-opening [domain/opened-account
-                                 :cash-account-change-kind-open]
-   :cash-account-status-closing [domain/closed-account
-                                 :cash-account-change-kind-close]})
-
-(defn complete-status-transition
-  "Second leg of the two-step open and close: `opening` becomes
-  `opened`, `closing` becomes `closed`.
-
-  Gated on the loaded account still sitting at the expected source
-  status, and holding `ready?`, called with the transaction and the
-  account, and skips silently when it doesn't. Event redelivery and replay must be a no-op here, not
-  a rejection — the transition having already happened is the normal
-  case, not an error."
-  [txn bank-id account-id status-after ready?]
-  (when-let [[transition-fn change-kind] (get second-leg status-after)]
-    (store/transact
-     txn
-     (fn [txn]
-       (let-nom>
-         [account (q/find-account txn bank-id account-id)
-          ready (when (and account (= status-after (:status account)))
-                  (ready? txn account))]
-         (when ready
-           (let [transitioned (transition-fn account)]
-             (store/save-account txn
-                                 transitioned
-                                 {:account-id account-id
-                                  :status-before status-after
-                                  :status-after (:status
-                                                 transitioned)
-                                  :change-kind change-kind})))))
-     :cash-account/complete-transition
-     "Failed to complete account transition")))
 
 (defn suspend-account
   ([txn data]
@@ -423,7 +401,7 @@
                        (fn [account] (domain/refused-account account reason))
                        :cash-account-change-kind-open))
 
-(defn emptied?
+(defn- emptied?
   "Whether `account` holds no balance, so it may be closed."
   [txn account]
   (let-nom> [account-balances (balances-q/list-balances txn
@@ -461,6 +439,38 @@
                     (refused (:reason event))
                     domain/close-refused-account
                     :cash-account-change-kind-close-refused))
+
+(defn closure-paid
+  "Once a close's balance has moved, asks the account's provider to close
+  the account behind it, or, where the provider never held one, closes
+  the account itself. A close no longer pending is a redelivery, left as
+  it is."
+  [txn event]
+  (let [{:keys [bank-id account-id operation-id]} event]
+    (store/transact
+     txn
+     (fn [txn]
+       (let-nom>
+         [operation (store/find-operation txn bank-id account-id operation-id)
+          account (when (and operation (domain/pending-operation? operation))
+                    (q/find-account txn bank-id account-id))]
+         (cond (nil? account)
+               nil
+
+               (:provider-account-id account)
+               (request-at-provider txn account operation)
+
+               :else
+               (provider-closed txn event))))
+     :cash-account/closure-paid
+     "Failed to close account")))
+
+(defn closure-refused
+  "Refuses the close a closure refused, with its reason, and returns the
+  account to the status it was closed from."
+  [txn event]
+  (provider-close-refused txn
+                          (assoc event :reason (:refused-reason event))))
 
 (defn provider-reissued
   [txn event]

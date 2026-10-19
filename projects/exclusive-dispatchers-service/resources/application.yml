@@ -41,6 +41,14 @@ system:
           topic: topic-rewards-event
           acks: all
           linger.ms: 0
+      account-closures-event:
+        schemas: !system/local-ref schemas
+        schema: !keyword event
+        conf:
+          bootstrap.servers: !env KAFKA_BOOTSTRAP_SERVERS
+          topic: topic-account-closures-event
+          acks: all
+          linger.ms: 0
       idv-event:
         schemas: !system/local-ref schemas
         schema: !keyword event
@@ -99,6 +107,8 @@ system:
         producer: !system/local-ref producers.payments-event
       rewards-event:
         producer: !system/local-ref producers.rewards-event
+      account-closures-event:
+        producer: !system/local-ref producers.account-closures-event
       idv-event:
         producer: !system/local-ref producers.idv-event
       idvs-event:
@@ -161,6 +171,11 @@ system:
       bus: !system/ref message-bus.bus
       event-channel: !keyword rewards-event
       store-name: account-rewards
+    account-closures-handler: !system/component
+      system/component-kind: changelog-relay/envelope-handler
+      bus: !system/ref message-bus.bus
+      event-channel: !keyword account-closures-event
+      store-name: account-closures
     schemes-payments-handler: !system/component
       system/component-kind: changelog-relay/envelope-handler
       bus: !system/ref message-bus.bus
@@ -263,6 +278,12 @@ system:
         consumer-id: rewards-relay
         store-name: account-rewards
         handler: !system/local-ref rewards-handler
+      account-closures:
+        record-db: !system/ref fdb.record-db
+        keyspace-prefix: !system/ref fdb.keyspace-prefix
+        consumer-id: account-closures-relay
+        store-name: account-closures
+        handler: !system/local-ref account-closures-handler
   bank-activity-relay: !include system/bank-activity-relay.yml
   scheduler: !include system/scheduler.yml
   payment-provider: !include system/payment-provider.yml

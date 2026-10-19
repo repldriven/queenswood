@@ -163,9 +163,8 @@
 (defn find-account
   "Load a single cash account by primary key without enrichment or
   rejection; returns the raw account map or nil. A read primitive for
-  the write sibling's transactions (e.g. its
-  `complete-status-transition`, which the changelog relay drives
-  through that brick's `events.clj`).
+  the write sibling's transactions (e.g. the provider's and the
+  closure's events its `events.clj` handles).
 
   Args:
   - txn: FDB transaction or db handle.

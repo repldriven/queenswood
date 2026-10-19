@@ -106,6 +106,15 @@ producers: !system/component
       topic: topic-rewards-event
       acks: all
       linger.ms: 0
+  account-closures-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      topic: topic-account-closures-event
+      acks: all
+      linger.ms: 0
   companies-command:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -524,6 +533,16 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-reward-cash-accounts-event
+  # The account closure processor's own group on the same topic, for the
+  # same reason.
+  payment-cash-accounts-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-cash-accounts-event]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-payment-cash-accounts-event
   payments-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -556,6 +575,14 @@ consumers: !system/component
     conf:
       bootstrap.servers: !system/local-ref bootstrap-servers
       group.id: test-webhook-rewards-event
+  account-closures-event:
+    _: !system/local-ref topics
+    schemas: !system/local-ref schemas
+    schema: !keyword event
+    topics: [topic-account-closures-event]
+    conf:
+      bootstrap.servers: !system/local-ref bootstrap-servers
+      group.id: test-account-closures-event
   webhook-idvs-event:
     _: !system/local-ref topics
     schemas: !system/local-ref schemas
@@ -863,6 +890,8 @@ message-bus-producers: !system/component
     producer: !system/local-ref producers.payments-event
   rewards-event:
     producer: !system/local-ref producers.rewards-event
+  account-closures-event:
+    producer: !system/local-ref producers.account-closures-event
   companies-command:
     producer: !system/local-ref producers.companies-command
   companies-command-response:
@@ -943,6 +972,9 @@ message-bus-consumers: !system/component
   reward-cash-accounts-event:
     consumer: !system/local-ref consumers.reward-cash-accounts-event
     timeout: 500
+  payment-cash-accounts-event:
+    consumer: !system/local-ref consumers.payment-cash-accounts-event
+    timeout: 500
   payments-event:
     consumer: !system/local-ref consumers.payments-event
     timeout: 500
@@ -954,6 +986,9 @@ message-bus-consumers: !system/component
     timeout: 500
   webhook-rewards-event:
     consumer: !system/local-ref consumers.webhook-rewards-event
+    timeout: 500
+  account-closures-event:
+    consumer: !system/local-ref consumers.account-closures-event
     timeout: 500
   webhook-idvs-event:
     consumer: !system/local-ref consumers.webhook-idvs-event

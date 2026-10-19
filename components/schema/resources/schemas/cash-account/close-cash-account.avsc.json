@@ -12,7 +12,7 @@
       "type": "string"
     },
     {
-      "name": "payout_account_id",
+      "name": "nominated_account_id",
       "type": ["null", "string"],
       "default": null,
       "doc": "Where the closed account's balance goes"

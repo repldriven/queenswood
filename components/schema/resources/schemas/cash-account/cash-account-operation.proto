@@ -5,6 +5,7 @@ package com.repldriven.queenswood.schema.cash_account;
 import "record_metadata_options.proto";
 import "schemas/actor/actor.proto";
 import "schemas/cash-account/cash-account.proto";
+import "schemas/cash-account-product/cash-account-product.proto";
 import "schemas/fideslang/data-category.proto";
 
 option java_outer_classname = "CashAccountOperationProto";
@@ -37,7 +38,9 @@ message CashAccountOperation {
   required int64 requested_on = 6 [(fideslang.data_category) = "system.operations"]; // epoch day
   required CashAccountStatus account_status = 7; // when the operation was asked
   optional string refused_reason = 8;
-  optional string payout_account_id = 9; // where a close sends the balance
+  optional string nominated_account_id = 9; // where a close sends the balance
+  optional com.repldriven.queenswood.schema.cash_account_product.ClosureInterest closure_interest = 10; // a close's, by its version's terms on requested_on
+  optional com.repldriven.queenswood.schema.cash_account_product.ClosureFee closure_fee = 11; // an early close's, by the same terms
 
   optional string idempotency_key = 100 [(fideslang.data_category) = "system.operations"];
   required int64 created_at = 101;

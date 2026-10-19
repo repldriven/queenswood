@@ -223,18 +223,15 @@
 
 (def ^:private may-close [(policy-allowing :cash-account-action-close)])
 
+(def ^:private may-close-non-zero
+  [(policy-allowing :cash-account-action-close
+                    :cash-account-action-close-non-zero)])
+
 (defn- close
-  ([acct balances]
-   (close acct balances nil nil))
-  ([acct balances payout-account-id payout]
-   (close acct balances payout-account-id payout may-close))
-  ([acct balances payout-account-id payout policies]
-   (SUT/close-account acct
-                      balances
-                      payout-account-id
-                      payout
-                      operator
-                      policies)))
+  ([acct]
+   (close acct nil may-close))
+  ([acct latest policies]
+   (SUT/close-account acct latest operator policies)))
 
 (deftest close-account-source-state-guard-test
   (testing
@@ -242,7 +239,7 @@
            is rejected, regardless of policy, and the rejection names
            every closeable status"
     (doseq [status [:cash-account-status-opening :cash-account-status-closed]]
-      (let [result (close (account status) [] nil nil [])]
+      (let [result (close (account status) nil [])]
         (is (error/rejection? result))
         (is (= :cash-account/invalid-status (error/kind result)))
         (is (= status (:status (error/payload result))))
@@ -252,28 +249,65 @@
 
 (deftest close-account-from-suspended-test
   (testing "a suspended account closes without being resumed first"
-    (let [result (close (account :cash-account-status-suspended) [])]
+    (let [result (close (account :cash-account-status-suspended))]
       (is (= :cash-account-status-closing (:status result)))
       (is (= operator (:updated-by result)))))
   (testing "a closing account may be closed again"
     (is (= :cash-account-status-closing
-           (:status (close (account :cash-account-status-closing) []))))))
+           (:status (close (account :cash-account-status-closing)))))))
+
+(deftest close-account-in-progress-test
+  (let [closing (account :cash-account-status-closing)
+        operation (SUT/new-operation closing
+                                     :cash-account-operation-kind-close
+                                     20500
+                                     {:actor operator}
+                                     nil)]
+    (testing "a close still being carried out refuses another"
+      (let [result (close closing operation may-close)]
+        (is (= :cash-account/close-in-progress (error/kind result)))
+        (is (= (:operation-id operation)
+               (:operation-id (error/payload result))))))
+    (testing "a close already refused does not"
+      (is (= :cash-account-status-closing
+             (:status (close closing
+                             (SUT/refused-operation operation "held")
+                             may-close)))))))
 
 (deftest close-refused-account-test
   (testing
     "a refused close returns the account to the status its
            operation was asked from"
     (doseq [from [:cash-account-status-opened :cash-account-status-suspended]]
-      (let [closing (close (account from) [])
+      (let [closing (close (account from))
             operation (SUT/new-operation (account from)
                                          :cash-account-operation-kind-close
                                          20500
-                                         {:actor operator})
+                                         {:actor operator}
+                                         nil)
             result (SUT/close-refused-account closing operation)]
         (is (= from (:account-status operation)))
         (is (= from (:status result)))
         (is (= {:kind :actor-kind-platform :principal-id "cash-account"}
                (:updated-by result)))))))
+
+(deftest a-close-waits-on-its-closure-test
+  (testing
+    "a close is pending until it is carried out, even of an account no
+           provider holds, and records the terms it is carried out by"
+    (let [terms {:nominated-account-id "acc.savings"
+                 :closure-interest {:kind {:pay {}}}
+                 :closure-fee {:kind {:flat {:amount 500}}}}
+          operation (SUT/new-operation (account :cash-account-status-opened)
+                                       :cash-account-operation-kind-close
+                                       20500
+                                       {:actor operator}
+                                       terms)]
+      (is (SUT/pending-operation? operation))
+      (is (= terms
+             (select-keys operation
+                          [:nominated-account-id :closure-interest
+                           :closure-fee]))))))
 
 (def ^:private posted-bucket
   {:balance-type :balance-type-default
@@ -296,53 +330,83 @@
    :credit 0
    :debit 500})
 
-(deftest close-account-buckets-test
-  (let [acct (account :cash-account-status-opened)]
-    (testing "a posted default or interest-accrued balance does not refuse it"
-      (is (= :cash-account-status-closing
-             (:status (close acct [posted-bucket accrued-bucket])))))
-    (testing
-      "a pending hold is refused by default, and the rejection names
-             the buckets it refused on"
-      (let [result (close acct [posted-bucket pending-hold])
-            payload (error/payload result)]
-        (is (= :cash-account/non-zero-on-close (error/kind result)))
-        (is (= "acc.test" (:account-id payload)))
-        (is (= [pending-hold] (:balances payload)))))
-    (testing "a bucket carrying no type or status reports what it has"
-      (let [result (close acct [{:credit 500 :debit 0}])]
-        (is (= [{:credit 500 :debit 0}] (:balances (error/payload result))))))
-    (testing "an explicit opt-out capability allows the close"
-      (let [result (close acct
-                          [posted-bucket pending-hold]
-                          nil
-                          nil
-                          [(policy-allowing
-                            :cash-account-action-close
-                            :cash-account-action-close-non-zero)])]
-        (is (= :cash-account-status-closing (:status result)))))))
-
 (def ^:private holder
   (assoc (account :cash-account-status-opened) :party-id "pty.test"))
 
 (def ^:private savings (assoc holder :account-id "acc.savings"))
 
-(deftest close-account-payout-test
+(def ^:private pay-term {:interest {:kind {:pay {}}}})
+
+(defn- closable
+  ([balances]
+   (closable balances pay-term "acc.savings" savings may-close))
+  ([balances term nominated-account-id nominated policies]
+   (SUT/check-closable holder
+                       balances
+                       term
+                       nominated-account-id
+                       nominated
+                       policies)))
+
+(deftest check-closable-buckets-test
+  (testing "a posted default or interest-accrued balance does not refuse it"
+    (is (nil? (closable [posted-bucket accrued-bucket]))))
+  (testing
+    "a pending hold is refused by default, and the rejection names
+           the buckets it refused on"
+    (let [result (closable [posted-bucket pending-hold])
+          payload (error/payload result)]
+      (is (= :cash-account/non-zero-on-close (error/kind result)))
+      (is (= "acc.test" (:account-id payload)))
+      (is (= [pending-hold] (:balances payload)))))
+  (testing "a bucket carrying no type or status reports what it has"
+    (let [result (closable [{:credit 500 :debit 0}])]
+      (is (= [{:credit 500 :debit 0}] (:balances (error/payload result))))))
+  (testing "an explicit opt-out capability allows the close"
+    (is (nil? (closable [posted-bucket pending-hold]
+                        pay-term
+                        "acc.savings"
+                        savings
+                        may-close-non-zero)))))
+
+(deftest check-closable-nominated-account-test
   (testing "another opened account of the party in its currency qualifies"
-    (is (= :cash-account-status-closing
-           (:status (close holder [] "acc.savings" savings)))))
-  (testing "anything else is refused, naming the payout account"
-    (doseq [[label payout]
+    (is (nil? (closable [posted-bucket]))))
+  (testing "anything else is refused, naming the nominated account"
+    (doseq [[label nominated]
             [["not found" nil]
              ["itself" holder]
              ["another party's" (assoc savings :party-id "pty.x")]
              ["in another currency" (assoc savings :currency "EUR")]
              ["not opened"
               (assoc savings :status :cash-account-status-suspended)]]]
-      (let [result (close holder [] "acc.savings" payout)]
-        (is (= :cash-account/invalid-payout-account (error/kind result)) label)
-        (is (= "acc.savings" (:payout-account-id (error/payload result)))
+      (let [result (closable [] pay-term "acc.savings" nominated may-close)]
+        (is (= :cash-account/invalid-nominated-account (error/kind result))
+            label)
+        (is (= "acc.savings" (:nominated-account-id (error/payload result)))
             label)))))
+
+(deftest check-closable-held-test
+  (testing "nothing held closes with no nominated account"
+    (is (nil? (closable [] pay-term nil nil may-close))))
+  (testing "a balance with nowhere to go is refused, saying to name one"
+    (let [result (closable [posted-bucket] pay-term nil nil may-close)]
+      (is (= :cash-account/non-zero-on-close (error/kind result)))
+      (is (re-find #"nominated account" (:message (error/payload result))))))
+  (testing "so is interest the term pays, but not interest it forfeits"
+    (is (error/rejection?
+         (closable [accrued-bucket] pay-term nil nil may-close)))
+    (is (nil? (closable [accrued-bucket]
+                        {:interest {:kind {:forfeit {}}}}
+                        nil
+                        nil
+                        may-close))))
+  (testing "unless the bank's policies waive it"
+    (is (nil? (closable [posted-bucket] pay-term nil nil may-close-non-zero))))
+  (testing "an overdrawn account is refused even with a nominated account"
+    (let [result (closable [(assoc posted-bucket :credit 0)])]
+      (is (= :cash-account/non-zero-on-close (error/kind result)))
+      (is (= "Account is overdrawn" (:message (error/payload result)))))))
 
 (def ^:private closure-terms
   "No closure in the first three months, then ten days' interest and 1%
@@ -379,48 +443,6 @@
     (testing "terms with no windows hold from the first day"
       (is (= {:interest {:kind {:pay {}}}}
              (SUT/closure-term acct {:interest {:kind {:pay {}}}} from-on))))))
-
-(deftest closure-fee-test
-  (let [balance-fee (get-in closure-terms [:early 1 :kind :charged :fee])]
-    (testing "a balance fee is its rate of what is held, rounded down"
-      (is (= 1234 (SUT/closure-fee balance-fee 123456))))
-    (testing "raised to its minimum and capped at its maximum"
-      (is (= 500 (SUT/closure-fee balance-fee 10000)))
-      (is (= 2000 (SUT/closure-fee balance-fee 1000000))))
-    (testing "never more than is held"
-      (is (= 300 (SUT/closure-fee balance-fee 300)))
-      (is (= 300 (SUT/closure-fee {:kind {:flat {:amount 1000}}} 300))))
-    (testing "a flat fee is its amount"
-      (is (= 1000 (SUT/closure-fee {:kind {:flat {:amount 1000}}} 5000))))
-    (testing "no fee, or nothing held, charges nothing"
-      (is (zero? (SUT/closure-fee nil 5000)))
-      (is (zero? (SUT/closure-fee balance-fee 0)))
-      (is (zero? (SUT/closure-fee balance-fee -100))))))
-
-(deftest check-emptied-test
-  (testing "nothing held closes with or without a payout account"
-    (is (nil? (SUT/check-emptied holder 0 nil may-close))))
-  (testing "a balance moves to the payout account"
-    (is (nil? (SUT/check-emptied holder 1000 savings may-close))))
-  (testing "a balance with nowhere to go is refused, saying to name one"
-    (let [result (SUT/check-emptied holder 1000 nil may-close)]
-      (is (= :cash-account/non-zero-on-close (error/kind result)))
-      (is (= [{:balance-type :balance-type-default
-               :balance-status :balance-status-posted
-               :currency "GBP"
-               :credit 1000
-               :debit 0}]
-             (:balances (error/payload result))))))
-  (testing "unless the bank's policies waive it"
-    (is (nil? (SUT/check-emptied holder
-                                 1000
-                                 nil
-                                 [(policy-allowing
-                                   :cash-account-action-close
-                                   :cash-account-action-close-non-zero)]))))
-  (testing "an overdrawn account is refused even with a payout account"
-    (is (= :cash-account/non-zero-on-close
-           (error/kind (SUT/check-emptied holder -1 savings may-close))))))
 
 (deftest emptied-test
   (is (SUT/emptied? [{:credit 500 :debit 500} {:credit 0 :debit 0}]))
@@ -581,7 +603,8 @@
         pending (SUT/new-operation held
                                    :cash-account-operation-kind-suspend
                                    20500
-                                   {:actor member :idempotency-key "ik-1"})]
+                                   {:actor member :idempotency-key "ik-1"}
+                                   nil)]
     (testing "an account its provider holds waits on the provider"
       (is (SUT/pending-operation? pending))
       (is (= :cash-account-operation-kind-suspend (:kind pending)))
@@ -594,7 +617,8 @@
              (:status (SUT/new-operation (dissoc held :provider-account-id)
                                          :cash-account-operation-kind-resume
                                          20500
-                                         {:actor member})))))
+                                         {:actor member}
+                                         nil)))))
     (testing "the provider's answer settles it, by the platform"
       (is (= :cash-account-operation-status-completed
              (:status (SUT/completed-operation pending))))

@@ -11,7 +11,8 @@
      [ErrorExamples ErrorResponse]]
     [com.repldriven.queenswood.cash-account-api.interface :as cash-account-api
      :refer
-     [CashAccountEarlyClosureRefused CashAccountInvalidPayoutAccount
+     [CashAccountCloseInProgress CashAccountEarlyClosureRefused
+      CashAccountInvalidNominatedAccount
       CashAccountInvalidStatus CashAccountNonZeroBalance CashAccountNotFound
       InvalidCurrency PartyNotFound ProductNotFound ProductNotPublished]]
     [com.repldriven.queenswood.idempotency.interface :as bank-idempotency]
@@ -149,50 +150,54 @@
              :handler queries/list-operations}}]
      ["/close"
       {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
-       :post
-       {:summary "Close a cash account"
-        :openapi {:operationId "CloseCashAccount"
-                  :description
-                  (str "An opened, suspended or closing account can be "
-                       "closed. The close settles the interest accrued by the "
-                       "version's closure terms, charges an early closure's "
-                       "fee, and moves what is left to `payout-account-id`, "
-                       "another opened account of the same party and "
-                       "currency, or a payout account that is not one is "
-                       "refused with 422. A close inside an early window the "
-                       "version refuses closures in is refused with 409, and "
-                       "one leaving a balance with no payout account to move "
-                       "it to, or holding a pending amount, is refused with "
-                       "409 unless the bank's policies allow it. A payout "
-                       "the payout account's limits refuse is refused with "
-                       "429. Returns the account in the `closing` status; it "
-                       "becomes `closed` shortly after, once it holds "
-                       "nothing, and a `cash-account.closed` webhook "
-                       "notification follows. Where the payment provider "
-                       "refuses the close, the account returns to the status "
-                       "it closed from, its operation is refused with the "
-                       "provider's reason, and a `cash-account.close-refused` "
-                       "webhook notification follows.")
-                  :parameters ^:replace
-                              [shared.parameters/ref-account-id
-                               shared.parameters/ref-bank-id-header
-                               shared.parameters/ref-idempotency-key]
-                  :requestBody optional-close-request-body}
-        :parameters {:body optional-close}
-        :interceptors [server/require-idempotency-key
-                       bank-idempotency/cache-response]
-        :responses (shared.idempotency/with-responses
-                    {200 {:description "The account in the `closing` status."
-                          :body [:ref "CloseCashAccountResponse"]
-                          :openapi {:links cash-account-api/from-account}}
-                     403 (ErrorExamples [#'api-schema/PolicyDenied])
-                     404 (ErrorResponse [#'CashAccountNotFound])
-                     409 (ErrorResponse [#'CashAccountInvalidStatus
-                                         #'CashAccountNonZeroBalance
-                                         #'CashAccountEarlyClosureRefused])
-                     422 (ErrorResponse [#'CashAccountInvalidPayoutAccount])
-                     429 (ErrorResponse [#'api-schema/PolicyLimitExceeded])})
-        :handler commands/close-cash-account}}]
+       :post {:summary "Close a cash account"
+              :openapi
+              {:operationId "CloseCashAccount"
+               :description
+               (str "An opened, suspended or closing account can be "
+                    "closed. The close settles the interest accrued by the "
+                    "version's closure terms, charges an early closure's "
+                    "fee, and moves what is left to `nominated-account-id`, "
+                    "another opened account of the same party and "
+                    "currency, or a nominated account that is not one is "
+                    "refused with 422. A close inside an early window the "
+                    "version refuses closures in is refused with 409, as "
+                    "is a close while an earlier one is still being "
+                    "carried out, and one of an overdrawn account, or "
+                    "leaving a balance with no nominated account to move "
+                    "it to, or holding a pending amount, is refused with "
+                    "409 unless the bank's policies allow it. Returns the "
+                    "account in the `closing` status; it becomes `closed` "
+                    "shortly after, once its balance has moved and the "
+                    "payment provider has closed it, and a "
+                    "`cash-account.closed` webhook notification follows. "
+                    "Where the nominated account's limits refuse the "
+                    "balance, or the payment provider refuses the close, "
+                    "the account returns to the status it closed from, "
+                    "its operation is refused with the reason, and a "
+                    "`cash-account.close-refused` webhook notification "
+                    "follows.")
+               :parameters ^:replace
+                           [shared.parameters/ref-account-id
+                            shared.parameters/ref-bank-id-header
+                            shared.parameters/ref-idempotency-key]
+               :requestBody optional-close-request-body}
+              :parameters {:body optional-close}
+              :interceptors [server/require-idempotency-key
+                             bank-idempotency/cache-response]
+              :responses
+              (shared.idempotency/with-responses
+               {200 {:description "The account in the `closing` status."
+                     :body [:ref "CloseCashAccountResponse"]
+                     :openapi {:links cash-account-api/from-account}}
+                403 (ErrorExamples [#'api-schema/PolicyDenied])
+                404 (ErrorResponse [#'CashAccountNotFound])
+                409 (ErrorResponse [#'CashAccountInvalidStatus
+                                    #'CashAccountNonZeroBalance
+                                    #'CashAccountEarlyClosureRefused
+                                    #'CashAccountCloseInProgress])
+                422 (ErrorResponse [#'CashAccountInvalidNominatedAccount])})
+              :handler commands/close-cash-account}}]
      ["/suspend"
       {:openapi {:security [{"bearerAuth" ["org:developer"]}]}
        :post {:summary "Suspend a cash account"

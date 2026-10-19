@@ -60,6 +60,7 @@ admit-inbound-payment-reply: schemas/payment/admit-inbound-payment-reply.avsc.js
 internal-payment-settled: schemas/payment/internal-payment-settled.avsc.json
 simulate-inbound-payment: schemas/payment/simulate-inbound-payment.avsc.json
 simulate-inbound-payment-reply: schemas/payment/simulate-inbound-payment-reply.avsc.json
+account-closure-status-changed: schemas/payment/account-closure-status-changed.avsc.json
 
 account-reward-status-changed: schemas/reward/account-reward-status-changed.avsc.json
 

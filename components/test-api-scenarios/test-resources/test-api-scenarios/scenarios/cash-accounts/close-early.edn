@@ -4,7 +4,7 @@
  ;; its first three months refuses the close with 409 and leaves the
  ;; account opened. A version charging 500 in its first year takes the
  ;; fee from the balance against 4100 fee income, and the close moves the
- ;; rest to the payout account.
+ ;; rest to the nominated account.
  :given
  [{:fixture :bank :as :org-0 :with {:name "Early Close Bank"}}
   {:fixture :person
@@ -74,11 +74,11 @@
           :product-id [:ref :penalty :product-id]
           :name "Penalty"}}
   {:fixture :account
-   :as :payout
+   :as :nominated
    :with {:token [:ref :org-0 :token]
           :party-id [:ref :party-0 :party :party-id]
           :product-id [:ref :plain :product :product-id]
-          :name "Payout"}}
+          :name "Nominated"}}
  ]
  :when
  [{:command :api/request
@@ -93,7 +93,8 @@
              :path "/v1/cash-accounts/{account-id}/close"
              :path-params {:account-id [:ref :penalty-account :opened :account :account-id]}
              :auth [:ref :org-0 :token]
-             :body {:payout-account-id [:ref :payout :account :account-id]}}
+             :body {:nominated-account-id [:ref :nominated :account
+                                           :account-id]}}
    :assert {:status 200 :body {:status "closing"}}}
   {:command :api/poll
    :request {:method :get
@@ -113,7 +114,7 @@
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :payout :account :account-id]}
+             :path-params {:account-id [:ref :nominated :account :account-id]}
              :auth [:ref :org-0 :token]}
    :assert {:status 200 :body {:available-balance {:value 4500}}}}
   {:command :api/request

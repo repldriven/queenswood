@@ -207,12 +207,14 @@ unfrozen first. Before closing, the platform checks:
 
 The close then pays or forfeits the interest the account has
 earned, as the product says, and takes an early close's fee.
-Where the customer names a payout account — another open
+Where the customer names a nominated account — another open
 account of the same end customer, in the same currency — the
 close moves everything left there, all-or-nothing: where the
-payout account's own limits would refuse the money, the
-close is refused and nothing moves. Where it names none and
-money is left, the close is refused, and the refusal names
+nominated account's own limits would refuse the money, the
+close is refused a moment after it was accepted, nothing
+moves, the account goes back to how it was, and the
+developer is told why. Where it names none and money is
+left, the close is refused at once, and the refusal names
 the parts that are not empty so the customer knows what to
 sweep. An operator who has to close a non-empty account can
 be granted that permission explicitly; no tier carries it

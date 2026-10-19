@@ -1,0 +1,14 @@
+# Settles a closing account's interest, charges its fee and pays out its
+# balance when its close operation is recorded, reading the cash-account
+# changelog relayed on `cash-accounts-event`.
+event-processor-impl: !system/component
+  system/component-kind: payment/closure-event-processor
+  record-db: !system/ref fdb.record-db
+  record-store: !system/ref fdb.meta-store
+  schemas: !system/ref avro.serde
+
+event-consumer: !system/component
+  system/component-kind: event-processor/event-processor
+  bus: !system/ref message-bus.bus
+  processor: !system/local-ref event-processor-impl
+  event-channel: !keyword cash-accounts-event

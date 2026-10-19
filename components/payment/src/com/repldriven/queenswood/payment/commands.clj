@@ -1,6 +1,8 @@
 (ns com.repldriven.queenswood.payment.commands
   (:require
+    [com.repldriven.queenswood.payment.closure :as closure]
     [com.repldriven.queenswood.payment.core :as core]
+    [com.repldriven.queenswood.payment.domain.closure :as domain.closure]
     [com.repldriven.queenswood.payment.events.activity :as activity]
     [com.repldriven.queenswood.payment.events.inbound :as inbound]
     [com.repldriven.queenswood.payment.events.outbound :as outbound]
@@ -148,3 +150,19 @@
 (defrecord ActivityEventProcessor [config]
   processor/Processor
     (process [_ message] (activity/handle config message)))
+
+(defn- dispatch-closure
+  "Carries out a close when its operation is recorded. Every other
+  cash-account change, and every other event on the channel, is nothing
+  to a closure."
+  [config message]
+  (let [{:keys [event payload]} message]
+    (when (= "cash-account-operation-changed" event)
+      (let-nom> [data (avro/deserialize-same (get (:schemas config) event)
+                                             payload)]
+        (when (domain.closure/close-requested? data)
+          (closure/close-account config data))))))
+
+(defrecord ClosureEventProcessor [config]
+  processor/Processor
+    (process [_ message] (dispatch-closure config message)))

@@ -1,16 +1,16 @@
-{:name "A close moves the account's balance to the payout account it names"
+{:name "A close moves the account's balance to the nominated account it names"
  ;; The account holds 5000 and the close names another of the party's
  ;; accounts: the close moves the 5000 there in a closure transaction,
- ;; records the payout account on its operation, and the account closes
+ ;; records the nominated account on its operation, and the account closes
  ;; once it holds nothing.
  :given [{:fixture :bank
           :as :org-0
-          :with {:name "Close With Payout Bank"}}
+          :with {:name "Close To Nominated Bank"}}
          {:fixture :person
           :as :party-0
           :with {:token [:ref :org-0 :token]
-                 :display-name "Payout Closer"
-                 :legal-name "Payout Closer"}}
+                 :display-name "Nominated Closer"
+                 :legal-name "Nominated Closer"}}
          {:fixture :product :as :draft :with {:token [:ref :org-0 :token]}}
          {:fixture :funded-account
           :as :closing
@@ -21,11 +21,11 @@
                  :name "To Be Closed"
                  :amount 5000}}
          {:fixture :account
-          :as :payout
+          :as :nominated
           :with {:token [:ref :org-0 :token]
                  :party-id [:ref :party-0 :party :party-id]
                  :product-id [:ref :draft :product :product-id]
-                 :name "Payout"}}]
+                 :name "Nominated"}}]
  :when
  [{:command :api/request
    :request {:method :post
@@ -33,7 +33,8 @@
              :path-params {:account-id [:ref :closing :opened :account
                                         :account-id]}
              :auth [:ref :org-0 :token]
-             :body {:payout-account-id [:ref :payout :account :account-id]}}
+             :body {:nominated-account-id [:ref :nominated :account
+                                           :account-id]}}
    :assert {:status 200 :body {:status "closing"}}}
   {:command :api/poll
    :request {:method :get
@@ -46,7 +47,7 @@
  [{:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/balances"
-             :path-params {:account-id [:ref :payout :account :account-id]}
+             :path-params {:account-id [:ref :nominated :account :account-id]}
              :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:available-balance {:value 5000 :currency "GBP"}}}}
@@ -60,7 +61,7 @@
   {:command :api/request
    :request {:method :get
              :path "/v1/cash-accounts/{account-id}/transactions"
-             :path-params {:account-id [:ref :payout :account :account-id]}
+             :path-params {:account-id [:ref :nominated :account :account-id]}
              :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:items [{:transaction-type "closure"}]}}}
@@ -72,5 +73,5 @@
              :auth [:ref :org-0 :token]}
    :assert {:status 200
             :body {:items [{:kind "close"
-                            :payout-account-id [:ref :payout :account
-                                                :account-id]}]}}}]}
+                            :nominated-account-id [:ref :nominated :account
+                                                   :account-id]}]}}}]}

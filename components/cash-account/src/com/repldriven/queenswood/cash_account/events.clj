@@ -11,36 +11,28 @@
   [config]
   (select-keys config [:record-db :record-store]))
 
-(defn- handle-status-changed
-  "Close an account the provider never held as soon as it is closing and
-  holds no balance: there is nothing for the provider to close, so no
-  reply will complete it. An account the provider holds is closed by the
-  provider's reply to the command its activity sends."
+(defn- handle-closure
+  "Carries a close on once its balance has moved, or refuses it with the
+  closure's reason."
   [config data]
-  (let [{:keys [bank-id account-id status-after]} data]
-    (when (= :cash-account-status-closing status-after)
-      (core/complete-status-transition (fdb config)
-                                       bank-id
-                                       account-id
-                                       :cash-account-status-closing
-                                       (fn [txn account]
-                                         (and (nil? (:provider-account-id
-                                                     account))
-                                              (core/emptied? txn
-                                                             account)))))))
+  (case (:status-after data)
+    :account-closure-status-paid (core/closure-paid (fdb config) data)
+    :account-closure-status-refused (core/closure-refused (fdb config) data)
+    nil))
 
 (defn- dispatch
   [config message]
   (let [{:keys [event payload]} message
-        {:keys [schemas]} config
-        schema (get schemas event)]
-    (if-not schema
-      (do (log/warnf "Unknown cash-account event: %s" event) nil)
-      (let-nom> [data (avro/deserialize-same schema payload)]
-        (case event
-          "cash-account-status-changed" (handle-status-changed config data)
-          "cash-account-operation-changed" nil
-          (do (log/warnf "Unknown cash-account event: %s" event) nil))))))
+        {:keys [schemas]} config]
+    (case event
+      ("cash-account-status-changed" "cash-account-operation-changed")
+      nil
+
+      "account-closure-status-changed"
+      (let-nom> [data (avro/deserialize-same (get schemas event) payload)]
+        (handle-closure config data))
+
+      (do (log/warnf "Unknown cash-account event: %s" event) nil))))
 
 (defrecord CashAccountEventProcessor [config]
   processor/Processor

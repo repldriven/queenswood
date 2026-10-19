@@ -340,14 +340,14 @@ change.
 
 ### Closing flow
 
-`close-account` runs in one FDB transaction, in `closure.clj`:
+`close-account` runs in one FDB transaction, in `closure.clj`, and
+decides what the close is carried out by, leaving the money to the
+payment brick:
 
 1. Resolve policies for the bank and the account.
 2. Load the account. Absent, `:cash-account/not-found`
    (404).
-3. List the account's balance buckets, and load the payout
-   account the command names, if any.
-4. Apply `domain/close-account`, which asserts in turn:
+3. Apply `domain/close-account`, which asserts in turn:
    - The account is `:cash-account-status-opened`,
      `:cash-account-status-suspended` or
      `:cash-account-status-closing`. Anything else is
@@ -357,8 +357,14 @@ change.
    - **Capability check** — `:cash-account` with
      `{:action :cash-account-action-close
        :account-type <existing>}`.
-   - **The payout account qualifies**, as the next section
-     says, or `:cash-account/invalid-payout-account` (422).
+   - **No close under way.** Where the account's latest operation is a
+     close still pending, `:cash-account/close-in-progress` (409).
+4. Decide the close's terms, by `closure/terms`: list the account's
+   balance buckets, load the nominated account the command names, if
+   any, and read the version's closure terms for today. Then, by
+   `domain/check-closable`:
+   - **The nominated account qualifies**, as the next section says, or
+     `:cash-account/invalid-nominated-account` (422).
    - **Only buckets the close empties.** A bucket counts as
      non-zero when its credit and debit differ, across every
      balance status. Any non-zero bucket other than the posted
@@ -367,98 +373,122 @@ change.
      `:balances` lists the offending buckets themselves,
      each with its balance type, balance status, currency,
      credit and debit.
-5. Settle, charge and pay out, as the next section says.
-6. Persist in `:cash-account-status-closing`, co-committing
-   the changelog entry. Commit.
+   - **The balance has somewhere to go.** An overdrawn default bucket,
+     or, with no nominated account, a default balance or accrued
+     interest the term does not forfeit outright, is
+     `:cash-account/non-zero-on-close` (409), its message saying to name
+     one.
+5. Persist in `:cash-account-status-closing`, co-committing the
+   changelog entry, and record the close operation, pending, with the
+   nominated account and the terms. Commit.
 
-The changelog entry is relayed, and the event handler asks the
-payment provider to close the account behind it; the account
-closes to `:cash-account-status-closed` when the provider
-reports it closed, and at once when it has no provider account,
-in either case only once it holds nothing.
+The operation's changelog entry is relayed, and the payment brick
+carries the close out, as the next section says. The account closes to
+`:cash-account-status-closed` when the provider reports it closed, and
+at once when it has no provider account, in either case only once it
+holds nothing.
 
 **The waiver.** `:cash-account-action-close-non-zero` is a
-capability like any other, and holding it turns the
-invariant off for that account. No tier policy seeds it —
+capability like any other, and holding it turns both balance checks off
+for that account. No tier policy seeds it —
 neither the platform-restricted nor the micro-restricted
 capability set contains it — so it reaches an account only
 through a bespoke policy record bound to that bank or
 account. Sweeping the balance first is the ordinary path;
 the waiver is for the case where sweeping is not possible.
 
-### Closing with a payout account
+### Closing to a nominated account
 
 A version's closure terms say what happens to the interest accrued and
 not yet paid, and may charge a fee, which changes the balance being
-emptied, so the close itself settles it and moves what is left.
+emptied, so the close settles it and moves what is left. Cash-account
+decides the terms when it accepts the close, and the payment brick, in
+the financial processors, posts them.
 
 **A close names where the balance goes.** `POST
 /v1/cash-accounts/{account-id}/close` takes an optional body,
-`CloseCashAccountRequest`, naming `payout-account-id`: an opened
+`CloseCashAccountRequest`, naming `nominated-account-id`: an opened
 account at the bank of the same party and currency, not the account
 itself. One that does not qualify, or is not found, is refused
-`:cash-account/invalid-payout-account` (422). The `close-cash-account`
-command carries it as `payout_account_id`, and the operation records it
-as `payout_account_id` on `CashAccountOperation`, so the close's audit
-entry and the operations list carry it.
+`:cash-account/invalid-nominated-account` (422). The
+`close-cash-account` command carries it as `nominated_account_id`, and
+the operation records it as `nominated_account_id` on
+`CashAccountOperation`, so the close's audit entry and the operations
+list carry it.
 
-**The close settles, moves and closes in one transaction.** In the
-transaction that records the close operation:
+**The terms are fixed when the close is accepted.** The version's
+[closure terms](cash-account-products.md#closure-terms) name the early
+window the close falls in, if any, by `domain/closure-term`: a window
+holds until the day `count` of its `unit` after the account's
+`version_from_on`, so a close on that day falls in the next. A `refused`
+one refuses it `:cash-account/early-closure-refused` (409), its
+`:closable-from` naming the day the window ends. The operation records
+the term that applies as `closure_interest`, the window's interest term
+or the terms' own, and `closure_fee`, the window's fee, none on a
+closing account closed again. A window that ends before the money moves
+changes nothing.
 
-1. The guards run as the closing flow lists them. The version's
-   [closure terms](cash-account-products.md#closure-terms) then name the
-   early window the close falls in, if any, by `domain/closure-term`: a
-   window holds until the day `count` of its `unit` after the account's
-   `version_from_on`, so a close on that day falls in the next. A
-   `refused` one refuses it `:cash-account/early-closure-refused` (409),
-   its `:closable-from` naming the day the window ends.
-2. `interest/settle-accrued` settles the interest-accrued bucket by the
-   window's `interest`, or the terms' own where the close is not early:
-   paying it into the default bucket, forfeiting it against 5100
-   interest expense, or forfeiting a number of days' interest and
-   paying the rest, as
+**The payment brick carries it out.** `payment/closure-event-processor`
+hears the operation's `cash-account-operation-changed` entry, a close
+just recorded, and in one transaction:
+
+1. `interest/settle-accrued` settles the interest-accrued bucket by
+   `closure_interest`: paying it into the default bucket, forfeiting it
+   against 5100 interest expense, or forfeiting a number of days'
+   interest and paying the rest, as
    [interest](interest.md#a-versions-interest-terms) lays out.
-3. The window's `fee`, where it names one, is charged from the default
+2. `closure_fee`, where there is one, is charged from the default
    bucket in a `fee` transaction against 4100 fee income, never more
-   than the bucket holds, by `domain/closure-fee`: a `balance` fee is
-   its rate of the bucket, rounded down, then raised to its `min` and
-   capped at its `max`. A closing account closed again is charged none.
-4. `payment/pay-out-closure` moves the default bucket's whole posted
-   balance to the payout account in a `closure` transaction, checked as
-   an internal payment into that account is: its inbound payment limits
-   and its balance limits, the version's maximum bounding the
-   `closure` transaction type and its minimum not, so the account being
-   emptied is never held to its own. A payout that would break one
-   refuses the whole close with that limit's rejection, so nothing moves
-   and the account stays as it was. The closure is not counted against
-   either account's payment limits.
-5. The account goes to `:cash-account-status-closing` with the
-   operation, and the provider's close is asked for as today, after the
-   closure's posting on the bank's activity log (ADR-0033).
+   than the bucket holds: a `balance` fee is its rate of the bucket,
+   rounded down, then raised to its `min` and capped at its `max`.
+3. What is left moves to the nominated account in a `closure`
+   transaction, checked as an internal payment into that account is:
+   its inbound payment limits and its balance limits, the version's
+   maximum bounding the `closure` transaction type and its minimum not,
+   so the account being emptied is never held to its own. The closure is
+   not counted against either account's payment limits.
+4. It records an `AccountClosure` in the `account-closures` store,
+   under `[bank_id, closure_id]` with a unique index on `[bank_id,
+   operation_id]`: `PAID`, with the interest paid, the fee charged, the
+   amount moved and the transaction.
 
-A close naming no payout account settles the interest and charges the
-fee the same way and is refused `:cash-account/non-zero-on-close` where
-the default bucket then holds anything, its message saying to name
-one, so an empty account closes as it does today.
+A rejection anywhere, a nominated account's limit or an overdrawn
+balance (`:payment/overdrawn-on-close`), rolls those postings back and
+records the closure `REFUSED`, with the rejection's message as
+`refused_reason`. A closure already recorded for the operation is a
+redelivery, left as it is.
+
+**Cash-account hears the outcome.** The store's changelog is relayed
+on `account-closures-event` as `account-closure-status-changed`, and
+cash-account's event processor acts on it:
+
+- **Paid.** The provider is asked to close the account behind it, by
+  the operation's activity entry, recorded now so it follows the
+  closure's postings on the bank's activity log (ADR-0033). An account
+  the provider never held closes at once.
+- **Refused.** The operation is refused with the reason, and the
+  account returns to the status it was closed from, as a provider's
+  refusal returns it, with a `cash-account.close-refused` notification.
 
 **Closed only when empty.** The event transition from closing to
 closed refuses an account whose balance is not zero, whatever the
 provider says: a credit that landed after the close leaves it closing,
 the close operation refused with the reason "The account held a balance
-when its provider closed it", and the tenant closes it again. A close is
-accepted on a closing account too, naming a payout account, and runs
-steps 2 to 5 again, finding nothing more to settle or charge, so an
-account that could not be emptied is not stuck. The payout account is
-the destination the tenant names; nothing is ever sent anywhere else.
+when it was closed", and the tenant closes it again. A close is
+accepted on a closing account too, naming a nominated account, and is
+carried out again, finding nothing more to settle and charging nothing,
+so an account that could not be emptied is not stuck. The nominated
+account is the destination the tenant names; nothing is ever sent
+anywhere else.
 
 **Maturity reuses it.** A fixed-term account's maturity pays out to the
-payout account it was opened with through the same settlement and
+nominated account it was opened with through the same settlement and
 `closure` transaction, as [interest](interest.md#a-versions-interest-terms)
 describes. A closure at maturity is never early, so it pays in full and
 charges nothing.
 
-Next, the console's close dialog naming the payout account, and the
-test model taught closure terms and the payout so domain scenarios can
+Next, the console's close dialog naming the nominated account, and the
+test model taught closure terms and the closure so domain scenarios can
 compare a close.
 
 ### Operations at the provider
@@ -817,27 +847,28 @@ What follows is what the model does not reach.
   for N years → flagged → closed → escheated). None of
   that is modelled. Suspension is an operator's decision,
   not an automatic consequence of inactivity.
-- **A payout goes to an account at the bank.** A close cannot name an
-  account elsewhere, so a balance leaving the bank is the tenant's own
-  outbound payment before the close, and a savings account tied to a
-  current account outside the provider, paying only to and from it, is
-  not modelled.
-- **A payout counts towards no later limit.** A closure is checked
-  against the payout account's inbound payment limits but recorded as a
-  transaction, not a payment, so it is not counted in that account's
+- **A nominated account is an account at the bank.** A close cannot
+  name an account elsewhere, so a balance leaving the bank is the
+  tenant's own outbound payment before the close, and a savings account
+  tied to a current account outside the provider, paying only to and
+  from it, is not modelled.
+- **A closure counts towards no later limit.** A closure is checked
+  against the nominated account's inbound payment limits but recorded as
+  a transaction, not a payment, so it is not counted in that account's
   payments for the rest of the period, and the check counts the period
   by calendar day rather than the payments' business-day cut-off.
-- **Closing runs postings in the operational processors.** The close
-  settles interest, charges its fee and pays out inside the cash-account
-  processor's transaction, so `operational-processors-service` and
-  `api-service` carry the `payment` brick, and that JVM records postings
-  ADR-0036 keeps to the financial processors.
+- **A limit's refusal comes after the close is accepted.** The close
+  answers `closing`, and a nominated account's limit refuses it only
+  once the payment brick carries it out, returning the account to where
+  it closed from with the operation refused; a client learns of it from
+  the operation or the `cash-account.close-refused` notification, not
+  from the close's response.
 - **A chart or a version from before closures lacks what a close
   needs.** A bank provisioned before 4100 fee income was seeded refuses a
   close charging a fee with `:gl/missing-currency-account` until its
   chart is given one, and a version published before the `closure`
   transaction type was among its maximum balance's does not hold a
-  payout into its accounts to that maximum.
+  closure into its accounts to that maximum.
 - **Nothing flags an account long in closing.** An account that cannot
   be emptied stays closing until the tenant closes it again, and no
   status or report says it has been closing for so many days.

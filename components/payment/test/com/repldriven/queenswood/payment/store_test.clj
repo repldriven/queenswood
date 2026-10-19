@@ -475,3 +475,34 @@
                           (:dedup-key entry)
                           (str payment-id
                                ":internal-payment-change-kind-settle:")))])))))
+
+(deftest account-closure-read-back-test
+  (with-test-system
+   [sys "classpath:payment/application-test.yml"]
+   (let [config {:record-db (system/instance sys [:fdb :record-db])
+                 :record-store (system/instance sys [:fdb :store])}
+         closure {:bank-id "bnk.test"
+                  :closure-id "acl.read-back"
+                  :status :account-closure-status-paid
+                  :account-id "acc.closing"
+                  :operation-id "cao.read-back"
+                  :currency "GBP"
+                  :nominated-account-id "acc.nominated"
+                  :interest-paid 25
+                  :fee-charged 500
+                  :amount 1000
+                  :transaction-id "txn.closure"
+                  :created-at (utility/now)
+                  :created-by {:kind :actor-kind-platform
+                               :principal-id "payment"}}]
+     (testing "a closure reads back by the operation it answers"
+       (nom-test> [_ (store/save-closure config closure)
+                   found (store/find-closure config "bnk.test" "cao.read-back")
+                   _ (is (= closure found))
+                   missing (store/find-closure config "bnk.test" "cao.other")
+                   _ (is (nil? missing))]))
+     (testing "a second closure for the same operation violates"
+       (let [result (store/save-closure
+                     config
+                     (assoc closure :closure-id "acl.second"))]
+         (is (store/uniqueness-violation? result)))))))
