@@ -509,7 +509,11 @@ export function fromVersion(version) {
     interest.payment = kind;
     interest.calendar = calendar ?? "none";
   }
-  const closure = structuredClone(version["closure-terms"] ?? { interest: { kind: "pay" } });
+  // Not structuredClone: a version read from a page's $state is a proxy,
+  // which it refuses.
+  const closure = JSON.parse(
+    JSON.stringify(version["closure-terms"] ?? { interest: { kind: "pay" } }),
+  );
   closure.early ??= [];
   const reward = version["opening-reward"];
   return {

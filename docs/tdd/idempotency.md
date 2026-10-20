@@ -431,8 +431,10 @@ given.
   after a lost reply replays it, where the guard alone would refuse the
   retry and leave the secret unread.
 - `POST /v1/jobs/{job-id}/runs` — the run the first attempt started is
-  running or has succeeded in the period, and the retry is refused
-  `:scheduler/period-already-run`, a 409.
+  running in the period, or has succeeded in it where the job pays
+  interest, and the retry is refused `:scheduler/period-already-run`, a
+  409. A retry of a job of migrations alone after its run completes runs
+  again, and carries out only what has fallen due since.
 - `POST /v1/cash-account-migrations/{migration-id}/previews` — while
   the first attempt's preview runs, the retry is refused
   `:cash-account-migration/preview-running`, a 409. Once it has

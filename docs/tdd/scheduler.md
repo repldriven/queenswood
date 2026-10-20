@@ -36,13 +36,15 @@ progress route for an interest run in flight.
   `utility/today` and passes it to every task. `SchedulerRun` records
   status, per-task counts and timings, but not the date the run was
   for.
-- **A job runs once a fire.** A job's schedule is a Quartz cron in UTC,
-  and a run answers the schedule's last fire before it starts. `run-job`
-  reads the job's runs and writes the new one `running` in one
-  transaction, and refuses with `:scheduler/period-already-run`, a 409,
-  where a run answering that fire is `running` or `completed`. A
-  `failed` run leaves its fire open, so an operator may force it again.
-  A fire and a force-start meet the same check.
+- **An interest job runs once a fire.** A job's schedule is a Quartz
+  cron in UTC, and a run answers the schedule's last fire before it
+  starts. `run-job` reads the job's runs and writes the new one
+  `running` in one transaction, and refuses with
+  `:scheduler/period-already-run`, a 409, where a run answering that
+  fire is `running`, or `completed` and the job has an accrue or
+  capitalize task. A job of migrations alone runs again once its run
+  completes, and a `failed` run leaves its fire open, so an operator may
+  force either again. A fire and a force-start meet the same check.
 - **A crashed run stays running.** `run-job` writes the run `running`,
   then writes it again as each task starts and when the run ends. A
   process that dies between those writes leaves a `running` row that
