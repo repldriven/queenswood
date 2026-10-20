@@ -74,7 +74,7 @@
             :openapi {:info {:title "Modulr Simulator"
                              :description
                              "Simulates the Modulr payments API for testing"
-                             :version "0.0.9"}
+                             :version "0.0.10"}
                       :components {:examples
                                    modulr-webhook/example-registry}}
             :handler (server/standard-openapi-handler)}}]
