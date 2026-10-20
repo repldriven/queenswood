@@ -124,8 +124,21 @@
     (when (and (= :scheduler-run-status-completed status) updated-at)
       (- updated-at created-at))))
 
-(def ^:private period-holding-statuses
-  #{:scheduler-run-status-running :scheduler-run-status-completed})
+(def ^:private once-a-fire-tasks
+  "The tasks that owe one pass a fire, so a completed run holds its fire:
+  the interest passes. A migration is a work list owing nothing per
+  date, so a job of migrations alone may run again once its run
+  completes."
+  #{:scheduler-task-kind-accrue :scheduler-task-kind-capitalize})
+
+(defn- period-holding-statuses
+  "The statuses of a run that hold its fire against another run of
+  `job`: running always, and completed where one of its tasks is owed
+  once a fire."
+  [job]
+  (if (some once-a-fire-tasks (:task-kinds job))
+    #{:scheduler-run-status-running :scheduler-run-status-completed}
+    #{:scheduler-run-status-running}))
 
 (defn- same-slot?
   "True where `schedule` does not fire after `earlier` and by `later`,
@@ -137,12 +150,14 @@
 
 (defn period-refusal
   "A rejection when one of `runs` of `job` answers the same fire of its
-  schedule as a run starting at `now`, and is running or completed,
-  else nil. A failed run leaves its slot open to another."
+  schedule as a run starting at `now`, and is running, or completed
+  where a task of the job is owed once a fire, else nil. A failed run
+  leaves its slot open to another."
   [job runs now]
   (let [{:keys [job-id schedule]} job
+        holding-statuses (period-holding-statuses job)
         holding (first (filter (fn [{:keys [status created-at]}]
-                                 (and (contains? period-holding-statuses status)
+                                 (and (contains? holding-statuses status)
                                       (<= created-at now)
                                       (same-slot? schedule created-at now)))
                                runs))]

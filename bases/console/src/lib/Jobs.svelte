@@ -70,6 +70,7 @@
   // which is how the scenarios show the run they forced.
   const openFromHash = () => new URLSearchParams(location.hash.split("?")[1] ?? "").get("open");
   let busy = $state({}); // job-id → a run/edit is in flight
+  let refused = $state({}); // job-id → why its last Run now was refused
 
   // Kebab menu (one open at a time) and its anchor rect.
   let menuFor = $state(null);
@@ -183,16 +184,18 @@
   async function runNow(job) {
     if (job.running || busy[job.id]) return;
     busy[job.id] = true;
+    refused[job.id] = null;
     try {
       const res = await force_start_job(job.id);
       // Reload first — it resets `error` — then surface the outcome so the
       // message survives. A run already going or done this period is said
-      // as such, which is also what a retry after a lost answer meets. A rejected run (e.g. the daily-limit 429 on a
+      // beside the job's Run now, which is also what a retry after a lost
+      // answer meets. A rejected run (e.g. the daily-limit 429 on a
       // same-day re-accrual) still records a failed run server-side, so the
       // badge and history update too; the banner explains why.
       await load();
       if (res.body?.type === ":scheduler/period-already-run") {
-        error = `${job.name}: ${res.body.detail}`;
+        refused[job.id] = res.body.detail;
       } else if (res.status < 200 || res.status >= 300) {
         error = `${job.name} run failed — ${res.body?.detail ?? `HTTP ${res.status}`}`;
       }
@@ -373,6 +376,9 @@
                 </svg>
               </button>
             </div>
+            {#if refused[job.id]}
+              <span class="sub refused" role="status">{refused[job.id]}</span>
+            {/if}
           </Td>
         </Tr>
         {#if open[job.id]}
@@ -556,6 +562,7 @@
   }
   .sub.mono,
   .mono { font-family: var(--mono); }
+  .refused { white-space: nowrap; }
   .muted { color: var(--fg-muted); }
 
   .job-name { display: inline-flex; align-items: center; gap: 8px; }

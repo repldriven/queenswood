@@ -73,8 +73,8 @@
 (def
   ^{:doc
     "RFC 9457 body for a 409 `:scheduler/period-already-run` rejection:
-  the job has already run, or is running, in the period a run would
-  start in."}
+  the job is running in the period a run would start in, or has run in
+  it and pays interest, which is owed once a period."}
   PeriodAlreadyRun
   examples/PeriodAlreadyRun)
 

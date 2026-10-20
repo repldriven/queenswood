@@ -90,14 +90,18 @@
                          :description
                          (str "Runs the job's tasks in order, whether or not "
                               "the job is enabled, and returns the completed "
-                              "run. A job runs once for each fire of its "
-                              "schedule, the last one before now: a run for "
-                              "it that is running or has "
-                              "succeeded refuses another with 409, and a "
-                              "failed one does not. A failing task ends the "
-                              "run as failed, skips the tasks after it and is "
-                              "returned as the error, and the failed run "
-                              "stays readable among the job's runs.")
+                              "run. A run answers the last fire of the job's "
+                              "schedule before now, and is refused with 409 "
+                              "while a run for that fire is running. A job "
+                              "that pays interest runs once a fire, so a run "
+                              "for it that has succeeded refuses another with "
+                              "409 too; a job that only migrates accounts "
+                              "carries out whatever is due each time it runs. "
+                              "A failed run refuses nothing. A failing task "
+                              "ends the run as failed, skips the tasks after "
+                              "it and is returned as the error, and the "
+                              "failed run stays readable among the job's "
+                              "runs.")
                          :security [{"bearerAuth" ["org:developer"]}]
                          :parameters ^:replace
                                      [shared.parameters/ref-job-id

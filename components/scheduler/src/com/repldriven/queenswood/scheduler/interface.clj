@@ -49,9 +49,11 @@
 (defn force-start
   "Run `job-id` now (trigger source forced), as the run for the last
   fire of its schedule. Returns the final run map or an anomaly. A run
-  of the job that is running or completed for that fire refuses it with
-  `:scheduler/period-already-run`; a failed one does not, so a failed
-  run may be forced again. The run records the `actor` that forced it.
+  of the job that is running for that fire refuses it with
+  `:scheduler/period-already-run`, and so does a completed one where the
+  job pays interest, which is owed once a fire; a job of migrations
+  alone may run again, and a failed run of any job may be forced again.
+  The run records the `actor` that forced it.
 
   Args:
   - config: FDB+interfaces map.

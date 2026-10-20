@@ -165,8 +165,8 @@
 (defn run-job
   "Execute `job`'s tasks sequentially, recording a `SchedulerRun` that
   lists each task as it starts and as it ends. Refuses with
-  `:scheduler/period-already-run` when the job has run, or is running,
-  in the period it starts in; otherwise opens the run as running and
+  `:scheduler/period-already-run` when `domain/period-refusal` finds a
+  run holding the period it starts in; otherwise opens the run as running and
   finishes it completed or — on the first task anomaly — failed, the
   remaining tasks skipped. `as-of-date` is today (epoch-day); the
   underlying interest tasks are idempotent and guarded by the
@@ -235,7 +235,7 @@
 
 (defn force-start
   "Run `job-id` now with trigger source forced, in the period now falls
-  in, which a run that is running or completed there refuses. The run
+  in, unless `domain/period-refusal` refuses it. The run
   records the `actor` that forced it, and the bank's audit log the
   request `opts` names."
   ([config bank-id job-id actor]

@@ -152,7 +152,10 @@
     (is (= [] (SUT/skipped-tasks [])))))
 
 (deftest period-refusal-test
-  (let [job {:job-id "daily-interest" :schedule "0 0 0 * * ?"}
+  (let [job {:job-id "daily-interest"
+             :schedule "0 0 0 * * ?"
+             :task-kinds [:scheduler-task-kind-accrue
+                          :scheduler-task-kind-capitalize]}
         hour (* 60 60 1000)
         run (fn [status created-at]
               {:run-id "run.1" :status status :created-at created-at})]
@@ -183,4 +186,20 @@
       (is (nil? (SUT/period-refusal (assoc job :schedule "0 0 0,12 * * ?")
                                     [(run :scheduler-run-status-completed
                                           (- noon-on-the-fifth (* 2 hour)))]
-                                    noon-on-the-fifth))))))
+                                    noon-on-the-fifth))))
+    (let [migrations (assoc job
+                            :job-id "account-migration"
+                            :task-kinds
+                            [:scheduler-task-kind-account-migration])]
+      (testing "a job of migrations alone runs again once its run completes"
+        (is (nil? (SUT/period-refusal migrations
+                                      [(run :scheduler-run-status-completed
+                                            (- noon-on-the-fifth hour))]
+                                      noon-on-the-fifth))))
+      (testing "a job of migrations alone is refused while its run is running"
+        (is (= :scheduler/period-already-run
+               (error/kind (SUT/period-refusal migrations
+                                               [(run
+                                                 :scheduler-run-status-running
+                                                 noon-on-the-fifth)]
+                                               noon-on-the-fifth))))))))
