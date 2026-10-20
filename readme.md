@@ -439,7 +439,7 @@ sets it up.
   the chart.
 
 <p align="center">
-  <img src="docs/assets/telemetry-trace.png" width="720" alt="One trace in SigNoz: creating a bank, from POST /v1/banks through its commands, events and a call to Modulr">
+  <img src="docs/assets/telemetry-commands.png" width="720" alt="The commands dashboard in SigNoz under a mixed payments load: commands processed a second, the count of each command, and round-trip and processing p95 by command">
 </p>
 
 - **Health checks.** Every service answers liveness and readiness under
