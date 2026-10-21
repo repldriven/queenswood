@@ -31,6 +31,7 @@ jobs:
       js: ${{ steps.decide.outputs.js }}
       design_system: ${{ steps.decide.outputs.design_system }}
       helm: ${{ steps.decide.outputs.helm }}
+      openapi: ${{ steps.decide.outputs.openapi }}
 
     steps:
       - name: Checkout code
@@ -300,6 +301,106 @@ jobs:
   # the demo apps. These packages carry no test suite; the build is what
   # catches a component missing from ui's index.js, or a template that
   # does not parse.
+  # The same export and ruleset as `just openapi-lint`, and as the release
+  # workflow's gate, so an invalid document fails the pull request rather
+  # than the release.
+  openapi-lint:
+    needs: changes
+    if: needs.changes.outputs.openapi == 'true'
+    runs-on: ubuntu-26.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Read pinned toolchain versions
+        id: versions
+        run: |
+          {
+            echo "fdb=$(jq -r '.foundationdb.version' versions.json)"
+            echo "protoc=$(jq -r '.protoc.version' versions.json)"
+            echo "protoc_gen_clojure=$(jq -r '."protoc-gen-clojure".version' versions.json)"
+            echo "spectral=$(jq -r '.spectral.version' versions.json)"
+            echo "spectral_sha256=$(jq -r '.spectral.sha256."linux-x64"' versions.json)"
+            echo "image=${ImageOS}-${ImageVersion}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: "temurin"
+          java-version: "25"
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@13.7.0
+        with:
+          cli: latest
+
+      - name: Setup Protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ steps.versions.outputs.protoc }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Restore only: the test job's save carries lcov, which this job
+      # never downloads.
+      - name: Restore CI packages
+        id: ci-packages
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/ci-packages
+          key: ci-packages-${{ steps.versions.outputs.image }}-fdb-${{ steps.versions.outputs.fdb }}-pgc-${{ steps.versions.outputs.protoc_gen_clojure }}-lcov
+
+      - name: Download CI packages
+        if: steps.ci-packages.outputs.cache-hit != 'true'
+        env:
+          FDB: ${{ steps.versions.outputs.fdb }}
+          PGC: ${{ steps.versions.outputs.protoc_gen_clojure }}
+        run: |
+          mkdir -p ~/ci-packages/fdb
+          curl -fsSL --retry 10 --retry-delay 5 --retry-all-errors \
+            -o ~/ci-packages/protoc-gen-clojure \
+            "https://github.com/protojure/protoc-plugin/releases/download/v${PGC}/protoc-gen-clojure"
+          curl -fsSL --retry 10 --retry-delay 5 --retry-all-errors \
+            -o ~/ci-packages/fdb/foundationdb-clients.deb \
+            "https://github.com/apple/foundationdb/releases/download/${FDB}/foundationdb-clients_${FDB}-1_amd64.deb"
+
+      - name: Install CI packages
+        run: |
+          sudo install -m 0755 ~/ci-packages/protoc-gen-clojure \
+            /usr/local/bin/protoc-gen-clojure
+          sudo dpkg -i ~/ci-packages/fdb/foundationdb-clients.deb
+
+      - name: Install Spectral
+        env:
+          VERSION: ${{ steps.versions.outputs.spectral }}
+          SHA256: ${{ steps.versions.outputs.spectral_sha256 }}
+        run: |
+          curl -fsSL --retry 10 --retry-delay 5 --retry-all-errors \
+            "https://github.com/stoplightio/spectral/releases/download/v${VERSION}/spectral-linux-x64" -o spectral
+          actual="sha256-$(openssl dgst -sha256 -binary spectral | base64)"
+          if [[ "$actual" != "$SHA256" ]]; then
+            echo "::error::spectral-linux-x64 is $actual; versions.json pins $SHA256"
+            exit 1
+          fi
+          sudo install -m 755 spectral /usr/local/bin/spectral
+
+      - name: Cache dependencies
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-clojure-
+
+      - name: Export and lint the OpenAPI document
+        run: |
+          clojure -X:deps prep :aliases '[:dev]'
+          clojure -Sdeps '{:aliases {:dev {:main-opts []}}}' -M:dev -m com.repldriven.queenswood.api.export-spec "$RUNNER_TEMP/openapi.yaml"
+          spectral lint --ruleset .config/spectral/spectral.yaml "$RUNNER_TEMP/openapi.yaml"
+
   js:
     needs: changes
     if: needs.changes.outputs.js == 'true'
@@ -424,7 +525,7 @@ jobs:
   # passes; only failure and cancellation block.
   tests:
     if: always()
-    needs: [versions, test, js, helm]
+    needs: [versions, test, openapi-lint, js, helm]
     runs-on: ubuntu-26.04
     steps:
       - name: Check results
@@ -432,6 +533,7 @@ jobs:
           RESULTS: >-
             versions=${{ needs.versions.result }}
             test=${{ needs.test.result }}
+            openapi-lint=${{ needs.openapi-lint.result }}
             js=${{ needs.js.result }}
             helm=${{ needs.helm.result }}
         run: |
@@ -457,10 +559,10 @@ jobs:
   # carries forward and the anchor stays near the tip.
   #
   # `needs: [tests]` alone is not enough to reach this job. A skip
-  # propagates transitively: when `discover`, `test`, `js` or `helm` is
-  # skipped because nothing in its tree changed, everything downstream is
-  # skipped too, and `tests` surviving on `always()` does not stop it
-  # crossing. The job then never evaluates its own condition -- which is
+  # propagates transitively: when `discover`, `test`, `openapi-lint`, `js`
+  # or `helm` is skipped because nothing in its tree changed, everything
+  # downstream is skipped too, and `tests` surviving on `always()` does
+  # not stop it crossing. The job then never evaluates its own condition -- which is
   # why it has run once, on the only push where every job happened to
   # execute, and skipped on every green push since.
   #

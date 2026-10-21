@@ -100,6 +100,9 @@ fi
 # paths, and scripts/ holds the hooks and check-versions.sh.
 bucket clojure "$WORKSPACE|^(development/|scripts/)|^\.github/workflows/test\.yml$" "$clojure_files"
 
+# Exports the OpenAPI document and lints it against the spectral ruleset.
+bucket openapi "$WORKSPACE|^\.config/spectral/|^\.github/workflows/test\.yml$" "$clojure_files"
+
 # Builds the console bundle, the ui showcase, the design system and the
 # demo apps.
 bucket js "$CONSOLE_TREES|$DEMO_TREES|$DESIGN_SYSTEM_TREES|$BUNDLED_DOCS|$MONO_IMPORT|^infra/docker/console/|^\.github/workflows/test\.yml$"
