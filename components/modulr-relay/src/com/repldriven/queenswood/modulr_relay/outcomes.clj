@@ -18,14 +18,28 @@
    :else
    nil))
 
-(def ^:private reason-codes
-  "ISO 20022 status reasons for the provider's own codes, `NARR` for any
+(def ^:private return-reasons
+  "ISO 20022 return reasons for Modulr's return reasons, `NARR` for any
   with no equivalent."
-  {"BENACCCLOSED" "AC04" "BENSCANUNKNOWN" "AC01" "DUPLICATE" "AM05"})
+  {"ACCADDRESSINVALID" "BE04"
+   "ACCNOCURRENCY" "AM03"
+   "BENACCCLOSED" "AC04"
+   "BENACCNAMEBENACCNR" "BE01"
+   "BENACCSTOPPED" "AC06"
+   "BENDECEASED" "MD07"
+   "BENREQ" "MS02"
+   "BENSCANUNKNOWN" "AC01"
+   "DUPLICATE" "AM05"
+   "OTHER" "MS03"
+   "RECALL" "FOCR"
+   "REGULATION" "RR04"
+   "SENDERREQ" "FOCR"
+   "SENSITIVITIES" "MS03"
+   "TANDC" "AG01"})
 
-(defn reason-code
+(defn return-reason-code
   [code]
-  (get reason-codes code "NARR"))
+  (get return-reasons code "NARR"))
 
 (defn payment
   "The scheme event a payment's final `status` reports, keyed on the
@@ -49,9 +63,9 @@
      :data {:end-to-end-id end-to-end-id
             :scheme "fps"
             :debit-credit-code :debit-credit-code-debit
-            :cancellation-code (reason-code status)
+            :cancellation-code "NARR"
             :failure-kind :failure-kind-declined
-            :reason-code (reason-code status)
+            :reason-code "NARR"
             :cancellation-reason status
             :is-return false
             :timestamp-rejected at}}

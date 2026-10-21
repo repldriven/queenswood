@@ -171,19 +171,33 @@
                              :CancellationReason "Account closed"})]
       (is (= :failure-kind-declined (:failure-kind data)))
       (is (= "AC04" (:reason-code data)))
-      (is (= "Account closed" (:cancellation-reason data)))))
-  (testing "a code of ClearBank's own becomes NARR"
+      (is (= "AC04: Account closed" (:cancellation-reason data)))))
+  (testing "a code of ClearBank's own maps to its ISO 20022 equivalent"
+    (let [[{:keys [data]}] (SUT/outbound-payment-rejected
+                            {:EndToEndTransactionId "pmt.10"
+                             :CancellationCode "CB_FailedModulusCheck"})]
+      (is (= "AC03" (:reason-code data)))
+      (is (= "CB_FailedModulusCheck" (:cancellation-reason data)))))
+  (testing "a code with no ISO 20022 equivalent becomes NARR"
     (let [[{:keys [data]}] (SUT/outbound-payment-rejected
                             {:EndToEndTransactionId "pmt.8"
                              :CancellationCode "HOPRJ"})]
       (is (= "NARR" (:reason-code data)))
       (is (= "NARR" (:cancellation-code data)))))
-  (testing "an assessment failure is a decline coded NARR"
+  (testing "an assessment failure is a decline coded by its first known reason"
     (let [[{:keys [data]}] (SUT/outbound-payment-assessment-failed
                             {:MessageId "msg-3"
-                             :AssessmentFailure [{:EndToEndId "pmt.9"
+                             :AssessmentFailure
+                             [{:EndToEndId "pmt.9"
+                               :Reasons ["Bad sort code"
+                                         "InsufficientFunds: balance 0"]}]})]
+      (is (= :failure-kind-declined (:failure-kind data)))
+      (is (= "AM04" (:reason-code data)))
+      (is (= "fps" (:scheme data)))))
+  (testing "and NARR where no reason is known"
+    (let [[{:keys [data]}] (SUT/outbound-payment-assessment-failed
+                            {:MessageId "msg-4"
+                             :AssessmentFailure [{:EndToEndId "pmt.11"
                                                   :Reasons
                                                   ["Bad sort code"]}]})]
-      (is (= :failure-kind-declined (:failure-kind data)))
-      (is (= "NARR" (:reason-code data)))
-      (is (= "fps" (:scheme data))))))
+      (is (= "NARR" (:reason-code data))))))

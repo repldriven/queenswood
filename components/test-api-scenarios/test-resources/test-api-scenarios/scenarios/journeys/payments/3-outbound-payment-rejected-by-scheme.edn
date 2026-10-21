@@ -1,7 +1,8 @@
 {:name "A payment the scheme rejects fails, and its amount comes back"
  :runs-on {:payment :every}
  ;; A creditor sort code of 000000 is one every payment simulator
- ;; declines before settlement.
+ ;; declines before settlement. The reason code is the one the provider's
+ ;; reason maps to, so it differs from provider to provider.
  :given
  [{:fixture :bank :as :bank-0 :with {:name "Rejected Payment Journey"}}
   {:fixture :product :as :current :with {:token [:ref :bank-0 :token]}}
@@ -34,8 +35,7 @@
                    :path-params {:payment-id [:ref :payment :payment-id]}
                    :auth [:ref :bank-0 :token]}
          :until {:status 200
-                 :body {:status "failed"
-                        :failed-kind "declined" :failed-reason-code "NARR"}}}
+                 :body {:status "failed" :failed-kind "declined"}}}
         {:command :api/poll
          :request {:method :get
                    :path "/v1/cash-accounts/{account-id}/balances"

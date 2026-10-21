@@ -224,21 +224,23 @@ Every value that crosses from the adapter is the platform's:
   `scheme` as the `PaymentScheme` value, `fps`, which
   `OutboundPayment.scheme` stores.
 - **Failure.** `provider-payment-rejected` carries `failure_kind`, an enum of
-  `declined` (the scheme or the provider's assessment declined it),
-  `refused` (the provider refused the submission) and `undelivered`
-  (the runner gave up), and `reason_code`, an ISO 20022
-  `ExternalStatusReason1Code` the adapter maps from the provider's
-  own, beside the provider's reason as `cancellation_reason`. A
-  refusal or an undelivered payment, and a provider reason with no
-  ISO 20022 equivalent, carry `NARR`. `OutboundPayment` stores them
-  as `failed_kind`, `failed_reason_code` and `failed_reason`, and the
-  API returns `failed-kind`, `failed-reason-code` and `failed-reason`
-  on a failed payment.
-- **Return.** `provider-payment-returned` carries `reason_code`, an ISO
-  20022 `ExternalReturnReason1Code` mapped the same way, beside the
-  provider's reason. A return has no kind: `OutboundPayment` stores
-  `returned_reason_code` and `returned_reason`, which the API returns
-  as `returned-reason-code` and `returned-reason`.
+  `declined` (the scheme or the provider's assessment declined it), `refused`
+  (the provider refused the submission) and `undelivered` (the runner gave up),
+  and `reason_code`, an ISO 20022 `ExternalStatusReason1Code` the adapter maps
+  from the provider's own, beside the provider's reason as
+  `cancellation_reason`: its code and its words where it gives both, such as
+  `1160: Beneficiary account closed`, so two codes mapped to one keep apart. A
+  refusal or an undelivered payment, and a provider reason with no ISO 20022
+  equivalent, carry `NARR`. `OutboundPayment` stores them as `failed_kind`,
+  `failed_reason_code` and `failed_reason`, and the API returns `failed-kind`,
+  `failed-reason-code` and `failed-reason` on a failed payment.
+- **Return.** `provider-payment-returned` carries `reason_code`, an ISO 20022
+  `ExternalReturnReason1Code` mapped the same way, beside the provider's return
+  code as `reason`. A return has no kind: `OutboundPayment` stores
+  `returned_reason_code` and `returned_reason`, which the API returns as
+  `returned-reason-code` and `returned-reason`. An inbound the platform returns
+  goes to the provider with the provider's own return code for the ISO 20022
+  code it was parked with, its code for other where it has none.
 - **Deprecation.** `cancellation_code` is an optional Avro field with
   a null default, and the proto field keeps its tag and is dropped in
   the record conversion, per
@@ -635,6 +637,17 @@ Each flow TDD lists the tests of its own paths.
   account, and is unavailable until the provider has opened it.
 - **No provider's sandbox has been run.** Every flow is proved against
   the simulators alone.
+- **Some failures carry no code to map.** A Modulr decline reports only
+  its status, and a clearing-bank refusal of a submission reaches the
+  relay as words, so both read as `NARR`; so does a Modulr return whose
+  reason is words rather than one of its codes.
+- **Form3's failed admission is undocumented.** Form3 does not document
+  the output a failed Faster Payments admission takes, so the adapter
+  sends the reason as one of Form3's Faster Payments admission reasons
+  in `status_reason`, mapped from the platform's ISO 20022 code.
+- **A Modulr payment it will retry fails.** Modulr documents
+  `ER_EXTCONN` as a status it retries itself, but the relay reads it as
+  final.
 - **Redeliveries from the bus have no delay.**
 - **No FX.**
 

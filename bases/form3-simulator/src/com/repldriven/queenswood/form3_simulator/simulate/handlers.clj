@@ -64,6 +64,17 @@
               :admission-status (:admission-status res)
               :status-reason (:status-reason res)}})))
 
+(def ^:private return-codes
+  "The Faster Payments return code for each ISO 20022 code a scenario may
+  ask for, `00000014`, other, for the rest."
+  {"AC01" "00000001"
+   "AC04" "00000002"
+   "AC06" "00000003"
+   "MD07" "00000004"
+   "BE01" "00000006"
+   "AM03" "00000008"
+   "AG01" "00000010"})
+
 (defn outbound-return
   [request]
   (let [{:keys [state parameters]} request
@@ -71,7 +82,9 @@
         res (scheme/return-outbound state
                                     (responses/config request)
                                     end-to-end-id
-                                    (or reason-code "AC04"))]
+                                    (get return-codes
+                                         (or reason-code "AC04")
+                                         "00000014"))]
     (cond
      (nil? res)
      {:status 404

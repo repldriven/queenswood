@@ -434,7 +434,7 @@
               return-id (get-in relationships [:return :data 0 :id])]
           (is (= "return_admissions" (:record_type d)))
           (is (= id (get-in relationships [:payment :data 0 :id])))
-          (is (= {:amount "12.50" :return_code "AC01"}
+          (is (= {:amount "12.50" :return_code "00000001"}
                  (select-keys (get-in (edn (call :get
                                                  (str
                                                   "/v1/transaction/payments/" id

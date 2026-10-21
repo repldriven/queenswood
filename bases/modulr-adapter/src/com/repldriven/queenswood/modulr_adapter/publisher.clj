@@ -112,7 +112,7 @@
                   :scheme-transaction-id PaymentId
                   :amount amount
                   :currency Currency
-                  :reason-code (relay/reason-code ReturnReason)
+                  :reason-code (relay/return-reason-code ReturnReason)
                   :timestamp-returned (epoch-millis (or PaymentAppliedTime
                                                         DateTime))}
                  :reason

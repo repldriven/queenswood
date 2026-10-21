@@ -64,6 +64,14 @@
     (is (= "pmt-01K6A3Z9X0" (SUT/->reference "pmt.01K6A3Z9X0")))
     (is (= "pmt.01K6A3Z9X0" (SUT/reference->id "pmt-01K6A3Z9X0")))))
 
+(deftest return-reason-codes-test
+  (is (= "AC04" (SUT/return-reason-code "BENACCCLOSED")))
+  (is (= "AC06" (SUT/return-reason-code "BENACCSTOPPED")))
+  (is (= "MD07" (SUT/return-reason-code "BENDECEASED")))
+  (is (= "FOCR" (SUT/return-reason-code "RECALL")))
+  (is (= "NARR" (SUT/return-reason-code "ACCNOREFINFO")))
+  (is (= "NARR" (SUT/return-reason-code "Account blocked"))))
+
 (deftest outcomes-test
   (testing "a processed payment settles, keyed on the payment id"
     (is (= {:event-name "provider-payment-settled" :dedup-key "P1:settled"}

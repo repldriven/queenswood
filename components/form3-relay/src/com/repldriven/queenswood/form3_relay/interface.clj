@@ -100,13 +100,33 @@
   (form3/->major-units minor-units))
 
 (defn reason-code
-  "The ISO 20022 reason code for one of Form3's status reasons, `NARR`
-  for any with no equivalent.
+  "The ISO 20022 status reason for the Faster Payments reject code Form3
+  reports on a failed submission, `NARR` for one with no equivalent.
 
   Args:
-  - reason: Form3's reason, such as `account_closed`."
-  [reason]
-  (outcomes/reason-code reason))
+  - scheme-status-code: the submission's `scheme_status_code`, such as
+    `1160`."
+  [scheme-status-code]
+  (outcomes/reason-code scheme-status-code))
+
+(defn return-reason-code
+  "The ISO 20022 return reason for the Faster Payments return code Form3
+  carries on a return, `NARR` for one with no equivalent.
+
+  Args:
+  - return-code: the return's `return_code`, such as `00000002`."
+  [return-code]
+  (outcomes/return-reason-code return-code))
+
+(defn return-code
+  "The Faster Payments return code Form3 takes for the ISO 20022 code the
+  platform parked an inbound with, `00000014`, other, for one it has no
+  equivalent for.
+
+  Args:
+  - code: the platform's reason code, such as `AC04`."
+  [code]
+  (outcomes/return-code code))
 
 (defn admission-reason
   "Form3's admission reason for the ISO 20022 code the platform refused
@@ -125,7 +145,7 @@
 
   Args:
   - payment: `{:provider-payment-id :end-to-end-id :amount :currency
-    :status :status-reason :at}`, the amount in minor units and `:at`
-    epoch millis."
+    :status :status-reason :scheme-status-code :scheme-status-description
+    :at}`, the amount in minor units and `:at` epoch millis."
   [payment]
   (outcomes/payment payment))

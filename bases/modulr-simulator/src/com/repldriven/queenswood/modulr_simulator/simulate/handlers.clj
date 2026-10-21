@@ -95,7 +95,14 @@
 
 (def ^:private return-reasons
   "Modulr's return reason for each ISO 20022 code a scenario may ask for."
-  {"AC04" "BENACCCLOSED" "AC01" "BENSCANUNKNOWN" "AM05" "DUPLICATE"})
+  {"AC01" "BENSCANUNKNOWN"
+   "AC04" "BENACCCLOSED"
+   "AC06" "BENACCSTOPPED"
+   "AG01" "TANDC"
+   "AM03" "ACCNOCURRENCY"
+   "AM05" "DUPLICATE"
+   "BE01" "BENACCNAMEBENACCNR"
+   "MD07" "BENDECEASED"})
 
 (defn- reference
   "An end-to-end id as the adapter wrote it into a payment's external

@@ -74,7 +74,9 @@
   [config now intent]
   (let [{:keys [intent-id idempotency-key provider-payment-id]} intent
         {:keys! [amount currency submission-id]} (shared/context intent)
-        [outcome {:keys [status status_reason]}]
+        [outcome
+         {:keys [status status_reason scheme_status_code
+                 scheme_status_code_description]}]
         (lookup config provider-payment-id submission-id)
         descriptor (outcomes/payment {:provider-payment-id provider-payment-id
                                       :end-to-end-id idempotency-key
@@ -82,6 +84,9 @@
                                       :currency currency
                                       :status status
                                       :status-reason status_reason
+                                      :scheme-status-code scheme_status_code
+                                      :scheme-status-description
+                                      scheme_status_code_description
                                       :at now})]
     (assoc (if descriptor
              (do (log/info "Reconciled a Form3 payment"

@@ -63,7 +63,8 @@
      :provider-payment-id scheme-transaction-id
      :request (json/write-str {:amount (relay/->major-units amount)
                                :currency currency
-                               :return_code reason-code})
+                               :return_code (relay/return-code
+                                             reason-code)})
      :context (transit/write-str {:return-id (str (utility/uuidv7))
                                   :submission-id (str (utility/uuidv7))
                                   :end-to-end-id end-to-end-id

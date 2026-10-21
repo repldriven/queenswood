@@ -74,7 +74,7 @@
                     :debtor-name "Refused Sender"}}
    :assert {:status 202
             :body {:admission-status "failed"
-                   :status-reason "blocked_account"}}}]
+                   :status-reason "account_closed_stopped"}}}]
  :then [{:command :api/request
          :request {:method :get
                    :path "/v1/cash-accounts/{account-id}/balances"
