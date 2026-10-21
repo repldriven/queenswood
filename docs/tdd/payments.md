@@ -228,9 +228,17 @@ Every value that crosses from the adapter is the platform's:
   `refused` (the provider refused the submission) and `undelivered`
   (the runner gave up), and `reason_code`, an ISO 20022
   `ExternalStatusReason1Code` the adapter maps from the provider's
-  own, `NARR` where it has none, beside the free-text reason.
-  `OutboundPayment` stores the same two fields, and the API answers
-  `failure: {kind, reason-code, reason}` on a failed payment.
+  own, beside the provider's reason as `cancellation_reason`. A
+  refusal or an undelivered payment, and a provider reason with no
+  ISO 20022 equivalent, carry `NARR`. `OutboundPayment` stores them
+  as `failed_kind`, `failed_reason_code` and `failed_reason`, and the
+  API returns `failed-kind`, `failed-reason-code` and `failed-reason`
+  on a failed payment.
+- **Return.** `provider-payment-returned` carries `reason_code`, an ISO
+  20022 `ExternalReturnReason1Code` mapped the same way, beside the
+  provider's reason. A return has no kind: `OutboundPayment` stores
+  `returned_reason_code` and `returned_reason`, which the API returns
+  as `returned-reason-code` and `returned-reason`.
 - **Deprecation.** `cancellation_code` is an optional Avro field with
   a null default, and the proto field keeps its tag and is dropped in
   the record conversion, per
@@ -590,9 +598,10 @@ Each flow TDD lists the tests of its own paths.
 - **One pooled provider account per bank.** Rejected: a provider
   holding a balance per account offers no address that routes to a
   shared one.
-- **Keeping the provider's codes on the payment.** Rejected: they are
-  the API's public contract, and ISO 20022 already names every reason
-  a payment scheme gives.
+- **The provider's codes in place of ISO 20022 ones.** Rejected: the
+  code is the API's public contract, and ISO 20022 already names every
+  reason a payment scheme gives; the provider's own reason is kept
+  beside it as text the API does not enumerate.
 - **A contract for each kind of provider.** Rejected: the kinds differ
   in a few declared facts, and a second contract would double what
   `payment` knows about providers.

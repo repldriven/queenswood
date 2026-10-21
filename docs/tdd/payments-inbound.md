@@ -332,11 +332,11 @@ sequenceDiagram
 
 An inbound the receiving account cannot take, because it is not opened
 or a policy refuses it, is kept in the bank's 2500 suspense rather than
-lost, recording the ISO 20022 reason as `suspense-reason-code`. 2500's
+lost, recording the ISO 20022 reason as `suspended_reason_code`. 2500's
 balance is the sum of its legs, per
-[ADR-0048](../adr/0048-suspenses-balance-is-the-sum-of-its-legs.md),
-so the posting writes no balance row. Both activity
-entries reach `payment/activity-event-processor` as
+[ADR-0048](../adr/0048-suspenses-balance-is-the-sum-of-its-legs.md), so
+the posting writes no balance row. Both activity entries reach
+`payment/activity-event-processor` as
 [payments-internal.md](payments-internal.md) draws. Under
 `balances: per-account` the `transaction-posted` entry moves the money
 from the receiving account's provider account to the bank's own funds,
