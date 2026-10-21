@@ -96,6 +96,7 @@
    :interest-rate-bps 0
    :closure-terms {:interest {:kind "pay"}}
    :opening-reward OpeningReward
+   :min-balance 0
    :effective-from "2025-01-01"
    :created-at "2025-01-01T00:00:00Z"
    :created-by schema/actor-example
