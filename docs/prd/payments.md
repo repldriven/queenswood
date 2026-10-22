@@ -474,9 +474,6 @@ beneficiary's bank gave.
   kind and reason code, but the platform does not say
   whether sending again could succeed. It is assumed the
   customer decides from the reason code.
-- **Two providers in one installation.** An installation
-  uses one payment provider. It is assumed a bank wanting
-  another provider is served by another installation.
 - **Payment cancellation / recall.** Once an outbound
   payment is submitted, the customer can't recall it. UK
   FPS does have an indemnity-claim recall flow; the
