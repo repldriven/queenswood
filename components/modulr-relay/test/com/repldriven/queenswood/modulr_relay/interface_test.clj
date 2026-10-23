@@ -93,6 +93,7 @@
       (is (= "NARR" (:reason-code data)))))
   (testing "a status that is not final reports nothing"
     (is (nil? (SUT/payment-outcome {:status "PENDING_FOR_FUNDS"})))
+    (is (nil? (SUT/payment-outcome {:status "ER_EXTCONN"})))
     (is (nil? (SUT/transfer-outcome {:status "SUBMITTED"}))))
   (testing "a transfer completes or fails"
     (is (= "transfer-completed"

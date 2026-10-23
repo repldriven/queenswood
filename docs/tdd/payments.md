@@ -645,9 +645,6 @@ Each flow TDD lists the tests of its own paths.
   the output a failed Faster Payments admission takes, so the adapter
   sends the reason as one of Form3's Faster Payments admission reasons
   in `status_reason`, mapped from the platform's ISO 20022 code.
-- **A Modulr payment it will retry fails.** Modulr documents
-  `ER_EXTCONN` as a status it retries itself, but the relay reads it as
-  final.
 - **Redeliveries from the bus have no delay.**
 - **No FX.**
 

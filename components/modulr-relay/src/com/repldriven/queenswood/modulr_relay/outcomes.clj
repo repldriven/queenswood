@@ -3,8 +3,8 @@
 (def ^:private succeeded #{"PROCESSED" "RECONCILED"})
 
 (def ^:private failed
-  #{"CANCELLED" "ER_INVALID" "ER_EXTCONN" "ER_EXTSYS" "ER_EXPIRED" "ER_GENERAL"
-    "ER_BATCH" "VOID"})
+  #{"CANCELLED" "ER_INVALID" "ER_EXTSYS" "ER_EXPIRED" "ER_GENERAL" "ER_BATCH"
+    "VOID"})
 
 (defn outcome
   [status]
