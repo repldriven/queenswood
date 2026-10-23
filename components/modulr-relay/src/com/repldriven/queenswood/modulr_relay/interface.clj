@@ -112,14 +112,14 @@
   [minor-units]
   (modulr/->major-units minor-units))
 
-(defn reason-code
-  "The ISO 20022 reason code for one of Modulr's return reasons or error
-  codes, `NARR` for any with no equivalent.
+(defn return-reason-code
+  "The ISO 20022 return reason for one of Modulr's return reasons, `NARR`
+  for any with no equivalent.
 
   Args:
-  - code: Modulr's code, such as `BENACCCLOSED`."
+  - code: Modulr's return reason, such as `BENACCCLOSED`."
   [code]
-  (outcomes/reason-code code))
+  (outcomes/return-reason-code code))
 
 (defn payment-outcome
   "The scheme event descriptor, `{:event-name :dedup-key :data}`, a

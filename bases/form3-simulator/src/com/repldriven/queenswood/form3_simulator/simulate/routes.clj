@@ -31,7 +31,8 @@ admits it, until this confirms the admission."
       {:summary "Return a delivered payment to the bank that sent it"
        :description
        "As the beneficiary's bank does when it cannot apply a payment,
-with the reason given as an ISO 20022 code, AC04 where none is."
+with the reason given as an ISO 20022 code, AC04 where none is, and
+returned with its Faster Payments return code."
        :openapi {:operationId "SimulateOutboundReturn"}
        :parameters {:body [:ref "OutboundReturnRequest"]}
        :responses {202 {:body [:map [:payment-id string?]]}

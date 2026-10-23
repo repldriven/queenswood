@@ -53,37 +53,41 @@
 
 (deftest submission-test
   (let [outbound (assoc-in inbound [:attributes :end_to_end_reference] "pmt.1")
-        at-status (fn [status reason]
+        at-status (fn [status code]
                     (first (SUT/submission outbound
                                            {:attributes {:status status
-                                                         :status_reason reason}}
+                                                         :scheme_status_code
+                                                         code}}
                                            1)))]
     (is (= "provider-payment-settled"
            (:event-name (at-status "delivery_confirmed" nil))))
-    (is (= "AC04"
-           (get-in (at-status "delivery_failed" "account_closed")
-                   [:data :reason-code])))
+    (is (= "AC07"
+           (get-in (at-status "delivery_failed" "1160") [:data :reason-code])))
     (is (nil? (at-status "queued_for_delivery" nil)))))
 
 (deftest returned-test
   (let [outbound (assoc-in inbound [:attributes :end_to_end_reference] "pmt.1")
         [{:keys [event-name dedup-key data]}]
-        (SUT/returned outbound
-                      {:id "R1"
-                       :attributes
-                       {:amount "12.50" :currency "GBP" :return_code "AC04"}}
-                      1)]
+        (SUT/returned
+         outbound
+         {:id "R1"
+          :attributes {:amount "12.50" :currency "GBP" :return_code "00000002"}}
+         1)]
     (is (= "provider-payment-returned" event-name))
     (is (= "pmt.1:returned" dedup-key))
-    (is (= {:reason-code "AC04" :scheme-transaction-id "R1" :amount 1250}
-           (select-keys data [:reason-code :scheme-transaction-id :amount])))
-    (testing "a code that is not ISO 20022 reads as NARR"
+    (is (= {:reason-code "AC04"
+            :reason "00000002"
+            :scheme-transaction-id "R1"
+            :amount 1250}
+           (select-keys data
+                        [:reason-code :reason :scheme-transaction-id :amount])))
+    (testing "a return code with no ISO 20022 equivalent reads as NARR"
       (is (= "NARR"
              (get-in (first (SUT/returned outbound
                                           {:id "R2"
                                            :attributes {:amount "1.00"
                                                         :currency "GBP"
                                                         :return_code
-                                                        "00000002"}}
+                                                        "00000005"}}
                                           1))
                      [:data :reason-code]))))))

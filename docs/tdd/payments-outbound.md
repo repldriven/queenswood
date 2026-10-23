@@ -737,10 +737,11 @@ sequenceDiagram
 A rejection reverses only a payment still in flight, `pending` or
 `held`: it debits 1200 and credits the debtor's pending-outgoing bucket,
 releasing the reservation, and records the platform's failure kind and
-ISO 20022 reason code, which the API answers as `failure`. Neither leg
-is a posted one, so no control is read, and the debtor's bucket, the
-sum of its legs, writes no row once open. A rejection is not a return,
-so one naming a completed payment fails.
+ISO 20022 reason code beside the provider's reason, which the API
+returns as `failed-kind`, `failed-reason-code` and `failed-reason`.
+Neither leg is a posted one, so no control is read, and the debtor's
+bucket, the sum of its legs, writes no row once open. A rejection is not
+a return, so one naming a completed payment fails.
 
 ### Held
 

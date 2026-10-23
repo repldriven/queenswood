@@ -206,15 +206,41 @@
 
 ;; ---- outbound
 
+(def ^:private scheme-statuses
+  "The Faster Payments reject code, and its description, a failed
+  submission reports for the reason it failed."
+  {"unknown_accountnumber" ["1114"
+                            "Beneficiary sort code/account number unknown"]
+   "invalid_beneficiary_details"
+   ["1114" "Beneficiary sort code/account number unknown"]
+   "account_closed" ["1160" "Beneficiary account closed"]
+   "account_closed_stopped" ["1161" "Beneficiary account stopped"]
+   "blocked_account" ["1161" "Beneficiary account stopped"]
+   "account_closed_currency" ["1165" "Account not in currency quoted"]
+   "account_closed_beneficiary_deceased" ["1167" "Beneficiary deceased"]
+   "account_closed_terms_and_conditions"
+   ["1170" "Terms and conditions of account do not permit crediting of funds"]
+   "transaction_forbidden"
+   ["1170" "Terms and conditions of account do not permit crediting of funds"]
+   "beneficiary_agent_clearing_process_timeout" ["9911"
+                                                 "Receiving member timed out"]})
+
 (defn- finish-submission
   [state config submission-id status reason]
-  (let [s (records/change state
+  (let [[code description] (when (= "delivery_failed" status)
+                             (get scheme-statuses reason))
+        s (records/change state
                           :submissions
                           submission-id
                           (fn [a]
                             (cond-> (assoc a :status status)
                                     reason
-                                    (assoc :status_reason reason))))]
+                                    (assoc :status_reason reason)
+
+                                    code
+                                    (assoc :scheme_status_code code
+                                           :scheme_status_code_description
+                                           description))))]
     (notify state config "payment_submissions" "updated" s)
     s))
 

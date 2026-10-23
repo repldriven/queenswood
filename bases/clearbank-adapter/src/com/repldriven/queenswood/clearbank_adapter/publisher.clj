@@ -37,15 +37,68 @@
 (def ^:private max-minor-units (BigDecimal/valueOf Long/MAX_VALUE))
 
 (def ^:private iso-reason-codes
-  #{"AB05" "AB06" "AC01" "AC02" "AC03" "AC04" "AC05" "AC06" "AC07" "AC13" "AC14"
-    "AG01" "AG02" "AM01" "AM02" "AM03" "AM04" "AM05" "AM06" "AM07" "AM09" "AM10"
-    "BE01" "BE04" "BE05" "BE06" "BE07" "CNOR" "DNOR" "DS0A" "DUPL" "ED05" "FF01"
-    "FF02" "MD01" "MS02" "MS03" "NARR" "NOAS" "RC01" "RR01" "RR02" "RR03" "RR04"
-    "TM01"})
+  "The ISO 20022 status reasons ClearBank sends as a cancellation code,
+  which pass through as they are."
+  #{"AB05" "AB06" "AC01" "AC02" "AC03" "AC04" "AC05" "AC06" "AC07" "AC09" "AC12"
+    "AC13" "AC14" "AG01" "AG02" "AG03" "AM01" "AM02" "AM03" "AM04" "AM05" "AM06"
+    "AM07" "AM09" "AM10" "BE01" "BE04" "BE05" "BE06" "BE07" "BE08" "BE09" "CNOR"
+    "CURR" "DNOR" "DS0A" "DU05" "DUPL" "ED05" "FF01" "FF02" "MD01" "MD07" "MS02"
+    "MS03" "NARR" "NOAS" "RC01" "RR01" "RR02" "RR03" "RR04" "TM01"})
+
+(def ^:private reason-codes
+  "ISO 20022 status reasons for ClearBank's own cancellation codes."
+  {"MD09" "MD07"
+   "PY01" "AC03"
+   "CB_AccountNameAndNumberMismatch" "BE01"
+   "CB_AccountNameInvalid" "BE01"
+   "CB_CancelledCreditAccountDisabled" "AC06"
+   "CB_CancelledDebitAccountDisabled" "AC06"
+   "CB_DupSttlmntOriginalIsQueued" "AM05"
+   "CB_DupSttlmntOriginalWasRejected" "AM05"
+   "CB_FailedModulusCheck" "AC03"
+   "CB_InitiatingPartyRequested" "CUST"
+   "CB_InstructionCancelledByCustomer" "CUST"
+   "CB_PaymentBeneficiaryNameMissing" "RR03"})
 
 (defn- reason-code
+  "The ISO 20022 status reason for a ClearBank cancellation code, `NARR`
+  for one with no equivalent."
   [cancellation-code]
-  (if (contains? iso-reason-codes cancellation-code) cancellation-code "NARR"))
+  (if (contains? iso-reason-codes cancellation-code)
+    cancellation-code
+    (get reason-codes cancellation-code "NARR")))
+
+(def ^:private assessment-reasons
+  "ISO 20022 status reasons for the start of each assessment failure
+  reason ClearBank documents."
+  [["Creditor account number and sort code combination is invalid" "AC03"]
+   ["Debit transactions disabled" "AC06"]
+   ["Duplicate transaction has been detected" "AM05"]
+   ["InsufficientFunds" "AM04"]
+   ["Modulus check failed" "AC03"]
+   ["No internal account located for Creditor" "AC03"]
+   ["Scheme amount limit exceeded" "AM13"]
+   ["UnexecutableCode.InboundPaymentDisabled" "AC06"]
+   ["UnexecutableCode.InboundSchemeNotAccepted" "CNOR"]
+   ["UnexecutableCode.OutboundPaymentDisabled" "AC06"]])
+
+(defn- assessment-reason-code
+  "The ISO 20022 status reason for the first of an instruction's
+  assessment failure reasons that has one, `NARR` where none does."
+  [reasons]
+  (or (some (fn [reason]
+              (some (fn [[start code]]
+                      (when (str/starts-with? (str reason) start) code))
+                    assessment-reasons))
+            reasons)
+      "NARR"))
+
+(defn- provider-reason
+  "ClearBank's cancellation code with its reason, or whichever it gave."
+  [code reason]
+  (if (and code reason)
+    (str code ": " reason)
+    (or code reason)))
 
 (defn- scheme
   [clearbank-scheme]
@@ -146,7 +199,8 @@
               :debit-credit-code :debit-credit-code-credit
               :cancellation-code (reason-code CancellationCode)
               :reason-code (reason-code CancellationCode)
-              :cancellation-reason CancellationReason
+              :cancellation-reason (provider-reason CancellationCode
+                                                    CancellationReason)
               :is-return IsReturn
               :timestamp-rejected (timestamp-rejected TimestampModified)}
              :creditor-bban
@@ -165,7 +219,8 @@
              :cancellation-code (reason-code CancellationCode)
              :failure-kind :failure-kind-declined
              :reason-code (reason-code CancellationCode)
-             :cancellation-reason CancellationReason
+             :cancellation-reason (provider-reason CancellationCode
+                                                   CancellationReason)
              :is-return IsReturn
              :timestamp-rejected (timestamp-rejected TimestampModified)}}]))
 
@@ -193,9 +248,9 @@
           :data {:end-to-end-id EndToEndId
                  :scheme (scheme PaymentMethodType)
                  :debit-credit-code :debit-credit-code-debit
-                 :cancellation-code "NARR"
+                 :cancellation-code (assessment-reason-code Reasons)
                  :failure-kind :failure-kind-declined
-                 :reason-code "NARR"
+                 :reason-code (assessment-reason-code Reasons)
                  :cancellation-reason (str/join "; " Reasons)
                  :is-return false
                  :timestamp-rejected (utility/now)}})

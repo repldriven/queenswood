@@ -28,7 +28,7 @@
                     :reference "Too large"}}
    :assert {:status 202
             :body {:admission-status "failed"
-                   :status-reason "transaction_forbidden"}}}
+                   :status-reason "account_closed_terms_and_conditions"}}}
   {:command :api/request
    :request {:method :post
              :base :payment-simulator

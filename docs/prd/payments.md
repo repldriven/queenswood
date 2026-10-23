@@ -89,12 +89,15 @@ integrates with simulators standing in for real providers.
   beneficiary's bank returns an outbound payment after it
   settled, the platform marks it *returned* and credits
   the amount back to the account it left.
-- **Failures in standard terms.** A failed or returned
-  payment says what kind of failure it was — declined by
-  the scheme, refused by the provider, or never delivered
-  — and carries the standard ISO 20022 reason code the
-  industry uses, so it reads the same whichever provider
-  an installation uses.
+- **Failures in standard terms.** A failed payment says
+  what kind of failure it was — declined by the scheme,
+  refused by the provider, or never delivered. A failed or
+  returned payment carries the ISO 20022 reason code its
+  provider's reason maps to, so it reads the same whichever
+  provider the bank uses, and keeps the provider's own
+  reason beside it. A reason with no ISO 20022 equivalent
+  reads as `NARR`, the code for a reason given only in
+  words.
 - **Missed notifications are recovered.** When the
   provider's settlement notification for an outbound
   payment does not arrive, the platform asks the provider
@@ -471,9 +474,6 @@ beneficiary's bank gave.
   kind and reason code, but the platform does not say
   whether sending again could succeed. It is assumed the
   customer decides from the reason code.
-- **Two providers in one installation.** An installation
-  uses one payment provider. It is assumed a bank wanting
-  another provider is served by another installation.
 - **Payment cancellation / recall.** Once an outbound
   payment is submitted, the customer can't recall it. UK
   FPS does have an indemnity-claim recall flow; the

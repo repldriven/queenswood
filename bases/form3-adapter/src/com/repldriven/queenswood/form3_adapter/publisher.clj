@@ -57,7 +57,9 @@
   [payment submission at]
   (let [{:keys [id attributes]} payment
         {:keys [amount currency end_to_end_reference]} attributes
-        {:keys [status status_reason]} (:attributes submission)]
+        {:keys [status status_reason scheme_status_code
+                scheme_status_code_description]}
+        (:attributes submission)]
     (let-nom> [amount (amount->minor-units amount id)]
       (->> [(relay/payment-outcome {:provider-payment-id id
                                     :end-to-end-id end_to_end_reference
@@ -65,6 +67,9 @@
                                     :currency currency
                                     :status status
                                     :status-reason status_reason
+                                    :scheme-status-code scheme_status_code
+                                    :scheme-status-description
+                                    scheme_status_code_description
                                     :at at})]
            (remove nil?)
            vec))))
@@ -96,10 +101,6 @@
                                     :reference
                                     reference)}]))))
 
-(defn- iso-code?
-  [code]
-  (boolean (and code (re-matches #"[A-Z]{2}[A-Z0-9]{2}" code))))
-
 (defn returned
   "A return of one of our payments that the beneficiary's bank sent back,
   keyed on the payment's end-to-end id."
@@ -115,9 +116,8 @@
                                    :scheme-transaction-id (:id ret)
                                    :amount amount
                                    :currency currency
-                                   :reason-code (if (iso-code? return_code)
-                                                  return_code
-                                                  "NARR")
+                                   :reason-code (relay/return-reason-code
+                                                 return_code)
                                    :timestamp-returned at}
                                   :reason
                                   return_code)}])))

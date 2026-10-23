@@ -192,9 +192,10 @@
                                (fn [_ _]
                                  (json-response
                                   200
-                                  {:data {:attributes {:status "delivery_failed"
-                                                       :status_reason
-                                                       "account_closed"}}})))]
+                                  {:data {:attributes
+                                          {:status "delivery_failed"
+                                           :status_reason "account_closed"
+                                           :scheme_status_code "1160"}}})))]
      (nom-test> [_ (relay/save-intent
                     config
                     (intent "int.p3"
@@ -207,7 +208,7 @@
      (SUT/drain-once config 1)
      (is (= :outbound-intent-status-settled
             (:status (load-intent config "int.p3"))))
-     (is (= "AC04"
+     (is (= "AC07"
             (:reason-code (decoded config
                                    (outbox-event config "P3:rejected"))))))))
 
